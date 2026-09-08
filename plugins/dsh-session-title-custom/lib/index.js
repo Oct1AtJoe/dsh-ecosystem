@@ -111,17 +111,18 @@ function apply(ctx) {
       // ② 首条消息文本（防御超长输入）
       const msgText = first.text.slice(0, 2000)
 
-      // ③ 模型路由决策
-      const route = request.route ?? {
-        provider: 'deepseek-official',
-        model: 'deepseek-v4-flash',
+      // ③ 模型路由决策：固定使用 xiaomi / mimo-v2.5，显式关闭思考
+      const route = {
+        provider: 'xiaomi',
+        model: 'mimo-v2.5',
       }
 
-      // ④ 调 LLM（不传 reasoningEffort，避免非 DeepSeek 模型如 Gemini 抛出 UNSUPPORTED_REASONING_EFFORT）
+      // ④ 调 LLM（传 reasoningEffort: 'off' 关思考，保证速度与确定性）
       const assembler = new BlockAssembler()
       for await (const chunk of ctx.llm.stream({
         provider: route.provider,
         model: route.model,
+        reasoningEffort: 'off',
         system: SYSTEM_PROMPT,
         messages: [createUserMessage({
           content: [{ type: 'text', text: JSON.stringify({ message: msgText }) }],
@@ -146,7 +147,16 @@ function apply(ctx) {
         .map(b => b.text).join(' ')
         .trim()
 
-      const { type, topic } = parseLlmOutput(raw)
+      let type, topic
+      try {
+        const parsed = parseLlmOutput(raw)
+        type = parsed.type
+        topic = parsed.topic
+      } catch (err) {
+        ctx.logger?.warn?.('[dsh-session-title-custom] parse failed for raw output:', raw, err)
+        type = '探索'
+        topic = raw.replace(/^[“"'`]+|[”"'`。.！!]+$/g, '').slice(0, 10).trim() || msgText.slice(0, 8)
+      }
 
       // ⑥ 组装最终标题：全角统一 MMDD｜类型｜主题
       const finalTitle = `${mmdd}｜${type}｜${topic}`
