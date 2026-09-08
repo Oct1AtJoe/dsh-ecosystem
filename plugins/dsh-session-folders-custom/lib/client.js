@@ -435,6 +435,18 @@ const RECENT_LIMIT = 5;
   background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,.06));
   color: var(--dsw-alias-label-secondary, #374151);
 }
+/* While the search box is open it owns the whole header row: the title and
+   every header control leave the layout, so the input spans the full width.
+   Closing the box restores the normal header untouched. */
+.dsh-ff__header--searching > :not(.dsh-ff__search) {
+  display: none;
+}
+/* The header's 12px gutter is what keeps the box narrow; while searching it
+   shrinks to a hairline so the input reads as wide as the session rows. */
+.dsh-ff__header--searching {
+  padding-left: 4px;
+  padding-right: 4px;
+}
 .dsh-ff__search-input {
   flex: 1;
   min-width: 0;
@@ -1075,6 +1087,9 @@ const RECENT_LIMIT = 5;
 		function deriveSearchResults(view, list, query, archived, remote, limit) {
 			const q = query.trim().toLowerCase();
 			if (q === "") return null;
+			// Only the current query's remote page contributes rows: a response
+			// that resolved for a superseded query is ignored (built-in parity).
+			const fresh = remote.query === query ? remote : { items: [], hasMore: false };
 			const ordered = [];
 			const included = /* @__PURE__ */ new Set();
 			const include = (summary) => {
@@ -1086,8 +1101,8 @@ const RECENT_LIMIT = 5;
 				const folder = view.folderOf.get(summary.id);
 				if (summary.displayTitle.toLowerCase().includes(q) || (folder !== void 0 && folder.name.toLowerCase().includes(q))) include(summary);
 			}
-			for (const item of remote.items) include(list.byId[item.sessionId]);
-			const contentBySession = /* @__PURE__ */ new Map(remote.items.map((item) => [item.sessionId, item]));
+			for (const item of fresh.items) include(list.byId[item.sessionId]);
+			const contentBySession = /* @__PURE__ */ new Map(fresh.items.map((item) => [item.sessionId, item]));
 			const labelOf = (summary) => view.sessionWorkspace.get(summary.id)?.title ?? UNGROUPED_LABEL;
 			return {
 				rows: ordered.slice(0, limit).map((summary) => ({
@@ -1099,7 +1114,7 @@ const RECENT_LIMIT = 5;
 					...(summary.pendingInteraction === void 0 ? {} : { pendingInteraction: summary.pendingInteraction }),
 					...(contentBySession.has(summary.id) ? { snippet: contentBySession.get(summary.id).snippet } : {})
 				})),
-				hasMore: remote.hasMore || ordered.length > limit
+				hasMore: fresh.hasMore || ordered.length > limit
 			};
 		}
 		//#endregion
@@ -1206,6 +1221,8 @@ const RECENT_LIMIT = 5;
 			const [focusedWorkspaceId, setFocusedWorkspaceId] = react.useState(null);
 			const dragInfo = react.useRef(null);
 			const searchInput = react.useRef(null);
+			/** The native click that opened the search (see the dismissal effect). */
+			const openingClick = react.useRef(null);
 			//#endregion
 			//#region effects
 			/** Re-render rows once a minute so relative times age naturally. */
@@ -1256,6 +1273,28 @@ const RECENT_LIMIT = 5;
 				}, SEARCH_DEBOUNCE_MS);
 				return () => { controller.abort(); window.clearTimeout(timer); };
 			}, [trimmedQuery, searchSessions]);
+			/** Outside-click dismissal, mirroring the built-in browser: a click
+			 * anywhere outside the box collapses it. The native click that
+			 * opened the search is skipped — React flushes this effect during
+			 * that very click, so the freshly attached listener would otherwise
+			 * see the new state and collapse the box before it paints. A row
+			 * click is unaffected: React's own handler runs earlier in the same
+			 * bubble, so the session opens before the box is dismissed. */
+			react.useEffect(() => {
+				if (!wide || !searchExpanded) return;
+				const handleOutsideClick = (event) => {
+					if (event === openingClick.current) {
+						openingClick.current = null;
+						return;
+					}
+					const searchEl = document.querySelector(".dsh-ff__search");
+					if (searchEl !== null && searchEl.contains(event.target)) return;
+					setSearchExpanded(false);
+					setQuery("");
+				};
+				document.addEventListener("click", handleOutsideClick);
+				return () => document.removeEventListener("click", handleOutsideClick);
+			}, [wide, searchExpanded]);
 			//#endregion
 			//#region derivation
 			const archivedSet = react.useMemo(() => new Set(archivedSessionIds), [archivedSessionIds]);
@@ -1292,12 +1331,36 @@ const RECENT_LIMIT = 5;
 				bucket.sort(byRecency);
 				return bucket.slice(0, RECENT_LIMIT);
 			}, [view]);
+			/** Status of the current query's remote search: a response for a
+			 * superseded query reads as still loading (built-in parity). */
+			const remoteStatus = remoteSearch.query === trimmedQuery ? remoteSearch.status : "loading";
 			const results = react.useMemo(
 				() => deriveSearchResults(view, list, trimmedQuery, archivedSet, remoteSearch, searchResultLimit),
 				[view, list, trimmedQuery, archivedSet, remoteSearch, searchResultLimit]
 			);
 			//#endregion
 			//#region actions
+			/** Jump to the session's home in the tree: reveal its
+			 * workspace group and folder, expand more rows if hidden,
+			 * scroll the row into view, and clear focus filters. */
+			const jumpToOrigin = (sessionId) => {
+				setOriginHover(null);
+				const wsId = view.sessionWorkspace.get(sessionId)?.workspaceId;
+				actions.setGroupCollapsed(wsId ?? "", false);
+				if (focusedWorkspaceId !== null && focusedWorkspaceId !== wsId) {
+					setFocusedWorkspaceId(null);
+				}
+				const folder = view.folderOf.get(sessionId);
+				if (folder !== void 0) {
+					actions.setFolderCollapsed(folder.id, false);
+					setMoreShown((prev) => new Set(prev).add(folder.id));
+				}
+				setTimeout(() => {
+					const rows = document.querySelectorAll("[data-dsh-session-folders-custom] [data-session-id='" + sessionId + "']");
+					const target = rows.length > 1 ? rows[rows.length - 1] : rows[0];
+					target?.scrollIntoView({ block: "nearest" });
+				}, 100);
+			};
 			const clearDrag = () => {
 				dragInfo.current = null;
 				setDragOver(null);
@@ -1809,7 +1872,12 @@ const RECENT_LIMIT = 5;
 					className: "dsh-ff__session-row" + (selected ? " dsh-ff__session-row--selected" : ""),
 					"aria-selected": selected ? true : void 0,
 					title: statusText === "" ? row.workspace : statusText + " · " + row.workspace,
-					onClick: () => open(row.id)
+					onClick: () => {
+						setSearchExpanded(false);
+						setQuery("");
+						jumpToOrigin(row.id);
+						open(row.id);
+					}
 				},
 					renderStatusDot(status),
 					e("span", { className: "dsh-ff__title" }, row.title),
@@ -2192,20 +2260,21 @@ const RECENT_LIMIT = 5;
 					type: "button",
 					className: "dsh-ff__icon-button",
 					"aria-label": t("search.clear"),
-					onClick: () => { setQuery(""); searchInput.current?.focus(); }
+					onClick: () => { setQuery(""); setSearchExpanded(false); }
 				}, e(primitives.IconCloseFill14, {}))
 			);
-			const openSearch = () => {
-				if (!wide) {
-					expandSidebar();
-					setFocusSearch(true);
-				}
+			const openSearch = (event) => {
+				openingClick.current = event === void 0 ? null : event.nativeEvent;
+				if (!wide) expandSidebar();
 				setSearchExpanded(true);
+				setFocusSearch(true);
 			};
 			const allGroupKeys = view.groups.map((group) => group.key);
 			const lastWorkspaceKey = view.groups.length === 0 ? null : view.groups[view.groups.length - 1].key;
 			const allFolderIds = folders === null ? [] : folders.map((folder) => folder.id);
-			const header = e("div", { className: "dsh-ff__header" },
+			/** The search box is open (expanded by its button, or holding a query). */
+			const searching = searchExpanded || trimmedQuery !== "";
+			const header = e("div", { className: "dsh-ff__header" + (searching ? " dsh-ff__header--searching" : "") },
 				wide && e("span", { className: "dsh-ff__header-title" }, t("section.workspaces")),
 				wide && e("button", {
 					type: "button",
@@ -2274,12 +2343,12 @@ const RECENT_LIMIT = 5;
 						e("path", { key: "bottomBranch", d: "M4 12h6" })
 					]
 				})),
-				wide && (searchExpanded || trimmedQuery !== "" ? searchBox : e("button", {
+				wide && (searching ? searchBox : e("button", {
 					type: "button",
 					className: "dsh-ff__icon-button",
 					"aria-label": t("search.aria"),
 					title: t("search.aria"),
-					onClick: openSearch
+					onClick: (event) => openSearch(event)
 				}, e(primitives.IconSearchOutline16, {}))),
 				e("button", {
 					type: "button",
@@ -2349,16 +2418,17 @@ const RECENT_LIMIT = 5;
 					}),
 					effectiveFocus === null && view.ungrouped !== null && renderGroup(view.ungrouped)
 				);
+			/** Search body: the local name matches always render; the host
+			 * content search only appends rows and status lines. A failed or
+			 * pending content search must never hide name matches — the
+			 * "unavailable" copy explicitly promises them. */
 			const searchList = results === null
 				? null
-				: remoteSearch.status === "loading"
-				? e("div", { className: "dsh-ff__search-hint" }, t("search.pending"))
-				: remoteSearch.status === "unavailable"
-				? e("div", { className: "dsh-ff__search-hint" }, t("search.unavailable"))
-				: results.rows.length === 0
-				? e("div", { className: "dsh-ff__search-hint" }, t("search.noMatches"))
 				: e("div", { className: "dsh-ff__results" },
 					results.rows.map(renderSearchRow),
+					remoteStatus === "loading" && e("div", { className: "dsh-ff__search-hint" }, t("search.pending")),
+					remoteStatus === "unavailable" && results.rows.length > 0 && e("div", { className: "dsh-ff__search-hint" }, t("search.unavailable")),
+					remoteStatus !== "loading" && results.rows.length === 0 && e("div", { className: "dsh-ff__search-hint" }, t("search.noMatches")),
 					results.hasMore && e("div", { className: "dsh-ff__search-hint" }, t("search.hasMore", { n: searchResultLimit }))
 				);
 			//#endregion
@@ -2627,19 +2697,6 @@ const RECENT_LIMIT = 5;
 				const folder = view.folderOf.get(sessionId);
 				return { workspace: workspace.title, folder: folder !== void 0 ? folder.name : null };
 			};
-			/** Jump from the origin card to the session's home: reveal its
-			 * workspace group and folder, scroll the row into view, flash it. */
-			const jumpToOrigin = (sessionId) => {
-				setOriginHover(null);
-				const wsId = view.sessionWorkspace.get(sessionId)?.workspaceId;
-				if (wsId !== void 0) actions.setGroupCollapsed(wsId, false);
-				const folderId = view.folderOf.get(sessionId)?.id;
-				if (folderId !== void 0) actions.setFolderCollapsed(folderId, false);
-				setTimeout(() => {
-					const row = document.querySelector("[data-dsh-session-folders-custom] [data-session-id='" + sessionId + "']");
-					row?.scrollIntoView({ block: "nearest" });
-				}, 60);
-			};
 			/** Hover card to the right of a Recent row: where the session lives.
 			 * Portaled to body with a fixed position so it escapes the list's
 			 * overflow clipping; clicking it jumps to the session's home. */
@@ -2663,7 +2720,7 @@ const RECENT_LIMIT = 5;
 						className: "dsh-ff__rail-search",
 						"aria-label": t("search.aria"),
 						title: t("search.aria"),
-						onClick: openSearch
+						onClick: (event) => openSearch(event)
 					}, e(primitives.IconSearchOutline16, { size: 18 })),
 					e("button", {
 						type: "button",
@@ -2738,13 +2795,20 @@ const RECENT_LIMIT = 5;
 					}
 					const snapshot = input.state.getSnapshot();
 					const span = { start: snapshot.draft.length, end: snapshot.draft.length, draftRev: snapshot.draftRev };
+					const uri = "dsh-session:" + btoa(unescape(encodeURIComponent(JSON.stringify(targetSessionId)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+					const label = (targetLabel || targetSessionId);
+					const mention = "@[" + label.replace(/[\\\]]/gu, (m) => "\\" + m) + "](" + uri + ")";
 					const applied = binding.ctx.bail(binding.ctx, "slash/input-insert-reference", {
-						reference: { source: "session", ref: targetSessionId, label: targetLabel, clipboardText: "@" + targetLabel },
+						reference: {
+							source: "reference",
+							ref: mention,
+							label,
+							appearance: "session",
+							clipboardText: mention
+						},
 						span
 					}) === true;
 					if (applied) return true;
-					const uri = "dsh-session:" + btoa(JSON.stringify(targetSessionId)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-					const mention = "@[" + targetLabel.replace(/[\\\]]/gu, (m) => "\\" + m) + "](" + uri + ")";
 					const draft = snapshot.draft;
 					input.setDraft(draft + (draft === "" || /\s$/u.test(draft) ? "" : " ") + mention + " ");
 					return true;
