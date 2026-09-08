@@ -1,0 +1,189 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #101418;
+  color: #e6e6e6;
+}
+
+.boot {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.logo-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.status {
+  color: #9aa4ad;
+}
+
+.hints {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.hint {
+  color: #6b7680;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2f81f7;
+  animation: pulse 1.2s infinite;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 恢复助手 / 错误排障面板样式 */
+.recovery-panel {
+  width: min(580px, calc(100vw - 48px));
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recovery-card {
+  background: #181d24;
+  border: 1px solid #28303a;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recovery-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recovery-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f3f6;
+}
+
+.recovery-card-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8b949e;
+}
+
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #1f6feb;
+  color: #ffffff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #388bfd;
+}
+
+.btn-warning {
+  background: #d29922;
+  color: #1a1506;
+}
+.btn-warning:hover:not(:disabled) {
+  background: #e3b341;
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+.btn-outline:hover:not(:disabled) {
+  background: #21262d;
+  border-color: #8b949e;
+}
+
+.btn-danger {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.4);
+  color: #f85149;
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(248, 81, 73, 0.25);
+}
+
+.meta-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #21262d;
+  color: #8b949e;
+}

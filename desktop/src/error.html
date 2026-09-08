@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>启动失败 · 恢复助手 · DeepSeek Harness</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="boot" style="padding: 24px 16px;">
+      <img class="logo-img" src="icon.png" alt="DeepSeek Harness" />
+      <h1>启动失败 · 恢复助手</h1>
+      <p id="reason" class="status">正在分析故障原因…</p>
+
+      <div class="recovery-panel">
+        <!-- 卡片 1：安全模式 -->
+        <div class="recovery-card">
+          <div class="recovery-card-header">
+            <span class="recovery-card-title">🛡️ 安全模式启动</span>
+            <span class="meta-tag">隔离测试</span>
+          </div>
+          <p class="recovery-card-desc">
+            在临时沙箱目录启动纯净实例（零第三方插件、零历史配置），用于快速排查是否由插件或配置错误引发。
+          </p>
+          <div class="btn-group">
+            <button id="btn-safe-mode" class="btn btn-warning" type="button">
+              以安全模式启动
+            </button>
+          </div>
+        </div>
+
+        <!-- 卡片 2：健康快照回滚 -->
+        <div class="recovery-card">
+          <div class="recovery-card-header">
+            <span class="recovery-card-title">⏮️ 回滚健康配置</span>
+            <span id="checkpoint-time" class="meta-tag">查询快照中…</span>
+          </div>
+          <p class="recovery-card-desc">
+            将当前 Profile 的 package.json 与 patch 还原至上一次正常启动时的配置状态。
+          </p>
+          <div class="btn-group">
+            <button id="btn-rollback" class="btn btn-primary" type="button" disabled>
+              回滚配置并重启
+            </button>
+          </div>
+        </div>
+
+        <!-- 卡片 3：本地排查 -->
+        <div class="recovery-card">
+          <div class="recovery-card-header">
+            <span class="recovery-card-title">📂 手动排查与日志</span>
+            <span class="meta-tag">本地文件</span>
+          </div>
+          <p class="recovery-card-desc">
+            在资源管理器中直接打开当前 DSH 配置目录或运行日志文件。
+          </p>
+          <div class="btn-group">
+            <button id="btn-open-config" class="btn btn-outline" type="button">
+              打开配置目录
+            </button>
+            <button id="btn-open-logs" class="btn btn-outline" type="button">
+              打开日志目录
+            </button>
+          </div>
+        </div>
+
+        <!-- 卡片 4：终极兜底（恢复出厂设置） -->
+        <div class="recovery-card" style="border-color: rgba(248, 81, 73, 0.3);">
+          <div class="recovery-card-header">
+            <span class="recovery-card-title" style="color: #f85149;">⚠️ 终极兜底：恢复出厂设置</span>
+            <span class="meta-tag">移入回收站</span>
+          </div>
+          <p class="recovery-card-desc">
+            将当前损坏的 DSH 数据目录安全移入 Windows 系统回收站（可随时后悔找回），并重启自动重建全新默认环境。
+          </p>
+          <div class="btn-group">
+            <button id="btn-factory-reset" class="btn btn-danger" type="button">
+              重置并重新初始化
+            </button>
+          </div>
+        </div>
+
+        <!-- 卡片 5：重试 -->
+        <div class="recovery-card" style="align-items: center; text-align: center; border-style: dashed;">
+          <p class="recovery-card-desc">如已完成手动修复或依赖安装，可直接重试：</p>
+          <div class="btn-group">
+            <button id="btn-retry" class="btn btn-outline" type="button">
+              🔄 重新正常启动
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const reason = new URLSearchParams(location.search).get("reason");
+      const map = {
+        "not-found":
+          "未找到 dsh 命令。请先安装 Node.js 与 @deepseek-ai/dsh，或配置 DSH_BIN 环境变量。",
+        "spawn-failed": "dsh 后端进程拉起失败，通常由环境缺失或进程参数错误引起。",
+        "timeout": "等待本地服务就绪超时（60 秒），通常由插件冲突、配置解析死锁或端口占用引起。",
+      };
+      document.getElementById("reason").textContent =
+        map[reason] ?? "服务未能正常就绪，请选择以下手段恢复：";
+
+      async function callInvoke(cmd, args = {}) {
+        const invoke =
+          window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke;
+        if (typeof invoke === "function") {
+          return await invoke(cmd, args);
+        }
+        console.warn("Tauri invoke unavailable:", cmd);
+      }
+
+      // 初始化读取快照状态
+      (async () => {
+        try {
+          const cpTime = await callInvoke("get_latest_checkpoint_info");
+          const cpTag = document.getElementById("checkpoint-time");
+          const rollbackBtn = document.getElementById("btn-rollback");
+          if (cpTime) {
+            cpTag.textContent = `可回滚: ${cpTime}`;
+            rollbackBtn.disabled = false;
+          } else {
+            cpTag.textContent = "暂无健康快照";
+            rollbackBtn.disabled = true;
+          }
+        } catch (e) {
+          console.warn("查询快照异常:", e);
+        }
+      })();
+
+      document.getElementById("btn-safe-mode").addEventListener("click", () => {
+        callInvoke("start_safe_mode");
+      });
+
+      document.getElementById("btn-rollback").addEventListener("click", async () => {
+        if (confirm("确认将插件配置回滚至上一次正常启动的状态吗？")) {
+          document.getElementById("btn-rollback").disabled = true;
+          document.getElementById("btn-rollback").textContent = "正在回滚…";
+          try {
+            await callInvoke("rollback_checkpoint");
+          } catch (e) {
+            alert("回滚失败: " + e);
+            document.getElementById("btn-rollback").disabled = false;
+            document.getElementById("btn-rollback").textContent = "回滚配置并重启";
+          }
+        }
+      });
+
+      document.getElementById("btn-open-config").addEventListener("click", () => {
+        callInvoke("open_config_dir");
+      });
+
+      document.getElementById("btn-open-logs").addEventListener("click", () => {
+        callInvoke("open_logs_dir");
+      });
+
+      document.getElementById("btn-factory-reset").addEventListener("click", async () => {
+        if (
+          confirm(
+            "⚠️ 警告：这将把整个 ~/.dsh 数据目录移入 Windows 系统回收站，并自动重启初始化。\n\n所有已安装的第三方插件和本地修改将被清除（可从回收站找回）。\n\n确定要继续重置吗？"
+          )
+        ) {
+          document.getElementById("btn-factory-reset").disabled = true;
+          document.getElementById("btn-factory-reset").textContent = "正在移入回收站…";
+          try {
+            await callInvoke("factory_reset");
+          } catch (e) {
+            alert("重置失败: " + e);
+            document.getElementById("btn-factory-reset").disabled = false;
+            document.getElementById("btn-factory-reset").textContent = "重置并重新初始化";
+          }
+        }
+      });
+
+      document.getElementById("btn-retry").addEventListener("click", () => {
+        callInvoke("restart_normal");
+      });
+    </script>
+  </body>
+</html>

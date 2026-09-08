@@ -46,4 +46,19 @@ export function apply(ctx: ClientContext): void {
       }),
     }, SubagentComposerAction),
   )
+  ctx.inject(['inputTriggers'], (scope) => {
+    const inputTriggers = scope.get('inputTriggers') as any
+    if (inputTriggers && !inputTriggers.live?.sources?.some((s: any) => s.name === 'reference')) {
+      scope.effect(() => inputTriggers.registerSource({
+        trigger: '@',
+        name: 'reference',
+        showGroupTitle: false,
+        candidates: () => Promise.resolve([]),
+        codec: {
+          clipboardText: (ref: string) => ref,
+          serialize: (ref: string) => Promise.resolve(ref),
+        },
+      }), 'ui-subagent-custom: compat reference serializer')
+    }
+  })
 }

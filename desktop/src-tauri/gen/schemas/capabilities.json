@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Capability for the main window and pet window","local":true,"windows":["main","pet"],"permissions":["core:default","notification:default","core:window:default","core:window:allow-set-size","core:window:allow-set-position","core:window:allow-outer-position"]}}

@@ -1,0 +1,4 @@
+# dsh-session-title-custom bundle patch
+- insert:
+    - id: dsh-session-title-custom
+      name: dsh-session-title-custom
