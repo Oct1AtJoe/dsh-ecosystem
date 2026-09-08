@@ -111,11 +111,68 @@ window.__ModuleLoader__.load({
 			};
 		}
 		/**
-		* Pair the two sides of one hunk into its changed lines: a common-prefix and
-		* common-suffix trim over the content lines, leaving the removed middle (old
-		* only) and the added middle (new only). Identical sides yield zero rows — a
-		* no-op write draws nothing for its hunk. `null` oldText (a new file) puts
-		* every new line on the added side.
+		* Normalize a line for similarity matching: strip trailing punctuation (comma, semicolon)
+		* and trailing whitespace, keeping context lines from falsely reporting as additions/deletions.
+		*/
+		function normalizeLine(line) {
+			const stripped = line.trimEnd().replace(/[,;]+$/, "").trimEnd();
+			return stripped === "" ? line.trim() : stripped;
+		}
+		function matchWeight(a, b, allowNormalized) {
+			if (a === b) return 2;
+			if (allowNormalized) {
+				const na = normalizeLine(a);
+				const nb = normalizeLine(b);
+				if (na !== "" && na === nb) return 1;
+			}
+			return 0;
+		}
+		function computeLcsDiff(oldMid, newMid, allowNormalized) {
+			const m = oldMid.length;
+			const n = newMid.length;
+			if (m * n > 25e4) return {
+				removed: [...oldMid],
+				added: [...newMid]
+			};
+			const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+			for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+				const w = matchWeight(oldMid[i - 1], newMid[j - 1], allowNormalized);
+				if (w > 0) dp[i][j] = dp[i - 1][j - 1] + w;
+				else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+			}
+			const removed = [];
+			const added = [];
+			let i = m;
+			let j = n;
+			while (i > 0 || j > 0) {
+				if (i > 0 && j > 0) {
+					const w = matchWeight(oldMid[i - 1], newMid[j - 1], allowNormalized);
+					if (w > 0 && dp[i][j] === dp[i - 1][j - 1] + w) {
+						i--;
+						j--;
+						continue;
+					}
+				}
+				if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+					added.unshift(newMid[j - 1]);
+					j--;
+				} else if (i > 0) {
+					removed.unshift(oldMid[i - 1]);
+					i--;
+				}
+			}
+			return {
+				removed,
+				added
+			};
+		}
+		/**
+		* Pair the two sides of one hunk into its changed lines: common-prefix and
+		* common-suffix trim over the content lines, followed by LCS alignment over
+		* the middle. Tolerates trailing punctuation / comma shifts on boundary context
+		* lines to eliminate phantom deletion/re-addition pairs. Identical sides yield
+		* zero rows — a no-op write draws nothing for its hunk. `null` oldText (a new
+		* file) puts every new line on the added side.
 		* @param oldText - prior content, or `null` for a new file.
 		* @param newText - content after the change.
 		* @returns the removed and added content lines.
@@ -136,10 +193,23 @@ window.__ModuleLoader__.load({
 				endOld--;
 				endNew--;
 			}
-			return {
-				removed: oldSide.slice(start, endOld),
-				added: newSide.slice(start, endNew)
+			const oldMid = oldSide.slice(start, endOld);
+			const newMid = newSide.slice(start, endNew);
+			if (oldMid.length === 0 && newMid.length === 0) return {
+				removed: [],
+				added: []
 			};
+			if (oldMid.length === 0) return {
+				removed: [],
+				added: newMid
+			};
+			if (newMid.length === 0) return {
+				removed: oldMid,
+				added: []
+			};
+			const result = computeLcsDiff(oldMid, newMid, true);
+			if (result.removed.length === 0 && result.added.length === 0 && (oldMid.length > 0 || newMid.length > 0)) return computeLcsDiff(oldMid, newMid, false);
+			return result;
 		}
 		/**
 		* Split a side's text into its content lines. Empty text is zero lines (a full

@@ -441,6 +441,19 @@ describe('diffStats', () => {
     expect(diffStats([{ oldText: 'a\nb\nc\n', newText: 'a\nc\n' }])).toEqual({ added: 0, removed: 1 })
     expect(diffStats([{ oldText: 'a\n', newText: 'a\n' }])).toEqual({ added: 0, removed: 0 })
   })
+
+  it('pairs context lines differing only by trailing punctuation or comma changes', () => {
+    // Adding element with trailing comma added to preceding line
+    expect(diffStats([{ oldText: '  "test456"\n]\n', newText: '  "test456",\n  "test232"\n]\n' }]))
+      .toEqual({ added: 1, removed: 0 })
+    // Deleting element with trailing comma removed from preceding line
+    expect(diffStats([{ oldText: '  "test123",\n  "test456"\n]\n', newText: '  "test123"\n]\n' }]))
+      .toEqual({ added: 0, removed: 1 })
+    // Preserves pure punctuation-only change
+    expect(diffStats([{ oldText: 'a\n', newText: 'a,\n' }])).toEqual({ added: 1, removed: 1 })
+    // Preserves unchanged lines in middle of scattered edits
+    expect(diffStats([{ oldText: 'a\nb\nc\n', newText: 'a\nx\nb\ny\nc\n' }])).toEqual({ added: 2, removed: 0 })
+  })
 })
 
 describe('ProducedFiles row', () => {

@@ -30,11 +30,12 @@ export interface DiffBlockProps {
     showFooter?: boolean | undefined;
 }
 /**
- * Pair the two sides of one hunk into its changed lines: a common-prefix and
- * common-suffix trim over the content lines, leaving the removed middle (old
- * only) and the added middle (new only). Identical sides yield zero rows — a
- * no-op write draws nothing for its hunk. `null` oldText (a new file) puts
- * every new line on the added side.
+ * Pair the two sides of one hunk into its changed lines: common-prefix and
+ * common-suffix trim over the content lines, followed by LCS alignment over
+ * the middle. Tolerates trailing punctuation / comma shifts on boundary context
+ * lines to eliminate phantom deletion/re-addition pairs. Identical sides yield
+ * zero rows — a no-op write draws nothing for its hunk. `null` oldText (a new
+ * file) puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
  * @returns the removed and added content lines.

@@ -68,3 +68,10 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
 
 - token URL（`pnpm dsh web` 启动时打印，每次启动换新）+ 浏览器 DevTools。
 - **DOM 判据**：本插件渲染的产物行 CSS 前缀是 `GwCMNq`；被 better-sidebar 覆盖时看到的是 `nArs4W_producedRow`。样式表/style 标签里搜 `GwCMNq` 可确认本插件 CSS 已加载。
+
+### 6. 2026-09-08 标点/逗号变化引发的环境行虚增修复
+
+- **现象**：在 JSON 数组/对象或代码中追加新元素时（如从 `["test123", "test456"]` 追加 `test232`），前置行因追加逗号变为 `  "test456",`。旧算法由于纯文本不匹配（`"test456"` vs `"test456,"`）导致前缀 trim 失败，产生 `- test456 / + test456, / + test232`（+2 -1，原本只加 1 行却删改旧行重复计算）。
+- **根因**：原 `diffLines` 仅做首尾字符串全等 trim，无法跨越中间变化，且对末尾标点（逗号 `,`、分号 `;`）变动的环境行无法容差识别，致使环境行被当成完全不同的新行。
+- **修复**：`DiffBlock.tsx` 升级 `diffLines`：首尾全等 trim 后，对中段执行带末尾标点归一化（`normalizeLine` 剥除末尾逗号/分号与多余空白）的 LCS 差异序列算法；全等行权重高于归一化行；若整段仅有标点变动则回退保留真实差异。完全消除纯追加/删除场景下的环境行伪增删。
+
