@@ -836,8 +836,14 @@ window.__ModuleLoader__.load({
    reflection, and the semi-transparent fill keeps the sidebar distinct
    from the frame behind it. Glow and sheen ride the theme's
    --dsw-alias-surface-glass-spot (color-mixed down to the old white
-   intensities) so both sidebars tint with the active theme. */
-[class$="sidebarCol"] > [class*="root"]{
+   intensities) so both sidebars tint with the active theme.
+   Use descendant selector to reach through the renderSlot wrapper div.
+   
+   NOTE: backdrop-filter NOT set here — it lives on sidebarCol::before
+   (pseudo-element, safe for position:fixed children). backdrop-filter on
+   a DOM element creates a containing block for position:fixed descendants,
+   which would break the settings dialog (portal renders inside sidebar). */
+[class*="sidebarCol"] [class*="root"]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
@@ -846,8 +852,7 @@ window.__ModuleLoader__.load({
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 30%, transparent) 0%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
       transparent 60%),
-    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 72%, transparent) !important;
-  backdrop-filter:blur(8px) !important;
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
 }
 
 /* better-sidebar's pane sits OUTSIDE the frame (x > frame width), so no
