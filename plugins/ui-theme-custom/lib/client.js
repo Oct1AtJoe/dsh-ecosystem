@@ -844,7 +844,7 @@ window.__ModuleLoader__.load({
    (pseudo-element, safe for position:fixed children). backdrop-filter on
    a DOM element creates a containing block for position:fixed descendants,
    which would break the settings dialog (portal renders inside sidebar). */
-[class*="sidebarCol"] > * > [class*="root"]{
+body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
@@ -872,18 +872,19 @@ window.__ModuleLoader__.load({
 }
 
 /* All primary action buttons (Button variant="primary"): gradient glass
-   fill with glow — covers send/stop in composer, dialog confirm/enable
+   fill with glow — scoped to dark theme so light mode buttons stay crisp and high-contrast.
+   Covers send/stop in composer, dialog confirm/enable
    (RiskConfirmation, Modal footer), settings Done (plugin popups), and
    any other <Button variant="primary"> throughout the UI.
    [class*="_primary"] matches BOTH CSS Modules hash conventions:
    composer's "<hash>_primary" (ends with _primary) and ui-primitives'
    "_primary_<hash>_<id>" (underscore-prefixed, class in the middle). */
-[class*="_primary"]{
+body[data-ds-dark-theme] [class*="_primary"]{
   background:var(--dsw-alias-button-primary-bg) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
   box-shadow:var(--dsw-alias-button-glow,none) !important;
 }
-[class*="_primary"]:hover:not(:disabled){
+body[data-ds-dark-theme] [class*="_primary"]:hover:not(:disabled){
   background:var(--dsw-alias-button-primary-bg-hover) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
   box-shadow:var(--dsw-alias-button-glow-hover,none) !important;
@@ -891,17 +892,14 @@ window.__ModuleLoader__.load({
 
 /* Git commit button (dsh-better-sidebar .gitCommitButton, hashed as
    "<hash>_gitCommitButton"): same gradient glass recipe as the primary
-   action buttons — the plugin paints it with the flat primary-fill token,
-   so it needs its own rule. Color is overridden to the primary foreground
-   (light) because the plugin's own label-primary-inverted token is dark
-   and would vanish on the semi-transparent glass gradient. */
-[class*="gitCommitButton"]{
+   action buttons — scoped to dark theme. */
+body[data-ds-dark-theme] [class*="gitCommitButton"]{
   background:var(--dsw-alias-button-primary-bg) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
   box-shadow:var(--dsw-alias-button-glow,none) !important;
   color:var(--dsw-alias-label-primary-foreground) !important;
 }
-[class*="gitCommitButton"]:hover:not(:disabled){
+body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   background:var(--dsw-alias-button-primary-bg-hover) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
   box-shadow:var(--dsw-alias-button-glow-hover,none) !important;
@@ -947,11 +945,8 @@ window.__ModuleLoader__.load({
   z-index:50 !important;
 }
 
-/* Dialogs/modals: frosted glass surface — the entire settings/modal glass
-   look lives here so the theme owns the visual, not the host package.
-   z-index and isolation live on .overlay above (structural, injected
-   separately) so role=dialog keeps only visual tokens. */
-[role="dialog"]{
+/* Dialogs/modals: frosted glass surface — scoped to dark theme so light mode dialogs stay clean and readable. */
+body[data-ds-dark-theme] [role="dialog"]{
   background:
     linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 30%),
     linear-gradient(0deg, rgba(10,11,16,0.25) 0%, transparent 45%),
