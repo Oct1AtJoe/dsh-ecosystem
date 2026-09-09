@@ -225,6 +225,11 @@ const SURFACE_GLASS_CSS = `
 [class$="_sidebarCol"]:has([role="dialog"]){
   z-index:9500 !important;
 }
+/* Tooltip inside sidebar: raise sidebar column above center column and message layer (z 20)
+   so tooltips extending to the right are not clipped or covered by the conversation surface. */
+[class*="sidebarCol"]:has([role="tooltip"]){
+  z-index:50 !important;
+}
 
 /* Dialogs/modals: frosted glass surface — the entire settings/modal glass
    look lives here so the theme owns the visual, not the host package.
@@ -309,14 +314,36 @@ const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
   glacial: GLACIAL_TOKENS,
 }
 
+/** Token names this plugin wrote inline (its retraction set). */
+const APPLIED_TOKEN_NAMES = new Set<string>()
+
 /** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 function applyTokens(tokens: ThemeTokens): void {
   if (typeof document === 'undefined') return
   for (const [key, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(key, value)
     document.body.style.setProperty(key, value)
+    APPLIED_TOKEN_NAMES.add(key)
   }
 }
+
+/**
+ * Retract every inline token this plugin wrote. The official ThemePresenter only
+ * retracts the body variables it wrote itself, so a custom theme's inline
+ * overrides on html + body would otherwise survive a switch back to a built-in
+ * preference.
+ */
+function clearTokens(): void {
+  if (typeof document === 'undefined') return
+  for (const name of APPLIED_TOKEN_NAMES) {
+    document.documentElement.style.removeProperty(name)
+    document.body.style.removeProperty(name)
+  }
+  APPLIED_TOKEN_NAMES.clear()
+}
+
+/** Theme ids the official registry persists; a custom id can never be durable there. */
+const BUILT_IN_PREFERENCES: readonly string[] = ['light', 'dark', 'system']
 
 /**
  * Client plugin body: register both themes and the drift keyframes, plus the
@@ -337,7 +364,25 @@ export function apply(ctx: Context): void {
 
   const store = createTechThemeStore()
   let bound: BoundActions<typeof store> | undefined
+  // The official settings schema only accepts light/dark/system, so while a
+  // custom theme is active the durable value always still holds the last
+  // built-in the user picked. On boot the theme service adopts that stale value
+  // once the scope loads, which is the FIRST built-in theme/change event after
+  // our restore. Any LATER built-in event is a real choice (the Appearance row,
+  // or a settings push from another tab) and must drop the saved custom theme —
+  // otherwise the restore would re-apply it on every restart.
+  // `armed` keeps the registration-time publishes (which carry the default
+  // preference before the scope has loaded) from consuming the adoption slot.
+  let armed = false
+  let adoptionSeen = false
   const sync = (snapshot: ThemeSnapshot): void => {
+    if (armed && BUILT_IN_PREFERENCES.includes(snapshot.preference)) {
+      if (adoptionSeen) {
+        try { localStorage.removeItem(LS_KEY) } catch { /* localStorage unavailable */ }
+        clearTokens()
+      }
+      adoptionSeen = true
+    }
     bound?.sync(snapshot.preference, snapshot.revision)
   }
   ctx.on('theme/change', sync)
@@ -377,6 +422,7 @@ export function apply(ctx: Context): void {
       disposeGlacial()
       removeKeyframes()
       removeSurfaceGlass()
+      clearTokens()
     }
   }, 'ui-theme-custom: tech theme registrations + drift keyframes + surface glass')
 
@@ -386,9 +432,13 @@ export function apply(ctx: Context): void {
   // theme — no flash.
   try {
     const saved = typeof localStorage !== 'undefined' && localStorage.getItem(LS_KEY)
-    if (saved && saved !== 'light' && saved !== 'dark' && saved !== 'system'
+    if (saved !== false && THEME_TOKEN_MAP[saved] !== undefined
       && ctx.theme.getTheme().preference !== saved) {
       activateTheme(saved)
     }
   } catch { /* localStorage unavailable */ }
+  // Arm only after the restore: the registration publishes above carry the
+  // default preference (the scope has not loaded yet) and must not be mistaken
+  // for the durable adoption.
+  armed = true
 }

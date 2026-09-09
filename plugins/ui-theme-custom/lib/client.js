@@ -941,6 +941,11 @@ window.__ModuleLoader__.load({
 [class$="_sidebarCol"]:has([role="dialog"]){
   z-index:9500 !important;
 }
+/* Tooltip inside sidebar: raise sidebar column above center column and message layer (z 20)
+   so tooltips extending to the right are not clipped or covered by the conversation surface. */
+[class*="sidebarCol"]:has([role="tooltip"]){
+  z-index:50 !important;
+}
 
 /* Dialogs/modals: frosted glass surface — the entire settings/modal glass
    look lives here so the theme owns the visual, not the host package.
@@ -1024,14 +1029,37 @@ window.__ModuleLoader__.load({
 			solar: SOLAR_TOKENS,
 			glacial: GLACIAL_TOKENS
 		};
+		/** Token names this plugin wrote inline (its retraction set). */
+		const APPLIED_TOKEN_NAMES = /* @__PURE__ */ new Set();
 		/** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 		function applyTokens(tokens) {
 			if (typeof document === "undefined") return;
 			for (const [key, value] of Object.entries(tokens)) {
 				document.documentElement.style.setProperty(key, value);
 				document.body.style.setProperty(key, value);
+				APPLIED_TOKEN_NAMES.add(key);
 			}
 		}
+		/**
+		* Retract every inline token this plugin wrote. The official ThemePresenter only
+		* retracts the body variables it wrote itself, so a custom theme's inline
+		* overrides on html + body would otherwise survive a switch back to a built-in
+		* preference.
+		*/
+		function clearTokens() {
+			if (typeof document === "undefined") return;
+			for (const name of APPLIED_TOKEN_NAMES) {
+				document.documentElement.style.removeProperty(name);
+				document.body.style.removeProperty(name);
+			}
+			APPLIED_TOKEN_NAMES.clear();
+		}
+		/** Theme ids the official registry persists; a custom id can never be durable there. */
+		const BUILT_IN_PREFERENCES = [
+			"light",
+			"dark",
+			"system"
+		];
 		/**
 		* Client plugin body: register both themes and the drift keyframes, plus the
 		* tech-theme row contribution, disposing everything with the fiber so HMR and
@@ -1057,7 +1085,18 @@ window.__ModuleLoader__.load({
 			}), "ui-theme-custom: row dictionaries");
 			const store = createTechThemeStore();
 			let bound;
+			let armed = false;
+			let adoptionSeen = false;
 			const sync = (snapshot) => {
+				if (armed && BUILT_IN_PREFERENCES.includes(snapshot.preference)) {
+					if (adoptionSeen) {
+						try {
+							localStorage.removeItem(LS_KEY);
+						} catch {}
+						clearTokens();
+					}
+					adoptionSeen = true;
+				}
 				bound?.sync(snapshot.preference, snapshot.revision);
 			};
 			ctx.on("theme/change", sync);
@@ -1094,12 +1133,14 @@ window.__ModuleLoader__.load({
 					disposeGlacial();
 					removeKeyframes();
 					removeSurfaceGlass();
+					clearTokens();
 				};
 			}, "ui-theme-custom: tech theme registrations + drift keyframes + surface glass");
 			try {
 				const saved = typeof localStorage !== "undefined" && localStorage.getItem(LS_KEY);
-				if (saved && saved !== "light" && saved !== "dark" && saved !== "system" && ctx.theme.getTheme().preference !== saved) activateTheme(saved);
+				if (saved !== false && THEME_TOKEN_MAP[saved] !== void 0 && ctx.theme.getTheme().preference !== saved) activateTheme(saved);
 			} catch {}
+			armed = true;
 		}
 		//#endregion
 		exports.apply = apply;
