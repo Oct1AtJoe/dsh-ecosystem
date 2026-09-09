@@ -837,13 +837,14 @@ window.__ModuleLoader__.load({
    from the frame behind it. Glow and sheen ride the theme's
    --dsw-alias-surface-glass-spot (color-mixed down to the old white
    intensities) so both sidebars tint with the active theme.
-   Use descendant selector to reach through the renderSlot wrapper div.
+   Matches strictly through the single renderSlot wrapper div (> * >)
+   so deep descendants (e.g. settings dialog Menu spans with ._root_*) are not matched.
    
    NOTE: backdrop-filter NOT set here — it lives on sidebarCol::before
    (pseudo-element, safe for position:fixed children). backdrop-filter on
    a DOM element creates a containing block for position:fixed descendants,
    which would break the settings dialog (portal renders inside sidebar). */
-[class*="sidebarCol"] [class*="root"]{
+[class*="sidebarCol"] > * > [class*="root"]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
