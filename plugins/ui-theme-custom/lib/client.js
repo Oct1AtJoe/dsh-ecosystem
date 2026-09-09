@@ -871,14 +871,12 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),inset 0 0 0 1px rgba(255,255,255,0.03);
 }
 
-/* All primary action buttons (Button variant="primary"): gradient glass
-   fill with glow — scoped to dark theme so light mode buttons stay crisp and high-contrast.
-   Covers send/stop in composer, dialog confirm/enable
-   (RiskConfirmation, Modal footer), settings Done (plugin popups), and
-   any other <Button variant="primary"> throughout the UI.
-   [class*="_primary"] matches BOTH CSS Modules hash conventions:
-   composer's "<hash>_primary" (ends with _primary) and ui-primitives'
-   "_primary_<hash>_<id>" (underscore-prefixed, class in the middle). */
+/* All primary action buttons (Button variant="primary"):
+   1. Dark themes: neon fluid-drift glass buttons.
+   2. Light theme: frosted liquid silver glass (银底黑字) with top specular highlight,
+      subtle metallic gradient, crisp obsidian typography and soft depth shadow.
+   Covers send/stop in composer, dialog confirm/enable (RiskConfirmation, Modal footer),
+   settings Done, and any other <Button variant="primary"> throughout the UI. */
 body[data-ds-dark-theme] [class*="_primary"]{
   background:var(--dsw-alias-button-primary-bg) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
@@ -888,6 +886,58 @@ body[data-ds-dark-theme] [class*="_primary"]:hover:not(:disabled){
   background:var(--dsw-alias-button-primary-bg-hover) !important;
   background-size:var(--dsw-alias-button-primary-bg-size,200% 100%) !important;
   box-shadow:var(--dsw-alias-button-glow-hover,none) !important;
+}
+
+/* Light mode: Frosted Liquid Silver Glass (银底黑字 · 高级通透金属玻璃) */
+body:not([data-ds-dark-theme]) [class*="_primary"],
+body:not([data-ds-dark-theme]) [class*="gitCommitButton"]{
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(240, 242, 247, 0.82) 42%,
+    rgba(222, 226, 235, 0.78) 100%) !important;
+  backdrop-filter: blur(12px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.25) !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 0 0 1px rgba(15, 23, 42, 0.09),
+    0 2px 6px rgba(15, 23, 42, 0.08),
+    0 6px 16px rgba(15, 23, 42, 0.05) !important;
+  color: #181a22 !important;
+  font-weight: 550 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 180ms var(--ds-ease-in-out, ease-in-out) !important;
+}
+body:not([data-ds-dark-theme]) [class*="_primary"]:hover:not(:disabled),
+body:not([data-ds-dark-theme]) [class*="gitCommitButton"]:hover:not(:disabled){
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(245, 247, 252, 0.88) 42%,
+    rgba(230, 234, 242, 0.84) 100%) !important;
+  box-shadow:
+    inset 0 1px 1.5px rgba(255, 255, 255, 1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+    0 0 0 1px rgba(15, 23, 42, 0.12),
+    0 3px 10px rgba(15, 23, 42, 0.12),
+    0 8px 20px rgba(15, 23, 42, 0.06) !important;
+  color: #0d0f14 !important;
+  transform: translateY(-0.5px);
+}
+body:not([data-ds-dark-theme]) [class*="_primary"]:active:not(:disabled),
+body:not([data-ds-dark-theme]) [class*="gitCommitButton"]:active:not(:disabled){
+  transform: translateY(0.5px);
+  background: linear-gradient(145deg,
+    rgba(228, 231, 238, 0.88) 0%,
+    rgba(218, 222, 230, 0.90) 100%) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.12),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.08),
+    0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+body:not([data-ds-dark-theme]) [class*="_primary"] *,
+body:not([data-ds-dark-theme]) [class*="gitCommitButton"] *{
+  color: #181a22 !important;
+  fill: currentColor !important;
 }
 
 /* Git commit button (dsh-better-sidebar .gitCommitButton, hashed as
