@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.client.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "typeRoots": [
+      "E:/vibeCoding/deepseek-harness/scripts/types",
+      "../../node_modules/@types"
+    ]
+  },
+  "include": [
+    "src"
+  ]
+}
