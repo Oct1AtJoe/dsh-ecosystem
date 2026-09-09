@@ -1056,12 +1056,25 @@ window.__ModuleLoader__.load({
 			}
 			APPLIED_TOKEN_NAMES.clear();
 		}
-		/** Theme ids the official registry persists; a custom id can never be durable there. */
+		/** Built-in preferences the official Appearance row can explicitly pick. */
 		const BUILT_IN_PREFERENCES = [
 			"light",
 			"dark",
 			"system"
 		];
+		function isBuiltinPreference(value) {
+			return BUILT_IN_PREFERENCES.includes(value);
+		}
+		/**
+		* Whether an observed built-in preference wins over the persisted custom theme.
+		* Only a light/dark value the user explicitly picked in THIS session via the
+		* setTheme wrapper wins. Values adopted from the settings document at boot/reload
+		* (livePick null) never win.
+		*/
+		function builtinPickWins(preference, livePick) {
+			if (preference !== "light" && preference !== "dark") return false;
+			return preference === livePick;
+		}
 		/**
 		* Read the saved custom-theme id from localStorage.
 		* Handles both plain ids and legacy "id|seen" pipe-delimited values.
@@ -1070,7 +1083,7 @@ window.__ModuleLoader__.load({
 		function readSaved() {
 			if (typeof localStorage === "undefined") return void 0;
 			const raw = localStorage.getItem(LS_KEY);
-			if (!raw) return void 0;
+			if (!raw || raw === "off") return void 0;
 			const id = raw.split("|")[0];
 			return id && THEME_TOKEN_MAP[id] !== void 0 ? id : void 0;
 		}
@@ -1093,15 +1106,16 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			/** Apply a custom theme via the theme service AND direct CSS variables. */
+			const theme = ctx.theme ?? ctx.get?.("theme");
+			/** Apply a custom theme via direct CSS variables and the theme service. */
 			const activateTheme = (id) => {
 				const tokens = THEME_TOKEN_MAP[id];
 				if (!tokens) return;
+				writeSaved(id);
 				try {
-					ctx.theme.setTheme(id);
+					theme.setTheme(id);
 				} catch {}
 				applyTokens(tokens);
-				writeSaved(id);
 			};
 			ctx.effect(() => ctx.locale.register(SETTINGS_NS, {
 				zh,
@@ -1109,46 +1123,54 @@ window.__ModuleLoader__.load({
 			}), "ui-theme-custom: row dictionaries");
 			const store = createTechThemeStore();
 			let bound;
-			let userInteracted = false;
-			if (typeof window !== "undefined") {
-				const onInteract = () => {
-					userInteracted = true;
-				};
-				window.addEventListener("pointerdown", onInteract, {
-					capture: true,
-					passive: true
-				});
-				window.addEventListener("keydown", onInteract, {
-					capture: true,
-					passive: true
-				});
-			}
-			/** Mirror a snapshot into the row store (the row's selection state). */
-			const syncRow = (snapshot) => {
-				bound?.sync(snapshot.preference, snapshot.revision);
+			let liveBuiltinPick = null;
+			const originalSetTheme = theme.setTheme;
+			theme.setTheme = function(id) {
+				liveBuiltinPick = isBuiltinPreference(id) ? id : null;
+				originalSetTheme.call(this, id);
 			};
-			const onThemeChange = (snapshot) => {
-				if (BUILT_IN_PREFERENCES.includes(snapshot.preference)) if (userInteracted) {
+			ctx.effect(() => () => {
+				theme.setTheme = originalSetTheme;
+			}, "ui-theme-custom: restore setTheme wrapper");
+			let restorePending = false;
+			const scheduleRestore = (desired) => {
+				if (restorePending) return;
+				restorePending = true;
+				queueMicrotask(() => {
+					restorePending = false;
+					const preference = theme.getTheme().preference;
+					if (preference === desired) return;
+					if (builtinPickWins(preference, liveBuiltinPick)) return;
+					activateTheme(desired);
+				});
+			};
+			const applyDesired = () => {
+				const desired = readSaved();
+				const preference = theme.getTheme().preference;
+				if (desired === void 0) {
+					if (isBuiltinPreference(preference)) clearTokens();
+					return;
+				}
+				if (preference === desired) {
+					const tokens = THEME_TOKEN_MAP[desired];
+					if (tokens) applyTokens(tokens);
+					return;
+				}
+				if (builtinPickWins(preference, liveBuiltinPick)) {
 					clearSaved();
 					clearTokens();
-				} else {
-					const saved = readSaved();
-					if (saved !== void 0) {
-						activateTheme(saved);
-						queueMicrotask(() => {
-							if (readSaved() !== void 0) {
-								document.documentElement.style.colorScheme = "dark";
-								document.body.setAttribute("data-ds-dark-theme", "");
-							}
-						});
-					}
+					return;
 				}
-				syncRow(snapshot);
+				scheduleRestore(desired);
 			};
-			ctx.on("theme/change", onThemeChange);
+			applyDesired();
+			ctx.on("theme/change", (snapshot) => {
+				applyDesired();
+				bound?.sync(snapshot.preference, snapshot.revision);
+			});
 			const injected = (actions) => {
 				bound = actions;
-				syncRow(ctx.theme.getTheme());
+				bound.sync(theme.getTheme().preference, theme.getTheme().revision);
 				return { setTheme: (id) => {
 					activateTheme(id);
 				} };
@@ -1184,15 +1206,7 @@ window.__ModuleLoader__.load({
 			}, "ui-theme-custom: tech theme registrations + drift keyframes + surface glass");
 			try {
 				const saved = readSaved();
-				if (saved !== void 0 && ctx.theme.getTheme().preference !== saved) {
-					activateTheme(saved);
-					queueMicrotask(() => {
-						if (readSaved() !== void 0) {
-							document.documentElement.style.colorScheme = "dark";
-							document.body.setAttribute("data-ds-dark-theme", "");
-						}
-					});
-				}
+				if (saved !== void 0) activateTheme(saved);
 			} catch {}
 		}
 		//#endregion

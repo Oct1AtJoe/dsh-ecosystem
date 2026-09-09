@@ -344,8 +344,24 @@ function clearTokens(): void {
   APPLIED_TOKEN_NAMES.clear()
 }
 
-/** Theme ids the official registry persists; a custom id can never be durable there. */
-const BUILT_IN_PREFERENCES: readonly string[] = ['light', 'dark', 'system']
+/** Built-in preferences the official Appearance row can explicitly pick. */
+const BUILT_IN_PREFERENCES = ['light', 'dark', 'system'] as const
+type BuiltinPreference = (typeof BUILT_IN_PREFERENCES)[number]
+
+function isBuiltinPreference(value: string): value is BuiltinPreference {
+  return (BUILT_IN_PREFERENCES as readonly string[]).includes(value)
+}
+
+/**
+ * Whether an observed built-in preference wins over the persisted custom theme.
+ * Only a light/dark value the user explicitly picked in THIS session via the
+ * setTheme wrapper wins. Values adopted from the settings document at boot/reload
+ * (livePick null) never win.
+ */
+function builtinPickWins(preference: string, livePick: BuiltinPreference | null): boolean {
+  if (preference !== 'light' && preference !== 'dark') return false
+  return preference === livePick
+}
 
 /**
  * Read the saved custom-theme id from localStorage.
@@ -355,7 +371,7 @@ const BUILT_IN_PREFERENCES: readonly string[] = ['light', 'dark', 'system']
 function readSaved(): string | undefined {
   if (typeof localStorage === 'undefined') return undefined
   const raw = localStorage.getItem(LS_KEY)
-  if (!raw) return undefined
+  if (!raw || raw === 'off') return undefined
   const id = raw.split('|')[0]
   return id && THEME_TOKEN_MAP[id] !== undefined ? id : undefined
 }
@@ -377,64 +393,85 @@ function clearSaved(): void {
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
-  /** Apply a custom theme via the theme service AND direct CSS variables. */
+  const theme = (ctx.theme ?? ctx.get?.('theme')) as ThemeRuntime
+
+  /** Apply a custom theme via direct CSS variables and the theme service. */
   const activateTheme = (id: string): void => {
     const tokens = THEME_TOKEN_MAP[id]
     if (!tokens) return
-    try { ctx.theme.setTheme(id) } catch { /* theme service may reject unknown ids */ }
-    applyTokens(tokens)
     writeSaved(id)
+    try { theme.setTheme(id) } catch { /* theme service may reject unknown ids */ }
+    applyTokens(tokens)
   }
   ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en }), 'ui-theme-custom: row dictionaries')
 
   const store = createTechThemeStore()
   let bound: BoundActions<typeof store> | undefined
 
-  // Track whether the user has actually interacted with the UI (pointer or keyboard).
-  // Boot-time theme/change events (such as settings scope adoption) occur with zero
-  // user interaction and must re-assert the saved custom theme; only an event
-  // following genuine user interaction represents a user's intentional choice
-  // to switch back to a built-in theme (Light / Dark / System).
-  let userInteracted = false
-  if (typeof window !== 'undefined') {
-    const onInteract = () => { userInteracted = true }
-    window.addEventListener('pointerdown', onInteract, { capture: true, passive: true })
-    window.addEventListener('keydown', onInteract, { capture: true, passive: true })
+  // Session-live record of the user's last EXPLICIT built-in pick, kept by
+  // the setTheme wrapper. The wrapper is the only seam that distinguishes
+  // "the user clicked Light/Dark/System in the Appearance row" from
+  // "ThemeRuntime.adopt() copied the settings document value at boot/reload".
+  let liveBuiltinPick: BuiltinPreference | null = null
+  const originalSetTheme = theme.setTheme
+  theme.setTheme = function (this: ThemeRuntime, id: string): void {
+    liveBuiltinPick = isBuiltinPreference(id) ? id : null
+    originalSetTheme.call(this, id)
+  }
+  ctx.effect(() => () => {
+    theme.setTheme = originalSetTheme
+  }, 'ui-theme-custom: restore setTheme wrapper')
+
+  // Defer the restore out of the current dispatch (microtask) so the custom
+  // theme's setTheme is always the LAST event the ThemePresenter sees,
+  // preventing the outer dispatch's stale built-in snapshot from overwriting
+  // the custom theme's tokens and dark attribute.
+  let restorePending = false
+  const scheduleRestore = (desired: string): void => {
+    if (restorePending) return
+    restorePending = true
+    queueMicrotask(() => {
+      restorePending = false
+      const preference = theme.getTheme().preference
+      if (preference === desired) return
+      if (builtinPickWins(preference, liveBuiltinPick)) return
+      activateTheme(desired)
+    })
   }
 
-  /** Mirror a snapshot into the row store (the row's selection state). */
-  const syncRow = (snapshot: ThemeSnapshot): void => {
-    bound?.sync(snapshot.preference, snapshot.revision)
-  }
-
-  const onThemeChange = (snapshot: ThemeSnapshot): void => {
-    if (BUILT_IN_PREFERENCES.includes(snapshot.preference)) {
-      if (userInteracted) {
-        // Genuine user interaction (e.g. clicked Light in Appearance row):
-        // drop the custom theme memory so the built-in theme persists.
-        clearSaved()
+  const applyDesired = (): void => {
+    const desired = readSaved()
+    const preference = theme.getTheme().preference
+    if (desired === undefined) {
+      if (isBuiltinPreference(preference)) {
         clearTokens()
-      } else {
-        // Boot-time settings scope adoption (no user interaction):
-        // Re-assert the user's saved custom theme so the refresh preserves it.
-        const saved = readSaved()
-        if (saved !== undefined) {
-          activateTheme(saved)
-          queueMicrotask(() => {
-            if (readSaved() !== undefined) {
-              document.documentElement.style.colorScheme = 'dark'
-              document.body.setAttribute('data-ds-dark-theme', '')
-            }
-          })
-        }
       }
+      return
     }
-    syncRow(snapshot)
+    if (preference === desired) {
+      // Preference matches, but ensure tokens and dark attributes remain applied
+      // in case an outer presenter apply cleared them.
+      const tokens = THEME_TOKEN_MAP[desired]
+      if (tokens) applyTokens(tokens)
+      return
+    }
+    if (builtinPickWins(preference, liveBuiltinPick)) {
+      clearSaved()
+      clearTokens()
+      return
+    }
+    scheduleRestore(desired)
   }
-  ctx.on('theme/change', onThemeChange)
+
+  applyDesired()
+  ctx.on('theme/change', (snapshot) => {
+    applyDesired()
+    bound?.sync(snapshot.preference, snapshot.revision)
+  })
+
   const injected = (actions: BoundActions<typeof store>): TechThemeRowInjected => {
     bound = actions
-    syncRow(ctx.theme.getTheme())
+    bound.sync(theme.getTheme().preference, theme.getTheme().revision)
     return {
       setTheme: (id) => {
         activateTheme(id)
@@ -478,14 +515,8 @@ export function apply(ctx: Context): void {
   // theme — no flash.
   try {
     const saved = readSaved()
-    if (saved !== undefined && ctx.theme.getTheme().preference !== saved) {
+    if (saved !== undefined) {
       activateTheme(saved)
-      queueMicrotask(() => {
-        if (readSaved() !== undefined) {
-          document.documentElement.style.colorScheme = 'dark'
-          document.body.setAttribute('data-ds-dark-theme', '')
-        }
-      })
     }
   } catch { /* localStorage unavailable */ }
 }
