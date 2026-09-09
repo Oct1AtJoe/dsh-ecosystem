@@ -732,6 +732,9 @@ const RECENT_LIMIT = 5;
   color: var(--dsw-alias-label-secondary, #374151);
   background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,.06));
 }
+.dsh-ff__loose .dsh-ff__rows-more {
+  padding-left: 22px;
+}
 
 .dsh-ff__loose {
   display: flex;
@@ -1350,10 +1353,19 @@ const RECENT_LIMIT = 5;
 				if (focusedWorkspaceId !== null && focusedWorkspaceId !== wsId) {
 					setFocusedWorkspaceId(null);
 				}
+				const group = view.groups.find((g) => g.workspaceId === wsId) ?? view.ungrouped;
 				const folder = view.folderOf.get(sessionId);
 				if (folder !== void 0) {
 					actions.setFolderCollapsed(folder.id, false);
-					setMoreShown((prev) => new Set(prev).add(folder.id));
+					const folderSessions = group?.folders.find((f) => f.id === folder.id)?.sessions ?? [];
+					if (folderSessions.findIndex((s) => s.id === sessionId) >= ARCHIVE_ROW_LIMIT) {
+						setMoreShown((prev) => new Set(prev).add(folder.id));
+					}
+				} else {
+					const looseSessions = group?.loose ?? [];
+					if (looseSessions.findIndex((s) => s.id === sessionId) >= ARCHIVE_ROW_LIMIT) {
+						setMoreShown((prev) => new Set(prev).add("loose:" + (wsId ?? "")));
+					}
 				}
 				setTimeout(() => {
 					const rows = document.querySelectorAll("[data-dsh-session-folders-custom] [data-session-id='" + sessionId + "']");
@@ -2123,8 +2135,11 @@ const RECENT_LIMIT = 5;
 			const renderLooseArea = (group) => {
 				const workspaceId = group.workspaceId;
 				const targetKey = "loose:" + workspaceId;
+				const moreKey = "loose:" + (group.workspaceId ?? "");
+				const isMore = moreShown.has(moreKey);
+				const sessions = isMore ? group.loose : group.loose.slice(0, ARCHIVE_ROW_LIMIT);
 				return e("div", {
-					key: "loose:" + workspaceId,
+					key: "loose:" + (group.workspaceId ?? ""),
 					className: "dsh-ff__loose" + (dragOver === targetKey ? " dsh-ff__loose--target" : ""),
 					onDragOver: (event) => { if (dropGuard(workspaceId, event)) setDragOver(targetKey); },
 					onDragLeave: () => { if (dragOver === targetKey) setDragOver(null); },
@@ -2142,7 +2157,10 @@ const RECENT_LIMIT = 5;
 							}
 						}
 					}
-				}, group.loose.map((summary) => renderSessionRow(summary)));
+				},
+					sessions.map((summary) => renderSessionRow(summary)),
+					renderMoreToggle(moreKey, group.loose.length)
+				);
 			};
 			const renderGroupRow = (group) => {
 				const isUngrouped = group.workspaceId === void 0;
