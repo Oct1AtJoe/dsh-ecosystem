@@ -346,49 +346,92 @@ function clearTokens(): void {
 const BUILT_IN_PREFERENCES: readonly string[] = ['light', 'dark', 'system']
 
 /**
+ * Read the saved custom-theme record: the theme id plus the built-in preference
+ * that was durable when it was saved (`null` for a legacy id-only value).
+ * @returns the record, or undefined when nothing is saved.
+ */
+function readSaved(): { id: string; seen: string | null } | undefined {
+  if (typeof localStorage === 'undefined') return undefined
+  const raw = localStorage.getItem(LS_KEY)
+  if (raw === null) return undefined
+  const at = raw.indexOf('|')
+  return at === -1 ? { id: raw, seen: null } : { id: raw.slice(0, at), seen: raw.slice(at + 1) }
+}
+
+/** Persist the custom-theme record; `seen` pins the durable built-in it replaced. */
+function writeSaved(id: string, seen: string | null): void {
+  try { localStorage.setItem(LS_KEY, seen === null ? id : `${id}|${seen}`) } catch { /* localStorage unavailable */ }
+}
+
+/** Drop the saved custom-theme record. */
+function clearSaved(): void {
+  try { localStorage.removeItem(LS_KEY) } catch { /* localStorage unavailable */ }
+}
+
+/**
  * Client plugin body: register both themes and the drift keyframes, plus the
  * tech-theme row contribution, disposing everything with the fiber so HMR and
  * teardown never leave a stale theme, stylesheet, or row behind.
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
+  // Last built-in preference the runtime actually observed (null until the
+  // durable scope has landed), i.e. the value a custom theme replaces.
+  let lastBuiltIn: string | null = null
   /** Apply a custom theme via the theme service AND direct CSS variables. */
   const activateTheme = (id: string): void => {
     const tokens = THEME_TOKEN_MAP[id]
     if (!tokens) return
     try { ctx.theme.setTheme(id) } catch { /* theme service may reject unknown ids */ }
     applyTokens(tokens)
-    try { localStorage.setItem(LS_KEY, id) } catch { /* localStorage unavailable */ }
+    writeSaved(id, lastBuiltIn)
   }
   ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en }), 'ui-theme-custom: row dictionaries')
 
   const store = createTechThemeStore()
   let bound: BoundActions<typeof store> | undefined
-  // The official settings schema only accepts light/dark/system, so while a
-  // custom theme is active the durable value always still holds the last
-  // built-in the user picked. On boot the theme service adopts that stale value
-  // once the scope loads, which is the FIRST built-in theme/change event after
-  // our restore. Any LATER built-in event is a real choice (the Appearance row,
-  // or a settings push from another tab) and must drop the saved custom theme —
-  // otherwise the restore would re-apply it on every restart.
-  // `armed` keeps the registration-time publishes (which carry the default
-  // preference before the scope has loaded) from consuming the adoption slot.
+  // The official settings schema only accepts light/dark/system, so a custom id
+  // can never be durable there: while a custom theme is active the durable value
+  // still holds the last built-in the user picked. On boot the theme service
+  // adopts that value once the scope loads — the FIRST built-in theme/change
+  // event after our restore. It is stale when it equals the built-in recorded
+  // with the saved custom theme; then we re-assert the custom theme, which also
+  // pulls the preference back to the custom id (otherwise a later Appearance
+  // click would be a no-op that emits nothing and the saved theme would survive
+  // every refresh). Any LATER built-in event is a real choice and drops the
+  // saved custom theme.
+  // `armed` keeps the registration-time publishes (default preference, before
+  // the scope has loaded) from consuming the adoption slot.
   let armed = false
   let adoptionSeen = false
-  const sync = (snapshot: ThemeSnapshot): void => {
+  /** Mirror a snapshot into the row store (the row's selection state). */
+  const syncRow = (snapshot: ThemeSnapshot): void => {
+    bound?.sync(snapshot.preference, snapshot.revision)
+  }
+  // Only real theme/change emissions take part in the adoption bookkeeping; the
+  // row's own mount-time sync below is not an event and must not consume the
+  // adoption slot with the not-yet-loaded default preference.
+  const onThemeChange = (snapshot: ThemeSnapshot): void => {
     if (armed && BUILT_IN_PREFERENCES.includes(snapshot.preference)) {
-      if (adoptionSeen) {
-        try { localStorage.removeItem(LS_KEY) } catch { /* localStorage unavailable */ }
+      // Record the observed built-in before the re-assert below, which saves a
+      // fresh record that must carry this value.
+      lastBuiltIn = snapshot.preference
+      const saved = adoptionSeen ? undefined : readSaved()
+      if (saved !== undefined && THEME_TOKEN_MAP[saved.id] !== undefined
+        && (saved.seen === null || saved.seen === snapshot.preference)) {
+        activateTheme(saved.id)
+      } else {
+        clearSaved()
         clearTokens()
       }
       adoptionSeen = true
     }
-    bound?.sync(snapshot.preference, snapshot.revision)
+    syncRow(snapshot)
   }
-  ctx.on('theme/change', sync)
+  ctx.on('theme/change', onThemeChange)
   const injected = (actions: BoundActions<typeof store>): TechThemeRowInjected => {
     bound = actions
-    sync(ctx.theme.getTheme())
+    syncRow(ctx.theme.getTheme())
     return {
       setTheme: (id) => {
         activateTheme(id)
@@ -431,10 +474,13 @@ export function apply(ctx: Context): void {
   // "immediately" is true), so the first paint already shows the right
   // theme — no flash.
   try {
-    const saved = typeof localStorage !== 'undefined' && localStorage.getItem(LS_KEY)
-    if (saved !== false && THEME_TOKEN_MAP[saved] !== undefined
-      && ctx.theme.getTheme().preference !== saved) {
-      activateTheme(saved)
+    const saved = readSaved()
+    if (saved !== undefined && THEME_TOKEN_MAP[saved.id] !== undefined
+      && ctx.theme.getTheme().preference !== saved.id) {
+      activateTheme(saved.id)
+      // The scope has not loaded yet, so activateTheme just pinned the default
+      // preference; keep the built-in recorded when the user chose the theme.
+      writeSaved(saved.id, saved.seen)
     }
   } catch { /* localStorage unavailable */ }
   // Arm only after the restore: the registration publishes above carry the
