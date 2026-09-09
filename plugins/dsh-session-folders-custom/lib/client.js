@@ -701,9 +701,9 @@ const RECENT_LIMIT = 5;
   flex: none;
   color: var(--dsw-alias-label-secondary, #374151);
 }
-/* Active workspace/folder: blue accent icon, like the original session panel. */
+/* Active workspace/folder: primary label ink (black in light mode). */
 .dsh-ff__icon-accent {
-  color: var(--dsw-alias-state-business-primary, #2563eb);
+  color: var(--dsw-alias-label-primary, #181a22);
 }
 .dsh-ff__dot {
   flex: none;

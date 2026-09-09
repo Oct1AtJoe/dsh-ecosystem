@@ -856,6 +856,15 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
 }
 
+/* Sidebar active workspace/folder icons: obsidian black in light mode */
+body:not([data-ds-dark-theme]) [class*="folderActive"],
+body:not([data-ds-dark-theme]) [class*="dsh-ff__icon-accent"],
+body:not([data-ds-dark-theme]) .dsh-ff__icon-accent,
+body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
+  color: var(--dsw-alias-label-primary, #181a22) !important;
+  fill: currentColor !important;
+}
+
 /* better-sidebar's pane sits OUTSIDE the frame (x > frame width), so no
    frame pool shines behind it — give the pane its own soft light layer
    via ::after so the translucent fill has glass-like pools, matching
