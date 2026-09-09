@@ -4,15 +4,15 @@
 
 ```
 C:\dsh-ecosystem\
-├── plugins\           # 定制插件源码（10 个包）
+├── plugins\           # 定制插件源码
+│   ├── dsh-file-upload-custom\       dsh-file-upload-custom（拖拽与 Ctrl+V 粘贴文件上传，零路径污染）
+│   ├── dsh-session-folders-custom\   dsh-session-folders-custom（会话文件夹）
+│   ├── dsh-session-title-custom\     dsh-session-title-custom（会话标题生成）
+│   ├── ui-queue-recall\              @deepseek-ai/dsh-client-ui-queue-recall（排队消息撤回编辑）
 │   ├── ui-theme-custom\              @deepseek-ai/dsh-client-ui-theme-custom
 │   ├── ui-deliverables-custom\       @deepseek-ai/dsh-client-ui-deliverables-custom
 │   ├── ui-resend-failed-round\       @deepseek-ai/dsh-client-ui-resend-failed-round
-│   ├── ui-session-reference\         @deepseek-ai/dsh-client-ui-session-reference
-│   ├── ui-settings-skills\           @deepseek-ai/dsh-client-ui-settings-skills（未注册到 profile）
-│   ├── ui-settings-subagents\        @deepseek-ai/dsh-client-ui-settings-subagents（未注册到 profile）
 │   ├── ui-subagent-custom\           @deepseek-ai/dsh-client-ui-subagent-custom
-│   ├── dsh-notification-custom\      @deepseek-ai/dsh-notification-custom
 │   ├── ui-kanye-pet\                 @deepseek-ai/dsh-client-ui-kanye-pet
 │   ├── kanye-pet\                    @deepseek-ai/dsh-kanye-pet（bundle 插件）
 │   ├── tsdown.client.ts              # 共享构建 preset（从官方仓库拷贝，独立维护）

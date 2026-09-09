@@ -1,0 +1,8 @@
+# dsh-file-upload bundle patch: inserts the dual-face plugin row into
+# the web profile roster. The node half (exports ".") runs in the host process
+# (HTTP upload routes under /api/file-upload/*), and the `dsh.client`
+# declaration in package.json makes the browser half (exports "./client")
+# load in the web GUI.
+- insert:
+    - id: file-upload-custom
+      name: 'dsh-file-upload-custom'
