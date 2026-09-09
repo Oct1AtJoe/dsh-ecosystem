@@ -1061,27 +1061,21 @@ window.__ModuleLoader__.load({
 			"system"
 		];
 		/**
-		* Read the saved custom-theme record: the theme id plus the built-in preference
-		* that was durable when it was saved (`null` for a legacy id-only value).
-		* @returns the record, or undefined when nothing is saved.
+		* Read the saved custom-theme id from localStorage.
+		* Handles both plain ids and legacy "id|seen" pipe-delimited values.
+		* @returns the validated theme id, or undefined when nothing is saved.
 		*/
 		function readSaved() {
 			if (typeof localStorage === "undefined") return void 0;
 			const raw = localStorage.getItem(LS_KEY);
-			if (raw === null) return void 0;
-			const at = raw.indexOf("|");
-			return at === -1 ? {
-				id: raw,
-				seen: null
-			} : {
-				id: raw.slice(0, at),
-				seen: raw.slice(at + 1)
-			};
+			if (!raw) return void 0;
+			const id = raw.split("|")[0];
+			return id && THEME_TOKEN_MAP[id] !== void 0 ? id : void 0;
 		}
-		/** Persist the custom-theme record; `seen` pins the durable built-in it replaced. */
-		function writeSaved(id, seen) {
+		/** Persist the custom-theme id to localStorage. */
+		function writeSaved(id) {
 			try {
-				localStorage.setItem(LS_KEY, seen === null ? id : `${id}|${seen}`);
+				localStorage.setItem(LS_KEY, id);
 			} catch {}
 		}
 		/** Drop the saved custom-theme record. */
@@ -1097,7 +1091,6 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			let lastBuiltIn = null;
 			/** Apply a custom theme via the theme service AND direct CSS variables. */
 			const activateTheme = (id) => {
 				const tokens = THEME_TOKEN_MAP[id];
@@ -1106,7 +1099,7 @@ window.__ModuleLoader__.load({
 					ctx.theme.setTheme(id);
 				} catch {}
 				applyTokens(tokens);
-				writeSaved(id, lastBuiltIn);
+				writeSaved(id);
 			};
 			ctx.effect(() => ctx.locale.register(SETTINGS_NS, {
 				zh,
@@ -1114,22 +1107,31 @@ window.__ModuleLoader__.load({
 			}), "ui-theme-custom: row dictionaries");
 			const store = createTechThemeStore();
 			let bound;
-			let armed = false;
-			let adoptionSeen = false;
+			let userInteracted = false;
+			if (typeof window !== "undefined") {
+				const onInteract = () => {
+					userInteracted = true;
+				};
+				window.addEventListener("pointerdown", onInteract, {
+					capture: true,
+					passive: true
+				});
+				window.addEventListener("keydown", onInteract, {
+					capture: true,
+					passive: true
+				});
+			}
 			/** Mirror a snapshot into the row store (the row's selection state). */
 			const syncRow = (snapshot) => {
 				bound?.sync(snapshot.preference, snapshot.revision);
 			};
 			const onThemeChange = (snapshot) => {
-				if (armed && BUILT_IN_PREFERENCES.includes(snapshot.preference)) {
-					lastBuiltIn = snapshot.preference;
-					const saved = adoptionSeen ? void 0 : readSaved();
-					if (saved !== void 0 && THEME_TOKEN_MAP[saved.id] !== void 0 && (saved.seen === null || saved.seen === snapshot.preference)) activateTheme(saved.id);
-					else {
-						clearSaved();
-						clearTokens();
-					}
-					adoptionSeen = true;
+				if (BUILT_IN_PREFERENCES.includes(snapshot.preference)) if (userInteracted) {
+					clearSaved();
+					clearTokens();
+				} else {
+					const saved = readSaved();
+					if (saved !== void 0) activateTheme(saved);
 				}
 				syncRow(snapshot);
 			};
@@ -1172,12 +1174,8 @@ window.__ModuleLoader__.load({
 			}, "ui-theme-custom: tech theme registrations + drift keyframes + surface glass");
 			try {
 				const saved = readSaved();
-				if (saved !== void 0 && THEME_TOKEN_MAP[saved.id] !== void 0 && ctx.theme.getTheme().preference !== saved.id) {
-					activateTheme(saved.id);
-					writeSaved(saved.id, saved.seen);
-				}
+				if (saved !== void 0 && ctx.theme.getTheme().preference !== saved) activateTheme(saved);
 			} catch {}
-			armed = true;
 		}
 		//#endregion
 		exports.apply = apply;
