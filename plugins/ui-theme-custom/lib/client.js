@@ -1034,6 +1034,8 @@ window.__ModuleLoader__.load({
 		/** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 		function applyTokens(tokens) {
 			if (typeof document === "undefined") return;
+			document.documentElement.style.colorScheme = "dark";
+			document.body.setAttribute("data-ds-dark-theme", "");
 			for (const [key, value] of Object.entries(tokens)) {
 				document.documentElement.style.setProperty(key, value);
 				document.body.style.setProperty(key, value);
@@ -1131,7 +1133,15 @@ window.__ModuleLoader__.load({
 					clearTokens();
 				} else {
 					const saved = readSaved();
-					if (saved !== void 0) activateTheme(saved);
+					if (saved !== void 0) {
+						activateTheme(saved);
+						queueMicrotask(() => {
+							if (readSaved() !== void 0) {
+								document.documentElement.style.colorScheme = "dark";
+								document.body.setAttribute("data-ds-dark-theme", "");
+							}
+						});
+					}
 				}
 				syncRow(snapshot);
 			};
@@ -1174,7 +1184,15 @@ window.__ModuleLoader__.load({
 			}, "ui-theme-custom: tech theme registrations + drift keyframes + surface glass");
 			try {
 				const saved = readSaved();
-				if (saved !== void 0 && ctx.theme.getTheme().preference !== saved) activateTheme(saved);
+				if (saved !== void 0 && ctx.theme.getTheme().preference !== saved) {
+					activateTheme(saved);
+					queueMicrotask(() => {
+						if (readSaved() !== void 0) {
+							document.documentElement.style.colorScheme = "dark";
+							document.body.setAttribute("data-ds-dark-theme", "");
+						}
+					});
+				}
 			} catch {}
 		}
 		//#endregion

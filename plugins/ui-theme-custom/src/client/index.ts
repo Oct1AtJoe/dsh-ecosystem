@@ -320,6 +320,8 @@ const APPLIED_TOKEN_NAMES = new Set<string>()
 /** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 function applyTokens(tokens: ThemeTokens): void {
   if (typeof document === 'undefined') return
+  document.documentElement.style.colorScheme = 'dark'
+  document.body.setAttribute('data-ds-dark-theme', '')
   for (const [key, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(key, value)
     document.body.style.setProperty(key, value)
@@ -418,6 +420,12 @@ export function apply(ctx: Context): void {
         const saved = readSaved()
         if (saved !== undefined) {
           activateTheme(saved)
+          queueMicrotask(() => {
+            if (readSaved() !== undefined) {
+              document.documentElement.style.colorScheme = 'dark'
+              document.body.setAttribute('data-ds-dark-theme', '')
+            }
+          })
         }
       }
     }
@@ -472,6 +480,12 @@ export function apply(ctx: Context): void {
     const saved = readSaved()
     if (saved !== undefined && ctx.theme.getTheme().preference !== saved) {
       activateTheme(saved)
+      queueMicrotask(() => {
+        if (readSaved() !== undefined) {
+          document.documentElement.style.colorScheme = 'dark'
+          document.body.setAttribute('data-ds-dark-theme', '')
+        }
+      })
     }
   } catch { /* localStorage unavailable */ }
 }
