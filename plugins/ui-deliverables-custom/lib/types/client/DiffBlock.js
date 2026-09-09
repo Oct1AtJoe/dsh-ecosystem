@@ -41,12 +41,10 @@ const ROW_CLASS = {
 /**
  * Flatten the hunks into the body's rows plus the footer counts. A path header
  * opens each new file; a same-file second hunk (a scattered edit) opens with a
- * `⋯` gap instead of repeating the path. Both chrome rows drop out under
- * `showPathHeaders: false` — a caller-owned title bar carries the path then.
- * Each hunk's sides compare through {@link diffLines}, so only the trimmed
- * changed rows render and count toward the totals. The file count is of
- * DISTINCT paths, matching the TUI diff card's footer, so two hunks in one
- * file read as `1 file` on both front ends.
+ * `⋯` gap instead of repeating the path. In headerless mode (ChangePanel),
+ * same-file second hunks also separate with a `⋯` gap so non-adjacent edits
+ * never appear contiguous. Each hunk's sides compare through {@link diffLines},
+ * which interleaves -/+ at change sites and inserts `⋯` gaps across untouched lines.
  * @param diffs - the hunks to render.
  * @param showPathHeaders - whether path and gap rows join the body.
  * @returns the body rows, the +/- totals, and the distinct-file count.
@@ -57,24 +55,33 @@ function buildRows(diffs, showPathHeaders) {
     let added = 0;
     let removed = 0;
     let prevPath;
-    for (const diff of diffs) {
+    for (let i = 0; i < diffs.length; i++) {
+        const diff = diffs[i];
         paths.add(diff.path);
         if (showPathHeaders) {
-            if (diff.path !== prevPath)
+            if (diff.path !== prevPath) {
                 rows.push({ kind: 'path', text: diff.path });
-            else
+            }
+            else if (rows.length > 0 && rows[rows.length - 1]?.kind !== 'gap') {
                 rows.push({ kind: 'gap', text: '⋯' });
+            }
+        }
+        else if (i > 0 && rows.length > 0 && rows[rows.length - 1]?.kind !== 'gap') {
+            rows.push({ kind: 'gap', text: '⋯' });
         }
         prevPath = diff.path;
         const change = diffLines(diff.oldText, diff.newText);
-        for (const line of change.removed) {
-            rows.push({ kind: 'del', text: line });
-            removed++;
+        for (const row of change.rows) {
+            if (row.kind === 'gap' && rows.length > 0 && rows[rows.length - 1]?.kind === 'gap') {
+                continue;
+            }
+            rows.push(row);
         }
-        for (const line of change.added) {
-            rows.push({ kind: 'add', text: line });
-            added++;
-        }
+        added += change.added.length;
+        removed += change.removed.length;
+    }
+    while (rows.length > 0 && rows[rows.length - 1]?.kind === 'gap') {
+        rows.pop();
     }
     return { rows, added, removed, files: paths.size };
 }
@@ -102,7 +109,11 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
     const n = newMid.length;
     // Defensive guard against pathological hunk sizes
     if (m * n > 250_000) {
-        return { removed: [...oldMid], added: [...newMid] };
+        const rows = [
+            ...oldMid.map(text => ({ kind: 'del', text })),
+            ...newMid.map(text => ({ kind: 'add', text })),
+        ];
+        return { removed: [...oldMid], added: [...newMid], rows };
     }
     const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
     for (let i = 1; i <= m; i++) {
@@ -116,44 +127,85 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
             }
         }
     }
-    const removed = [];
-    const added = [];
+    const ops = [];
     let i = m;
     let j = n;
     while (i > 0 || j > 0) {
         if (i > 0 && j > 0) {
             const w = matchWeight(oldMid[i - 1], newMid[j - 1], allowNormalized);
             if (w > 0 && dp[i][j] === dp[i - 1][j - 1] + w) {
+                ops.unshift({ type: 'match', oldText: oldMid[i - 1], newText: newMid[j - 1] });
                 i--;
                 j--;
                 continue;
             }
         }
         if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-            added.unshift(newMid[j - 1]);
+            ops.unshift({ type: 'add', text: newMid[j - 1] });
             j--;
         }
         else if (i > 0) {
-            removed.unshift(oldMid[i - 1]);
+            ops.unshift({ type: 'del', text: oldMid[i - 1] });
             i--;
         }
     }
-    return { removed, added };
+    const rows = [];
+    const removed = [];
+    const added = [];
+    let currentBlockDel = [];
+    let currentBlockAdd = [];
+    const flushBlock = () => {
+        if (currentBlockDel.length === 0 && currentBlockAdd.length === 0)
+            return;
+        if (rows.length > 0 && rows[rows.length - 1]?.kind !== 'gap') {
+            rows.push({ kind: 'gap', text: '⋯' });
+        }
+        for (const text of currentBlockDel) {
+            rows.push({ kind: 'del', text });
+            removed.push(text);
+        }
+        for (const text of currentBlockAdd) {
+            rows.push({ kind: 'add', text });
+            added.push(text);
+        }
+        currentBlockDel = [];
+        currentBlockAdd = [];
+    };
+    for (const op of ops) {
+        if (op.type === 'match') {
+            flushBlock();
+        }
+        else if (op.type === 'del') {
+            currentBlockDel.push(op.text);
+        }
+        else if (op.type === 'add') {
+            currentBlockAdd.push(op.text);
+        }
+    }
+    flushBlock();
+    return { removed, added, rows };
 }
 /**
  * Pair the two sides of one hunk into its changed lines: common-prefix and
  * common-suffix trim over the content lines, followed by LCS alignment over
  * the middle. Tolerates trailing punctuation / comma shifts on boundary context
- * lines to eliminate phantom deletion/re-addition pairs. Identical sides yield
- * zero rows — a no-op write draws nothing for its hunk. `null` oldText (a new
- * file) puts every new line on the added side.
+ * lines to eliminate phantom deletion/re-addition pairs. Disjoint change sites
+ * interleave del/add blocks separated by `⋯` gaps. Identical sides yield zero
+ * rows — a no-op write draws nothing for its hunk. `null` oldText (a new file)
+ * puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
- * @returns the removed and added content lines.
+ * @returns the removed and added content lines along with the structured rows.
  */
 export function diffLines(oldText, newText) {
-    if (oldText === null)
-        return { removed: [], added: contentLines(newText) };
+    if (oldText === null) {
+        const added = contentLines(newText);
+        return {
+            removed: [],
+            added,
+            rows: added.map(text => ({ kind: 'add', text })),
+        };
+    }
     const oldSide = contentLines(oldText);
     const newSide = contentLines(newText);
     let start = 0;
@@ -169,11 +221,23 @@ export function diffLines(oldText, newText) {
     const oldMid = oldSide.slice(start, endOld);
     const newMid = newSide.slice(start, endNew);
     if (oldMid.length === 0 && newMid.length === 0)
-        return { removed: [], added: [] };
-    if (oldMid.length === 0)
-        return { removed: [], added: newMid };
-    if (newMid.length === 0)
-        return { removed: oldMid, added: [] };
+        return { removed: [], added: [], rows: [] };
+    if (oldMid.length === 0) {
+        const added = newMid;
+        return {
+            removed: [],
+            added,
+            rows: added.map(text => ({ kind: 'add', text })),
+        };
+    }
+    if (newMid.length === 0) {
+        const removed = oldMid;
+        return {
+            removed,
+            added: [],
+            rows: removed.map(text => ({ kind: 'del', text })),
+        };
+    }
     // 1. Try LCS with normalized punctuation matching (tolerates context comma additions/removals)
     const result = computeLcsDiff(oldMid, newMid, true);
     // 2. Fall back to strict exact matching if normalized matching swallowed the only change

@@ -22,6 +22,7 @@ import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-r
 import {
   fitProducedFiles, ProducedFiles, type ProducedFilesProps,
 } from '../src/client/ProducedFiles.tsx'
+import { diffLines } from '../src/client/DiffBlock.tsx'
 import {
   basename, deliverablesDefinition, diffStats, dirname, producedFileMentions, producedForClosing, selectProducedFiles,
   type DeliverablesTurnData,
@@ -453,6 +454,29 @@ describe('diffStats', () => {
     expect(diffStats([{ oldText: 'a\n', newText: 'a,\n' }])).toEqual({ added: 1, removed: 1 })
     // Preserves unchanged lines in middle of scattered edits
     expect(diffStats([{ oldText: 'a\nb\nc\n', newText: 'a\nx\nb\ny\nc\n' }])).toEqual({ added: 2, removed: 0 })
+  })
+})
+
+describe('diffLines', () => {
+  it('pairs removed and added rows per change site and inserts gap rows across untouched spans', () => {
+    const result = diffLines('a\nb\nc\nd\ne', 'a\nB\nc\nD\ne')
+    expect(result.removed).toEqual(['b', 'd'])
+    expect(result.added).toEqual(['B', 'D'])
+    expect(result.rows).toEqual([
+      { kind: 'del', text: 'b' },
+      { kind: 'add', text: 'B' },
+      { kind: 'gap', text: '⋯' },
+      { kind: 'del', text: 'd' },
+      { kind: 'add', text: 'D' },
+    ])
+  })
+
+  it('keeps single contiguous change without gap rows', () => {
+    const result = diffLines('prefix\nold\nsuffix', 'prefix\nnew\nsuffix')
+    expect(result.rows).toEqual([
+      { kind: 'del', text: 'old' },
+      { kind: 'add', text: 'new' },
+    ])
   })
 })
 

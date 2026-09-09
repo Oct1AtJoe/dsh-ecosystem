@@ -29,25 +29,34 @@ export interface DiffBlockProps {
     /** Draw the dim `└ +A -R · N file(s)` summary (default true). */
     showFooter?: boolean | undefined;
 }
+type RowKind = 'path' | 'del' | 'add' | 'gap';
+export interface Row {
+    kind: RowKind;
+    text: string;
+}
+export interface DiffLinesResult {
+    removed: string[];
+    added: string[];
+    rows: Row[];
+}
 /**
  * Pair the two sides of one hunk into its changed lines: common-prefix and
  * common-suffix trim over the content lines, followed by LCS alignment over
  * the middle. Tolerates trailing punctuation / comma shifts on boundary context
- * lines to eliminate phantom deletion/re-addition pairs. Identical sides yield
- * zero rows — a no-op write draws nothing for its hunk. `null` oldText (a new
- * file) puts every new line on the added side.
+ * lines to eliminate phantom deletion/re-addition pairs. Disjoint change sites
+ * interleave del/add blocks separated by `⋯` gaps. Identical sides yield zero
+ * rows — a no-op write draws nothing for its hunk. `null` oldText (a new file)
+ * puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
- * @returns the removed and added content lines.
+ * @returns the removed and added content lines along with the structured rows.
  */
-export declare function diffLines(oldText: string | null, newText: string): {
-    removed: string[];
-    added: string[];
-};
+export declare function diffLines(oldText: string | null, newText: string): DiffLinesResult;
 /**
  * Render a file mutation as an inline diff surface.
  * @param props - see {@link DiffBlockProps}.
  * @returns the diff block element.
  */
 export declare function DiffBlock({ diffs, maxLines, className, showPathHeaders, showFooter, }: DiffBlockProps): React.JSX.Element | null;
+export {};
 //# sourceMappingURL=DiffBlock.d.ts.map
