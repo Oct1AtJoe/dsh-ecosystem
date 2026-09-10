@@ -394,6 +394,35 @@ const THEME_SCHEME_MAP: Record<string, 'light' | 'dark'> = {
 /** Token names this plugin wrote inline (its retraction set). */
 const APPLIED_TOKEN_NAMES = new Set<string>()
 
+/**
+ * Synchronize theme and background color with the Tauri desktop shell (if running in desktop).
+ * Toggles Windows DWM native title bar dark/light mode and sets caption color on Windows 11.
+ */
+function syncDesktopTitlebar(theme: 'light' | 'dark', colorSpec?: string): void {
+  if (typeof window === 'undefined') return
+  const bridge = (window as unknown as {
+    __dshNotifyBridge?: {
+      port?: number
+      token?: string
+      setTheme?: (theme: string, color?: string) => void
+    }
+  }).__dshNotifyBridge
+
+  if (!bridge) return
+
+  if (typeof bridge.setTheme === 'function') {
+    bridge.setTheme(theme, colorSpec)
+  } else if (bridge.port && bridge.token) {
+    try {
+      fetch(`http://127.0.0.1:${bridge.port}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bridge.token}` },
+        body: JSON.stringify({ type: 'theme-change', theme, color: colorSpec }),
+      }).catch(() => {})
+    } catch {}
+  }
+}
+
 /** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'): void {
   if (typeof document === 'undefined') return
@@ -408,6 +437,7 @@ function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'
     document.body.style.setProperty(key, value)
     APPLIED_TOKEN_NAMES.add(key)
   }
+  syncDesktopTitlebar(colorScheme, tokens['--dsw-alias-bg-base'])
 }
 
 /**
@@ -526,6 +556,8 @@ export function apply(ctx: Context): void {
     if (desired === undefined) {
       if (isBuiltinPreference(preference)) {
         clearTokens()
+        const isDark = preference === 'dark' || (preference === 'system' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches)
+        syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7')
       }
       return
     }
@@ -539,6 +571,8 @@ export function apply(ctx: Context): void {
     if (builtinPickWins(preference, liveBuiltinPick)) {
       clearSaved()
       clearTokens()
+      const isDark = preference === 'dark' || (preference === 'system' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches)
+      syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7')
       return
     }
     scheduleRestore(desired)

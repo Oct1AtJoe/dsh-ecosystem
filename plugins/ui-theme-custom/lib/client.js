@@ -1107,6 +1107,30 @@ body[data-ds-dark-theme] [role="dialog"]{
 		};
 		/** Token names this plugin wrote inline (its retraction set). */
 		const APPLIED_TOKEN_NAMES = /* @__PURE__ */ new Set();
+		/**
+		* Synchronize theme and background color with the Tauri desktop shell (if running in desktop).
+		* Toggles Windows DWM native title bar dark/light mode and sets caption color on Windows 11.
+		*/
+		function syncDesktopTitlebar(theme, colorSpec) {
+			if (typeof window === "undefined") return;
+			const bridge = window.__dshNotifyBridge;
+			if (!bridge) return;
+			if (typeof bridge.setTheme === "function") bridge.setTheme(theme, colorSpec);
+			else if (bridge.port && bridge.token) try {
+				fetch(`http://127.0.0.1:${bridge.port}/notify`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${bridge.token}`
+					},
+					body: JSON.stringify({
+						type: "theme-change",
+						theme,
+						color: colorSpec
+					})
+				}).catch(() => {});
+			} catch {}
+		}
 		/** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
 		function applyTokens(tokens, colorScheme = "dark") {
 			if (typeof document === "undefined") return;
@@ -1118,6 +1142,7 @@ body[data-ds-dark-theme] [role="dialog"]{
 				document.body.style.setProperty(key, value);
 				APPLIED_TOKEN_NAMES.add(key);
 			}
+			syncDesktopTitlebar(colorScheme, tokens["--dsw-alias-bg-base"]);
 		}
 		/**
 		* Retract every inline token this plugin wrote. The official ThemePresenter only
@@ -1225,7 +1250,11 @@ body[data-ds-dark-theme] [role="dialog"]{
 				const desired = readSaved();
 				const preference = theme.getTheme().preference;
 				if (desired === void 0) {
-					if (isBuiltinPreference(preference)) clearTokens();
+					if (isBuiltinPreference(preference)) {
+						clearTokens();
+						const isDark = preference === "dark" || preference === "system" && typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches;
+						syncDesktopTitlebar(isDark ? "dark" : "light", isDark ? "#16161b" : "#f5f5f7");
+					}
 					return;
 				}
 				if (preference === desired) {
@@ -1236,6 +1265,8 @@ body[data-ds-dark-theme] [role="dialog"]{
 				if (builtinPickWins(preference, liveBuiltinPick)) {
 					clearSaved();
 					clearTokens();
+					const isDark = preference === "dark" || preference === "system" && typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches;
+					syncDesktopTitlebar(isDark ? "dark" : "light", isDark ? "#16161b" : "#f5f5f7");
 					return;
 				}
 				scheduleRestore(desired);

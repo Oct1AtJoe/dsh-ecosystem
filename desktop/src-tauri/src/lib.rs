@@ -835,6 +835,27 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
         let _ = sock.flush().await;
         return;
     }
+    if body.contains("\"type\":\"theme-change\"") || body.contains("\"type\": \"theme-change\"") {
+        log::info!("[theme] 收到前端主题切换通知: {body}");
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+            let theme_str = val.get("theme").and_then(|v| v.as_str()).unwrap_or("dark");
+            let is_dark = theme_str == "dark";
+            let color_str = val.get("color").and_then(|v| v.as_str());
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_theme(Some(if is_dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
+                #[cfg(target_os = "windows")]
+                update_dwm_titlebar(&w, is_dark, color_str);
+            }
+        }
+        let _ = sock
+            .write_all(
+                format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n{CORS_HEADERS}\r\n{{\"ok\":true}}")
+                    .as_bytes(),
+            )
+            .await;
+        let _ = sock.flush().await;
+        return;
+    }
     let payload = parse_notify_payload(&body);
     notify_completed(
         app,
@@ -885,6 +906,99 @@ fn parse_notify_payload(body: &str) -> NotifyPayload {
             .and_then(|x| x.as_str())
             .map(str::to_string),
     }
+}
+
+#[cfg(target_os = "windows")]
+#[link(name = "dwmapi")]
+extern "system" {
+    fn DwmSetWindowAttribute(
+        hwnd: *mut std::ffi::c_void,
+        dw_attribute: u32,
+        pv_attribute: *const std::ffi::c_void,
+        cb_attribute: u32,
+    ) -> i32;
+}
+
+#[cfg(target_os = "windows")]
+fn update_dwm_titlebar(window: &tauri::WebviewWindow, is_dark: bool, color_spec: Option<&str>) {
+    use std::ffi::c_void;
+
+    let Ok(h) = window.hwnd() else { return };
+    let hwnd = h.0 as *mut c_void;
+    let dark_val: i32 = if is_dark { 1 } else { 0 };
+
+    unsafe {
+        // 1. Windows 10 (1809+) & Windows 11: 沉浸式暗黑/浅色标题栏与系统按钮切换
+        let res = DwmSetWindowAttribute(
+            hwnd,
+            20, // DWMWA_USE_IMMERSIVE_DARK_MODE (Win10 20H1+ & Win11)
+            &dark_val as *const _ as *const c_void,
+            std::mem::size_of::<i32>() as u32,
+        );
+        if res != 0 {
+            let _ = DwmSetWindowAttribute(
+                hwnd,
+                19, // 兼容旧版 Win10 (1809/1903)
+                &dark_val as *const _ as *const c_void,
+                std::mem::size_of::<i32>() as u32,
+            );
+        }
+
+        // 2. Windows 11 (Build 22000+): 动态设置原生标题栏底色 (DWMWA_CAPTION_COLOR = 35) 与文字颜色 (DWMWA_TEXT_COLOR = 36)
+        if let Some(spec) = color_spec {
+            if let Some((r, g, b)) = parse_color_spec(spec) {
+                // Windows COLORREF 格式为 0x00BBGGRR
+                let caption_ref: u32 = ((b as u32) << 16) | ((g as u32) << 8) | (r as u32);
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    35, // DWMWA_CAPTION_COLOR
+                    &caption_ref as *const _ as *const c_void,
+                    std::mem::size_of::<u32>() as u32,
+                );
+
+                // 标题栏文字颜色：深色模式亮银白 (#f2f0f6)，浅色模式深曜石黑 (#181a22)
+                let text_ref: u32 = if is_dark { 0x00F6F0F2 } else { 0x00221A18 };
+                let _ = DwmSetWindowAttribute(
+                    hwnd,
+                    36, // DWMWA_TEXT_COLOR
+                    &text_ref as *const _ as *const c_void,
+                    std::mem::size_of::<u32>() as u32,
+                );
+            }
+        }
+    }
+}
+
+/// 解析十六进制 (#rrggbb / #rgb) 或 rgb(r, g, b) 格式颜色
+#[cfg(target_os = "windows")]
+fn parse_color_spec(spec: &str) -> Option<(u8, u8, u8)> {
+    let s = spec.trim();
+    if s.starts_with('#') {
+        let hex = s.trim_start_matches('#');
+        if hex.len() == 6 {
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            return Some((r, g, b));
+        }
+        if hex.len() == 3 {
+            let r = u8::from_str_radix(&hex[0..1], 16).ok()?;
+            let g = u8::from_str_radix(&hex[1..2], 16).ok()?;
+            let b = u8::from_str_radix(&hex[2..3], 16).ok()?;
+            return Some((r * 17, g * 17, b * 17));
+        }
+    }
+    if s.starts_with("rgb(") && s.ends_with(')') {
+        let inside = &s[4..s.len() - 1];
+        let parts: Vec<&str> = inside.split(',').collect();
+        if parts.len() >= 3 {
+            let r = parts[0].trim().parse::<u8>().ok()?;
+            let g = parts[1].trim().parse::<u8>().ok()?;
+            let b = parts[2].trim().parse::<u8>().ok()?;
+            return Some((r, g, b));
+        }
+    }
+    None
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -1137,6 +1251,15 @@ fn bridge_init_script(port: u16, token: &str) -> String {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
           body: JSON.stringify(payload)
+        });
+      } catch(e){}
+    },
+    setTheme: function(theme, color) {
+      try {
+        fetch('http://127.0.0.1:'+PORT+'/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+          body: JSON.stringify({ type: 'theme-change', theme: theme, color: color })
         });
       } catch(e){}
     }
