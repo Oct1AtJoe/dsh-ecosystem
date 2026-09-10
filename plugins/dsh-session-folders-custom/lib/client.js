@@ -32,8 +32,20 @@ window.__ModuleLoader__.load({
 		const OPEN_FOLDER_ROUTE = ROUTE_PREFIX + "/open-folder";
 		/** How many archived sessions the Archive block shows before the "Show more" toggle (matches the original browser's collapsed limit). */
 		const ARCHIVE_ROW_LIMIT = 5;
-/** How many most recent workspace sessions the Recent section shows. */
-const RECENT_LIMIT = 5;
+/** How many most recent workspace sessions the Recent section keeps at hand:
+ *  the first ARCHIVE_ROW_LIMIT rows show outright, the rest fold behind the
+ *  section's own "Show more" toggle. */
+const RECENT_LIMIT = 10;
+/**
+ * Pending UI interactions the sidebar reports, in the runtime's own vocabulary
+ * (mirrors the built-in browser's presentation filter). Each one means the run
+ * is parked on the user, so the row's status dot must say so instead of
+ * spinning: a live run that is waiting on an approval or an answer is not
+ * "working", it is "waiting for you".
+ */
+const PENDING_KINDS = ["approval", "plan-review", "question"];
+/** Shared empty pending map: one instance, so the fallback never allocates per render. */
+const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		//#endregion
 		//#region client/index.ts
 		/** Client plug-in identity. */
@@ -142,6 +154,8 @@ const RECENT_LIMIT = 5;
 			"error.autoRenameInProgress": "该会话已在自动命名中，请稍候。",
 			"status.running": "进行中",
 			"status.waitingApproval": "等待审批",
+			"status.planReview": "计划待审",
+			"status.waitingAnswer": "等待回答",
 			"status.completed": "已完成",
 			"time.now": "刚刚",
 			"time.minutes": "{n}分钟",
@@ -235,6 +249,8 @@ const RECENT_LIMIT = 5;
 			"error.autoRenameInProgress": "Auto rename is already running for this session.",
 			"status.running": "Running",
 			"status.waitingApproval": "Waiting for approval",
+			"status.planReview": "Plan awaiting review",
+			"status.waitingAnswer": "Waiting for answer",
 			"status.completed": "Completed",
 			"time.now": "now",
 			"time.minutes": "{n}m",
@@ -515,6 +531,17 @@ const RECENT_LIMIT = 5;
 .dsh-ff__folder {
   display: flex;
   flex-direction: column;
+}
+/* Pinned Recent section. It sits between the workspace header and the
+   scrolling list — outside the scroll container — so it keeps the sidebar's
+   own colour with no background of its own: whatever the column paints shows
+   straight through, and no scrolled workspace row can pass under it. Capped so
+   a long Recent list can never squeeze the workspace list out of the column. */
+.dsh-ff__recent {
+  flex-shrink: 0;
+  margin-bottom: 2px;
+  max-height: 55%;
+  overflow-y: auto;
 }
 .dsh-ff__group-row,
 .dsh-ff__folder-row,
@@ -925,13 +952,17 @@ const RECENT_LIMIT = 5;
 			if (ra !== rb) return ra - rb;
 			return byFolderOrder(a, b);
 		}
-		/** Pinned sessions first (in pin order), the rest newest-first. */
-		function deriveOrderedSessions(sessionIds, pinnedIds, list, visible) {
+		/**
+		* Pinned sessions first (in pin order), the rest newest-first.
+		* @param withPending - row annotator supplied by the caller's derivation,
+		* so a folder row carries the same pending-interaction fact as a loose one.
+		*/
+		function deriveOrderedSessions(sessionIds, pinnedIds, list, visible, withPending) {
 			const pinnedSet = /* @__PURE__ */ new Set(pinnedIds);
 			return [
-				...pinnedIds.map((id) => list.byId[id]).filter(visible),
+				...pinnedIds.map((id) => withPending(list.byId[id])).filter(visible),
 				...sessionIds
-					.map((id) => list.byId[id])
+					.map((id) => withPending(list.byId[id]))
 					.filter(visible)
 					.filter((summary) => !pinnedSet.has(summary.id))
 					.sort(byRecency)
@@ -961,17 +992,26 @@ const RECENT_LIMIT = 5;
 			if (bucket.unit === "now") return t("time.now");
 			return t("time.ago", { t: t("time." + bucket.unit, { n: bucket.n }) });
 		}
-		/** Row status dot: running, pending interaction, or completed. */
-		function rowStatusDot(session) {
+		/**
+		* Row status dot. A pending user interaction outranks live activity: the
+		* run is parked on the user, so the row shows the amber attention dot
+		* instead of the spinning one (built-in browser parity). Running, then
+		* the completion reminder, follow.
+		* @param session - session summary.
+		* @param pending - pending interaction kind, if the row is waiting.
+		*/
+		function rowStatusDot(session, pending) {
+			if (pending !== void 0) return "warning";
 			if (session.running === true) return "ongoing";
-			if (session.pendingInteraction !== void 0) return "warning";
 			if (session.completed === true) return "done";
 			return null;
 		}
 		/** Status aria label for a dot state. */
-		function statusAria(status, t) {
+		function statusAria(pending, status, t) {
+			if (pending === "plan-review") return t("status.planReview");
+			if (pending === "question") return t("status.waitingAnswer");
+			if (pending !== void 0) return t("status.waitingApproval");
 			if (status === "ongoing") return t("status.running");
-			if (status === "warning") return t("status.waitingApproval");
 			if (status === "done") return t("status.completed");
 			return "";
 		}
@@ -992,8 +1032,21 @@ const RECENT_LIMIT = 5;
 		* @param pinnedLoose - server-stored loose-bucket pin lists per workspace ({} while unknown).
 		* @returns the derived view.
 		*/
-		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose) {
+		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose, pendingBySession) {
 			const visible = (summary) => summary !== void 0 && sessionVisible(summary, archived);
+			/**
+			* One session row with its pending interaction folded in. Every summary
+			* this derivation hands out goes through here, so the status dot, its
+			* tooltip, and search rows all read the same fact without the callers
+			* knowing the runtime's pending map exists. Sessions with nothing
+			* pending keep their stored summary by identity.
+			*/
+			const withPending = (summary) => {
+				if (summary === void 0) return void 0;
+				const kind = pendingBySession.get(summary.id)?.kind;
+				if (kind === void 0 || !PENDING_KINDS.includes(kind)) return summary;
+				return { ...summary, pendingInteraction: kind };
+			};
 			const folderOf = /* @__PURE__ */ new Map();
 			const sessionWorkspace = /* @__PURE__ */ new Map();
 			const foldersByWorkspace = /* @__PURE__ */ new Map();
@@ -1033,7 +1086,7 @@ const RECENT_LIMIT = 5;
 						id: folder.id,
 						name: folder.name,
 						pinnedSessionIds: folder.pinnedSessionIds ?? [],
-						sessions: deriveOrderedSessions(folder.sessionIds, folder.pinnedSessionIds ?? [], list, visible)
+						sessions: deriveOrderedSessions(folder.sessionIds, folder.pinnedSessionIds ?? [], list, visible, withPending)
 					}))
 					// The Restored folder hides itself while it has no visible
 					// sessions (archived sessions keep folder membership, so the
@@ -1045,9 +1098,9 @@ const RECENT_LIMIT = 5;
 				}
 				const loosePinnedIds = (pinnedLoose ?? {})[workspace.workspaceId] ?? [];
 				const loose = [
-					...loosePinnedIds.map((id) => list.byId[id]).filter(visible).filter((summary) => !inFolder.has(summary.id)),
+					...loosePinnedIds.map((id) => withPending(list.byId[id])).filter(visible).filter((summary) => !inFolder.has(summary.id)),
 					...workspace.sessionIds
-						.map((id) => list.byId[id])
+						.map((id) => withPending(list.byId[id]))
 						.filter(visible)
 						.filter((summary) => !inFolder.has(summary.id) && !loosePinnedIds.includes(summary.id))
 						.sort(byRecency)
@@ -1062,7 +1115,7 @@ const RECENT_LIMIT = 5;
 				});
 			}
 			const visibleSessions = list.ids
-				.map((id) => list.byId[id])
+				.map((id) => withPending(list.byId[id]))
 				.filter(visible);
 			const stray = visibleSessions.filter((summary) => !accounted.has(summary.id)).sort(byRecency);
 			return {
@@ -1184,11 +1237,24 @@ const RECENT_LIMIT = 5;
 		function FeatureFoldersBrowser(props) {
 			injectStyle();
 			const { wide, expandSidebar } = props;
-			const { useSessions, useWorkspaces, useStore, actions, t } = props;
+			const { useSessions, useWorkspaces, useStore, useSessionPendingInteraction, actions, t } = props;
 			const { open, searchSessions, searchResultLimit, renameSession, forkSession, renameWorkspace, deleteWorkspace, archiveSession, createWorkspace, pickDirectory, refreshWorkspaces, startSession, connectWorkspace, openWorkspaceFolder, quoteSession } = props;
 			const list = useSessions((state) => state);
 			const workspaces = useWorkspaces((state) => state.items);
 			const archivedSessionIds = useWorkspaces((state) => state.archivedSessionIds);
+			/**
+			* Pending UI interaction per session, from the runtime's own root source
+			* (ui-session's `sessionPendingInteraction`, bound by the renderer into
+			* this selector hook). Session summaries carry no such field, so without
+			* it a run parked on an approval or an answer is indistinguishable from
+			* one that is working, and its row keeps spinning. The selector yields
+			* the same map identity while nothing changes, so the derivation below
+			* memoizes cleanly. Guarded: if the source is not bound in a given
+			* composition, the section loses one fact instead of the whole sidebar.
+			*/
+			const pendingBySession = useSessionPendingInteraction === void 0
+				? EMPTY_PENDING
+				: useSessionPendingInteraction((state) => state ?? EMPTY_PENDING);
 			const collapsedGroups = useStore((state) => state.collapsedGroups);
 			const collapsedFolders = useStore((state) => state.collapsedFolders);
 			const archiveShown = useStore((state) => state.archiveShown ?? {});
@@ -1301,7 +1367,7 @@ const RECENT_LIMIT = 5;
 			//#endregion
 			//#region derivation
 			const archivedSet = react.useMemo(() => new Set(archivedSessionIds), [archivedSessionIds]);
-			const view = react.useMemo(() => deriveView(list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose), [list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose]);
+			const view = react.useMemo(() => deriveView(list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, pendingBySession), [list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, pendingBySession]);
 			/** The current session's workspace and folder (accent highlight). */
 			const currentWorkspaceId = view.sessionWorkspace.get(list.current)?.workspaceId;
 			const currentFolderId = view.folderOf.get(list.current)?.id ?? null;
@@ -1324,7 +1390,8 @@ const RECENT_LIMIT = 5;
 				return map;
 			}, [archivedSet, list, view]);
 			/** The Recent section: the session of each workspace's loose surface
-			 * and folders, newest first, capped; only sessions with a workspace. */
+			 * and folders, newest first, capped at RECENT_LIMIT; only sessions
+			 * with a workspace. */
 			const recentSessions = react.useMemo(() => {
 				const bucket = [];
 				for (const summary of view.visibleSessions) {
@@ -1795,8 +1862,8 @@ const RECENT_LIMIT = 5;
 				onBlur: (event) => commitInlineRename(event.currentTarget.value)
 				});
 			const renderSessionRow = (summary, onOpen, guide, origin, path) => {
-				const status = rowStatusDot(summary);
-				const statusText = statusAria(status, t);
+				const status = rowStatusDot(summary, summary.pendingInteraction);
+				const statusText = statusAria(summary.pendingInteraction, status, t);
 				const timeText = timeLabel(summary.updatedAt, now, t);
 				const selected = summary.id === list.current;
 				const editingSession = inlineEdit !== null && inlineEdit.kind === "session" && inlineEdit.id === summary.id;
@@ -1875,8 +1942,8 @@ const RECENT_LIMIT = 5;
 				);
 			};
 			const renderSearchRow = (row) => {
-				const status = rowStatusDot(row);
-				const statusText = statusAria(status, t);
+				const status = rowStatusDot(row, row.pendingInteraction);
+				const statusText = statusAria(row.pendingInteraction, status, t);
 				const selected = row.id === list.current;
 				return e("div", {
 					key: row.id,
@@ -2038,8 +2105,8 @@ const RECENT_LIMIT = 5;
 			 * restore (the drop lands it in a folder or the loose area and
 			 * un-archives it). No context menu — restore happens by dragging. */
 			const renderArchiveRow = (summary) => {
-				const status = rowStatusDot(summary);
-				const statusText = statusAria(status, t);
+				const status = rowStatusDot(summary, summary.pendingInteraction);
+				const statusText = statusAria(summary.pendingInteraction, status, t);
 				const timeText = timeLabel(summary.updatedAt, now, t);
 				const selected = summary.id === list.current;
 				return e("div", {
@@ -2388,27 +2455,36 @@ const RECENT_LIMIT = 5;
 					onClick: () => { setNotice(null); setFoldersError(null); }
 				}, e(primitives.IconCloseFill14, {}))
 			);
-			const browserList = view.groups.length === 0 && view.ungrouped === null && recentSessions.length === 0
+			/** Pinned Recent section: it sits in the column between the workspace
+			 * header and the scrolling list, so it stays visible while only the
+			 * workspace groups scroll — nothing ever passes under it, and it
+			 * needs no background of its own. The first ARCHIVE_ROW_LIMIT rows
+			 * show outright, the remaining 5 wait behind the section's own
+			 * "Show more" toggle. */
+			const recentBlock = !searching && effectiveFocus === null && recentSessions.length > 0
+				? e("div", { key: "recent", className: "dsh-ff__group dsh-ff__recent" },
+					e("div", {
+						role: "treeitem",
+						"aria-expanded": recentShown,
+						className: "dsh-ff__group-row",
+						onClick: () => actions.setRecentShown(!recentShown)
+					},
+						e("span", { className: "dsh-ff__folder-icon" }, clockIcon(14)),
+						e("span", { className: "dsh-ff__title" }, t("recent.label"))
+					),
+					recentShown && (moreShown.has("recent") ? recentSessions : recentSessions.slice(0, ARCHIVE_ROW_LIMIT)).map((summary) => renderSessionRow(summary, (item) => {
+						// Reveal the session's home first (expand its workspace
+						// group and folder, scroll there, flash the row), then
+						// open it: the flash marks the original spot.
+						jumpToOrigin(item.id);
+						open(item.id);
+					}, void 0, true)),
+					recentShown && renderMoreToggle("recent", recentSessions.length)
+				)
+				: null;
+			const browserList = view.groups.length === 0 && view.ungrouped === null
 				? e("div", { className: "dsh-ff__empty" }, t("empty.none"))
 				: e(react.Fragment, {},
-					effectiveFocus === null && recentSessions.length > 0 && e("div", { key: "recent", className: "dsh-ff__group" },
-						e("div", {
-							role: "treeitem",
-							"aria-expanded": recentShown,
-							className: "dsh-ff__group-row",
-							onClick: () => actions.setRecentShown(!recentShown)
-						},
-							e("span", { className: "dsh-ff__folder-icon" }, clockIcon(14)),
-							e("span", { className: "dsh-ff__title" }, t("recent.label"))
-						),
-						recentShown && recentSessions.map((summary) => renderSessionRow(summary, (item) => {
-							// Reveal the session's home first (expand its workspace
-							// group and folder, scroll there, flash the row), then
-							// open it: the flash marks the original spot.
-							jumpToOrigin(item.id);
-							open(item.id);
-						}, void 0, true))
-					),
 					view.groups.filter((group) => effectiveFocus === null || group.workspaceId === effectiveFocus).map(renderGroup),
 					effectiveFocus === null && lastWorkspaceKey !== null && e("div", {
 						key: "ws-tail",
@@ -2749,6 +2825,7 @@ const RECENT_LIMIT = 5;
 					}, e(primitives.IconProjectAddOutline16, { size: 18 }))
 				),
 				noticeBar,
+				wide && recentBlock,
 				e("div", { className: "dsh-ff__list" }, wide ? (trimmedQuery !== "" ? searchList : browserList) : null),
 				renderDialog(),
 				renderContextMenu(),
