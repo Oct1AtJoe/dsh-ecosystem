@@ -22,6 +22,7 @@ import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-r
 import {
   fitProducedFiles, ProducedFiles, type ProducedFilesProps,
 } from '../src/client/ProducedFiles.tsx'
+import { ToolMutationRow } from '../src/client/ToolMutationRow.tsx'
 import { diffLines } from '../src/client/DiffBlock.tsx'
 import {
   basename, deliverablesDefinition, diffStats, dirname, producedFileMentions, producedForClosing, selectProducedFiles,
@@ -693,14 +694,17 @@ describe('package shells', () => {
 })
 
 describe('plugin registration', () => {
-  it('registers the tail entry and fiber disposal removes it', async () => {
+  it('registers the tail entry, toolview entries, and fiber disposal removes them', async () => {
     const ctx = new Context()
     await ctx.plugin(SlotRegistry).await()
     await ctx.plugin(ConversationEventRegistry).await()
     // The owning view's child declaration, stood up by a bench root entry.
     ctx.slots.register({
       name: 'root',
-      children: { 'conversation.chat.turnTail': { kind: 'chain', scope: 'session' } },
+      children: {
+        'conversation.chat.turnTail': { kind: 'chain', scope: 'session' },
+        'tool.call.toolview': { kind: 'keyed', scope: 'session' },
+      },
     } as never, () => null)
     const hostDescription = { getSnapshot: () => undefined, subscribe: () => () => {} }
     ctx.provide('connection', {
@@ -719,6 +723,11 @@ describe('plugin registration', () => {
     expect(entry).toBeDefined()
     expect(entry?.inject?.()).toEqual({ isLoopback: false, hooks: { hostDescription } })
 
+    const toolEntries = ctx.slots.entries('tool.call.toolview')
+    expect(toolEntries.map(e => e.options.key)).toEqual(['edit', 'write'])
+    expect(toolEntries[0]?.options.priority).toBe(-5)
+    expect(toolEntries[1]?.options.priority).toBe(-5)
+
     // The prose face is live while the plugin is: a produced turn yields a
     // resolver whose matches open through the owner-supplied opener.
     const opened: string[] = []
@@ -736,7 +745,54 @@ describe('plugin registration', () => {
 
     await fiber.dispose()
     expect(ctx.slots.entries('conversation.chat.turnTail')).toHaveLength(0)
+    expect(ctx.slots.entries('tool.call.toolview')).toHaveLength(0)
     // Fiber teardown retracts the service: the consumer's ctx.get sees the off state.
     expect((ctx as unknown as { get(name: string): unknown }).get('chatFileMentions')).toBeUndefined()
+  })
+})
+
+describe('ToolMutationRow', () => {
+  it('renders accurate diffStat and toggles expansion with intelligent DiffBlock', () => {
+    const openFile = vi.fn()
+    const view = render(
+      <ToolMutationRow
+        callId="test-call-1"
+        toolName="edit"
+        block={{
+          kind: 'tool-result',
+          isError: false,
+          callId: 'test-call-1',
+          argsRaw: JSON.stringify({
+            file_path: 'src/config.json',
+            old_string: '  "test456"\n]',
+            new_string: '  "test456",\n  "test232"\n]',
+          }),
+          meta: {
+            // Simulated native meta.diffs with redundant context lines
+            diffs: [{
+              path: 'src/config.json',
+              oldText: '[\n  "test123",\n  "test456"\n]',
+              newText: '[\n  "test123",\n  "test456",\n  "test232"\n]',
+            }],
+          },
+        }}
+        openFile={openFile}
+        t={(key: string) => key}
+      />,
+    )
+
+    // Instead of native DSH's duplicate "+5 -4", it calculates "+1 -0"
+    expect(view.getByText('+1 -0')).toBeTruthy()
+
+    // File link opens file
+    const link = view.getByRole('button', { name: 'src/config.json' })
+    fireEvent.click(link)
+    expect(openFile).toHaveBeenCalledWith('src/config.json')
+
+    // Click row to expand
+    fireEvent.click(view.getByText('tool.title.edit'))
+    // Expanded diff only contains the new element
+    expect(view.getByText('"test232"')).toBeTruthy()
+    expect(view.queryByText('"test123"')).toBeNull()
   })
 })

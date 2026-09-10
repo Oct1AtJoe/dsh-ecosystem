@@ -16,6 +16,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
 }
 export { ProducedFiles, type ProducedFilesProps } from './ProducedFiles.tsx';
+export { ToolMutationRow, type ToolMutationRowProps } from './ToolMutationRow.tsx';
 export { producedForClosing } from './turn-deliverables.ts';
 /** Required services for the tail-slot registration and its dictionaries. */
 export declare const inject: string[];

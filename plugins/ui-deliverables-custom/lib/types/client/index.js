@@ -1,8 +1,10 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store';
 import { ProducedFiles } from "./ProducedFiles.js";
+import { ToolMutationRow } from "./ToolMutationRow.js";
 import { en, NS, zh } from "./locales.js";
 import { deliverablesDefinition, producedFileMentions, producedForClosing, selectProducedFiles, } from "./turn-deliverables.js";
 export { ProducedFiles } from "./ProducedFiles.js";
+export { ToolMutationRow } from "./ToolMutationRow.js";
 export { producedForClosing } from "./turn-deliverables.js";
 /** Required services for the tail-slot registration and its dictionaries. */
 export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.session'];
@@ -59,6 +61,20 @@ export function apply(ctx) {
             hooks: { workspacePathOpen },
         }),
     }, ProducedFiles));
+    ctx.slots.inject('tool.call.toolview', function* () {
+        yield ctx.slots.register({
+            name: 'tool.call.toolview',
+            key: 'edit',
+            priority: -5,
+            locale: 'conversation',
+        }, ToolMutationRow);
+        yield ctx.slots.register({
+            name: 'tool.call.toolview',
+            key: 'write',
+            priority: -5,
+            locale: 'conversation',
+        }, ToolMutationRow);
+    });
     // The prose side of the same vocabulary: the chat view reaches this face
     // via ctx.get, so its absence — this plugin composed out — is the off state.
     const t = ctx.locale.bind(NS);

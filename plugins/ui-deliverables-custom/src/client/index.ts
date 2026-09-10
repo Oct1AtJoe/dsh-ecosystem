@@ -15,6 +15,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { ProducedFiles } from './ProducedFiles.tsx'
+import { ToolMutationRow } from './ToolMutationRow.tsx'
 import { en, NS, zh, type DeliverablesKey } from './locales.ts'
 import {
   deliverablesDefinition, producedFileMentions, producedForClosing, selectProducedFiles,
@@ -28,6 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 export { ProducedFiles, type ProducedFilesProps } from './ProducedFiles.tsx'
+export { ToolMutationRow, type ToolMutationRowProps } from './ToolMutationRow.tsx'
 export { producedForClosing } from './turn-deliverables.ts'
 
 /** Required services for the tail-slot registration and its dictionaries. */
@@ -84,6 +86,20 @@ export function apply(ctx: ClientContext): void {
       }),
     }, ProducedFiles),
   )
+  ctx.slots.inject('tool.call.toolview', function* () {
+    yield ctx.slots.register({
+      name: 'tool.call.toolview',
+      key: 'edit',
+      priority: -5,
+      locale: 'conversation',
+    }, ToolMutationRow)
+    yield ctx.slots.register({
+      name: 'tool.call.toolview',
+      key: 'write',
+      priority: -5,
+      locale: 'conversation',
+    }, ToolMutationRow)
+  })
   // The prose side of the same vocabulary: the chat view reaches this face
   // via ctx.get, so its absence — this plugin composed out — is the off state.
   const t = ctx.locale.bind(NS)

@@ -84,3 +84,13 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
   2. 变动块之间存在未变动代码时，输出 `gap: '⋯'` 分隔行；
   3. `buildRows` 在无 path header 模式下，同文件跨 hunk 渲染时自动在 hunk 间补充 `gap: '⋯'` 分隔行。彻底解决非相邻行挤在一起的歧义。
 
+### 8. 2026-09-10 任务执行过程中 edit/write 工具调用展开面板的虚增修复
+
+- **现象**：原生 DSH 任务执行过程中的 `edit` / `write` 工具调用卡片（流中的工具折叠行），展开后同样存在「未修改上下文行被先全部删除、再全部新增加回」的严重虚增问题（例如只追加 1 行却显示 `+5 -4`）。
+- **根因**：官方 `@deepseek-ai/dsh-client-ui-tool` 使用 `@deepseek-ai/dsh-client-ui-primitives` 的 `DiffBlock`，其算法不比较两端内容，机械地把 `diff.oldText` 全算删除（红 `-`）、`diff.newText` 全算新增（绿 `+`），未剥除上下文。
+- **修复**：
+  1. 新增 `ToolMutationRow.tsx` 与 `ToolMutationRow.module.css`，接入定制 `DiffBlock` 与 `diffStats`（基于 LCS + 标点归一化 + `⋯` gap 隔离）；
+  2. 在 `src/client/index.ts` 中通过 `ctx.slots.inject('tool.call.toolview')` 以 `priority: -5` 注册 `key: 'edit'` 与 `key: 'write'`，遮蔽官方默认的 `FileMutationRow`（`priority: 0`）；
+  3. 彻底修复执行过程中的行数徽标（显示真实变动如 `+1 -0` 而非 `+5 -4`）及展开面板中的变动行展示。
+
+
