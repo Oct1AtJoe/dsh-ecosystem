@@ -34,7 +34,9 @@ Kanye-pet 有 **两个独立的宠物渲染通道**，互不依赖：
 | **Tauri 透明窗口** | `desktop-tauri/src/pet.html` + `pet.js` | CSS background sprite 动画 | 独立 exe 渲染 |
 | **Web GUI 浮宠** | `kanye-pet/lib/client/index.mjs` | DOM + CSS + Canvas | 浏览器内嵌 |
 
-> **关键决策**：内置化后，**Web GUI 浮宠已禁用**（`apply` 返回空 disposer），仅保留 Tauri 桌面窗。
+> **关键决策**：内置化后，**Web GUI 浮宠在源码层已禁用**（`lib/client/index.mjs` 的 `apply` 返回空 disposer），设计上只保留 Tauri 桌面窗。
+>
+> ⚠️ **但线上跑的是构建产物 `lib/client.js`**（8-27 14:08），它**早于**源码里的禁用改动（14:25）→ 网页里的浮宠其实还活着，网页里会庆祝/思考的那只就是它。核实通道归属时先比对两个文件的 mtime，别只读源码（见 §七 #39）。
 
 ### 1.3 数据流
 
@@ -355,6 +357,7 @@ onReset={() => { props.edit('opacity', '1') }}    // ← 透明度默认值
 | 触发时机 | **主对话 turn 结束**（turn/end 写入会话事件日志） |
 | 与回复内容无关 | 不看 assistant/message 内容 |
 | 子进程不触发 | 子进程 job 完成（onJobDone）**不**直接发通知 |
+| 子代理不触发 | 子代理子会话（`session.header.origin === 'subagent'`）的 turn/end、审批、提问**一律不出气泡、不报警、不庆祝**；一个对话任务内的子任务完成不打扰用户，只有该对话自身 turn/end 才通知/庆祝。**不静音**范围：think 陪伴（`sessionThink`）、等待姿态、账本 XP/称号/回忆 |
 | 只看主对话 | 只看主 session 的 turn/end |
 | 状态映射 | `completed` → 任务完成 / `error` → 任务出错 / `aborted`/`interrupted` → 任务中止 |
 
@@ -468,6 +471,8 @@ approval    → 等待你的审批    // approval/asked 事件
 - **工具审批不产生 turn/end blocked**：审批等待时 turn 保持 OPEN，批准后直接 `completed`。必须靠 `approval/asked` 事件检测
 - **`ask_user_question` / `exit_plan_mode` 不产生 turn/end**：工具 async 等待用户回答，turn 不结束。必须靠 tool/call 快速路径
 - **ShimNotification 对 pending 标签的特判**：原逻辑对 `-pending-` 标签通知永远走 Windows，与 pet 气泡重复。改为统一查 `desktopPetEnabled`（见 5.3）
+- **子代理过滤只允许一处**：三条路径的唯一汇聚点是 `setPetNotification()`，子代理拦截守卫（`session.header.origin === 'subagent'`）写在函数首行。**新增任何检测路径必须经 `setPetNotification()` 发通知**，否则绕过的路径会把子代理子任务重新变成气泡噪音（§七 #37）
+- **庆祝（animation）有三个写入点，必须同规则**：① `session/event` 的 turn/end → `turnCompletedUntil`；② `onJobDone` 完成 → `celebrateUntil` + `emitSignal('celebrate')`；③ `activity()` 里由 job 翻转派生的 celebrate burst。① 直接读 `session.header.origin`；②③ 读 `JobSnapshot.ownerSession` 查 `subagentSessions` 集合（事件流首见子代理会话时登记）。**账本（XP/称号/回忆）不受抑制**——只静音表现层（§七 #38）
 
 ### 5.7 通知提示音
 
@@ -652,6 +657,9 @@ Remove-Item "$env:LOCALAPPDATA\ai.deepseek.harness.desktop\EBWebView" -Recurse -
 | 34 | ⚠️ pending 通知与 Windows toast 重复 | ShimNotification 原逻辑对 `-pending-` 标签永远走 Windows。改 pending 通知也查 `desktopPetEnabled`（§5.3） |
 | 35 | ⚠️ rc.1 升级后任务完成气泡全失效（无任何报错） | rc.1 Session 事件日志私有化，`session.events` 恒 `undefined`，守卫 `typeof session?.events?.slice === 'function'` 把它静默兜成空数组 → 扫描永不命中。三处读日志全部改 `session.snapshotEvents()`：事件路径扫描、`/state` 轮询兜底、`resolveSessionTitle` 的 titleFromLog（2026-09-04 修复，壳日志实证 130 次轮询 0 通知）。pending 通知读回调事件参数本身，不受影响 |
 | 36 | ⚠️ 新会话首个回合完成不通知（重启后测第一个任务必静默） | seed 分支原为 `if (lastSeq >= 0)` 才写 `lastTurnEndNotif`——新会话首个 turn/end 到来时 `has()` 仍为 false，重进 seed 分支被当历史回合标记抑制。改为无条件 `lastTurnEndNotif.set(id, lastSeq)`（含 -1，2026-09-04 修复） |
+| 37 | ⚠️ 子代理子任务完成也弹气泡（一个对话任务里刷一串通知） | 三条检测路径原本对所有会话生效，子代理子会话（`session.header.origin === 'subagent'`）的 turn/end / 审批 / 提问全部照发。修复：`setPetNotification()` 首行按 `origin === 'subagent'` 拦截（2026-09-10）。判定字段实证自会话日志 header：`{"parentSession":"session-…","origin":"subagent","delegationDepth":1}`；`parentSession` 单独存在 = fork 世系，仍算主会话，**不能**用它当子代理判据 |
+| 38 | ⚠️ 子代理跑一轮，宠物就庆祝一次（动画刷屏） | 庆祝窗口有三个写入点，全部对子代理照发：① turn/end → `turnCompletedUntil`；② `onJobDone` 完成 → `celebrateUntil` + `celebrate` 信号；③ `activity()` 里 job 翻转派生的 celebrate burst（客户端 `burst` 行取 `activity.name` 播 celebrate 状态）。修复（2026-09-10）：① 读 `session.header.origin`；②③ 读 `JobSnapshot.ownerSession` 查 `subagentSessions`（事件流首见登记，`JobSnapshot` 无 header 只能归属查表）。**只静音表现层**——账本 XP/称号/回忆、`working`/`think` 陪伴、等待姿态一律不变 |
+| 39 | ⚠️ §1.2「Web GUI 浮宠已禁用」与线上不符 | `lib/client/index.mjs`（源码 8-27 14:25）确有禁用早退，但构建产物 `lib/client.js`（8-27 14:08）**早于该改动**，仍带完整浮宠：`apply` 无早退、CSS 全在、`STATE_TABLE` 的 `burst`/`celebrate`/`think` 行都在 → 网页里那个会庆祝的宠物就是它。**别顺手 `npm run build:client`**（那会真的把用户的宠物关掉）；改表现层语义请改 host `/state` 字段（本表 #38 即此路线） |
 
 ---
 
@@ -663,8 +671,8 @@ packages/desktop/kanye-pet/
 ├── lib/src/config.mjs          # Host schema + 默认值
 ├── lib/src/routes.mjs          # HTTP 路由
 ├── lib/src/session-events.mjs  # turn 边沿判定（parseTurnEvent）
-├── lib/client/index.mjs        # Client half（已禁用）
-├── lib/client.js               # Client half 构建产物（空壳）
+├── lib/client/index.mjs        # Client half（源码层已禁用）
+├── lib/client.js               # Client half 构建产物（8-27 构建，早于禁用改动 → 浮宠仍在线，见 §七 #39）
 ├── cordis.patch.yml            # 宿主组合挂载
 └── assets/manifest.json        # 角色 sprite 清单
 

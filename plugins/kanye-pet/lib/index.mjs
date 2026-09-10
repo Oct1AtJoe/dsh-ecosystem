@@ -61,22 +61,34 @@ function saveState(next) {
       }
 }
 
-/** 收集宿主全部任务：owned（按 agent 遍历，绕过 owner fence）+ unowned，按 id 去重。 */
-function collectTasks(ctx) {
+/**
+ * 收集宿主全部任务：owned（按 agent 遍历，绕过 owner fence）+ unowned，按 id 去重。
+ * `subagent` 标记该 job 是否由子代理会话发起（`ownerSession` 命中 subagentSessions），
+ * 供调用方把子代理自有的完成从庆祝里排除（`deriveActivity` 只读 id/status，多带字段无副作用）。
+ * @param {object} ctx 宿主上下文（用 ctx.jobs / ctx.agents）
+ * @param {Set<string>} subagentSessions 子代理会话 id 集合
+ */
+function collectTasks(ctx, subagentSessions = new Set()) {
   const jobs = ctx.jobs
   const seen = new Set()
   const out = []
+  const tag = (snapshot) => ({
+    id: snapshot.id,
+    status: snapshot.status,
+    label: snapshot.label,
+    subagent: typeof snapshot.ownerSession === 'string' && subagentSessions.has(snapshot.ownerSession),
+  })
   for (const agent of ctx.agents.list()) {
     for (const snapshot of jobs.list(agent)) {
       if (seen.has(snapshot.id)) continue
       seen.add(snapshot.id)
-      out.push({ id: snapshot.id, status: snapshot.status, label: snapshot.label })
+      out.push(tag(snapshot))
     }
   }
   for (const snapshot of jobs.list()) {
     if (seen.has(snapshot.id)) continue
     seen.add(snapshot.id)
-    out.push({ id: snapshot.id, status: snapshot.status, label: snapshot.label })
+    out.push(tag(snapshot))
   }
   return out
 }
@@ -161,6 +173,15 @@ export function apply(ctx) {
   const lastTurnEndNotif = new Map()   // sessionId → seq
   /** 已完成首次事件处理的 session（防事件重放期间误发通知） */
   const sessionInitialized = new Set()   // sessionId
+  /**
+   * 子代理子会话 id 集合（`header.origin === 'subagent'`，事件流首见时登记）。
+   * 用途：job 侧庆祝归属——`JobSnapshot` 只带 `ownerSession` 拿不到 header，
+   * 靠本集合判断该 job 是否子代理自有。与 `lastTurnEndNotif` 同为每会话一条，
+   * 不回收（同一量级；子代理场次极多时再谈按会话终态清理）。
+   */
+  const subagentSessions = new Set()   // sessionId
+  /** 事件路径的权威判据：会话 header 分类（见 src/… 宿主 SessionHeader.origin）。 */
+  const isSubagentSession = (session) => session?.header?.origin === 'subagent'
 
   // ---- 会话状态聚合（v8：官方自渲染 client 无 ctx.sessions——Node half 聚合进 /state）----
   // client 自执行脚本 `apply({})` 拿不到宿主 sessions 服务（官方注入面只给 __DSH_BOOT__），
@@ -211,12 +232,16 @@ export function apply(ctx) {
   /**
    * 设通知并广播。reasonOrPending 优先查 TITLE_MAP，再查 PENDING_TITLE_MAP，
    * 都不命中则用 '任务完成' 兜底。
+   * 三条检测路径（turn/end 扫描 / approval·tool 快速路径 / /state 轮询兜底）唯一汇聚点：
+   * 子代理会话（header.origin === 'subagent'）在此统一拦截——子任务完成不出气泡、不报警。
    * @param {string} id session id
    * @param {string} reasonOrPending turn/end reason kind 或 pending interaction kind
    * @param {object} session 会话对象（取标题用）
    * @param {string} [tagPrefix='notif'] 通知 tag 前缀
    */
   const setPetNotification = (id, reasonOrPending, session, tagPrefix = 'notif') => {
+    // 子代理子会话不通知：一个对话任务内的子任务完成/审批不打扰用户（父会话 turn/end 仍照常通知）
+    if (isSubagentSession(session)) return
     const title = TITLE_MAP[reasonOrPending] ?? PENDING_TITLE_MAP[reasonOrPending] ?? (
       (console.warn(`[kanye-pet] unknown notification reason "${reasonOrPending}" for ${id}, using fallback`),
       '任务完成')
@@ -291,9 +316,16 @@ export function apply(ctx) {
   // 派生活动 + 事件记账（积累）：完成 +XP/称号/回忆；失败计数；工作态累加活跃时长。
   const activity = () => {
     const now = Date.now()
-    const tasks = collectTasks(ctx)
+    const tasks = collectTasks(ctx, subagentSessions)
     const derived = deriveActivity({ tasks, nowMs: now, known, wasWorking, errorMs: configRef.errorMs })
     wasWorking = derived.wasWorking
+    // 子代理自有 job 的完成不庆祝（§5.1「子代理不触发」，与 turn/end 窗口同规则）：
+    // 翻转的 job 全是子代理自有时抑制 celebrate burst；混合/无法归属时照旧庆祝（不误杀用户自己的活）。
+    const subagentJobIds = new Set(tasks.filter((t) => t.subagent === true).map((t) => t.id))
+    const derivedBurst = derived.burst?.name === 'celebrate' && derived.completed.length > 0
+      && derived.completed.every((id) => subagentJobIds.has(id))
+      ? null
+      : derived.burst
     // 账本记账（+XP/失败计数/回忆）已迁入 ctx.jobs.onJobDone 事件驱动——
     // 页面关闭/轮询缺席时任务终态不漏记；此处只保留展示（working/burst）与活跃时长。
   if (derived.working) {
@@ -309,12 +341,12 @@ export function apply(ctx) {
     }
     // burst 级联：welcome > error > disappointed > celebrate > working > idle。
     // welcome 不打断进行中的 error/disappointed 尾段（失败失落不该被新会话欢迎盖掉）。
-    // celebrate 双源同窗：轮询翻转（derived.burst）与事件记账（celebrateUntil，F3）
+    // celebrate 双源同窗：轮询翻转（derivedBurst）与事件记账（celebrateUntil，F3）
     // 由 mergeCelebrate 取 max——页面关闭期间完成的任务（轮询缺席）重开后同样庆祝；
     // error burst 优先，并发完成不盖掉失败
   let name = derived.working ? 'working' : 'idle'
     let until = 0
-    const burst = mergeCelebrate(derived.burst, celebrateUntil, now)
+    const burst = mergeCelebrate(derivedBurst, celebrateUntil, now)
     if (burst !== null && burst.until > now) {
       name = burst.name
       until = burst.until
@@ -365,12 +397,17 @@ export function apply(ctx) {
         if (snapshot.status === 'completed') {
           const result = recordTaskCompleted(state, snapshot.label ?? '未命名任务', now)
           state = result.state
+          // 子代理自有 job：账本照记（XP/称号/回忆——活确实干完了），但不开庆祝窗口、
+          // 不发 celebrate 信号（§5.1「子代理不触发」，与 turn/end 窗口同一规则）。
+          const fromSubagent = typeof snapshot.ownerSession === 'string' && subagentSessions.has(snapshot.ownerSession)
           // F3：账本与庆祝同源——记账即开庆祝窗口。页面关闭期间完成任务（轮询缺席、
           // deriveActivity 看不到翻转）时，重开后首次轮询仍能看到本窗口，同样庆祝；
           // 与轮询翻转的 celebrate 取 max 不叠加（CELEBRATE_MS 同 BURST_MS）。
+          if (!fromSubagent) {
     celebrateUntil = Math.max(celebrateUntil, now + configRef.celebrateMs)
+            emitSignal('celebrate', { label: snapshot.label ?? '未命名任务', level: state.level })
+          }
           scheduleSave()
-          emitSignal('celebrate', { label: snapshot.label ?? '未命名任务', level: state.level })
           if (result.leveledUp) emitSignal('levelUp', { level: state.level })
         } else if (snapshot.status === 'failed') {
           state = recordFailure(state, now).state
@@ -410,6 +447,8 @@ export function apply(ctx) {
   ctx.on('session/event', (session, event) => {
         const id = typeof session?.id === 'string' ? session.id : null
         if (id === null) return
+        // 子代理子会话登记（job 侧庆祝归属用；事件流首见即登记，早于该会话发起的 job 终态）
+        if (isSubagentSession(session)) subagentSessions.add(id)
         // 每会话活动账本（/sessions 端点数据源）：turn/start → thinking、
         // tool/call → tool:<name>、turn/end（blocked → waiting / 其余 → done）、
         // session/title → 标题。会话未出现在事件流时在 /sessions 兜底
@@ -466,7 +505,11 @@ export function apply(ctx) {
           const n = (activeTurns.get(id) ?? 0) - 1
           if (n <= 0) activeTurns.delete(id)
           else activeTurns.set(id, n)
-          turnCompletedUntil = Math.max(turnCompletedUntil, Date.now() + TURN_COMPLETED_MS)
+          // 子代理回合结束不开庆祝窗口（§5.1「子代理不触发」）：一个对话任务里跑子代理时
+          // 宠物不再反复庆祝；think 陪伴（sessionThink）与账本不受影响。
+          if (!isSubagentSession(session)) {
+            turnCompletedUntil = Math.max(turnCompletedUntil, Date.now() + TURN_COMPLETED_MS)
+          }
           sessionWait = parsed.blocked // turn/end 的 reason 属等待用户（approval 等）
           sessionUpdate()
         }
