@@ -117,18 +117,35 @@ function apply(ctx) {
         model: 'mimo-v2.5',
       }
 
-      // ④ 调 LLM（传 reasoningEffort: 'off' 关思考，保证速度与确定性）
+      // ④ 调 LLM（Few-Shot 强约束，严禁答题/写代码，maxTokens 压至 32 保证 <1 秒）
+      const userPrompt = [
+        '根据以下输入，提取对话类型和2-8字核心主题。',
+        '只输出一行格式：类型|主题',
+        `类型只选一个：${TYPES.join('、')}`,
+        '不要回答问题，不要解释，不要写代码，不要输出任何其他内容。',
+        '',
+        '示例：',
+        '输入：帮我写个快速排序算法',
+        '输出：功能|快速排序算法',
+        '',
+        '输入：排查登录报错500',
+        '输出：修复|登录500报错',
+        '',
+        `输入：${msgText}`,
+        '输出：',
+      ].join('\n')
+
       const assembler = new BlockAssembler()
       for await (const chunk of ctx.llm.stream({
         provider: route.provider,
         model: route.model,
         reasoningEffort: 'off',
-        system: SYSTEM_PROMPT,
+        system: '你是一个严格的标题提取助手，只输出一行“类型|主题”，严禁回答用户问题，严禁编写代码。',
         messages: [createUserMessage({
-          content: [{ type: 'text', text: JSON.stringify({ message: msgText }) }],
+          content: [{ type: 'text', text: userPrompt }],
           source: { kind: 'plugin', plugin: 'dsh-session-title-custom' },
         })],
-        maxTokens: 512,
+        maxTokens: 32,
         purpose: 'session-title',
         signal,
       })) {

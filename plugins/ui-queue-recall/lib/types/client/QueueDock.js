@@ -29,14 +29,33 @@ function QueueThumb({ attachment, loadImage, label }) {
         : _jsx("img", { className: css.thumb, src: url, alt: label });
 }
 /**
+ * Track request IDs of submissions that were submitted while idle (placement: transcript).
+ * The host temporarily places these in inbox.nextTurn during driver wakeup/assemble, which
+ * emits a transient placement: queued frame. They must not flicker into the queue dock.
+ */
+const transcriptRequestIds = new Set();
+/**
  * Custom Queue dock: one item renders directly; multiple items default to a
  * collapsible count header; an empty queue renders nothing.
  * Clicking the edit button directly recalls the message to the composer draft.
  */
 export function QueueDock({ useSession, useInput, inputActions, updateQueue, notify, loadImage, t, }) {
     const inbox = useSession(s => s.queue);
-    const queue = useMemo(() => inbox.filter(row => row.placement === 'queued'), [inbox]);
     const pendingSubmissions = useSession(s => s.pendingSubmissions);
+    // Track any submission originating as a transcript prompt
+    for (const submission of pendingSubmissions) {
+        if (submission.placement === 'transcript') {
+            transcriptRequestIds.add(submission.requestId);
+        }
+    }
+    // Filter queue: exclude messages originating from an idle transcript send
+    const queue = useMemo(() => inbox.filter((row) => {
+        if (row.placement !== 'queued')
+            return false;
+        if (row.rpcId !== undefined && transcriptRequestIds.has(row.rpcId))
+            return false;
+        return true;
+    }), [inbox, pendingSubmissions]);
     const pendingQueue = useMemo(() => {
         const admitted = new Set(queue.flatMap(row => row.rpcId === undefined ? [] : [row.rpcId]));
         return pendingSubmissions.filter(submission => (submission.placement === 'queued' && !admitted.has(submission.requestId)));
@@ -52,6 +71,20 @@ export function QueueDock({ useSession, useInput, inputActions, updateQueue, not
         if (rowCount === 0 && !collapsed)
             setCollapsed(true);
     }, [collapsed, rowCount]);
+    // Prune settled IDs that are no longer pending and no longer in the inbox
+    useEffect(() => {
+        if (transcriptRequestIds.size === 0)
+            return;
+        const active = new Set([
+            ...pendingSubmissions.map(s => s.requestId),
+            ...inbox.flatMap(r => r.rpcId !== undefined ? [r.rpcId] : []),
+        ]);
+        for (const id of transcriptRequestIds) {
+            if (!active.has(id)) {
+                transcriptRequestIds.delete(id);
+            }
+        }
+    }, [inbox, pendingSubmissions]);
     if (rowCount === 0)
         return null;
     const interactionActive = queueMutable && busy !== null;

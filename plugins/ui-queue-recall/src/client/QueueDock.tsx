@@ -1,4 +1,12 @@
 import { useEffect, useId, useMemo, useState } from 'react'
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import {
+  IconChevronDownOutline14, IconChevronUpOutline14,
+  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, projectUserText, Tooltip,
+} from '@deepseek-ai/dsh-client-ui-primitives'
+import type { SessionFace, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
+import css from './QueueDock.module.css'
+
 export interface ImageAttachmentRef {
   readonly attachmentId: string
   readonly mediaType?: string
@@ -7,13 +15,6 @@ export interface ImageAttachmentRef {
   readonly height?: number
   readonly name?: string
 }
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import {
-  IconChevronDownOutline14, IconChevronUpOutline14,
-  IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, projectUserText, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { SessionFace, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import css from './QueueDock.module.css'
 
 export type QueueItemId = Parameters<SessionFace['updateQueue']>[0]
 export type QueueAction = Parameters<SessionFace['updateQueue']>[1]
@@ -64,6 +65,13 @@ function QueueThumb({ attachment, loadImage, label }: {
 export type QueueDockProps = PropsRuntime<'conversation.input.dock'> & QueueDockInjected & PropsLocale<'queueRecall'>
 
 /**
+ * Track request IDs of submissions that were submitted while idle (placement: transcript).
+ * The host temporarily places these in inbox.nextTurn during driver wakeup/assemble, which
+ * emits a transient placement: queued frame. They must not flicker into the queue dock.
+ */
+const transcriptRequestIds = new Set<string>()
+
+/**
  * Custom Queue dock: one item renders directly; multiple items default to a
  * collapsible count header; an empty queue renders nothing.
  * Clicking the edit button directly recalls the message to the composer draft.
@@ -78,14 +86,29 @@ export function QueueDock({
   t,
 }: QueueDockProps) {
   const inbox = useSession(s => s.queue)
-  const queue = useMemo(() => inbox.filter(row => row.placement === 'queued'), [inbox])
   const pendingSubmissions = useSession(s => s.pendingSubmissions)
+
+  // Track any submission originating as a transcript prompt
+  for (const submission of pendingSubmissions) {
+    if (submission.placement === 'transcript') {
+      transcriptRequestIds.add(submission.requestId)
+    }
+  }
+
+  // Filter queue: exclude messages originating from an idle transcript send
+  const queue = useMemo(() => inbox.filter((row) => {
+    if (row.placement !== 'queued') return false
+    if (row.rpcId !== undefined && transcriptRequestIds.has(row.rpcId)) return false
+    return true
+  }), [inbox, pendingSubmissions])
+
   const pendingQueue = useMemo(() => {
     const admitted = new Set(queue.flatMap(row => row.rpcId === undefined ? [] : [row.rpcId]))
     return pendingSubmissions.filter(submission => (
       submission.placement === 'queued' && !admitted.has(submission.requestId)
     ))
   }, [pendingSubmissions, queue])
+
   const rowCount = queue.length + pendingQueue.length
   const running = useSession(s => s.running)
   const queueMutable = useSession(s => s.subagent === null)
@@ -97,6 +120,20 @@ export function QueueDock({
   useEffect(() => {
     if (rowCount === 0 && !collapsed) setCollapsed(true)
   }, [collapsed, rowCount])
+
+  // Prune settled IDs that are no longer pending and no longer in the inbox
+  useEffect(() => {
+    if (transcriptRequestIds.size === 0) return
+    const active = new Set([
+      ...pendingSubmissions.map(s => s.requestId),
+      ...inbox.flatMap(r => r.rpcId !== undefined ? [r.rpcId] : []),
+    ])
+    for (const id of transcriptRequestIds) {
+      if (!active.has(id as never)) {
+        transcriptRequestIds.delete(id)
+      }
+    }
+  }, [inbox, pendingSubmissions])
 
   if (rowCount === 0) return null
 

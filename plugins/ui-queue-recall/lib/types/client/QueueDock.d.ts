@@ -1,3 +1,5 @@
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
+import type { SessionFace, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client';
 export interface ImageAttachmentRef {
     readonly attachmentId: string;
     readonly mediaType?: string;
@@ -6,8 +8,6 @@ export interface ImageAttachmentRef {
     readonly height?: number;
     readonly name?: string;
 }
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
-import type { SessionFace, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client';
 export type QueueItemId = Parameters<SessionFace['updateQueue']>[0];
 export type QueueAction = Parameters<SessionFace['updateQueue']>[1];
 export type QueueRow = SessionSnapshot['queue'][number];

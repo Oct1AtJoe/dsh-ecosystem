@@ -68,14 +68,25 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/**
+		* Track request IDs of submissions that were submitted while idle (placement: transcript).
+		* The host temporarily places these in inbox.nextTurn during driver wakeup/assemble, which
+		* emits a transient placement: queued frame. They must not flicker into the queue dock.
+		*/
+		const transcriptRequestIds = /* @__PURE__ */ new Set();
+		/**
 		* Custom Queue dock: one item renders directly; multiple items default to a
 		* collapsible count header; an empty queue renders nothing.
 		* Clicking the edit button directly recalls the message to the composer draft.
 		*/
 		function QueueDock({ useSession, useInput, inputActions, updateQueue, notify, loadImage, t }) {
 			const inbox = useSession((s) => s.queue);
-			const queue = (0, react.useMemo)(() => inbox.filter((row) => row.placement === "queued"), [inbox]);
 			const pendingSubmissions = useSession((s) => s.pendingSubmissions);
+			for (const submission of pendingSubmissions) if (submission.placement === "transcript") transcriptRequestIds.add(submission.requestId);
+			const queue = (0, react.useMemo)(() => inbox.filter((row) => {
+				if (row.placement !== "queued") return false;
+				if (row.rpcId !== void 0 && transcriptRequestIds.has(row.rpcId)) return false;
+				return true;
+			}), [inbox, pendingSubmissions]);
 			const pendingQueue = (0, react.useMemo)(() => {
 				const admitted = new Set(queue.flatMap((row) => row.rpcId === void 0 ? [] : [row.rpcId]));
 				return pendingSubmissions.filter((submission) => submission.placement === "queued" && !admitted.has(submission.requestId));
@@ -90,6 +101,11 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				if (rowCount === 0 && !collapsed) setCollapsed(true);
 			}, [collapsed, rowCount]);
+			(0, react.useEffect)(() => {
+				if (transcriptRequestIds.size === 0) return;
+				const active = new Set([...pendingSubmissions.map((s) => s.requestId), ...inbox.flatMap((r) => r.rpcId !== void 0 ? [r.rpcId] : [])]);
+				for (const id of transcriptRequestIds) if (!active.has(id)) transcriptRequestIds.delete(id);
+			}, [inbox, pendingSubmissions]);
 			if (rowCount === 0) return null;
 			const interactionActive = queueMutable && busy !== null;
 			const expanded = !collapsed || interactionActive;
