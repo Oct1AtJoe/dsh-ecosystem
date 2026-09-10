@@ -179,4 +179,32 @@ function storage() {
   assert.equal(s.raw('dsh-theme-preference'), null)
 }
 
+// ── Scenario 3: 用户选择新浅色主题「银曜」(jade)，刷新保持浅色属性与银灰底色
+{
+  const s = storage()
+  const b1 = boot(s, 'dark')
+  b1.theme.adopt()
+  b1.flush()
+
+  // 用户点击银曜 (jade)
+  b1.userSelectCustom('jade')
+  assert.equal(b1.preference(), 'jade')
+  assert.equal(s.raw('dsh-theme-preference'), 'jade')
+  assert.equal(b1.document.body.hasAttribute('data-ds-dark-theme'), false, '银曜作为浅色主题，绝无暗色属性')
+  assert.equal(b1.document.documentElement.style.colorScheme, 'light')
+  assert.equal(b1.document.body.style.getPropertyValue('--dsw-alias-bg-base'), 'rgb(243, 244, 247)', '温润冷银底色生效')
+
+  // 用户按 F5 刷新页面（全新 boot，后台同步推送 dark）
+  const b2 = boot(s, 'dark')
+  b2.flush()
+  assert.equal(b2.preference(), 'jade', '首屏立即恢复银曜')
+  b2.theme.adopt()
+  b2.flush()
+  assert.equal(b2.preference(), 'jade', '后台同步绝不冲掉银曜')
+  assert.equal(s.raw('dsh-theme-preference'), 'jade')
+  assert.equal(b2.document.body.hasAttribute('data-ds-dark-theme'), false, '刷新后依然保持浅色属性')
+  assert.equal(b2.document.documentElement.style.colorScheme, 'light')
+  assert.equal(b2.document.body.style.getPropertyValue('--dsw-alias-bg-base'), 'rgb(243, 244, 247)')
+}
+
 console.log('[ok] 借鉴优秀开源插件的最佳实践方案：全场景严格验证通过！')

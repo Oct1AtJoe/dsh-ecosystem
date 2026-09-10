@@ -56,10 +56,10 @@ const VOID: ThemeDefinition = Object.freeze({
   tokens: VOID_TOKENS,
 })
 
-/** Jade: the emerald-green variant — deep forest-teal frosted glass. */
+/** Argent (银曜): refined frosted liquid silver light theme (silver, grey, obsidian black). */
 const JADE: ThemeDefinition = Object.freeze({
   id: 'jade',
-  colorScheme: 'dark' as const,
+  colorScheme: 'light' as const,
   tokens: JADE_TOKENS,
 })
 
@@ -138,6 +138,19 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
+}
+/* Light theme frosted silver sidebar glass (银曜 / light mode) */
+body:not([data-ds-dark-theme]) [class*="sidebarCol"] > * > [class*="root"]{
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%,
+      rgba(255, 255, 255, 0.75) 0%,
+      transparent 100%),
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.50) 0%,
+      rgba(240, 242, 247, 0.35) 40%,
+      transparent 60%),
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
+  box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.06) !important;
 }
 
 /* Sidebar active workspace/folder icons: obsidian black in light mode */
@@ -368,14 +381,28 @@ const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
   glacial: GLACIAL_TOKENS,
 }
 
+/** Theme id → colorScheme map so light custom themes switch palette properly. */
+const THEME_SCHEME_MAP: Record<string, 'light' | 'dark'> = {
+  aurora: 'dark',
+  nebula: 'dark',
+  void: 'dark',
+  jade: 'light',
+  solar: 'dark',
+  glacial: 'dark',
+}
+
 /** Token names this plugin wrote inline (its retraction set). */
 const APPLIED_TOKEN_NAMES = new Set<string>()
 
 /** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
-function applyTokens(tokens: ThemeTokens): void {
+function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'): void {
   if (typeof document === 'undefined') return
-  document.documentElement.style.colorScheme = 'dark'
-  document.body.setAttribute('data-ds-dark-theme', '')
+  document.documentElement.style.colorScheme = colorScheme
+  if (colorScheme === 'dark') {
+    document.body.setAttribute('data-ds-dark-theme', '')
+  } else {
+    document.body.removeAttribute('data-ds-dark-theme')
+  }
   for (const [key, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(key, value)
     document.body.style.setProperty(key, value)
@@ -455,7 +482,7 @@ export function apply(ctx: Context): void {
     if (!tokens) return
     writeSaved(id)
     try { theme.setTheme(id) } catch { /* theme service may reject unknown ids */ }
-    applyTokens(tokens)
+    applyTokens(tokens, THEME_SCHEME_MAP[id] ?? 'dark')
   }
   ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en }), 'ui-theme-custom: row dictionaries')
 
@@ -506,7 +533,7 @@ export function apply(ctx: Context): void {
       // Preference matches, but ensure tokens and dark attributes remain applied
       // in case an outer presenter apply cleared them.
       const tokens = THEME_TOKEN_MAP[desired]
-      if (tokens) applyTokens(tokens)
+      if (tokens) applyTokens(tokens, THEME_SCHEME_MAP[desired] ?? 'dark')
       return
     }
     if (builtinPickWins(preference, liveBuiltinPick)) {

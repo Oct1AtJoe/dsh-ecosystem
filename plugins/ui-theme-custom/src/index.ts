@@ -13,8 +13,14 @@ const BOOT_SCRIPT = `(function(){
 try {
   var s = typeof localStorage !== 'undefined' && localStorage.getItem('dsh-theme-preference');
   if (s && s !== 'light' && s !== 'dark' && s !== 'system') {
-    document.documentElement.style.colorScheme = 'dark';
-    document.body.setAttribute('data-ds-dark-theme', '');
+    var id = s.split('|')[0];
+    if (id === 'jade') {
+      document.documentElement.style.colorScheme = 'light';
+      document.body.removeAttribute('data-ds-dark-theme');
+    } else {
+      document.documentElement.style.colorScheme = 'dark';
+      document.body.setAttribute('data-ds-dark-theme', '');
+    }
   }
 } catch(e){}
 })()`

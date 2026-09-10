@@ -7,7 +7,7 @@ export const zh = {
   'tech-theme.aurora': '极光',
   'tech-theme.nebula': '星云',
   'tech-theme.void': '冥夜',
-  'tech-theme.jade': '翠渊',
+  'tech-theme.jade': '银曜',
   'tech-theme.solar': '灼日',
   'tech-theme.glacial': '寒渊',
 } satisfies Record<string, string>
@@ -18,7 +18,7 @@ export const en = {
   'tech-theme.aurora': 'Aurora',
   'tech-theme.nebula': 'Nebula',
   'tech-theme.void': 'Void',
-  'tech-theme.jade': 'Jade',
+  'tech-theme.jade': 'Argent',
   'tech-theme.solar': 'Solar',
   'tech-theme.glacial': 'Glacial',
 } satisfies Record<TechThemeKey, string>

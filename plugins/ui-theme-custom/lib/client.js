@@ -297,105 +297,105 @@ window.__ModuleLoader__.load({
 		});
 		//#endregion
 		//#region src/client/jade.ts
-		/** Alias-token overrides for the jade theme. */
+		/** Alias-token overrides for the 银曜 (Argent / Silver Obsidian) light theme. */
 		const JADE_TOKENS = Object.freeze({
-			"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(130, 210, 170, 0.08), rgba(130, 210, 170, 0) 24%),radial-gradient(560px 420px at 76% 14%, rgba(160, 226, 192, 0.26), transparent 55%),radial-gradient(540px 420px at 7% 55%, rgba(130, 210, 170, 0.22), transparent 52%)",
+			"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(243, 244, 247, 0) 24%),radial-gradient(560px 420px at 85% 15%, rgba(255, 255, 255, 0.70), transparent 55%),radial-gradient(540px 420px at 8% 45%, rgba(218, 224, 235, 0.45), transparent 52%)",
 			"--dsw-alias-glass-blur": "blur(20px) saturate(1.20)",
-			"--dsw-alias-surface-glass-blur": "blur(12px) saturate(1.0)",
-			"--dsw-alias-bg-base": "rgb(10, 18, 14)",
-			"--dsw-alias-surface-glass-spot": "rgba(160, 226, 192, 0.28)",
-			"--dsw-alias-bg-layer-1": "rgb(20, 38, 28)",
-			"--dsw-alias-bg-layer-2": "rgb(26, 44, 34)",
-			"--dsw-alias-bg-layer-3": "rgb(32, 52, 40)",
-			"--dsw-alias-bg-module-platform": "rgb(26, 42, 32)",
-			"--dsw-alias-bg-multi-select": "rgb(22, 36, 28)",
-			"--dsw-alias-bg-overlay": "rgb(44, 64, 52)",
-			"--dsw-alias-bg-skeleton": "rgba(255, 255, 255, 0.06)",
-			"--dsw-alias-bg-mask-1": "rgba(0, 0, 0, 0.26)",
-			"--dsw-alias-bg-mask-2": "rgba(0, 0, 0, 0.20)",
-			"--dsw-alias-bg-mask-3": "rgba(0, 0, 0, 0.48)",
-			"--dsw-alias-bg-mask-photo": "rgba(0, 0, 0, 0.88)",
-			"--dsw-alias-bg-mask-drop": "rgba(8, 14, 10, 0.70)",
-			"--dsw-alias-border-inverted": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-inverted2": "rgba(255, 255, 255, 0.10)",
-			"--dsw-alias-border-l1": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-l2-darkmode-thin": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-l2": "rgba(255, 255, 255, 0.14)",
-			"--dsw-alias-border-l3": "rgba(255, 255, 255, 0.18)",
-			"--dsw-alias-border-l4": "rgba(255, 255, 255, 0.24)",
-			"--dsw-alias-brand-primary": "rgb(130, 210, 170)",
-			"--dsw-alias-brand-primary-invert": "rgb(220, 245, 234)",
-			"--dsw-alias-brand-primary-new-colorprimary-new-color": "rgb(90, 180, 140)",
-			"--dsw-alias-brand-text": "rgb(130, 210, 170)",
-			"--dsw-alias-button-contrast-fill": "rgb(130, 210, 170)",
-			"--dsw-alias-button-elevated-fill": "rgb(22, 36, 28)",
-			"--dsw-alias-button-floating-fill": "rgb(22, 36, 28)",
-			"--dsw-alias-button-floating-hover": "rgb(28, 46, 36)",
-			"--dsw-alias-button-ghost-active-border": "rgb(82, 140, 110)",
-			"--dsw-alias-button-ghost-active-fill": "rgb(28, 46, 36)",
-			"--dsw-alias-button-ghost-active-hover": "rgb(34, 54, 42)",
-			"--dsw-alias-button-info-fill": "rgb(90, 180, 140)",
-			"--dsw-alias-button-info-hover": "rgb(72, 164, 124)",
-			"--dsw-alias-button-info-bg": "linear-gradient(135deg, rgba(80, 190, 140, 0.50), rgba(50, 150, 100, 0.32) 55%, rgba(70, 170, 120, 0.44))",
-			"--dsw-alias-button-info-bg-hover": "linear-gradient(135deg, rgba(92, 204, 154, 0.62), rgba(62, 164, 112, 0.40) 55%, rgba(82, 184, 134, 0.54))",
+			"--dsw-alias-surface-glass-blur": "blur(12px)",
+			"--dsw-alias-bg-base": "rgb(243, 244, 247)",
+			"--dsw-alias-surface-glass-spot": "rgba(255, 255, 255, 0.65)",
+			"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.75)",
+			"--dsw-alias-bg-layer-2": "rgba(240, 242, 246, 0.82)",
+			"--dsw-alias-bg-layer-3": "rgba(232, 235, 242, 0.90)",
+			"--dsw-alias-bg-module-platform": "rgb(236, 238, 243)",
+			"--dsw-alias-bg-multi-select": "rgb(232, 235, 240)",
+			"--dsw-alias-bg-overlay": "rgba(255, 255, 255, 0.96)",
+			"--dsw-alias-bg-skeleton": "rgba(15, 23, 42, 0.05)",
+			"--dsw-alias-bg-mask-1": "rgba(15, 23, 42, 0.20)",
+			"--dsw-alias-bg-mask-2": "rgba(15, 23, 42, 0.10)",
+			"--dsw-alias-bg-mask-3": "rgba(15, 23, 42, 0.40)",
+			"--dsw-alias-bg-mask-photo": "rgba(15, 23, 42, 0.85)",
+			"--dsw-alias-bg-mask-drop": "rgba(255, 255, 255, 0.75)",
+			"--dsw-alias-border-inverted": "rgba(0, 0, 0, 0.05)",
+			"--dsw-alias-border-inverted2": "rgba(0, 0, 0, 0.07)",
+			"--dsw-alias-border-l1": "rgba(15, 23, 42, 0.05)",
+			"--dsw-alias-border-l2-darkmode-thin": "rgba(15, 23, 42, 0.08)",
+			"--dsw-alias-border-l2": "rgba(15, 23, 42, 0.08)",
+			"--dsw-alias-border-l3": "rgba(15, 23, 42, 0.12)",
+			"--dsw-alias-border-l4": "rgba(15, 23, 42, 0.18)",
+			"--dsw-alias-brand-primary": "rgb(24, 26, 34)",
+			"--dsw-alias-brand-primary-invert": "rgb(255, 255, 255)",
+			"--dsw-alias-brand-primary-new-colorprimary-new-color": "rgb(40, 44, 54)",
+			"--dsw-alias-brand-text": "rgb(24, 26, 34)",
+			"--dsw-alias-button-contrast-fill": "rgb(24, 26, 34)",
+			"--dsw-alias-button-elevated-fill": "rgb(255, 255, 255)",
+			"--dsw-alias-button-floating-fill": "rgba(255, 255, 255, 0.85)",
+			"--dsw-alias-button-floating-hover": "rgb(245, 247, 250)",
+			"--dsw-alias-button-ghost-active-border": "rgb(209, 213, 219)",
+			"--dsw-alias-button-ghost-active-fill": "rgb(243, 244, 246)",
+			"--dsw-alias-button-ghost-active-hover": "rgb(229, 231, 235)",
+			"--dsw-alias-button-info-fill": "rgb(24, 26, 34)",
+			"--dsw-alias-button-info-hover": "rgb(45, 49, 60)",
+			"--dsw-alias-button-info-bg": "linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(230, 234, 242, 0.85))",
+			"--dsw-alias-button-info-bg-hover": "linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(240, 244, 250, 0.90))",
 			"--dsw-alias-button-radius": "10px",
 			"--dsw-alias-button-radius-sm": "8px",
-			"--dsw-alias-button-primary-bg": "linear-gradient(135deg, rgba(90, 180, 140, 0.34), rgba(60, 140, 100, 0.18) 50%, rgba(78, 160, 120, 0.30))",
-			"--dsw-alias-button-primary-bg-hover": "linear-gradient(135deg, rgba(104, 194, 154, 0.44), rgba(72, 154, 114, 0.26) 50%, rgba(92, 172, 132, 0.38))",
+			"--dsw-alias-button-primary-bg": "linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 242, 247, 0.85) 45%, rgba(222, 226, 235, 0.80) 100%)",
+			"--dsw-alias-button-primary-bg-hover": "linear-gradient(145deg, rgba(255, 255, 255, 1) 0%, rgba(245, 247, 252, 0.90) 45%, rgba(230, 234, 242, 0.85) 100%)",
 			"--dsw-alias-button-primary-bg-size": "200% 100%",
 			"--dsw-alias-button-primary-motion": "dsh-button-drift 5s linear infinite",
-			"--dsw-alias-button-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 0 0 1px rgba(130, 210, 170, 0.22),0 0 14px rgba(80, 180, 130, 0.30), 0 8px 28px rgba(60, 140, 100, 0.28)",
-			"--dsw-alias-button-glow-hover": "inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 0 0 1px rgba(154, 224, 190, 0.36),0 0 20px rgba(100, 194, 150, 0.44), 0 12px 36px rgba(72, 154, 114, 0.40)",
-			"--dsw-alias-button-press-shadow": "inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(130, 210, 170, 0.14),0 4px 12px rgba(60, 140, 100, 0.18)",
+			"--dsw-alias-button-glow": "inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 0 1px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.08), 0 6px 16px rgba(15, 23, 42, 0.05)",
+			"--dsw-alias-button-glow-hover": "inset 0 1px 1.5px rgba(255, 255, 255, 1), inset 0 0 0 1px rgba(255, 255, 255, 0.75), 0 0 0 1px rgba(15, 23, 42, 0.12), 0 3px 10px rgba(15, 23, 42, 0.12), 0 8px 20px rgba(15, 23, 42, 0.06)",
+			"--dsw-alias-button-press-shadow": "inset 0 1px 2px rgba(15, 23, 42, 0.12), inset 0 0 0 1px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06)",
 			"--dsw-alias-button-press-shift": "translate(0, 1px)",
-			"--dsw-alias-button-outline-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(130, 210, 170, 0.26),0 6px 18px rgba(60, 140, 100, 0.16)",
+			"--dsw-alias-button-outline-glow": "inset 0 1px 1px rgba(255, 255, 255, 0.8), 0 0 0 1px rgba(15, 23, 42, 0.1)",
 			"--dsw-alias-button-send-shift-active": "translateY(-1px) translate(0, 2px)",
-			"--dsw-alias-button-primary-dimmed": "rgb(28, 44, 34)",
-			"--dsw-alias-button-primary-fill": "rgb(60, 140, 100)",
-			"--dsw-alias-button-primary-hover": "rgb(72, 154, 114)",
-			"--dsw-alias-button-tool-bar-fill": "rgba(30, 48, 38, 0.64)",
-			"--dsw-alias-button-tool-bar-fill-invisible": "rgba(26, 38, 30, 0.42)",
-			"--dsw-alias-button-tool-bar-hover": "rgba(30, 48, 38, 0.72)",
-			"--dsw-alias-interactive-bg-active": "rgba(255, 255, 255, 0.10)",
-			"--dsw-alias-interactive-bg-hover": "rgba(255, 255, 255, 0.06)",
-			"--dsw-alias-interactive-bg-hover-accent": "rgba(90, 180, 140, 0.16)",
-			"--dsw-alias-interactive-bg-hover-danger": "rgba(242, 90, 90, 0.14)",
-			"--dsw-alias-interactive-bg-hover-solid": "rgb(28, 46, 36)",
-			"--dsw-alias-label-caption": "rgb(120, 174, 148)",
-			"--dsw-alias-label-dimmed": "rgb(78, 124, 104)",
-			"--dsw-alias-label-primary-bluish": "rgb(226, 244, 236)",
-			"--dsw-alias-label-primary-dimmed": "rgb(218, 240, 230)",
-			"--dsw-alias-label-primary-foreground": "rgb(240, 250, 246)",
-			"--dsw-alias-label-primary-inverted": "rgb(22, 38, 30)",
-			"--dsw-alias-label-primary": "rgb(236, 246, 242)",
-			"--dsw-alias-label-secondary": "rgb(186, 214, 200)",
-			"--dsw-alias-label-tertiary": "rgb(146, 178, 164)",
-			"--dsw-alias-markdown-citation": "rgb(22, 36, 28)",
-			"--dsw-alias-markdown-code-block-banner": "rgb(14, 22, 18)",
-			"--dsw-alias-markdown-code-block": "rgb(16, 24, 20)",
-			"--dsw-alias-markdown-code-segment-selected": "rgb(28, 44, 34)",
-			"--dsw-alias-markdown-code-segment-unselected": "rgb(16, 24, 20)",
-			"--dsw-alias-markdown-inline-code": "rgb(22, 36, 28)",
-			"--dsw-alias-markdown-placeholder": "rgb(20, 30, 24)",
-			"--dsw-alias-markdown-tag": "rgb(22, 36, 28)",
-			"--dsw-alias-scrollbar-bg-l1": "rgb(40, 64, 52)",
-			"--dsw-alias-scrollbar-bg-l2": "rgb(50, 80, 64)",
-			"--dsw-alias-scrollbar-hover-l1": "rgb(50, 80, 64)",
-			"--dsw-alias-scrollbar-hover-l2": "rgb(62, 96, 78)",
-			"--dsw-alias-state-business-primary": "rgb(90, 180, 140)",
-			"--dsw-alias-state-business-tertiary": "rgb(28, 46, 36)",
-			"--dsw-alias-toast-bg": "rgba(40, 64, 50, 0.88)",
-			"--dsw-alias-tooltip-bg": "rgba(48, 74, 58, 0.90)",
-			"--dsw-specific-bubble-highlight": "rgba(38, 58, 48, 0.84)",
-			"--dsw-specific-bubble": "rgba(28, 44, 34, 0.78)",
-			"--dsw-specific-input-major": "rgba(16, 28, 22, 0.74)",
-			"--dsw-specific-login-input": "rgb(14, 22, 18)",
-			"--dsw-specific-selector": "rgba(24, 38, 30, 0.82)",
-			"--dsw-specific-sidebar-fill": "rgb(16, 36, 26)",
-			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(32, 52, 40)",
-			"--dsw-specific-sidebar-nav-item-active": "rgb(28, 46, 36)",
-			"--dsw-specific-sidebar-nav-item-hover": "rgb(24, 38, 30)",
-			"--dsw-specific-tip": "rgba(22, 36, 28, 0.80)"
+			"--dsw-alias-button-primary-dimmed": "rgb(229, 231, 235)",
+			"--dsw-alias-button-primary-fill": "rgb(24, 26, 34)",
+			"--dsw-alias-button-primary-hover": "rgb(45, 49, 60)",
+			"--dsw-alias-button-tool-bar-fill": "rgba(255, 255, 255, 0.65)",
+			"--dsw-alias-button-tool-bar-fill-invisible": "rgba(255, 255, 255, 0.35)",
+			"--dsw-alias-button-tool-bar-hover": "rgba(255, 255, 255, 0.85)",
+			"--dsw-alias-interactive-bg-active": "rgba(15, 23, 42, 0.08)",
+			"--dsw-alias-interactive-bg-hover": "rgba(15, 23, 42, 0.04)",
+			"--dsw-alias-interactive-bg-hover-accent": "rgba(15, 23, 42, 0.07)",
+			"--dsw-alias-interactive-bg-hover-danger": "rgba(236, 19, 19, 0.08)",
+			"--dsw-alias-interactive-bg-hover-solid": "rgb(240, 242, 246)",
+			"--dsw-alias-label-caption": "rgb(148, 155, 168)",
+			"--dsw-alias-label-dimmed": "rgb(180, 186, 196)",
+			"--dsw-alias-label-primary-bluish": "rgb(24, 26, 34)",
+			"--dsw-alias-label-primary-dimmed": "rgb(40, 44, 54)",
+			"--dsw-alias-label-primary-foreground": "rgb(255, 255, 255)",
+			"--dsw-alias-label-primary-inverted": "rgb(255, 255, 255)",
+			"--dsw-alias-label-primary": "rgb(24, 26, 34)",
+			"--dsw-alias-label-secondary": "rgb(75, 85, 99)",
+			"--dsw-alias-label-tertiary": "rgb(130, 140, 155)",
+			"--dsw-alias-markdown-citation": "rgb(240, 242, 246)",
+			"--dsw-alias-markdown-code-block-banner": "rgb(238, 240, 245)",
+			"--dsw-alias-markdown-code-block": "rgb(243, 245, 249)",
+			"--dsw-alias-markdown-code-segment-selected": "rgb(255, 255, 255)",
+			"--dsw-alias-markdown-code-segment-unselected": "rgb(238, 240, 245)",
+			"--dsw-alias-markdown-inline-code": "rgb(238, 240, 245)",
+			"--dsw-alias-markdown-placeholder": "rgb(243, 244, 248)",
+			"--dsw-alias-markdown-tag": "rgb(238, 240, 245)",
+			"--dsw-alias-scrollbar-bg-l1": "rgba(15, 23, 42, 0.12)",
+			"--dsw-alias-scrollbar-bg-l2": "rgba(15, 23, 42, 0.16)",
+			"--dsw-alias-scrollbar-hover-l1": "rgba(15, 23, 42, 0.22)",
+			"--dsw-alias-scrollbar-hover-l2": "rgba(15, 23, 42, 0.28)",
+			"--dsw-alias-state-business-primary": "rgb(24, 26, 34)",
+			"--dsw-alias-state-business-tertiary": "rgb(235, 238, 244)",
+			"--dsw-alias-toast-bg": "rgb(30, 32, 40)",
+			"--dsw-alias-tooltip-bg": "rgb(24, 26, 34)",
+			"--dsw-specific-bubble-highlight": "rgba(238, 241, 247, 0.88)",
+			"--dsw-specific-bubble": "rgba(255, 255, 255, 0.90)",
+			"--dsw-specific-input-major": "rgba(255, 255, 255, 0.85)",
+			"--dsw-specific-login-input": "rgb(255, 255, 255)",
+			"--dsw-specific-selector": "rgba(240, 242, 247, 0.85)",
+			"--dsw-specific-sidebar-fill": "rgba(236, 238, 243, 0.65)",
+			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(24, 26, 34)",
+			"--dsw-specific-sidebar-nav-item-active": "rgba(255, 255, 255, 0.85)",
+			"--dsw-specific-sidebar-nav-item-hover": "rgba(15, 23, 42, 0.04)",
+			"--dsw-specific-tip": "rgba(240, 242, 247, 0.80)"
 		});
 		//#endregion
 		//#region src/client/solar.ts
@@ -612,7 +612,7 @@ window.__ModuleLoader__.load({
 			"tech-theme.aurora": "极光",
 			"tech-theme.nebula": "星云",
 			"tech-theme.void": "冥夜",
-			"tech-theme.jade": "翠渊",
+			"tech-theme.jade": "银曜",
 			"tech-theme.solar": "灼日",
 			"tech-theme.glacial": "寒渊"
 		};
@@ -622,7 +622,7 @@ window.__ModuleLoader__.load({
 			"tech-theme.aurora": "Aurora",
 			"tech-theme.nebula": "Nebula",
 			"tech-theme.void": "Void",
-			"tech-theme.jade": "Jade",
+			"tech-theme.jade": "Argent",
 			"tech-theme.solar": "Solar",
 			"tech-theme.glacial": "Glacial"
 		};
@@ -775,10 +775,10 @@ window.__ModuleLoader__.load({
 			colorScheme: "dark",
 			tokens: VOID_TOKENS
 		});
-		/** Jade: the emerald-green variant — deep forest-teal frosted glass. */
+		/** Argent (银曜): refined frosted liquid silver light theme (silver, grey, obsidian black). */
 		const JADE = Object.freeze({
 			id: "jade",
-			colorScheme: "dark",
+			colorScheme: "light",
 			tokens: JADE_TOKENS
 		});
 		/** Solar: the amber-orange variant — warm glowing frosted glass. */
@@ -854,6 +854,19 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
+}
+/* Light theme frosted silver sidebar glass (银曜 / light mode) */
+body:not([data-ds-dark-theme]) [class*="sidebarCol"] > * > [class*="root"]{
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%,
+      rgba(255, 255, 255, 0.75) 0%,
+      transparent 100%),
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.50) 0%,
+      rgba(240, 242, 247, 0.35) 40%,
+      transparent 60%),
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
+  box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.06) !important;
 }
 
 /* Sidebar active workspace/folder icons: obsidian black in light mode */
@@ -1083,13 +1096,23 @@ body[data-ds-dark-theme] [role="dialog"]{
 			solar: SOLAR_TOKENS,
 			glacial: GLACIAL_TOKENS
 		};
+		/** Theme id → colorScheme map so light custom themes switch palette properly. */
+		const THEME_SCHEME_MAP = {
+			aurora: "dark",
+			nebula: "dark",
+			void: "dark",
+			jade: "light",
+			solar: "dark",
+			glacial: "dark"
+		};
 		/** Token names this plugin wrote inline (its retraction set). */
 		const APPLIED_TOKEN_NAMES = /* @__PURE__ */ new Set();
 		/** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
-		function applyTokens(tokens) {
+		function applyTokens(tokens, colorScheme = "dark") {
 			if (typeof document === "undefined") return;
-			document.documentElement.style.colorScheme = "dark";
-			document.body.setAttribute("data-ds-dark-theme", "");
+			document.documentElement.style.colorScheme = colorScheme;
+			if (colorScheme === "dark") document.body.setAttribute("data-ds-dark-theme", "");
+			else document.body.removeAttribute("data-ds-dark-theme");
 			for (const [key, value] of Object.entries(tokens)) {
 				document.documentElement.style.setProperty(key, value);
 				document.body.style.setProperty(key, value);
@@ -1169,7 +1192,7 @@ body[data-ds-dark-theme] [role="dialog"]{
 				try {
 					theme.setTheme(id);
 				} catch {}
-				applyTokens(tokens);
+				applyTokens(tokens, THEME_SCHEME_MAP[id] ?? "dark");
 			};
 			ctx.effect(() => ctx.locale.register(SETTINGS_NS, {
 				zh,
@@ -1207,7 +1230,7 @@ body[data-ds-dark-theme] [role="dialog"]{
 				}
 				if (preference === desired) {
 					const tokens = THEME_TOKEN_MAP[desired];
-					if (tokens) applyTokens(tokens);
+					if (tokens) applyTokens(tokens, THEME_SCHEME_MAP[desired] ?? "dark");
 					return;
 				}
 				if (builtinPickWins(preference, liveBuiltinPick)) {
