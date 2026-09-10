@@ -53,7 +53,8 @@ export const JADE_TOKENS: ThemeTokens = Object.freeze({
 
   // Brand: Deep Obsidian Ink (#181a22) replacing all deepseek blue
   '--dsw-alias-brand-primary': 'rgb(24, 26, 34)',
-  '--dsw-alias-brand-primary-invert': 'rgb(255, 255, 255)',
+  // Official light resolves this to bluish-1000 (dark ink), not white.
+  '--dsw-alias-brand-primary-invert': 'rgb(15, 17, 21)',
   '--dsw-alias-brand-primary-new-colorprimary-new-color': 'rgb(40, 44, 54)',
   '--dsw-alias-brand-text': 'rgb(24, 26, 34)',
 
@@ -137,7 +138,8 @@ export const JADE_TOKENS: ThemeTokens = Object.freeze({
 
   // Sidebar: translucent silver mist acrylic
   '--dsw-specific-sidebar-fill': 'rgba(236, 238, 243, 0.65)',
-  '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(24, 26, 34)',
+  // Active accent background for badges & sidebar active items: subtle cool silver-grey tint
+  '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(228, 232, 239)',
   '--dsw-specific-sidebar-nav-item-active': 'rgba(255, 255, 255, 0.85)',
   '--dsw-specific-sidebar-nav-item-hover': 'rgba(15, 23, 42, 0.04)',
   '--dsw-specific-tip': 'rgba(240, 242, 247, 0.80)',
