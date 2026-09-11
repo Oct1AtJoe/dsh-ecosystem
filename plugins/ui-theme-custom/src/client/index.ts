@@ -301,7 +301,7 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   z-index:50 !important;
 }
 
-/* Dialogs/modals: frosted glass surface — scoped to dark theme so light mode dialogs stay clean and readable. */
+/* Dialogs/modals: frosted glass surface */
 body[data-ds-dark-theme] [role="dialog"]{
   background:
     linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 30%),
@@ -313,6 +313,21 @@ body[data-ds-dark-theme] [role="dialog"]{
     inset 0 1px 0 rgba(255,255,255,0.12),
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
+}
+/* Dialogs/modals in light mode (银曜): frosted liquid silver glass with high opacity (95%) and heavy blur (28px)
+   so background text never bleeds through while preserving the metallic glass aesthetic. */
+body:not([data-ds-dark-theme]) [role="dialog"]{
+  background:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(243, 245, 249, 0.93) 100%) !important;
+  backdrop-filter: blur(28px) saturate(1.15) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.15) !important;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    0 12px 32px rgba(15, 23, 42, 0.08),
+    0 24px 64px rgba(15, 23, 42, 0.05) !important;
 }
 `
 
