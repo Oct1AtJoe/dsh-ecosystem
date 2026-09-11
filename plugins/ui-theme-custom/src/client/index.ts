@@ -314,15 +314,16 @@ body[data-ds-dark-theme] [role="dialog"]{
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode (银曜): frosted liquid silver glass with high opacity (95%) and heavy blur (28px)
-   so background text never bleeds through while preserving the metallic glass aesthetic. */
+/* Dialogs/modals in light mode (银曜): balanced liquid frosted silver glass (~87% opacity)
+   with heavy 36px diffusion blur to smudge out background text completely into soft ambient light,
+   preserving distinct glass translucency without readable text bleed-through. */
 body:not([data-ds-dark-theme]) [role="dialog"]{
   background:
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(243, 245, 249, 0.93) 100%) !important;
-  backdrop-filter: blur(28px) saturate(1.15) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.15) !important;
+      rgba(255, 255, 255, 0.89) 0%,
+      rgba(242, 244, 248, 0.85) 100%) !important;
+  backdrop-filter: blur(36px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(1.25) !important;
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.08),
     inset 0 1px 1px rgba(255, 255, 255, 0.95),

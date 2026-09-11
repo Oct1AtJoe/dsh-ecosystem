@@ -26,21 +26,21 @@ export const JADE_TOKENS: ThemeTokens = Object.freeze({
   // Soft ambient silver sheen behind sidebars and pane panels
   '--dsw-alias-surface-glass-spot': 'rgba(255, 255, 255, 0.65)',
 
-  // Frosted silver-white acrylic surface tiers (high opacity so text behind does not bleed through)
-  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.88)',
-  '--dsw-alias-bg-layer-2': 'rgba(244, 246, 250, 0.95)',
-  '--dsw-alias-bg-layer-3': 'rgba(236, 238, 244, 0.97)',
+  // Frosted silver-white acrylic surface tiers (balanced ~88% opacity for frosted glass depth)
+  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.82)',
+  '--dsw-alias-bg-layer-2': 'rgba(242, 244, 248, 0.88)',
+  '--dsw-alias-bg-layer-3': 'rgba(235, 238, 244, 0.93)',
   '--dsw-alias-bg-module-platform': 'rgb(236, 238, 243)',
   '--dsw-alias-bg-multi-select': 'rgb(232, 235, 240)',
-  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.98)',
+  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.96)',
   '--dsw-alias-bg-skeleton': 'rgba(15, 23, 42, 0.05)',
 
   // Scrim & masks
-  '--dsw-alias-bg-mask-1': 'rgba(15, 23, 42, 0.25)',
-  '--dsw-alias-bg-mask-2': 'rgba(15, 23, 42, 0.12)',
-  '--dsw-alias-bg-mask-3': 'rgba(15, 23, 42, 0.45)',
+  '--dsw-alias-bg-mask-1': 'rgba(15, 23, 42, 0.22)',
+  '--dsw-alias-bg-mask-2': 'rgba(15, 23, 42, 0.10)',
+  '--dsw-alias-bg-mask-3': 'rgba(15, 23, 42, 0.40)',
   '--dsw-alias-bg-mask-photo': 'rgba(15, 23, 42, 0.85)',
-  '--dsw-alias-bg-mask-drop': 'rgba(255, 255, 255, 0.80)',
+  '--dsw-alias-bg-mask-drop': 'rgba(255, 255, 255, 0.78)',
 
   // Metallic silver hairlines & borders (zero blue tint)
   '--dsw-alias-border-inverted': 'rgba(0, 0, 0, 0.05)',

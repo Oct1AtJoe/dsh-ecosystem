@@ -304,18 +304,18 @@ window.__ModuleLoader__.load({
 			"--dsw-alias-surface-glass-blur": "blur(12px)",
 			"--dsw-alias-bg-base": "rgb(243, 244, 247)",
 			"--dsw-alias-surface-glass-spot": "rgba(255, 255, 255, 0.65)",
-			"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
-			"--dsw-alias-bg-layer-2": "rgba(244, 246, 250, 0.95)",
-			"--dsw-alias-bg-layer-3": "rgba(236, 238, 244, 0.97)",
+			"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.82)",
+			"--dsw-alias-bg-layer-2": "rgba(242, 244, 248, 0.88)",
+			"--dsw-alias-bg-layer-3": "rgba(235, 238, 244, 0.93)",
 			"--dsw-alias-bg-module-platform": "rgb(236, 238, 243)",
 			"--dsw-alias-bg-multi-select": "rgb(232, 235, 240)",
-			"--dsw-alias-bg-overlay": "rgba(255, 255, 255, 0.98)",
+			"--dsw-alias-bg-overlay": "rgba(255, 255, 255, 0.96)",
 			"--dsw-alias-bg-skeleton": "rgba(15, 23, 42, 0.05)",
-			"--dsw-alias-bg-mask-1": "rgba(15, 23, 42, 0.25)",
-			"--dsw-alias-bg-mask-2": "rgba(15, 23, 42, 0.12)",
-			"--dsw-alias-bg-mask-3": "rgba(15, 23, 42, 0.45)",
+			"--dsw-alias-bg-mask-1": "rgba(15, 23, 42, 0.22)",
+			"--dsw-alias-bg-mask-2": "rgba(15, 23, 42, 0.10)",
+			"--dsw-alias-bg-mask-3": "rgba(15, 23, 42, 0.40)",
 			"--dsw-alias-bg-mask-photo": "rgba(15, 23, 42, 0.85)",
-			"--dsw-alias-bg-mask-drop": "rgba(255, 255, 255, 0.80)",
+			"--dsw-alias-bg-mask-drop": "rgba(255, 255, 255, 0.78)",
 			"--dsw-alias-border-inverted": "rgba(0, 0, 0, 0.05)",
 			"--dsw-alias-border-inverted2": "rgba(0, 0, 0, 0.07)",
 			"--dsw-alias-border-l1": "rgba(15, 23, 42, 0.05)",
@@ -1030,15 +1030,16 @@ body[data-ds-dark-theme] [role="dialog"]{
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode (银曜): frosted liquid silver glass with high opacity (95%) and heavy blur (28px)
-   so background text never bleeds through while preserving the metallic glass aesthetic. */
+/* Dialogs/modals in light mode (银曜): balanced liquid frosted silver glass (~87% opacity)
+   with heavy 36px diffusion blur to smudge out background text completely into soft ambient light,
+   preserving distinct glass translucency without readable text bleed-through. */
 body:not([data-ds-dark-theme]) [role="dialog"]{
   background:
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(243, 245, 249, 0.93) 100%) !important;
-  backdrop-filter: blur(28px) saturate(1.15) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.15) !important;
+      rgba(255, 255, 255, 0.89) 0%,
+      rgba(242, 244, 248, 0.85) 100%) !important;
+  backdrop-filter: blur(36px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(1.25) !important;
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.08),
     inset 0 1px 1px rgba(255, 255, 255, 0.95),
