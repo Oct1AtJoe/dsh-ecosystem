@@ -9,12 +9,15 @@ export const SOLAR_TOKENS = Object.freeze({
     '--dsw-alias-glass-blur': 'blur(20px) saturate(1.20)',
     '--dsw-alias-surface-glass-blur': 'blur(12px) saturate(1.0)',
     '--dsw-alias-bg-base': 'rgb(18, 14, 16)',
+    // Surface-glass spot: a warm amber-gold pool behind panes, matching
+    // solar's radial aurora accent.
+    '--dsw-alias-surface-glass-spot': 'rgba(252, 200, 114, 0.28)',
     // Panels are frosted acrylic in warm amber-charcoal tones.
-    '--dsw-alias-bg-layer-1': 'rgba(26, 20, 22, 0.58)',
-    '--dsw-alias-bg-layer-2': 'rgba(32, 26, 28, 0.55)',
-    '--dsw-alias-bg-layer-3': 'rgba(40, 32, 34, 0.78)',
-    '--dsw-alias-bg-module-platform': 'rgba(40, 32, 34, 0.78)',
-    '--dsw-alias-bg-multi-select': 'rgba(34, 26, 28, 0.80)',
+    '--dsw-alias-bg-layer-1': 'rgb(38, 28, 24)',
+    '--dsw-alias-bg-layer-2': 'rgb(44, 32, 30)',
+    '--dsw-alias-bg-layer-3': 'rgb(50, 38, 36)',
+    '--dsw-alias-bg-module-platform': 'rgb(44, 34, 34)',
+    '--dsw-alias-bg-multi-select': 'rgb(38, 30, 30)',
     // Popovers keep higher opacity.
     '--dsw-alias-bg-overlay': 'rgba(58, 46, 48, 0.86)',
     '--dsw-alias-bg-skeleton': 'rgba(255, 255, 255, 0.06)',
@@ -109,7 +112,7 @@ export const SOLAR_TOKENS = Object.freeze({
     '--dsw-specific-login-input': 'rgb(22, 18, 20)',
     '--dsw-specific-selector': 'rgba(38, 30, 32, 0.82)',
     // Sidebar — warm charcoal acrylic.
-    '--dsw-specific-sidebar-fill': 'rgba(28, 22, 24, 0.55)',
+    '--dsw-specific-sidebar-fill': 'rgb(36, 26, 22)',
     '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(50, 38, 42)',
     '--dsw-specific-sidebar-nav-item-active': 'rgb(46, 36, 40)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgb(38, 30, 32)',

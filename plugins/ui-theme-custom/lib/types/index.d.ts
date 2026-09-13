@@ -1,9 +1,11 @@
 /**
  * Aurora, nebula, and custom tech themes, node half. Injects a boot script
- * that reads the user's localStorage preference and overrides the initial
- * theme before the first paint, so the saved custom theme (e.g. void/jade)
- * is visible from the start with no flash. The browser half (./client)
- * completes the theme registration and handles subsequent switches.
+ * that reads the user's localStorage preference and applies the saved
+ * custom theme's full token set inline before the first paint, so the page
+ * never flashes the default built-in palette. A requestAnimationFrame
+ * re-assert loop holds the tokens against the official ThemePresenter's
+ * boot-time adopt() until the browser half (./client) signals
+ * `window.__dshCustomThemeLive` and takes over subsequent switches.
  */
 import type { Context } from '@deepseek-ai/cordis';
 /**

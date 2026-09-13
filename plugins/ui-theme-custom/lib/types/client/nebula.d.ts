@@ -1,6 +1,6 @@
 /**
  * The plugin-registered "nebula" theme (幻彩星云): a deep-space violet-blue variant
- * over the dark base palette with a retro-tech feel — radial aurora pools on
+ * over the dark base palette with a retro-tech feel �?radial aurora pools on
  * the app surfaces, matte acrylic (frosted translucent) panels, and glassy
  * tech buttons: translucent gradient fill with slow drift, a top inner
  * highlight, a 1px glass hairline, and a soft blue-violet outer glow. All
@@ -13,7 +13,7 @@
  * Surface tokens are translucent rgba over the aurora backdrop; the panel
  * roots that carry no fixed-positioned descendants add
  * `backdrop-filter: var(--dsw-alias-glass-blur, none)` so the panels read
- * as matte frosted acrylic — the aurora pools are dimmed under the lifted
+ * as matte frosted acrylic �?the aurora pools are dimmed under the lifted
  * panel alphas so the backdrop never wins over the fill (a bright backdrop
  * reads as glass, a dim one as acrylic), while light/dark/aurora resolve
  * the token to `none` and stay opaque-flat.

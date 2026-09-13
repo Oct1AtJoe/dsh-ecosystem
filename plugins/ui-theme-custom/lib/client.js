@@ -1224,6 +1224,7 @@ body:not([data-ds-dark-theme]) [role="dialog"]{
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
+			window.__dshCustomThemeLive = true;
 			const theme = ctx.theme ?? ctx.get?.("theme");
 			/** Apply a custom theme via direct CSS variables and the theme service. */
 			const activateTheme = (id) => {

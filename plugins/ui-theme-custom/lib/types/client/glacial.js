@@ -9,14 +9,17 @@ export const GLACIAL_TOKENS = Object.freeze({
     '--dsw-alias-glass-blur': 'blur(20px) saturate(1.25)',
     '--dsw-alias-surface-glass-blur': 'blur(12px) saturate(1.0)',
     '--dsw-alias-bg-base': 'rgb(10, 12, 22)',
+    // Surface-glass spot: an icy cyan pool behind panes, matching glacial's
+    // cold cyan aurora accent.
+    '--dsw-alias-surface-glass-spot': 'rgba(182, 226, 250, 0.28)',
     // Panels are frosted acrylic in cool navy-blue tones.
-    '--dsw-alias-bg-layer-1': 'rgba(14, 18, 32, 0.58)',
-    '--dsw-alias-bg-layer-2': 'rgba(20, 24, 40, 0.55)',
-    '--dsw-alias-bg-layer-3': 'rgba(26, 30, 50, 0.78)',
-    '--dsw-alias-bg-module-platform': 'rgba(24, 28, 48, 0.78)',
-    '--dsw-alias-bg-multi-select': 'rgba(20, 24, 40, 0.80)',
+    '--dsw-alias-bg-layer-1': 'rgb(18, 24, 44)',
+    '--dsw-alias-bg-layer-2': 'rgb(24, 30, 50)',
+    '--dsw-alias-bg-layer-3': 'rgb(30, 36, 58)',
+    '--dsw-alias-bg-module-platform': 'rgb(26, 32, 52)',
+    '--dsw-alias-bg-multi-select': 'rgb(22, 28, 46)',
     // Popovers keep higher opacity.
-    '--dsw-alias-bg-overlay': 'rgba(42, 48, 74, 0.86)',
+    '--dsw-alias-bg-overlay': 'rgb(44, 52, 78)',
     '--dsw-alias-bg-skeleton': 'rgba(255, 255, 255, 0.06)',
     // Overlay masks to keep icy pools visible under panel blur.
     '--dsw-alias-bg-mask-1': 'rgba(0, 0, 0, 0.26)',
@@ -109,7 +112,7 @@ export const GLACIAL_TOKENS = Object.freeze({
     '--dsw-specific-login-input': 'rgb(14, 16, 28)',
     '--dsw-specific-selector': 'rgba(24, 28, 48, 0.82)',
     // Sidebar — deep navy acrylic.
-    '--dsw-specific-sidebar-fill': 'rgba(16, 20, 36, 0.55)',
+    '--dsw-specific-sidebar-fill': 'rgb(16, 22, 44)',
     '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(32, 38, 62)',
     '--dsw-specific-sidebar-nav-item-active': 'rgb(28, 34, 56)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgb(24, 28, 48)',

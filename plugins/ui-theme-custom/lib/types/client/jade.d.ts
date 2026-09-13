@@ -1,23 +1,16 @@
 /**
- * The plugin-registered "jade" theme (翠渊): an emerald-green variant over
- * the dark base palette — deep forest-teal surfaces with jade aurora pools
- * on the app background, cool-green matte acrylic (frosted translucent)
- * panels, and glassy tech buttons: emerald gradient fill with slow drift,
- * a top inner highlight, a 1px glass hairline, and a soft green outer glow.
- * All values are literal (no var() chains): the presenter applies them as
- * inline body variables, and the effect tokens
- * (`--dsw-alias-button-*`, `--dsw-alias-bg-app-image`,
- * `--dsw-alias-glass-blur`) are consumed by Button.module.css, the send
- * button, and the app-frame/conversation surfaces, defaulting to inert
- * values in the base palettes so other themes keep their current look.
- * Surface tokens are translucent rgba over the jade backdrop; the panel
- * roots add `backdrop-filter: var(--dsw-alias-glass-blur, none)` so the
- * panels read as matte frosted acrylic — the jade pools are dimmed under
- * the lifted panel alphas so the backdrop never wins over the fill.
- * Contrast: primary text ~15:1, secondary ~9.8:1, tertiary ~5.9:1 on the
- * base surface; button text ≥4.7:1 over the darkest fill stop.
+ * The plugin-registered "jade" theme slot re-imagined as "银曜" (Argent / Silver Obsidian):
+ * a refined, eye-friendly light theme engineered around silver, grey, and black — entirely
+ * free of stark white glare and harsh blue elements.
+ *
+ * Palette Philosophy:
+ * - Base: Matte metallic silver-grey (rgb(243, 244, 247)), gentle on eyes.
+ * - Glass layers: Semi-translucent frosted platinum-white and cool silver with ambient radial sheen.
+ * - Accents: Obsidian ink black (#181a22), eliminating all default DeepSeek blue (#2563eb).
+ * - Typography: High-contrast obsidian primary text with slate & nickel secondary hierarchy.
+ * - Buttons: Liquid frosted silver glass (银底黑字) with specular highlight and depth shadow.
  */
 import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client';
-/** Alias-token overrides for the jade theme. */
+/** Alias-token overrides for the 银曜 (Argent / Silver Obsidian) light theme. */
 export declare const JADE_TOKENS: ThemeTokens;
 //# sourceMappingURL=jade.d.ts.map

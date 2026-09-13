@@ -13,27 +13,29 @@ export const NEBULA_TOKENS = Object.freeze({
         + 'radial-gradient(900px 520px at 50% 46%, rgba(122, 108, 255, 0.26), transparent 62%),'
         + 'radial-gradient(900px 500px at 52% 96%, rgba(79, 70, 229, 0.2), transparent 62%)',
     // Acrylic frost applied by the surface-root rules: heavier blur and lower
-    // saturation than the old liquid look — the fill reads matte frosted, not
+    // saturation than the old liquid look �?the fill reads matte frosted, not
     // bright glass. `none` in the base palettes keeps light/dark/aurora
     // unaffected.
     '--dsw-alias-glass-blur': 'blur(20px) saturate(1.25)',
     '--dsw-alias-bg-base': 'rgb(11, 13, 25)',
+    // Surface-glass spot: a deep-space blue-violet pool behind panes,
+    // matching nebula's radial aurora accent.
+    '--dsw-alias-surface-glass-spot': 'rgba(139, 92, 246, 0.28)',
     // Panels are frosted acrylic: indigo fills lifted well past the base
     // palette alphas (the translucent glass used to let the aurora win; the
     // acrylic keeps the tint but holds the backdrop at a matte distance),
     // blurred by the owning surface roots (see the module doc above).
-    '--dsw-alias-bg-layer-1': 'rgba(20, 23, 44, 0.72)',
-    '--dsw-alias-bg-layer-2': 'rgba(26, 30, 56, 0.68)',
-    '--dsw-alias-bg-layer-3': 'rgba(33, 37, 68, 0.84)',
-    '--dsw-alias-bg-module-platform': 'rgba(28, 32, 59, 0.78)',
+    '--dsw-alias-bg-layer-1': 'rgb(28, 32, 60)',
+    '--dsw-alias-bg-layer-2': 'rgb(34, 38, 68)',
+    '--dsw-alias-bg-layer-3': 'rgb(40, 44, 78)',
+    '--dsw-alias-bg-module-platform': 'rgb(30, 36, 64)',
     '--dsw-alias-bg-multi-select': 'rgba(24, 27, 51, 0.8)',
     // Popovers keep a higher opacity floor than panels so menu text stays
     // legible over the brightest aurora pool.
-    '--dsw-alias-bg-overlay': 'rgba(47, 52, 96, 0.86)',
+    '--dsw-alias-bg-overlay': 'rgb(52, 58, 100)',
     '--dsw-alias-bg-skeleton': 'rgba(255, 255, 255, 0.08)',
     // Overlay masks stay lighter than the base dark palette: a heavy scrim
-    // (0.5) flattens the aurora to black, and a frosted panel blurs black —
-    // the glass has nothing to show. 0.26 keeps the pools visible as a soft
+    // (0.5) flattens the aurora to black, and a frosted panel blurs black �?  // the glass has nothing to show. 0.26 keeps the pools visible as a soft
     // glow under the panel's own blur, so dialogs read as matte acrylic.
     '--dsw-alias-bg-mask-1': 'rgba(0, 0, 0, 0.26)',
     '--dsw-alias-bg-mask-2': 'rgba(0, 0, 0, 0.2)',
@@ -105,8 +107,7 @@ export const NEBULA_TOKENS = Object.freeze({
     '--dsw-alias-label-primary-dimmed': 'rgb(224, 229, 252)',
     '--dsw-alias-label-primary-foreground': 'rgb(245, 246, 255)',
     // Text knocked out on light inverted surfaces (toast plate, attachment
-    // remove badge, the HARNESS badge inside the wordmark): dark indigo —
-    // the light periwinkle contrast-fill and near-white wordmark plate both
+    // remove badge, the HARNESS badge inside the wordmark): dark indigo �?  // the light periwinkle contrast-fill and near-white wordmark plate both
     // need dark ink, not the light value (that made the badge text blend in).
     '--dsw-alias-label-primary-inverted': 'rgb(30, 33, 62)',
     '--dsw-alias-label-primary': 'rgb(236, 240, 255)',
@@ -139,7 +140,7 @@ export const NEBULA_TOKENS = Object.freeze({
     // acrylic (not near-black) that keeps the left aurora pool readable through
     // the frost; it carries no backdrop-filter (see AppFrame.module.css), so
     // the fill alone must hold the matte distance.
-    '--dsw-specific-sidebar-fill': 'rgba(26, 30, 58, 0.62)',
+    '--dsw-specific-sidebar-fill': 'rgb(22, 28, 56)',
     '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(36, 40, 76)',
     '--dsw-specific-sidebar-nav-item-active': 'rgb(31, 34, 63)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgb(26, 29, 54)',

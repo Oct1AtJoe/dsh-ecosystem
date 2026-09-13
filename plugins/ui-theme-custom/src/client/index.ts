@@ -520,6 +520,8 @@ function clearSaved(): void {
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
+  // Signal the boot script's re-assert loop to stop: browser half is live.
+  ;(window as unknown as { __dshCustomThemeLive?: boolean }).__dshCustomThemeLive = true
   const theme = (ctx.theme ?? ctx.get?.('theme')) as ThemeRuntime
 
   /** Apply a custom theme via direct CSS variables and the theme service. */

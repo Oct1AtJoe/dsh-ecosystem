@@ -3,9 +3,9 @@ export const VOID_TOKENS = Object.freeze({
     // Deep neutral backdrop: dark graphite base with soft warm-gray aurora
     // pools that create depth — like looking through glass into volcanic
     // stone. Pools stay visible through the translucent panel alphas.
-    '--dsw-alias-bg-app-image': 'linear-gradient(180deg, rgba(212, 210, 220, 0.08), rgba(212, 210, 220, 0) 24%),'
-        + 'radial-gradient(560px 420px at 88% 18%, rgba(228, 222, 238, 0.20), transparent 55%),'
-        + 'radial-gradient(540px 420px at 3% 42%, rgba(200, 192, 214, 0.30), transparent 52%)',
+    '--dsw-alias-bg-app-image': 'linear-gradient(180deg, rgba(212, 210, 220, 0.12), rgba(212, 210, 220, 0) 24%),'
+        + 'radial-gradient(560px 420px at 88% 18%, rgba(228, 222, 238, 0.35), transparent 55%),'
+        + 'radial-gradient(540px 420px at 3% 42%, rgba(200, 192, 214, 0.42), transparent 52%)',
     // Glass blur: lighter blur so the pools read as soft glow through frost.
     '--dsw-alias-glass-blur': 'blur(24px) saturate(1.05)',
     // Surface glass blur for panels that can't use --dsw-alias-glass-blur
@@ -13,15 +13,18 @@ export const VOID_TOKENS = Object.freeze({
     // constraints — consumed via plugin-injected ::before pseudo-elements.
     '--dsw-alias-surface-glass-blur': 'blur(12px) saturate(1.0)',
     '--dsw-alias-bg-base': 'rgb(13, 13, 16)',
+    // Surface-glass spot: a warm neutral-gray pool for panes, matching
+    // void's warm-gray aurora accent.
+    '--dsw-alias-surface-glass-spot': 'rgba(228, 222, 238, 0.28)',
     // Translucent acrylic panels — low alpha so the aurora pools stay visible
     // through the frost (通透 glass backplate feel).
-    '--dsw-alias-bg-layer-1': 'rgba(20, 20, 26, 0.58)',
-    '--dsw-alias-bg-layer-2': 'rgba(27, 27, 32, 0.60)',
-    '--dsw-alias-bg-layer-3': 'rgba(33, 33, 40, 0.78)',
-    '--dsw-alias-bg-module-platform': 'rgba(29, 29, 36, 0.70)',
-    '--dsw-alias-bg-multi-select': 'rgba(25, 25, 30, 0.72)',
+    '--dsw-alias-bg-layer-1': 'rgb(24, 24, 28)',
+    '--dsw-alias-bg-layer-2': 'rgb(30, 30, 34)',
+    '--dsw-alias-bg-layer-3': 'rgb(36, 36, 42)',
+    '--dsw-alias-bg-module-platform': 'rgb(30, 30, 36)',
+    '--dsw-alias-bg-multi-select': 'rgb(28, 28, 32)',
     // Popovers and overlays: higher opacity for legibility.
-    '--dsw-alias-bg-overlay': 'rgba(46, 46, 56, 0.86)',
+    '--dsw-alias-bg-overlay': 'rgb(48, 48, 56)',
     '--dsw-alias-bg-skeleton': 'rgba(255, 255, 255, 0.06)',
     // Overlay masks.
     '--dsw-alias-bg-mask-1': 'rgba(0, 0, 0, 0.26)',
@@ -57,8 +60,8 @@ export const VOID_TOKENS = Object.freeze({
     // Glass buttons: neutral gray gradient with slow drift.
     '--dsw-alias-button-radius': '10px',
     '--dsw-alias-button-radius-sm': '8px',
-    '--dsw-alias-button-primary-bg': 'linear-gradient(135deg, rgba(168, 166, 176, 0.32), rgba(140, 138, 150, 0.16) 50%, rgba(158, 156, 168, 0.26))',
-    '--dsw-alias-button-primary-bg-hover': 'linear-gradient(135deg, rgba(182, 180, 190, 0.42), rgba(154, 152, 164, 0.24) 50%, rgba(172, 170, 182, 0.36))',
+    '--dsw-alias-button-primary-bg': 'linear-gradient(135deg, rgba(168, 166, 176, 0.55), rgba(140, 138, 150, 0.35) 50%, rgba(158, 156, 168, 0.45))',
+    '--dsw-alias-button-primary-bg-hover': 'linear-gradient(135deg, rgba(182, 180, 190, 0.65), rgba(154, 152, 164, 0.45) 50%, rgba(172, 170, 182, 0.55))',
     '--dsw-alias-button-primary-bg-size': '200% 100%',
     '--dsw-alias-button-primary-motion': 'dsh-button-drift 5s linear infinite',
     '--dsw-alias-button-glow': 'inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(196, 194, 202, 0.20),'
@@ -117,7 +120,7 @@ export const VOID_TOKENS = Object.freeze({
     '--dsw-specific-login-input': 'rgb(12, 12, 16)',
     '--dsw-specific-selector': 'rgba(29, 29, 36, 0.80)',
     // Sidebar — translucent neutral dark-gray acrylic.
-    '--dsw-specific-sidebar-fill': 'rgba(18, 18, 24, 0.55)',
+    '--dsw-specific-sidebar-fill': 'rgb(22, 22, 28)',
     '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(33, 33, 40)',
     '--dsw-specific-sidebar-nav-item-active': 'rgb(29, 29, 36)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgb(24, 24, 30)',
