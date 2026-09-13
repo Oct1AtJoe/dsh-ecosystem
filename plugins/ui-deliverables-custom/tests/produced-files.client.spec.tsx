@@ -510,7 +510,7 @@ describe('ProducedFiles row', () => {
   })
 
   it('shows all chips up to the cap in a multi-line row, opens files, and shows the folder action', () => {
-    const paths = ['deep/a.html', 'b.css', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts']
+    const paths = ['deep/a.html', 'b.css', 'c.ts']
       .map(path => ({ path, hunks: [], totalHunks: [] }))
     const openFile = vi.fn<(path: string) => void>()
     const view = render(
@@ -519,8 +519,8 @@ describe('ProducedFiles row', () => {
     expect(view.getByText('产物')).toBeTruthy()
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
-    // All 7 chips fit below the SHOWN_LIMIT=30 cap.
-    expect(within(row).getAllByRole('button')).toHaveLength(7)
+    // 3 chips fit below the COLLAPSED_LIMIT=4 threshold.
+    expect(within(row).getAllByRole('button')).toHaveLength(3)
     expect(within(row).queryByText('+')).toBeNull()
     const chip = view.getByRole('button', { name: '打开 deep/a.html' })
     expect(chip.textContent).toBe('a.html')
@@ -533,6 +533,33 @@ describe('ProducedFiles row', () => {
     const showFolder = view.getByRole('button', { name: '在文件夹中显示' })
     fireEvent.click(showFolder)
     expect(openFile).toHaveBeenLastCalledWith('.')
+  })
+
+  it('folds chips beyond 4 files, expands on click, and collapses on toggle', () => {
+    const paths = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts']
+      .map(path => ({ path, hunks: [], totalHunks: [] }))
+    const view = render(
+      <ProducedFiles matched={paths} openFile={() => {}} {...capability(false)} t={t} />,
+    )
+    const row = view.container.querySelector('[data-produced-files-row]')
+    if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
+    // Shows first 4 chips + 1 moreChip button = 5 buttons
+    expect(within(row).getAllByRole('button')).toHaveLength(5)
+    const expandBtn = within(row).getByRole('button', { name: '展开其余 3 个文件' })
+    expect(expandBtn.textContent).toBe('+ 3 个文件')
+    expect(expandBtn.getAttribute('aria-expanded')).toBe('false')
+
+    // Click to expand all
+    fireEvent.click(expandBtn)
+    expect(within(row).getAllByRole('button')).toHaveLength(8) // 7 chips + 1 collapse button
+    const collapseBtn = within(row).getByRole('button', { name: '收起多余文件' })
+    expect(collapseBtn.textContent).toBe('收起')
+    expect(collapseBtn.getAttribute('aria-expanded')).toBe('true')
+
+    // Click to collapse back
+    fireEvent.click(collapseBtn)
+    expect(within(row).getAllByRole('button')).toHaveLength(5)
+    expect(within(row).getByText('+ 3 个文件')).toBeTruthy()
   })
 
   it('shows the conversation +/- totals next to the name and expands the change below the row', () => {
@@ -630,8 +657,8 @@ describe('ProducedFiles row', () => {
   })
 
   it('uses singular English copy when exactly one file is hidden beyond the cap', () => {
-    // Need more than SHOWN_LIMIT (30) files to trigger the hidden count.
-    const fileCount = 31
+    // 5 files: 4 shown, 1 hidden beyond COLLAPSED_LIMIT (4)
+    const fileCount = 5
     const view = render(
       <ProducedFiles
         matched={Array.from({ length: fileCount }, (_, i) => ({

@@ -93,4 +93,13 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
   2. 在 `src/client/index.ts` 中通过 `ctx.slots.inject('tool.call.toolview')` 以 `priority: -5` 注册 `key: 'edit'` 与 `key: 'write'`，遮蔽官方默认的 `FileMutationRow`（`priority: 0`）；
   3. 彻底修复执行过程中的行数徽标（显示真实变动如 `+1 -0` 而非 `+5 -4`）及展开面板中的变动行展示。
 
+### 9. 2026-09-13 产物文件超过 4 个时的折叠与展开收起交互
+
+- **需求**：当单轮产物文件较多时，默认平铺多行容易拉长对话高度、造成视觉干扰；期望默认最多只展示前 4 个，其余折叠，支持一键点击展开及收起。
+- **实现**：
+  1. `COLLAPSED_LIMIT = 4`，超过 4 个时默认截取前 4 个文件 Chip，并在末尾展示形似 Chip 的胶囊折叠按钮（如 `+ 3 个文件`）；
+  2. 点击后展开平铺所有文件，按钮切换为 `收起`；
+  3. 再次点击可折叠回前 4 个，且若折叠时用户正打开位于第 4 个之后的 Diff 面板，自动联动收起该面板，交互平滑闭环。
+
+
 

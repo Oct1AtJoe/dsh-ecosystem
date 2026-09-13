@@ -11,6 +11,9 @@ export declare const zh: {
     'produced.expand': string;
     'produced.collapse': string;
     'produced.collapsePanel': string;
+    'produced.collapseFiles': string;
+    'produced.expandFilesAria': string;
+    'produced.collapseFilesAria': string;
 };
 /** English dictionary (same key set). */
 export declare const en: Record<DeliverablesKey, string>;

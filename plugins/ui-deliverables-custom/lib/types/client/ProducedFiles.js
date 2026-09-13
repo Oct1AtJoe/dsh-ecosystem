@@ -11,10 +11,8 @@ import { IconChevronDownOutline14, IconChevronUpOutline14 } from '@deepseek-ai/d
 import { DiffBlock } from "./DiffBlock.js";
 import { basename, diffStats, dirname } from "./turn-deliverables.js";
 import css from './ProducedFiles.module.css';
-/** Cap for produced-file chips. The row wraps to multiple lines, so this
- *  limit exists mainly to bound measurement and prevent pathological counts;
- *  30 covers all realistic single-turn file sets. */
-const SHOWN_LIMIT = 30;
+/** Fold threshold: up to 4 chips are shown by default; more are folded behind a toggle chip. */
+const COLLAPSED_LIMIT = 4;
 /**
  * Select the largest prefix whose measured chips and exact remainder fit.
  * @param available - usable width of the one-line file lane.
@@ -70,9 +68,23 @@ export function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWork
     const hostCanOpenPath = useWorkspacePathOpen(available => available === true);
     const canOpenPath = isLoopback && hostCanOpenPath;
     const [expandedPath, setExpandedPath] = useState(null);
-    const shown = paths.slice(0, SHOWN_LIMIT);
-    const hidden = paths.length - shown.length;
+    const [isExpandedAll, setIsExpandedAll] = useState(false);
+    const hasOverflow = paths.length > COLLAPSED_LIMIT;
+    const shown = isExpandedAll || !hasOverflow ? paths : paths.slice(0, COLLAPSED_LIMIT);
+    const hiddenCount = paths.length - COLLAPSED_LIMIT;
     const expanded = paths.find(match => match.path === expandedPath) ?? null;
+    const handleToggleExpandAll = () => {
+        setIsExpandedAll((prev) => {
+            const next = !prev;
+            if (!next && expandedPath !== null) {
+                const index = paths.findIndex(match => match.path === expandedPath);
+                if (index >= COLLAPSED_LIMIT) {
+                    setExpandedPath(null);
+                }
+            }
+            return next;
+        });
+    };
     // One chip: the name opens the file; the cumulative badge (totalHunks)
     // shows the conversation's total +/- for the file, and the chevron
     // (visible only when this turn has its own hunks) expands the turn's
@@ -86,6 +98,6 @@ export function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWork
                     // that share a basename; the chip itself stays short.
                     title: path, "aria-label": t('produced.open', { name: path }), onClick: () => { openFile(path); }, children: basename(path) }), stats !== null && (_jsxs(_Fragment, { children: [_jsx(Stats, { added: stats.added, removed: stats.removed }), hunks.length > 0 && (_jsx("button", { type: "button", className: css.toggle, "aria-expanded": open, "aria-label": t(open ? 'produced.collapse' : 'produced.expand', { name: path }), onClick: () => { setExpandedPath(open ? null : path); }, children: open ? _jsx(IconChevronUpOutline14, { size: 12 }) : _jsx(IconChevronDownOutline14, { size: 12 }) }))] }))] }, path));
     };
-    return (_jsxs("div", { className: css.root, children: [_jsx("span", { className: css.label, children: t('produced.label') }), _jsxs("div", { className: css.row, "data-produced-files-row": true, children: [shown.map(chip), hidden > 0 && _jsx("span", { className: css.more, children: moreLabel(t, hidden) })] }), expanded !== null && expanded.hunks.length > 0 && (_jsx(ChangePanel, { match: expanded, openFile: openFile, t: t, close: () => { setExpandedPath(null); } })), paths.length > 0 && canOpenPath && (_jsx("button", { type: "button", className: css.showFolder, onClick: () => { openFile('.'); }, children: t('produced.showInFolder') }))] }));
+    return (_jsxs("div", { className: css.root, children: [_jsx("span", { className: css.label, children: t('produced.label') }), _jsxs("div", { className: css.row, "data-produced-files-row": true, children: [shown.map(chip), hasOverflow && (_jsx("button", { type: "button", className: css.moreChip, "aria-expanded": isExpandedAll, "aria-label": t(isExpandedAll ? 'produced.collapseFilesAria' : 'produced.expandFilesAria', { count: String(hiddenCount) }), onClick: handleToggleExpandAll, children: isExpandedAll ? (_jsxs(_Fragment, { children: [_jsx("span", { children: t('produced.collapseFiles') }), _jsx(IconChevronUpOutline14, { size: 12, className: css.moreIcon })] })) : (_jsxs(_Fragment, { children: [_jsx("span", { children: moreLabel(t, hiddenCount) }), _jsx(IconChevronDownOutline14, { size: 12, className: css.moreIcon })] })) }))] }), expanded !== null && expanded.hunks.length > 0 && (_jsx(ChangePanel, { match: expanded, openFile: openFile, t: t, close: () => { setExpandedPath(null); } })), paths.length > 0 && canOpenPath && (_jsx("button", { type: "button", className: css.showFolder, onClick: () => { openFile('.'); }, children: t('produced.showInFolder') }))] }));
 }
 //# sourceMappingURL=ProducedFiles.js.map

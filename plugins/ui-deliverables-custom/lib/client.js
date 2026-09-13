@@ -728,7 +728,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-deliverables-custom\src\client\ProducedFiles.module.css.mjs
-		const css$1 = ".GwCMNq_root{grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;margin-top:16px;font-size:13px;line-height:22px;display:grid;position:relative}.GwCMNq_label{color:var(--dsw-alias-label-tertiary);grid-area:1/1}.GwCMNq_row{flex-wrap:wrap;grid-area:1/2;align-items:center;gap:8px;min-width:0;display:flex}.GwCMNq_chip{background:var(--dsw-alias-interactive-bg-hover);border-radius:6px;flex:none;align-items:center;display:inline-flex}.GwCMNq_file{text-overflow:ellipsis;white-space:nowrap;max-width:320px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:none;flex:none;margin:0;padding:0 6px 0 8px;overflow:hidden}.GwCMNq_file:hover{color:var(--dsw-alias-label-primary);text-decoration:underline}.GwCMNq_file:focus-visible,.GwCMNq_toggle:focus-visible,.GwCMNq_showFolder:focus-visible,.GwCMNq_diffPath:focus-visible,.GwCMNq_diffCollapse:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-alias-border-l3);outline:none}.GwCMNq_stats{flex:none;gap:3px;font-size:12px;line-height:22px;display:inline-flex}.GwCMNq_added{color:var(--dsw-alias-state-success-primary)}.GwCMNq_removed{color:var(--dsw-alias-state-error-primary)}.GwCMNq_toggle{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;flex:none;align-items:center;margin:0;padding:0 8px 0 2px;display:inline-flex}.GwCMNq_toggle:hover{color:var(--dsw-alias-label-secondary)}.GwCMNq_diff{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block);border-radius:12px;grid-area:2/2;min-width:0;animation:.16s ease-out GwCMNq_produced-diff-in;overflow:hidden}.GwCMNq_diffHeader{background:var(--dsw-alias-interactive-bg-hover);border-bottom:1px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:6px 6px 6px 12px;line-height:24px;display:flex}.GwCMNq_diffPath{min-width:0;color:var(--dsw-alias-label-secondary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;flex:auto;align-items:baseline;gap:6px;margin:0;padding:0;display:inline-flex}.GwCMNq_diffPath:hover{color:var(--dsw-alias-label-primary)}.GwCMNq_diffName{color:var(--dsw-alias-label-primary);white-space:nowrap;text-overflow:ellipsis;flex:0 auto;font-weight:600;overflow:hidden}.GwCMNq_diffDir{min-width:0;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:auto;overflow:hidden}.GwCMNq_diffCollapse{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;flex:none;align-items:center;margin:0;padding:0 6px;display:inline-flex}.GwCMNq_diffCollapse:hover{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover)}.GwCMNq_diffBody{margin:0}@keyframes GwCMNq_produced-diff-in{0%{opacity:0;transform:translateY(-4px)}}@media (prefers-reduced-motion:reduce){.GwCMNq_diff{animation:none}}.GwCMNq_more{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none}.GwCMNq_showFolder{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:4px;grid-column:2;justify-self:start;margin:0;padding:0 2px;line-height:20px}.GwCMNq_showFolder:hover{color:var(--dsw-alias-label-secondary);text-decoration:underline}.GwCMNq_measure{visibility:hidden;pointer-events:none;contain:strict;width:0;height:0;position:absolute;overflow:hidden}.GwCMNq_probe{width:max-content;position:absolute;inset:0 auto auto 0}";
+		const css$1 = ".GwCMNq_root{grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px 8px;margin-top:16px;font-size:13px;line-height:22px;display:grid;position:relative}.GwCMNq_label{color:var(--dsw-alias-label-tertiary);grid-area:1/1}.GwCMNq_row{flex-wrap:wrap;grid-area:1/2;align-items:center;gap:8px;min-width:0;display:flex}.GwCMNq_chip{background:var(--dsw-alias-interactive-bg-hover);border-radius:6px;flex:none;align-items:center;display:inline-flex}.GwCMNq_file{text-overflow:ellipsis;white-space:nowrap;max-width:320px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:none;flex:none;margin:0;padding:0 6px 0 8px;overflow:hidden}.GwCMNq_file:hover{color:var(--dsw-alias-label-primary);text-decoration:underline}.GwCMNq_file:focus-visible,.GwCMNq_toggle:focus-visible,.GwCMNq_showFolder:focus-visible,.GwCMNq_diffPath:focus-visible,.GwCMNq_diffCollapse:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-alias-border-l3);outline:none}.GwCMNq_stats{flex:none;gap:3px;font-size:12px;line-height:22px;display:inline-flex}.GwCMNq_added{color:var(--dsw-alias-state-success-primary)}.GwCMNq_removed{color:var(--dsw-alias-state-error-primary)}.GwCMNq_toggle{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;flex:none;align-items:center;margin:0;padding:0 8px 0 2px;display:inline-flex}.GwCMNq_toggle:hover{color:var(--dsw-alias-label-secondary)}.GwCMNq_diff{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block);border-radius:12px;grid-area:2/2;min-width:0;animation:.16s ease-out GwCMNq_produced-diff-in;overflow:hidden}.GwCMNq_diffHeader{background:var(--dsw-alias-interactive-bg-hover);border-bottom:1px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:6px 6px 6px 12px;line-height:24px;display:flex}.GwCMNq_diffPath{min-width:0;color:var(--dsw-alias-label-secondary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;flex:auto;align-items:baseline;gap:6px;margin:0;padding:0;display:inline-flex}.GwCMNq_diffPath:hover{color:var(--dsw-alias-label-primary)}.GwCMNq_diffName{color:var(--dsw-alias-label-primary);white-space:nowrap;text-overflow:ellipsis;flex:0 auto;font-weight:600;overflow:hidden}.GwCMNq_diffDir{min-width:0;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:auto;overflow:hidden}.GwCMNq_diffCollapse{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;flex:none;align-items:center;margin:0;padding:0 6px;display:inline-flex}.GwCMNq_diffCollapse:hover{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover)}.GwCMNq_diffBody{margin:0}@keyframes GwCMNq_produced-diff-in{0%{opacity:0;transform:translateY(-4px)}}@media (prefers-reduced-motion:reduce){.GwCMNq_diff{animation:none}}.GwCMNq_more{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none}.GwCMNq_moreChip{background:var(--dsw-alias-interactive-bg-hover);height:22px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;white-space:nowrap;border:none;border-radius:6px;flex:none;align-items:center;gap:4px;margin:0;padding:0 8px;font-size:12px;line-height:22px;transition:background-color .12s,color .12s;display:inline-flex}.GwCMNq_moreChip:hover{background:var(--dsw-alias-interactive-bg-active);color:var(--dsw-alias-label-primary)}.GwCMNq_moreChip:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-alias-border-l3);outline:none}.GwCMNq_moreIcon{color:var(--dsw-alias-label-tertiary);flex-shrink:0}.GwCMNq_moreChip:hover .GwCMNq_moreIcon{color:var(--dsw-alias-label-secondary)}.GwCMNq_showFolder{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:4px;grid-column:2;justify-self:start;margin:0;padding:0 2px;line-height:20px}.GwCMNq_showFolder:hover{color:var(--dsw-alias-label-secondary);text-decoration:underline}.GwCMNq_measure{visibility:hidden;pointer-events:none;contain:strict;width:0;height:0;position:absolute;overflow:hidden}.GwCMNq_probe{width:max-content;position:absolute;inset:0 auto auto 0}";
 		const tagId$1 = "@deepseek-ai/dsh-client-ui-deliverables-custom/ProducedFiles.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -751,6 +751,8 @@ window.__ModuleLoader__.load({
 			"label": "GwCMNq_label",
 			"measure": "GwCMNq_measure",
 			"more": "GwCMNq_more",
+			"moreChip": "GwCMNq_moreChip",
+			"moreIcon": "GwCMNq_moreIcon",
 			"probe": "GwCMNq_probe",
 			"produced-diff-in": "GwCMNq_produced-diff-in",
 			"removed": "GwCMNq_removed",
@@ -762,10 +764,8 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region src/client/ProducedFiles.tsx
-		/** Cap for produced-file chips. The row wraps to multiple lines, so this
-		*  limit exists mainly to bound measurement and prevent pathological counts;
-		*  30 covers all realistic single-turn file sets. */
-		const SHOWN_LIMIT = 30;
+		/** Fold threshold: up to 4 chips are shown by default; more are folded behind a toggle chip. */
+		const COLLAPSED_LIMIT = 4;
 		function moreLabel(t, count) {
 			return count === 1 ? t("produced.moreOne") : t("produced.more", { count: String(count) });
 		}
@@ -848,9 +848,20 @@ window.__ModuleLoader__.load({
 			const hostCanOpenPath = useWorkspacePathOpen((available) => available === true);
 			const canOpenPath = isLoopback && hostCanOpenPath;
 			const [expandedPath, setExpandedPath] = (0, react.useState)(null);
-			const shown = paths.slice(0, SHOWN_LIMIT);
-			const hidden = paths.length - shown.length;
+			const [isExpandedAll, setIsExpandedAll] = (0, react.useState)(false);
+			const hasOverflow = paths.length > COLLAPSED_LIMIT;
+			const shown = isExpandedAll || !hasOverflow ? paths : paths.slice(0, COLLAPSED_LIMIT);
+			const hiddenCount = paths.length - COLLAPSED_LIMIT;
 			const expanded = paths.find((match) => match.path === expandedPath) ?? null;
+			const handleToggleExpandAll = () => {
+				setIsExpandedAll((prev) => {
+					const next = !prev;
+					if (!next && expandedPath !== null) {
+						if (paths.findIndex((match) => match.path === expandedPath) >= COLLAPSED_LIMIT) setExpandedPath(null);
+					}
+					return next;
+				});
+			};
 			const chip = (match) => {
 				const { path, hunks, totalHunks } = match;
 				const stats = totalHunks.length === 0 ? null : diffStats(totalHunks);
@@ -891,9 +902,19 @@ window.__ModuleLoader__.load({
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: ProducedFiles_module_css_default.row,
 						"data-produced-files-row": true,
-						children: [shown.map(chip), hidden > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: ProducedFiles_module_css_default.more,
-							children: moreLabel(t, hidden)
+						children: [shown.map(chip), hasOverflow && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: ProducedFiles_module_css_default.moreChip,
+							"aria-expanded": isExpandedAll,
+							"aria-label": t(isExpandedAll ? "produced.collapseFilesAria" : "produced.expandFilesAria", { count: String(hiddenCount) }),
+							onClick: handleToggleExpandAll,
+							children: isExpandedAll ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("produced.collapseFiles") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, {
+								size: 12,
+								className: ProducedFiles_module_css_default.moreIcon
+							})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: moreLabel(t, hiddenCount) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, {
+								size: 12,
+								className: ProducedFiles_module_css_default.moreIcon
+							})] })
 						})]
 					}),
 					expanded !== null && expanded.hunks.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ChangePanel, {
@@ -1099,7 +1120,10 @@ window.__ModuleLoader__.load({
 			"produced.showInFolder": "在文件夹中显示",
 			"produced.expand": "展开 {name} 的修改内容",
 			"produced.collapse": "收起 {name} 的修改内容",
-			"produced.collapsePanel": "收起修改面板"
+			"produced.collapsePanel": "收起修改面板",
+			"produced.collapseFiles": "收起",
+			"produced.expandFilesAria": "展开其余 {count} 个文件",
+			"produced.collapseFilesAria": "收起多余文件"
 		};
 		/** English dictionary (same key set). */
 		const en = {
@@ -1110,7 +1134,10 @@ window.__ModuleLoader__.load({
 			"produced.showInFolder": "Show in folder",
 			"produced.expand": "Show changes to {name}",
 			"produced.collapse": "Hide changes to {name}",
-			"produced.collapsePanel": "Collapse changes"
+			"produced.collapsePanel": "Collapse changes",
+			"produced.collapseFiles": "Collapse",
+			"produced.expandFilesAria": "Show {count} more files",
+			"produced.collapseFilesAria": "Show fewer files"
 		};
 		//#endregion
 		//#region src/client/index.ts

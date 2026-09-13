@@ -11,6 +11,9 @@ export const zh = {
     'produced.expand': '展开 {name} 的修改内容',
     'produced.collapse': '收起 {name} 的修改内容',
     'produced.collapsePanel': '收起修改面板',
+    'produced.collapseFiles': '收起',
+    'produced.expandFilesAria': '展开其余 {count} 个文件',
+    'produced.collapseFilesAria': '收起多余文件',
 };
 /** English dictionary (same key set). */
 export const en = {
@@ -22,5 +25,8 @@ export const en = {
     'produced.expand': 'Show changes to {name}',
     'produced.collapse': 'Hide changes to {name}',
     'produced.collapsePanel': 'Collapse changes',
+    'produced.collapseFiles': 'Collapse',
+    'produced.expandFilesAria': 'Show {count} more files',
+    'produced.collapseFilesAria': 'Show fewer files',
 };
 //# sourceMappingURL=locales.js.map

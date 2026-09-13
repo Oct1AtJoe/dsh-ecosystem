@@ -15,10 +15,8 @@ import { basename, diffStats, dirname, type ProducedFileMatch } from './turn-del
 import type { NS } from './locales.ts'
 import css from './ProducedFiles.module.css'
 
-/** Cap for produced-file chips. The row wraps to multiple lines, so this
- *  limit exists mainly to bound measurement and prevent pathological counts;
- *  30 covers all realistic single-turn file sets. */
-const SHOWN_LIMIT = 30
+/** Fold threshold: up to 4 chips are shown by default; more are folded behind a toggle chip. */
+const COLLAPSED_LIMIT = 4
 
 /**
  * Select the largest prefix whose measured chips and exact remainder fit.
@@ -141,10 +139,25 @@ export function ProducedFiles({
   const hostCanOpenPath = useWorkspacePathOpen(available => available === true)
   const canOpenPath = isLoopback && hostCanOpenPath
   const [expandedPath, setExpandedPath] = useState<string | null>(null)
+  const [isExpandedAll, setIsExpandedAll] = useState(false)
 
-  const shown = paths.slice(0, SHOWN_LIMIT)
-  const hidden = paths.length - shown.length
+  const hasOverflow = paths.length > COLLAPSED_LIMIT
+  const shown = isExpandedAll || !hasOverflow ? paths : paths.slice(0, COLLAPSED_LIMIT)
+  const hiddenCount = paths.length - COLLAPSED_LIMIT
   const expanded = paths.find(match => match.path === expandedPath) ?? null
+
+  const handleToggleExpandAll = () => {
+    setIsExpandedAll((prev) => {
+      const next = !prev
+      if (!next && expandedPath !== null) {
+        const index = paths.findIndex(match => match.path === expandedPath)
+        if (index >= COLLAPSED_LIMIT) {
+          setExpandedPath(null)
+        }
+      }
+      return next
+    })
+  }
 
   // One chip: the name opens the file; the cumulative badge (totalHunks)
   // shows the conversation's total +/- for the file, and the chevron
@@ -192,7 +205,27 @@ export function ProducedFiles({
       <span className={css.label}>{t('produced.label')}</span>
       <div className={css.row} data-produced-files-row>
         {shown.map(chip)}
-        {hidden > 0 && <span className={css.more}>{moreLabel(t, hidden)}</span>}
+        {hasOverflow && (
+          <button
+            type="button"
+            className={css.moreChip}
+            aria-expanded={isExpandedAll}
+            aria-label={t(isExpandedAll ? 'produced.collapseFilesAria' : 'produced.expandFilesAria', { count: String(hiddenCount) })}
+            onClick={handleToggleExpandAll}
+          >
+            {isExpandedAll ? (
+              <>
+                <span>{t('produced.collapseFiles')}</span>
+                <IconChevronUpOutline14 size={12} className={css.moreIcon} />
+              </>
+            ) : (
+              <>
+                <span>{moreLabel(t, hiddenCount)}</span>
+                <IconChevronDownOutline14 size={12} className={css.moreIcon} />
+              </>
+            )}
+          </button>
+        )}
       </div>
       {expanded !== null && expanded.hunks.length > 0 && (
         <ChangePanel
