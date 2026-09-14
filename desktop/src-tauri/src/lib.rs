@@ -135,6 +135,8 @@ struct DshState {
     is_safe_mode: AtomicBool,
     /// 本地通知桥端口号。
     notify_port: AtomicU16,
+    /// 本地通知桥访问 token。
+    notify_token: Mutex<Option<String>>,
 }
 
 /// 解析 `DSH_DESKTOP_BACKEND`：JSON argv 数组，否则空格分隔；返回 (command, args)。
@@ -1744,7 +1746,7 @@ fn custom_titlebar_script() -> &'static str {
         <svg class="dsh-tb-logo" viewBox="0 0 24 24" fill="none">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span class="dsh-tb-title" data-tauri-drag-region="true">DeepSeek Harness</span>
+        <span class="dsh-tb-title" data-tauri-drag-region="true">Dsh@Oct1AtJoe</span>
       </div>
       <div class="dsh-tb-actions">
         <!-- 最小化左边的下拉菜单按钮 -->
@@ -2122,11 +2124,8 @@ fn bridge_init_script(port: u16, token: &str) -> String {
   })();
 })();
 "#;
-    let mut script = js.replace("__PORT__", &port.to_string())
-        .replace("__TOKEN__", token);
-    script.push_str("\n");
-    script.push_str(custom_titlebar_script());
-    script
+    js.replace("__PORT__", &port.to_string())
+        .replace("__TOKEN__", token)
 }
 
 /// 生成页面侧任务完成监听脚本：轮询"忙碌→空闲"翻转，翻转即弹桌面通知。
@@ -2155,6 +2154,63 @@ fn task_notifier_script() -> String {
 })();
 "#;
     js.to_string()
+}
+
+/// 侧栏品牌覆盖脚本：将 DSH Web 侧栏左上角的"DSH 本地构建"文案替换为指定品牌名。
+/// 通过遍历文本节点 + MutationObserver 保证 React 渲染后依然能稳定覆盖。
+fn brand_overlay_script() -> &'static str {
+    r#"
+(function() {
+  if (window.__dshBrandOverlayInjected) return;
+  window.__dshBrandOverlayInjected = true     ;
+  var TARGET = 'Dsh@Oct1AtJoe';
+  function replaceBrand() {
+    var nodes = document.querySelectorAll('body *');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.childElementCount > 0) continue;
+      if (el.children && el.children.length > 0) continue;
+      if (el.textContent && el.textContent.trim() === 'DSH 本地构建') {
+        el.textContent = TARGET;
+      }
+    }
+  }
+  replaceBrand();
+  var obs = new MutationObserver(function() { replaceBrand(); });
+  obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+  window.__dshBrandObserver = obs;
+})();
+"#
+}
+
+/// 导航完成后注入自定义无边框顶栏（DOM 就绪后 eval 注入，避免初始化脚本时序竞态）。
+/// port/token 从 DshState 读取，避免层层传参。
+fn inject_custom_titlebar(app: AppHandle) {
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        // 导航落地 + React 首帧渲染后注入
+        tokio::time::sleep(Duration::from_millis(1800)).await;
+        let (port, token) = {
+            let state = handle.state::<DshState>();
+            let p = state.notify_port.load(Ordering::SeqCst);
+            let t = state.notify_token.lock().unwrap().clone().unwrap_or_default();
+            (p, t)
+        };
+        if port == 0 {
+            return;
+        }
+        let tb = custom_titlebar_script()
+            .replace("__PORT__", &port.to_string())
+            .replace("__TOKEN__", &token);
+        let script = format!("{}\n{}", tb, brand_overlay_script());
+        if let Some(w) = handle.get_webview_window("main") {
+            if let Err(e) = w.eval(&script) {
+                log::warn!("自定义顶栏注入失败：{e}");
+            } else {
+                log::info!("自定义顶栏与品牌覆盖已注入");
+            }
+        }
+    });
 }
 
 /// 导航完成后注入任务完成启发式监听（桥与 shim 已由初始化脚本注入，脚本自带守卫，重复注入无害）。
@@ -2245,6 +2301,7 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
                 }
             });
             inject_task_notifier(app.clone(), nport);
+            inject_custom_titlebar(app.clone());
             let cp_app = app.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(30)).await;
@@ -2623,6 +2680,7 @@ pub fn run() {
             autostart_item: Mutex::new(None),
             is_safe_mode: AtomicBool::new(false),
             notify_port: AtomicU16::new(0),
+            notify_token: Mutex::new(None),
         })
         .setup(|app| {
             // 清理历史残留的安全模式临时目录（若存在）
@@ -2630,6 +2688,7 @@ pub fn run() {
             // 通知桥先起：端口/token 要写进窗口初始化脚本，窗口创建前必须就绪
             let (nport, ntoken) = start_notify_server(app.handle().clone());
             app.state::<DshState>().notify_port.store(nport, Ordering::SeqCst);
+            *app.state::<DshState>().notify_token.lock().unwrap() = Some(ntoken.clone());
             let port = app_port();
             // 主窗口改为代码创建：initialization_script 在文档解析前注入
             // Notification shim + 通知桥（WebView2 无 Web Notification 权限机制）
