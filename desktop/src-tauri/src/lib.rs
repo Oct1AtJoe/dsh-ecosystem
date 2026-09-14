@@ -2307,7 +2307,7 @@ fn bridge_init_script(port: u16, token: &str) -> String {
     // 兜底拖拽条：顶栏渲染失败时窗口仍可拖动（顶栏出现后自动移除）。
     script.push('\n');
     script.push_str(DRAG_FALLBACK_SCRIPT);
-    // 顶栏引导器随每个新文档注入：401 回退等页面重载后自动重建，
+    // 顶栏引导器 + 品牌覆盖随每个新文档注入：401 回退等页面重载后自动重建，
     // 不依赖导航后 eval 的时机（两者都有幂等守卫，重复注入无害）。
     script.push('\n');
     script.push_str(
@@ -2315,6 +2315,8 @@ fn bridge_init_script(port: u16, token: &str) -> String {
             .replace("__PORT__", &port.to_string())
             .replace("__TOKEN__", token),
     );
+    script.push('\n');
+    script.push_str(brand_overlay_script());
     script
 }
 
@@ -2369,29 +2371,46 @@ fn task_notifier_script() -> String {
     js.to_string()
 }
 
-/// 侧栏品牌覆盖脚本：将 DSH Web 侧栏左上角的"DSH 本地构建"文案替换为指定品牌名。
-/// 通过遍历文本节点 + MutationObserver 保证 React 渲染后依然能稳定覆盖。
+/// 侧栏品牌覆盖脚本：把 DSH Web 侧栏的品牌标签（`brand.localBuild`）替换为自定义名。
+/// 逐文本节点精确匹配中英文原文，改 `nodeValue` 不触碰 React 元素结构；
+/// MutationObserver 让 React 重渲染或切换语言后仍能重新覆盖。
 fn brand_overlay_script() -> &'static str {
     r#"
 (function() {
   if (window.__dshBrandOverlayInjected) return;
-  window.__dshBrandOverlayInjected = true     ;
+  window.__dshBrandOverlayInjected = true;
   var TARGET = 'Dsh@Oct1AtJoe';
+  var SOURCES = ['DSH 本地构建', 'DSH Local Build'];
   function replaceBrand() {
-    var nodes = document.querySelectorAll('body *');
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      if (el.childElementCount > 0) continue;
-      if (el.children && el.children.length > 0) continue;
-      if (el.textContent && el.textContent.trim() === 'DSH 本地构建') {
-        el.textContent = TARGET;
+    if (!document.body) return;
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    var node;
+    while ((node = walker.nextNode())) {
+      var text = node.nodeValue;
+      if (!text) continue;
+      var trimmed = text.trim();
+      if (SOURCES.indexOf(trimmed) !== -1) {
+        node.nodeValue = text.replace(trimmed, TARGET);
       }
     }
   }
-  replaceBrand();
-  var obs = new MutationObserver(function() { replaceBrand(); });
-  obs.observe(document.body, { childList: true, subtree: true, characterData: true });
-  window.__dshBrandObserver = obs;
+  function boot() {
+    replaceBrand();
+    if (!document.body) return;
+    new MutationObserver(schedule).observe(document.body, {
+      childList: true, subtree: true, characterData: true,
+    });
+  }
+  var timer = null;
+  function schedule() {
+    if (timer) return;
+    timer = setTimeout(function() { timer = null; replaceBrand(); }, 200);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
 "#
 }
