@@ -959,6 +959,17 @@ body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class$="_float"]{
     inset 0 1px 1px rgba(255,255,255,0.85),
     inset 0 0 0 1px rgba(255,255,255,0.45) !important;
 }
+/* The changes tab (better-sidebar's unified "文件变动" pane) paints an opaque
+   --dsw-alias-bg-base ground on its own root, which covers the right panel's
+   glass — it is the one pane that reads as a flat slab while every sibling tab
+   stays translucent. Drop that ground inside the right sidebar only; the tab's
+   rows and diff surfaces still paint their own fills, and the panel glass is
+   the same base-surface colour the root was imitating.
+   Hooked through the pane's own lens bar (unconditional first child of the
+   changes root) so no per-build class hash is baked in. */
+[class*="rightbarCol"] [data-slot="sidebar.right.pane.tab"] [class*="_root"]:has(> [class*="_lensBar"]){
+  background:transparent !important;
+}
 
 /* All primary action buttons (Button variant="primary"):
    1. Dark themes: neon fluid-drift glass buttons.
