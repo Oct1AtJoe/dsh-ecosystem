@@ -1727,8 +1727,8 @@ fn custom_titlebar_script() -> &'static str {
 
   function mountTitlebar() {
     if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
-    // 挂到 documentElement：它比 body 更早可用（HTML 解析一开始就有），
-    // 早挂载才能让顶栏出现在页面首帧里，而不是页面渲染完再补上去。
+    // body 一被解析出来就挂上（实测 69ms，早于首帧 116ms）；documentElement 仅作
+    // 非 HTML 文档的兜底宿主。
     var host = document.body || document.documentElement;
     if (!host) return;
     if (document.getElementById('dsh-desktop-custom-titlebar')) return;
@@ -2185,6 +2185,13 @@ fn custom_titlebar_script() -> &'static str {
     host.appendChild(modal);
 
     bindEvents(bar, menu, modal);
+
+    // 一次性自报：记录顶栏在文档启动后第几毫秒挂上。初始化脚本路径是几十毫秒，
+    // Rust 侧重试兜底最早在 1200ms —— t 的量级直接区分走的是哪条路径。
+    if (!window.__dshMountDiag) {
+      window.__dshMountDiag = true;
+      sendAction('diag', { t: Math.round(performance.now()), doc: location.pathname });
+    }
   }
 
   function bindEvents(bar, menu, modal) {
@@ -2325,31 +2332,13 @@ fn custom_titlebar_script() -> &'static str {
   // 暴露给重试注入调用（见脚本顶部守卫分支）
   window.__dshEnsureTitlebar = ensureMounted;
 
-  // 零延迟启动：不能等 DOMContentLoaded —— 它会等 DSH 的 module 脚本
-  // （整个模块图下载 + Cordis 启动）执行完，那正是几百毫秒的延迟来源。
-  // document.body 在 HTML 解析到 <body> 时即存在（约 10ms），此时立刻挂载。
-  // 上限 5000 次防无 body 文档导致空转。
-  (function bootTick(n) {
-    if (document.body || n > 5000) {
-      ensureMounted();
-      return;
-    }
-    setTimeout(function() { bootTick(n + 1); }, 0);
-  })(0);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureMounted);
-  } else {
-    ensureMounted();
-  }
-
-  // 常驻守卫（不设次数上限）：DSH 启动流程、React 重建或页面后续变化把顶栏挤掉时自动补挂
-  setInterval(ensureMounted, 400);
-  if (document.documentElement) {
-    new MutationObserver(ensureMounted).observe(document.documentElement, {
-      childList: true, subtree: true,
-    });
-  }
+  // 唯一启动机制：观察 document 本身。document 在 document-created 时就存在，
+  // 而那一刻 documentElement 仍是 null —— 对它 observe 会抛 TypeError，
+  // 整段 initialization_script 就此中断（本脚本曾经因此从未在文档启动时执行过）。
+  // body 一插入观察器立即到手：实测 body 69ms、first-paint 116ms，顶栏必进页面首帧。
+  // 观察器常驻且不设间隔：DSH 启动流程或 React 重建把顶栏挤掉时，同一微任务内补挂。
+  new MutationObserver(ensureMounted).observe(document, { childList: true, subtree: true });
+  ensureMounted();
 })();
 "##
 }
@@ -2425,74 +2414,66 @@ fn bridge_init_script(port: u16, token: &str) -> String {
   ShimNotification.permission = 'granted';
   ShimNotification.requestPermission = function() { return Promise.resolve('granted'); };
   window.Notification = ShimNotification;
-
-  // 引导页插件失败拦截（MutationObserver 挂载在 data-dsh-boot 容器内）
-  (function(){
-    var attached = false;
-    function checkBootFailure() {
-      if (attached) return;
-      var root = document.querySelector('[data-dsh-boot]');
-      if (!root || document.querySelector('[data-dsh-desktop-recovery]')) return;
-      var divs = root.querySelectorAll('div');
-      var failedNode = null;
-      for (var i = 0; i < divs.length; i++) {
-        if (divs[i].childElementCount === 0 && divs[i].textContent && divs[i].textContent.trim() === 'Failed to load plugins') {
-          failedNode = divs[i];
-          break;
-        }
-      }
-      if (!failedNode || !failedNode.parentElement) return;
-      attached = true;
-      var container = document.createElement('div');
-      container.setAttribute('data-dsh-desktop-recovery', '1');
-      container.style.cssText = 'margin-top:14px;padding:12px 16px;background:#21262d;border:1px solid #30363d;border-radius:8px;display:flex;flex-direction:column;gap:8px;font-family:sans-serif;color:#e6edf3;font-size:13px;';
-
-      var tip = document.createElement('div');
-      tip.textContent = '桌面恢复助手：检测到插件加载失败。你可以打开恢复助手排障、进入安全模式或回滚配置。';
-
-      var btnGroup = document.createElement('div');
-      btnGroup.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
-
-      var btnRecovery = document.createElement('button');
-      btnRecovery.type = 'button';
-      btnRecovery.textContent = '打开恢复助手';
-      btnRecovery.style.cssText = 'padding:6px 14px;background:#1f6feb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;';
-      btnRecovery.onclick = function() {
-        btnRecovery.disabled = true;
-        btnRecovery.textContent = '正在切换…';
-        if (window.__dshNotifyBridge && window.__dshNotifyBridge.fire) {
-          window.__dshNotifyBridge.fire({ type: 'open-recovery', reason: 'plugins-failed' });
-        }
-      };
-
-      btnGroup.appendChild(btnRecovery);
-      container.appendChild(tip);
-      container.appendChild(btnGroup);
-      failedNode.parentElement.appendChild(container);
-    }
-    new MutationObserver(checkBootFailure).observe(document.documentElement, { childList: true, subtree: true });
-    if (document.readyState !== 'loading') checkBootFailure();
-  })();
 })();
 "#;
-    let mut script = js
-        .replace("__PORT__", &port.to_string())
-        .replace("__TOKEN__", token);
-    // 兜底拖拽条：顶栏渲染失败时窗口仍可拖动（顶栏出现后自动移除）。
-    script.push('\n');
-    script.push_str(DRAG_FALLBACK_SCRIPT);
-    // 顶栏引导器 + 品牌覆盖随每个新文档注入：401 回退等页面重载后自动重建，
-    // 不依赖导航后 eval 的时机（两者都有幂等守卫，重复注入无害）。
-    script.push('\n');
-    script.push_str(
-        &custom_titlebar_script()
-            .replace("__PORT__", &port.to_string())
-            .replace("__TOKEN__", token),
-    );
-    script.push('\n');
-    script.push_str(brand_overlay_script());
-    script
+    js.replace("__PORT__", &port.to_string())
+        .replace("__TOKEN__", token)
 }
+
+/// 引导页插件加载失败时插入桌面恢复助手入口。
+///
+/// 必须是独立的 initialization_script：它和通知 shim、顶栏、品牌共用同一个文档启动时机，
+/// 任一脚本抛异常时 WebView2 只中断那一条，不会连带杀死其余脚本。
+const BOOT_FAILURE_SCRIPT: &str = r#"
+(function(){
+  var attached = false;
+  function checkBootFailure() {
+    if (attached) return;
+    var root = document.querySelector('[data-dsh-boot]');
+    if (!root || document.querySelector('[data-dsh-desktop-recovery]')) return;
+    var divs = root.querySelectorAll('div');
+    var failedNode = null;
+    for (var i = 0; i < divs.length; i++) {
+      if (divs[i].childElementCount === 0 && divs[i].textContent && divs[i].textContent.trim() === 'Failed to load plugins') {
+        failedNode = divs[i];
+        break;
+      }
+    }
+    if (!failedNode || !failedNode.parentElement) return;
+    attached = true;
+    var container = document.createElement('div');
+    container.setAttribute('data-dsh-desktop-recovery', '1');
+    container.style.cssText = 'margin-top:14px;padding:12px 16px;background:#21262d;border:1px solid #30363d;border-radius:8px;display:flex;flex-direction:column;gap:8px;font-family:sans-serif;color:#e6edf3;font-size:13px;';
+
+    var tip = document.createElement('div');
+    tip.textContent = '桌面恢复助手：检测到插件加载失败。你可以打开恢复助手排障、进入安全模式或回滚配置。';
+
+    var btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+
+    var btnRecovery = document.createElement('button');
+    btnRecovery.type = 'button';
+    btnRecovery.textContent = '打开恢复助手';
+    btnRecovery.style.cssText = 'padding:6px 14px;background:#1f6feb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;';
+    btnRecovery.onclick = function() {
+      btnRecovery.disabled = true;
+      btnRecovery.textContent = '正在切换…';
+      if (window.__dshNotifyBridge && window.__dshNotifyBridge.fire) {
+        window.__dshNotifyBridge.fire({ type: 'open-recovery', reason: 'plugins-failed' });
+      }
+    };
+
+    btnGroup.appendChild(btnRecovery);
+    container.appendChild(tip);
+    container.appendChild(btnGroup);
+    failedNode.parentElement.appendChild(container);
+  }
+  // document 在 document-created 时即存在；documentElement 此刻为 null，
+  // 对它 observe 会抛 TypeError（本脚本曾因此中断掉排在其后的顶栏与品牌脚本）。
+  new MutationObserver(checkBootFailure).observe(document, { childList: true, subtree: true });
+  checkBootFailure();
+})();
+"#;
 
 /// 极简兜底拖拽条：顶栏缺席时保证窗口可拖动。
 const DRAG_FALLBACK_SCRIPT: &str = r#"
@@ -2511,9 +2492,9 @@ const DRAG_FALLBACK_SCRIPT: &str = r#"
     d.style.cssText = 'position:fixed;top:0;left:0;right:0;height:14px;z-index:999980;background:transparent;';
     document.body.appendChild(d);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensure);
-  else ensure();
-  setInterval(ensure, 400);
+  // 与顶栏、品牌同一套启动机制：观察 document，body 一插入就到手，不依赖定时器。
+  new MutationObserver(ensure).observe(document, { childList: true, subtree: true });
+  ensure();
 })();
 "#;
 
@@ -2586,32 +2567,20 @@ fn brand_overlay_script() -> &'static str {
   }
   var booted = false;
   function boot() {
+    replaceBrand();
     if (booted) return;
     booted = true;
-    replaceBrand();
-    // 观察 documentElement 而非 body：即使页面重建 body 内容，覆盖仍然生效
-    new MutationObserver(schedule).observe(document.documentElement, {
+    // 观察 document 本身：它在 document-created 时就存在，documentElement 此刻还是 null
+    // （对它 observe 会抛异常，本脚本曾因此从未在文档启动时执行过）。
+    new MutationObserver(schedule).observe(document, {
       childList: true, subtree: true, characterData: true,
     });
   }
   // 暴露给重试注入调用
   window.__dshEnsureBrand = boot;
-  // DOM 一出现就尽早建立观察：与顶栏同理，不等 DOMContentLoaded
-  // 上限 5000 次防无 body 文档导致空转。
-  (function bootTick(n) {
-    if (document.body || n > 5000) {
-      boot();
-      return;
-    }
-    setTimeout(function() { bootTick(n + 1); }, 0);
-  })(0);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-  // 常驻低频兜底：React 重建侧栏或切换语言后重新覆盖
-  setInterval(replaceBrand, 1500);
+  // 与顶栏同一套启动机制：boot 内部那条观察 document 的 observer 会接住
+  // html/body 的插入，早于首帧；这里不再挂第二条观察器（重复全量走 DOM）。
+  boot();
 })();
 "#
 }
@@ -3155,7 +3124,19 @@ pub fn run() {
             // TRUE，WebView2 原生处理拖放，页面才能收到 dragenter/dragover/drop。
             .drag_and_drop(false)
             .disable_drag_drop_handler()
+            // 五个独立 initialization_script，而不是拼成一大段：WebView2 对每一条
+            // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
+            // （曾把五段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
+            // 顶栏与品牌脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
             .initialization_script(bridge_init_script(nport, &ntoken))
+            .initialization_script(BOOT_FAILURE_SCRIPT)
+            .initialization_script(DRAG_FALLBACK_SCRIPT)
+            .initialization_script(
+                custom_titlebar_script()
+                    .replace("__PORT__", &nport.to_string())
+                    .replace("__TOKEN__", &ntoken),
+            )
+            .initialization_script(brand_overlay_script())
             .on_navigation({
                 // 每次导航（含手动刷新、401 回退重定向）都重新注入壳层 UI：
                 // 刷新路径不会再走 wait_ready_and_navigate，只能靠这个钩子兜住。
