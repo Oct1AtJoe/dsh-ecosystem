@@ -574,8 +574,7 @@ fn spawn_child(command: &str, args: &[String], port: u16, extra_envs: &[(&str, &
     use std::os::windows::process::CommandExt;
     let mut cmd = Command::new(command);
     cmd.args(args)
-        .env("BROWSER", "none")
-        .env("SSH_TTY", "fake");
+        .env("BROWSER", "none");
     for (k, v) in extra_envs {
         cmd.env(k, v);
     }
@@ -848,8 +847,9 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                 #[cfg(target_os = "windows")]
                 {
                     update_dwm_titlebar(&w, is_dark, color_str);
-                    // set_theme 会让 tao 重新写回窗口样式（含 WS_CAPTION），立即纠正。
-                    // 不调 set_decorations：那条路径同样经 apply_diff，会再次写回标题栏。
+                    // set_theme 会让 tao 重新写回窗口样式（含 WS_CAPTION），立即纠正；
+                    // 同时强制重设 DWM 边框隐藏（主题切换可能重置该属性）。
+                    DWM_BORDER_HIDDEN.store(false, Ordering::Relaxed);
                     force_borderless_window(&w);
                 }
             }
@@ -1240,7 +1240,48 @@ fn strip_caption_hwnd(hwnd: windows::Win32::Foundation::HWND) -> bool {
     }
 }
 
-/// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放与 Win11 圆角）。
+/// DWM 边框是否已隐藏（避免守护线程每 tick 都做一次 DWM 调用）。
+#[cfg(target_os = "windows")]
+static DWM_BORDER_HIDDEN: AtomicBool = AtomicBool::new(false);
+
+/// 隐藏 DWM 绘制的 1px 窗口边框（Win11 浅色下就是那条白色外框）。
+///
+/// 必须保留 `WS_THICKFRAME`（拖边缩放依赖它），所以不能用移除边框样式的方式消白边，
+/// 只能改 DWM 的边框颜色属性 `DWMWA_BORDER_COLOR`（34），值 `DWMWA_COLOR_NONE`。
+#[cfg(target_os = "windows")]
+fn hide_dwm_border(hwnd: windows::Win32::Foundation::HWND) {
+    use std::ffi::c_void;
+    const DWMWA_BORDER_COLOR: u32 = 34;
+    const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
+    unsafe {
+        let res = DwmSetWindowAttribute(
+            hwnd.0 as *mut c_void,
+            DWMWA_BORDER_COLOR,
+            &DWMWA_COLOR_NONE as *const _ as *const c_void,
+            std::mem::size_of::<u32>() as u32,
+        );
+        if res != 0 {
+            // Win10 及更早版本不支持该属性：白边无法消除，但缩放与其余行为不受影响
+            log::debug!("[window] 隐藏 DWM 边框不受支持：hr={res}");
+        }
+    }
+}
+
+/// 统一应用无边框外观：移除 `WS_CAPTION` + 隐藏 DWM 白边。
+///
+/// 返回窗口样式是否发生变化，供守护线程做日志去抖。
+#[cfg(target_os = "windows")]
+fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    let style_changed = strip_caption_hwnd(hwnd);
+    // 样式被 tao 重写后 DWM 边框可能复现，因此样式变化时与首次运行时都重新隐藏
+    if style_changed || !DWM_BORDER_HIDDEN.load(Ordering::Relaxed) {
+        hide_dwm_border(hwnd);
+        DWM_BORDER_HIDDEN.store(true, Ordering::Relaxed);
+    }
+    style_changed
+}
+
+/// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放，白边由 DWM 属性消除）。
 #[cfg(target_os = "windows")]
 fn force_borderless_window(window: &tauri::WebviewWindow) {
     use windows::Win32::Foundation::HWND;
@@ -1248,13 +1289,16 @@ fn force_borderless_window(window: &tauri::WebviewWindow) {
         log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
         return;
     };
-    if strip_caption_hwnd(HWND(h.0 as _)) {
+    if apply_borderless_frame(HWND(h.0 as _)) {
         log::info!("[window] 原生标题栏已移除");
     }
 }
 
 /// 无边框守护：tao 的 apply_diff 会在主题/焦点/最大化等标志变化时把 `WS_CAPTION`
-/// 写回（见 {@link strip_caption_hwnd}），这里低频巡检并纠正，覆盖所有触发点。
+/// 写回（见 {@link strip_caption_hwnd}），这里高频巡检并纠正，覆盖所有触发点。
+///
+/// 周期取 150ms：最大化/还原动画期间若残留标题栏，Windows 会短暂绘制原生标题栏按钮，
+/// 巡检间隔必须明显小于动画时长才能压掉这帧闪现。
 ///
 /// 句柄只在启动时取一次，循环内只有纯 Win32 样式读写，不跨线程碰窗口对象。
 #[cfg(target_os = "windows")]
@@ -1269,10 +1313,10 @@ fn start_borderless_guard(app: AppHandle) {
         return;
     };
     tauri::async_runtime::spawn(async move {
-        let mut ticker = tokio::time::interval(Duration::from_millis(500));
+        let mut ticker = tokio::time::interval(Duration::from_millis(150));
         loop {
             ticker.tick().await;
-            if strip_caption_hwnd(HWND(raw as _)) {
+            if apply_borderless_frame(HWND(raw as _)) {
                 log::info!("[window] 检测到原生标题栏回写并再次移除");
             }
         }
@@ -1514,6 +1558,9 @@ fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
             geo.maximized = false;
             save_geometry(&geo);
         }
+        // 还原动画后同样要压掉可能回写的原生标题栏
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
         false
     } else {
         // 1. 最大化前：当前尺寸绝对是真实的正常窗口，立即精准捕获并锁定！
@@ -1530,7 +1577,13 @@ fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
                 pos.x, pos.y, size.width, size.height
             );
         }
+        // 2. 最大化动画开始前先清掉残留标题栏：否则动画期间 Windows 会绘制原生标题栏按钮
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
         let _ = window.maximize();
+        // 3. 动画期间再补一次，压掉 tao 在标志变化时写回的标题栏
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
         true
     }
 }
@@ -3217,7 +3270,7 @@ pub fn run() {
                 #[cfg(target_os = "windows")]
                 if window.label() == "main" {
                     if let Ok(h) = window.hwnd() {
-                        strip_caption_hwnd(windows::Win32::Foundation::HWND(h.0 as _));
+                        apply_borderless_frame(windows::Win32::Foundation::HWND(h.0 as _));
                     }
                 }
             } else if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_))
@@ -3228,7 +3281,7 @@ pub fn run() {
                 // 最大化/还原会重算窗口框架，同样纠正标题栏回写
                 #[cfg(target_os = "windows")]
                 if let Ok(h) = window.hwnd() {
-                    strip_caption_hwnd(windows::Win32::Foundation::HWND(h.0 as _));
+                    apply_borderless_frame(windows::Win32::Foundation::HWND(h.0 as _));
                 }
             }
         })
