@@ -740,8 +740,7 @@ fn show_about_dialog(app: &AppHandle) {
     {
         use windows::core::HSTRING;
         use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
-        let hwnd = app
-            .get_webview_window("main")
+        let hwnd = main_window(app)
             .and_then(|w| w.hwnd().ok())
             .map(|h| windows::Win32::Foundation::HWND(h.0 as _))
             .unwrap_or_default();
@@ -769,7 +768,7 @@ fn restart_app(app: &AppHandle) {
     // prevent_exit()，而 Tauri 在非主线程调用 restart() 时走的是 restart_on_exit + request_exit
     // 延迟分支 —— 不置位就会让重启被自己的守卫吃掉，只剩窗口被隐藏。
     app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = main_window(app) {
         let _ = w.hide();
     }
     if let Some(w) = app.get_webview_window("pet") {
@@ -826,7 +825,7 @@ fn restart_backend(app: &AppHandle, safe_mode: bool) {
     };
 
     // 4. 重置主窗口标题并让内容子 WebView 回到加载页（壳页面不动）
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = main_window(app) {
         let title = if safe_mode {
             "DeepSeek Harness (安全模式)"
         } else {
@@ -961,14 +960,15 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
             let theme_str = val.get("theme").and_then(|v| v.as_str()).unwrap_or("dark");
             let is_dark = theme_str == "dark";
             let color_str = val.get("color").and_then(|v| v.as_str());
-            if let Some(w) = app.get_webview_window("main") {
+            if let Some(w) = main_window(app) {
                 let _ = w.set_theme(Some(if is_dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
-                // 壳标题栏跟随 DSH 主题（壳页面不重载，靠这次 eval 切换配色）
-                let _ = w.eval(&format!("window.__dshSetTheme && window.__dshSetTheme({});", if is_dark { "true" } else { "false" }));
                 #[cfg(target_os = "windows")]
                 {
                     update_dwm_titlebar(&w, is_dark, color_str);
                 }
+            }
+            if let Some(shell) = shell_webview(app) {
+                let _ = shell.eval(&format!("window.__dshSetTheme && window.__dshSetTheme({});", if is_dark { "true" } else { "false" }));
             }
         }
         let _ = sock
@@ -989,23 +989,23 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                 // 壳标题栏动作：拖动/最小化/最大化/关闭都由 Rust 侧执行，
                 // 既绕开 Tauri IPC 的窗口白名单，也不受页面刷新影响。
                 "start_drag" => {
-                    if let Some(w) = app.get_webview_window("main") {
+                    if let Some(w) = main_window(app) {
                         let _ = w.start_dragging();
                     }
                 }
                 "minimize" => {
-                    if let Some(w) = app.get_webview_window("main") {
+                    if let Some(w) = main_window(app) {
                         let _ = w.minimize();
                     }
                 }
                 "toggle_maximize" => {
-                    if let Some(w) = app.get_webview_window("main") {
+                    if let Some(w) = main_window(app) {
                         let is_max = do_toggle_maximize(&w);
                         resp_json["isMaximized"] = serde_json::json!(is_max);
                     }
                 }
                 "close" => {
-                    if let Some(w) = app.get_webview_window("main") {
+                    if let Some(w) = main_window(app) {
                         let _ = w.close();
                     }
                 }
@@ -1097,7 +1097,7 @@ extern "system" {
 }
 
 #[cfg(target_os = "windows")]
-fn update_dwm_titlebar(window: &tauri::WebviewWindow, is_dark: bool, color_spec: Option<&str>) {
+fn update_dwm_titlebar(window: &tauri::Window, is_dark: bool, color_spec: Option<&str>) {
     use std::ffi::c_void;
 
     let Ok(h) = window.hwnd() else { return };
@@ -1255,7 +1255,7 @@ fn save_geometry(geo: &WindowGeometry) {
 }
 
 /// 保存的矩形是否与任一显示器相交（显示器拔除后丢弃过期位置）。
-fn geometry_on_screen(window: &tauri::WebviewWindow, geo: &WindowGeometry) -> bool {
+fn geometry_on_screen(window: &tauri::Window, geo: &WindowGeometry) -> bool {
     let Ok(monitors) = window.available_monitors() else {
         return false;
     };
@@ -1270,7 +1270,7 @@ fn geometry_on_screen(window: &tauri::WebviewWindow, geo: &WindowGeometry) -> bo
 }
 
 /// 用保存的几何定位窗口；无记录或位置失效时保持构建器的默认居中。
-fn apply_saved_geometry(window: &tauri::WebviewWindow) {
+fn apply_saved_geometry(window: &tauri::Window) {
     let Some(geo) = load_geometry() else {
         log::info!("[window] 无历史几何记录，使用默认居中位置");
         return;
@@ -1332,8 +1332,26 @@ fn capture_window_geometry(window: &tauri::Window) {
 pub(crate) const TITLEBAR_HEIGHT: f64 = 36.0;
 
 /// 内容子 WebView 的标签：DSH 页面（含启动页、错误页）都跑在它里面，
-/// 壳标题栏则属于窗口自身的 webview（`main`）。
+/// 壳标题栏则属于窗口自身的主 webview（`main`）。
 const CONTENT_LABEL: &str = "content";
+
+/// 主窗口句柄（用于所有窗口级操作：尺寸、位置、最小化、最大化、句柄、显示、隐藏）。
+///
+/// 重要：Tauri 2 中窗口一旦挂载子 WebView（如 content），is_webview_window() 即变为 false，
+/// 导致 app.get_webview_window("main") 永远返回 None！窗口级操作必须走 get_window("main")。
+fn main_window(app: &AppHandle) -> Option<tauri::Window> {
+    app.get_window("main")
+}
+
+/// 内容子 WebView（DSH 页面）句柄。
+fn page_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
+    app.get_webview(CONTENT_LABEL)
+}
+
+/// 壳标题栏自身所属的主 WebView 句柄。
+fn shell_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
+    app.get_webview("main")
+}
 
 /// 按 HWND 移除原生标题栏；返回是否发生了修改。
 ///
@@ -1408,7 +1426,7 @@ fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
 
 /// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放）。
 #[cfg(target_os = "windows")]
-fn force_borderless_window(window: &tauri::WebviewWindow) {
+fn force_borderless_window(window: &tauri::Window) {
     use windows::Win32::Foundation::HWND;
     let Ok(h) = window.hwnd() else {
         log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
@@ -1425,8 +1443,7 @@ fn force_borderless_window(window: &tauri::WebviewWindow) {
 #[cfg(target_os = "windows")]
 fn start_borderless_guard(app: AppHandle) {
     use windows::Win32::Foundation::HWND;
-    let hwnd = app
-        .get_webview_window("main")
+    let hwnd = main_window(&app)
         .and_then(|w| w.hwnd().ok())
         .map(|h| h.0 as isize);
     let Some(raw) = hwnd else {
@@ -1445,7 +1462,7 @@ fn start_borderless_guard(app: AppHandle) {
 }
 
 /// 执行最大化 / 还原切换，并绕开 Windows 无边框窗口还原只缩几个像素的系统缺陷。
-fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
+fn do_toggle_maximize(window: &tauri::Window) -> bool {
     let is_max = window.is_maximized().unwrap_or(false);
     if is_max {
         let saved_geo = load_geometry().filter(|g| !g.maximized && g.width > 0 && g.height > 0);
@@ -1485,32 +1502,35 @@ fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
     }
 }
 
-/// 内容子 WebView（DSH 页面）句柄。
-fn page_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
-    app.get_webview(CONTENT_LABEL)
-}
-
-/// 把内容子 WebView 摆回标题栏下方并跟随窗口尺寸。
+/// 把内容子 WebView 摆回标题栏下方并铺满窗口剩余区域。
 ///
 /// 子 WebView 不参与窗口布局（位置/尺寸由应用负责），窗口缩放与 DPI 变化都要手动纠正。
+/// 此处使用 PhysicalPosition / PhysicalSize，精确到物理像素，杜绝浮点 DPI 换算舍入误差。
 fn layout_content_webview(app: &AppHandle) {
-    let Some(win) = app.get_webview_window("main") else {
+    let Some(win) = main_window(app) else {
+        log::warn!("[layout] 未找到 main 窗口");
         return;
     };
     let Some(page) = page_webview(app) else {
+        log::warn!("[layout] 未找到 content webview");
         return;
     };
     let scale = win.scale_factor().unwrap_or(1.0);
     let Ok(size) = win.inner_size() else {
+        log::warn!("[layout] 未取得 inner_size");
         return;
     };
-    let w = size.width as f64 / scale;
-    let h = size.height as f64 / scale;
-    let _ = page.set_position(tauri::LogicalPosition::new(0.0, TITLEBAR_HEIGHT));
-    let _ = page.set_size(tauri::LogicalSize::new(
-        w.max(1.0),
-        (h - TITLEBAR_HEIGHT).max(1.0),
-    ));
+    let titlebar_px = (TITLEBAR_HEIGHT * scale).round() as i32;
+    let content_h_px = (size.height as i32 - titlebar_px).max(1) as u32;
+    log::info!(
+        "[layout] 重排 content webview: 窗口物理尺寸={}x{}, 标题栏高度={}px, 内容高度={}px",
+        size.width,
+        size.height,
+        titlebar_px,
+        content_h_px
+    );
+    let _ = page.set_position(tauri::PhysicalPosition::new(0, titlebar_px));
+    let _ = page.set_size(tauri::PhysicalSize::new(size.width, content_h_px));
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -1536,7 +1556,7 @@ fn open_session(app: &AppHandle, session_id: &str) {
 fn pet_open_session(app: AppHandle, session_id: String) {
     let handle = app.clone();
     let dispatched = app.run_on_main_thread(move || {
-        let Some(w) = handle.get_webview_window("main") else {
+        let Some(w) = main_window(&handle) else {
             log::warn!("pet_open_session：未找到 main 窗口");
             return;
         };
@@ -1571,7 +1591,7 @@ fn pet_open_session(app: AppHandle, session_id: String) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        if let Some(win) = handle.get_webview_window("main") {
+        if let Some(win) = main_window(&handle) {
             let _ = win.set_always_on_top(false);
             let _ = win.set_focus();
         }
@@ -1724,7 +1744,7 @@ fn get_dsh_host_version() -> String {
 /// 查询当前窗口是否最大化
 #[tauri::command]
 fn is_window_maximized(app: AppHandle) -> bool {
-    app.get_webview_window("main")
+    main_window(&app)
         .and_then(|w| w.is_maximized().ok())
         .unwrap_or(false)
 }
@@ -1759,8 +1779,7 @@ fn get_dsh_version_info() -> serde_json::Value {
 /// 收到任务完成信号后的壳侧动作：未读数 +1；默认仅窗口失焦/隐藏时弹通知（force 时无条件弹）。
 /// 携带 session_id 时给 toast 挂点击回调：点击后聚焦窗口并跳转到对应会话。
 fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: bool, session_id: Option<&str>) {
-    let distracted = app
-        .get_webview_window("main")
+    let distracted = main_window(app)
         .map(|w| {
             let focused = w.is_focused().unwrap_or(true);
             let visible = w.is_visible().unwrap_or(true);
@@ -1769,7 +1788,7 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
         .unwrap_or(true);
     let state = app.state::<DshState>();
     let unread = state.unread.fetch_add(1, Ordering::SeqCst) + 1;
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = main_window(app) {
         let _ = w.set_badge_count(Some(unread as i64));
         if distracted || force {
             // ponytail: tauri-winrt-notification 直连（notify-rust 在 Windows 上忽略 icon 字段）。
@@ -2170,7 +2189,7 @@ fn show_error(app: &AppHandle, reason: &str) {
 fn show_main(app: &AppHandle) {
     let handle = app.clone();
     let dispatched = app.run_on_main_thread(move || {
-        let Some(w) = handle.get_webview_window("main") else {
+        let Some(w) = main_window(&handle) else {
             log::warn!("show_main：未找到 main 窗口");
             return;
         };
@@ -2197,7 +2216,7 @@ fn show_main(app: &AppHandle) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        if let Some(win) = handle.get_webview_window("main") {
+        if let Some(win) = main_window(&handle) {
             let _ = win.set_always_on_top(false);
             let _ = win.set_focus();
         }
@@ -2487,7 +2506,7 @@ pub fn run() {
             // Notification shim + 通知桥（WebView2 无 Web Notification 权限机制）
             // 外部链接处理与 Electron 版对齐：target=_blank/新窗口请求与跨源导航
             // 一律交给系统默认浏览器，壳内不允许打开应用 origin 之外的页面。
-            let window = tauri::WebviewWindowBuilder::new(
+            let _window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("shell.html".into()),
@@ -2512,13 +2531,24 @@ pub fn run() {
             .build()?;
 
             // 内容子 WebView：DSH 页面。启动页先加载，服务就绪后由 wait_ready_and_navigate 导航。
-            if let Some(main_window) = app.get_window("main") {
-                let scale = window.scale_factor().unwrap_or(1.0);
-                let (w, h) = window
+            if let Some(main_win) = app.get_window("main") {
+                // 隐藏状态下先恢复上次几何，消除中间闪烁
+                apply_saved_geometry(&main_win);
+                #[cfg(target_os = "windows")]
+                force_borderless_window(&main_win);
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+                #[cfg(target_os = "windows")]
+                start_borderless_guard(app.handle().clone());
+
+                let scale = main_win.scale_factor().unwrap_or(1.0);
+                let size = main_win
                     .inner_size()
-                    .map(|s| (s.width as f64 / scale, s.height as f64 / scale))
-                    .unwrap_or((1440.0, 900.0));
-                let _content = main_window.add_child(
+                    .unwrap_or(tauri::PhysicalSize::new(1440, 900));
+                let titlebar_px = (TITLEBAR_HEIGHT * scale).round() as i32;
+                let content_h_px = (size.height as i32 - titlebar_px).max(1) as u32;
+
+                let _content = main_win.add_child(
                     tauri::webview::WebviewBuilder::new(
                         CONTENT_LABEL,
                         tauri::WebviewUrl::App("index.html".into()),
@@ -2574,32 +2604,19 @@ pub fn run() {
                         // #[non_exhaustive] 跨 crate 匹配的兜底臂
                         _ => true,
                     }),
-                    tauri::LogicalPosition::new(0.0, TITLEBAR_HEIGHT),
-                    tauri::LogicalSize::new(w.max(1.0), (h - TITLEBAR_HEIGHT).max(1.0)),
+                    tauri::PhysicalPosition::new(0, titlebar_px),
+                    tauri::PhysicalSize::new(size.width, content_h_px),
                 )?;
+
+                layout_content_webview(app.handle());
+                let relayout_app = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                    layout_content_webview(&relayout_app);
+                });
             } else {
                 log::error!("找不到 main 窗口，无法挂载内容子 WebView");
             }
-
-            // 隐藏状态下先恢复上次几何，完成后再展示：消除中间闪烁
-            apply_saved_geometry(&window);
-            #[cfg(target_os = "windows")]
-            force_borderless_window(&window);
-            let _ = window.show();
-            let _ = window.set_focus();
-            #[cfg(target_os = "windows")]
-            start_borderless_guard(app.handle().clone());
-
-            // 内容子 WebView 在 add_child 时是按"创建时默认尺寸"摆放的；窗口几何是
-            // 上面才恢复的（可能还带最大化），必须在这里按实际窗口尺寸重摆一次，
-            // 否则 DSH 页面不会铺满标题栏下方的区域。窗口缩放事件不保证每次都到，
-            // 再延时补一次兜底。
-            layout_content_webview(app.handle());
-            let relayout_app = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(300)).await;
-                layout_content_webview(&relayout_app);
-            });
 
             let state = app.state::<DshState>();
             if port_open(port) {
@@ -2763,7 +2780,7 @@ pub fn run() {
                 let quitting = app.state::<DshState>().quitting.load(Ordering::SeqCst);
                 if !quitting {
                     api.prevent_exit();
-                    if let Some(w) = app.get_webview_window("main") {
+                    if let Some(w) = main_window(app) {
                         let _ = w.hide();
                     }
                 }
