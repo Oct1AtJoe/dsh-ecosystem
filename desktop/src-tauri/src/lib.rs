@@ -1181,6 +1181,102 @@ fn factory_reset(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
+/// 读取 DSH 宿主版本号
+fn get_dsh_host_version() -> String {
+    let checkout_pkg = PathBuf::from(r"E:\vibeCoding\deepseek-harness\package.json");
+    if let Ok(data) = std::fs::read_to_string(&checkout_pkg) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&data) {
+            if let Some(ver) = v.get("version").and_then(|s| s.as_str()) {
+                return ver.to_string();
+            }
+        }
+    }
+    let profile_pkg = dsh_home_dir().join("profiles").join("web").join("package.json");
+    if let Ok(data) = std::fs::read_to_string(&profile_pkg) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&data) {
+            if let Some(ver) = v
+                .get("dependencies")
+                .and_then(|d| d.get("@deepseek-ai/dsh-base"))
+                .and_then(|s| s.as_str())
+            {
+                return ver.to_string();
+            }
+        }
+    }
+    "0.1.5-rc.2".to_string()
+}
+
+/// 顶栏自定义按钮：最小化窗口
+#[tauri::command]
+fn window_minimize(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.minimize();
+    }
+}
+
+/// 顶栏自定义按钮：最大化 / 还原切换，返回切换后的最大化状态
+#[tauri::command]
+fn window_toggle_maximize(app: AppHandle) -> bool {
+    if let Some(w) = app.get_webview_window("main") {
+        if let Ok(is_max) = w.is_maximized() {
+            if is_max {
+                let _ = w.unmaximize();
+                false
+            } else {
+                let _ = w.maximize();
+                true
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+/// 顶栏自定义按钮：关闭窗口（触发隐藏至系统托盘）
+#[tauri::command]
+fn window_close(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.close();
+    }
+}
+
+/// 查询当前窗口是否最大化
+#[tauri::command]
+fn is_window_maximized(app: AppHandle) -> bool {
+    app.get_webview_window("main")
+        .and_then(|w| w.is_maximized().ok())
+        .unwrap_or(false)
+}
+
+/// 顶栏下拉选项：打开开发者工具
+#[tauri::command]
+fn open_devtools(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        w.open_devtools();
+    }
+}
+
+/// 顶栏下拉选项：完全退出应用
+#[tauri::command]
+fn app_quit(app: AppHandle) {
+    log::info!("[titlebar] 用户通过顶栏菜单触发退出");
+    app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
+    app.exit(0);
+}
+
+/// 顶栏下拉选项：获取关于信息
+#[tauri::command]
+fn get_dsh_version_info() -> serde_json::Value {
+    serde_json::json!({
+        "hostVersion": get_dsh_host_version(),
+        "desktopVersion": "0.1.0",
+        "tauriVersion": "2.11.5",
+        "nodeVersion": "Node.js v24 (Local)",
+    })
+}
+
 /// 收到任务完成信号后的壳侧动作：未读数 +1；默认仅窗口失焦/隐藏时弹通知（force 时无条件弹）。
 /// 携带 session_id 时给 toast 挂点击回调：点击后聚焦窗口并跳转到对应会话。
 fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: bool, session_id: Option<&str>) {
@@ -1227,6 +1323,553 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
         }
     }
     log::info!("任务完成通知：{}（未读 {unread}，失焦={distracted}）", body);
+}
+
+/// 现代深色无边框自定义顶栏、下拉菜单与关于对话框注入脚本
+fn custom_titlebar_script() -> &'static str {
+    r##"
+(function() {
+  if (window.__dshDesktopTitlebarInjected) return;
+  window.__dshDesktopTitlebarInjected = true;
+
+  if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
+
+  var style = document.createElement('style');
+  style.id = 'dsh-desktop-titlebar-styles';
+  style.textContent = `
+    :root {
+      --dsh-titlebar-height: 32px;
+    }
+    body {
+      padding-top: var(--dsh-titlebar-height) !important;
+      box-sizing: border-box !important;
+      height: 100vh !important;
+      margin: 0 !important;
+    }
+    #dsh-desktop-custom-titlebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 32px;
+      background: #0d1117;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 999990;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    #dsh-desktop-custom-titlebar * {
+      box-sizing: border-box;
+    }
+    .dsh-tb-drag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 12px;
+      height: 100%;
+      flex: 1;
+      min-width: 0;
+    }
+    .dsh-tb-logo {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+    .dsh-tb-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #c9d1d9;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .dsh-tb-actions {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      flex-shrink: 0;
+    }
+    .dsh-tb-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      height: 32px;
+      cursor: pointer;
+      padding: 0;
+      outline: none;
+      transition: background-color 0.15s, color 0.15s;
+    }
+    .dsh-tb-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f0f6fc;
+    }
+    .dsh-tb-btn-menu {
+      width: 38px;
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .dsh-tb-btn-menu:hover, .dsh-tb-btn-menu.active {
+      background: rgba(88, 166, 255, 0.15);
+      color: #58a6ff;
+    }
+    .dsh-tb-btn-caption {
+      width: 46px;
+    }
+    .dsh-tb-btn-close:hover {
+      background: #e81123 !important;
+      color: #ffffff !important;
+    }
+
+    #dsh-desktop-menu-dropdown {
+      position: fixed;
+      top: 33px;
+      right: 140px;
+      min-width: 220px;
+      background: rgba(22, 27, 34, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+      padding: 5px;
+      z-index: 999999;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      user-select: none;
+      animation: dshMenuFadeIn 0.12s ease;
+    }
+    @keyframes dshMenuFadeIn {
+      from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .dsh-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #c9d1d9;
+      font-size: 13px;
+      transition: background-color 0.12s, color 0.12s;
+    }
+    .dsh-menu-item:hover {
+      background: rgba(56, 139, 253, 0.15);
+      color: #58a6ff;
+    }
+    .dsh-menu-item-danger:hover {
+      background: rgba(248, 81, 73, 0.18) !important;
+      color: #f85149 !important;
+    }
+    .dsh-menu-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .dsh-menu-label {
+      flex: 1;
+    }
+    .dsh-menu-shortcut {
+      font-size: 11px;
+      color: #6e7681;
+    }
+    .dsh-menu-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 4px 6px;
+    }
+
+    #dsh-desktop-about-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 1000000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      user-select: none;
+    }
+    .dsh-about-card {
+      width: min(400px, calc(100vw - 32px));
+      background: #161b22;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      animation: dshModalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes dshModalPop {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .dsh-about-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .dsh-about-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #0d1117;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dsh-about-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin: 0;
+    }
+    .dsh-about-desc {
+      font-size: 12px;
+      color: #8b949e;
+      margin: 2px 0 0 0;
+    }
+    .dsh-about-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #0d1117;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .dsh-about-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .dsh-about-k {
+      color: #8b949e;
+    }
+    .dsh-about-v {
+      color: #c9d1d9;
+      font-weight: 500;
+    }
+    .dsh-about-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(56, 139, 253, 0.15);
+      color: #58a6ff;
+      font-weight: 600;
+    }
+    .dsh-about-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .dsh-about-btn {
+      padding: 7px 20px;
+      background: #1f6feb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .dsh-about-btn:hover {
+      background: #388bfd;
+    }
+  `;
+  (document.head || document.documentElement).appendChild(style);
+
+  function callTauri(cmd, args) {
+    var invoke = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke)
+              || (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke);
+    if (typeof invoke === 'function') {
+      return invoke(cmd, args || {});
+    }
+    return Promise.reject(new Error('Tauri invoke not found'));
+  }
+
+  function mountTitlebar() {
+    if (document.getElementById('dsh-desktop-custom-titlebar')) return;
+    if (!document.body) return;
+
+    var bar = document.createElement('div');
+    bar.id = 'dsh-desktop-custom-titlebar';
+    bar.setAttribute('data-tauri-drag-region', 'true');
+    bar.innerHTML = `
+      <div class="dsh-tb-drag" data-tauri-drag-region="true">
+        <svg class="dsh-tb-logo" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="dsh-tb-title" data-tauri-drag-region="true">DeepSeek Harness</span>
+      </div>
+      <div class="dsh-tb-actions">
+        <!-- 最小化左边的下拉菜单按钮 -->
+        <button id="dsh-tb-menu-btn" class="dsh-tb-btn dsh-tb-btn-menu" title="主菜单" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 6L8 9.5 11.5 6h-7z"/></svg>
+        </button>
+        <!-- 最小化 -->
+        <button id="dsh-tb-min-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最小化" type="button">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8h12v1H2z"/></svg>
+        </button>
+        <!-- 最大化 / 还原 -->
+        <button id="dsh-tb-max-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最大化" type="button">
+          <svg id="dsh-tb-max-icon" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="10" height="10"/></svg>
+        </button>
+        <!-- 关闭 -->
+        <button id="dsh-tb-close-btn" class="dsh-tb-btn dsh-tb-btn-caption dsh-tb-btn-close" title="关闭 (隐藏至托盘)" type="button">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        </button>
+      </div>
+    `;
+
+    var menu = document.createElement('div');
+    menu.id = 'dsh-desktop-menu-dropdown';
+    menu.innerHTML = `
+      <div class="dsh-menu-item" data-action="reload">
+        <span class="dsh-menu-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.001a6.3 6.3 0 1 1 1.06 3.513.75.75 0 1 0-1.22.873A7.8 7.8 0 1 0 1.5 8h1.205z"/><path d="M.5 4.5v4h4a.75.75 0 0 0 0-1.5H2.07A6.3 6.3 0 0 1 1.705 8H.5z"/></svg>
+        </span>
+        <span class="dsh-menu-label">重新加载页面</span>
+        <span class="dsh-menu-shortcut">Ctrl+R</span>
+      </div>
+      <div class="dsh-menu-item" data-action="restart">
+        <span class="dsh-menu-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5L2.5 9h5l-1 5.5L13.5 7h-5l1-5.5z"/></svg>
+        </span>
+        <span class="dsh-menu-label">重启服务与客户端</span>
+      </div>
+      <div class="dsh-menu-divider"></div>
+      <div class="dsh-menu-item" data-action="devtools">
+        <span class="dsh-menu-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.72 3.22a.75.75 0 0 1 1.06 1.06L2.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25zm6.56 0a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L14.94 8l-3.72-3.72a.75.75 0 0 1 0-1.06z"/></svg>
+        </span>
+        <span class="dsh-menu-label">开发者工具 (DevTools)</span>
+        <span class="dsh-menu-shortcut">F12</span>
+      </div>
+      <div class="dsh-menu-item" data-action="about">
+        <span class="dsh-menu-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm6.5-.25A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-2.75h-.25a.75.75 0 0 1-.75-.75zM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+        </span>
+        <span class="dsh-menu-label">关于 DSH 宿主版本</span>
+      </div>
+      <div class="dsh-menu-divider"></div>
+      <div class="dsh-menu-item dsh-menu-item-danger" data-action="quit">
+        <span class="dsh-menu-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.75C2 1.784 2.784 1 3.75 1h5.5a.75.75 0 0 1 0 1.5h-5.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h5.5a.75.75 0 0 1 0 1.5h-5.5A1.75 1.75 0 0 1 2 13.25V2.75zm8.97 3.22a.75.75 0 1 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H6.75a.75.75 0 0 1 0-1.5h6.44l-2.22-2.22z"/></svg>
+        </span>
+        <span class="dsh-menu-label">退出应用</span>
+      </div>
+    `;
+
+    var modal = document.createElement('div');
+    modal.id = 'dsh-desktop-about-modal';
+    modal.innerHTML = `
+      <div class="dsh-about-card">
+        <div class="dsh-about-head">
+          <div class="dsh-about-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="dsh-about-title">DeepSeek Harness</h3>
+            <p class="dsh-about-desc">现代化全插件 AI Agent 桌面客户端</p>
+          </div>
+        </div>
+        <div class="dsh-about-grid">
+          <div class="dsh-about-row">
+            <span class="dsh-about-k">宿主核心版本</span>
+            <span class="dsh-about-badge" id="dsh-about-host-ver">加载中…</span>
+          </div>
+          <div class="dsh-about-row">
+            <span class="dsh-about-k">桌面端壳版本</span>
+            <span class="dsh-about-v" id="dsh-about-desktop-ver">v0.1.0 (Tauri 2)</span>
+          </div>
+          <div class="dsh-about-row">
+            <span class="dsh-about-k">运行环境</span>
+            <span class="dsh-about-v" id="dsh-about-node-ver">Node.js v24 · WebView2</span>
+          </div>
+          <div class="dsh-about-row">
+            <span class="dsh-about-k">当前生态工作区</span>
+            <span class="dsh-about-v">C:\\dsh-ecosystem</span>
+          </div>
+        </div>
+        <div class="dsh-about-footer">
+          <button id="dsh-about-close-btn" class="dsh-about-btn" type="button">确定</button>
+        </div>
+      </div>
+    `;
+
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.body.appendChild(menu);
+    document.body.appendChild(modal);
+
+    bindEvents(bar, menu, modal);
+  }
+
+  function bindEvents(bar, menu, modal) {
+    var menuBtn = document.getElementById('dsh-tb-menu-btn');
+    var minBtn = document.getElementById('dsh-tb-min-btn');
+    var maxBtn = document.getElementById('dsh-tb-max-btn');
+    var closeBtn = document.getElementById('dsh-tb-close-btn');
+    var aboutCloseBtn = document.getElementById('dsh-about-close-btn');
+
+    function toggleMenu(forceHide) {
+      if (forceHide === true || menu.style.display === 'flex') {
+        menu.style.display = 'none';
+        menuBtn && menuBtn.classList.remove('active');
+      } else {
+        menu.style.display = 'flex';
+        menuBtn && menuBtn.classList.add('active');
+      }
+    }
+
+    if (menuBtn) {
+      menuBtn.onclick = function(e) {
+        e.stopPropagation();
+        toggleMenu();
+      };
+    }
+
+    if (minBtn) {
+      minBtn.onclick = function() {
+        callTauri('window_minimize');
+      };
+    }
+
+    if (maxBtn) {
+      maxBtn.onclick = function() {
+        callTauri('window_toggle_maximize').then(updateMaxIcon);
+      };
+    }
+
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        callTauri('window_close');
+      };
+    }
+
+    bar.ondblclick = function(e) {
+      if (e.target.closest('.dsh-tb-actions') || e.target.closest('#dsh-desktop-menu-dropdown')) return;
+      callTauri('window_toggle_maximize').then(updateMaxIcon);
+    };
+
+    menu.onclick = function(e) {
+      var item = e.target.closest('[data-action]');
+      if (!item) return;
+      var action = item.getAttribute('data-action');
+      toggleMenu(true);
+      if (action === 'reload') {
+        window.location.reload();
+      } else if (action === 'restart') {
+        if (confirm('确定要重启 DeepSeek Harness 服务与桌面端吗？')) {
+          callTauri('restart_normal').catch(function(err) {
+            alert('重启失败：' + err);
+          });
+        }
+      } else if (action === 'devtools') {
+        callTauri('open_devtools');
+      } else if (action === 'about') {
+        showAbout(modal);
+      } else if (action === 'quit') {
+        if (confirm('确定要完全退出 DeepSeek Harness 吗？')) {
+          callTauri('app_quit');
+        }
+      }
+    };
+
+    document.addEventListener('click', function(e) {
+      if (!menu.contains(e.target) && e.target !== menuBtn) {
+        toggleMenu(true);
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        toggleMenu(true);
+        if (modal) modal.style.display = 'none';
+      }
+    });
+
+    if (aboutCloseBtn) {
+      aboutCloseBtn.onclick = function() {
+        modal.style.display = 'none';
+      };
+    }
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+
+    function updateMaxIcon() {
+      callTauri('is_window_maximized').then(function(isMax) {
+        var icon = document.getElementById('dsh-tb-max-icon');
+        if (!icon) return;
+        if (isMax) {
+          icon.innerHTML = '<rect x="4.5" y="2.5" width="8" height="8" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2.5 5.5v8h8" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+          if (maxBtn) maxBtn.title = '还原';
+        } else {
+          icon.innerHTML = '<rect x="3" y="3" width="10" height="10" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+          if (maxBtn) maxBtn.title = '最大化';
+        }
+      }).catch(function(){});
+    }
+
+    window.addEventListener('resize', updateMaxIcon);
+    setTimeout(updateMaxIcon, 400);
+  }
+
+  function showAbout(modal) {
+    if (!modal) return;
+    modal.style.display = 'flex';
+    callTauri('get_dsh_version_info').then(function(info) {
+      var hVer = document.getElementById('dsh-about-host-ver');
+      if (hVer && info && info.hostVersion) hVer.textContent = 'v' + info.hostVersion;
+      var dVer = document.getElementById('dsh-about-desktop-ver');
+      if (dVer && info && info.desktopVersion) dVer.textContent = 'v' + info.desktopVersion + ' (Tauri 2)';
+      var nVer = document.getElementById('dsh-about-node-ver');
+      if (nVer && info && info.nodeVersion) nVer.textContent = info.nodeVersion + ' · WebView2';
+    }).catch(function() {
+      var hVer = document.getElementById('dsh-about-host-ver');
+      if (hVer) hVer.textContent = 'v0.1.5-rc.2';
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountTitlebar);
+  } else {
+    mountTitlebar();
+  }
+
+  var dshObserver = new MutationObserver(function() {
+    if (!document.getElementById('dsh-desktop-custom-titlebar') && document.body) {
+      mountTitlebar();
+    }
+  });
+  dshObserver.observe(document.documentElement, { childList: true });
+})();
+"##
 }
 
 /// WebView2 初始化脚本：文档解析前（页面脚本执行前）注入 Notification API shim 与通知桥。
@@ -1350,8 +1993,11 @@ fn bridge_init_script(port: u16, token: &str) -> String {
   })();
 })();
 "#;
-    js.replace("__PORT__", &port.to_string())
-        .replace("__TOKEN__", token)
+    let mut script = js.replace("__PORT__", &port.to_string())
+        .replace("__TOKEN__", token);
+    script.push_str("\n");
+    script.push_str(custom_titlebar_script());
+    script
 }
 
 /// 生成页面侧任务完成监听脚本：轮询"忙碌→空闲"翻转，翻转即弹桌面通知。
@@ -1433,9 +2079,10 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
             };
 
             // ── 导航到带 token 的 URL（或无 token 时到裸 URL） ──────────
+            let query_suffix = "dsh-desktop-mode=advanced&dsh-desktop-platform=win32&dsh-desktop-titlebar-inset=32";
             let target = match &token {
-                Some(t) => format!("{url}?token={t}"),
-                None => url.clone(),
+                Some(t) => format!("{url}?token={t}&{query_suffix}"),
+                None => format!("{url}?{query_suffix}"),
             };
             log::info!("导航到 {target}");
             let nav = target
@@ -1453,7 +2100,7 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
             // 若页面落在 401 提示页，从 127.0.0.1 同站替换到裸 URL 即可带上已存 cookie 通过认证。
             // 轮询 12 次（6 秒），仅在明确匹配 401 提示时执行，页面正常时不干扰任何 DOM。
             let settle_app = app.clone();
-            let settle_url = url.clone();
+            let settle_url = format!("{url}?{query_suffix}");
             tauri::async_runtime::spawn(async move {
                 for _ in 0..12 {
                     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -1828,7 +2475,14 @@ pub fn run() {
             open_logs_dir,
             get_latest_checkpoint_info,
             rollback_checkpoint,
-            factory_reset
+            factory_reset,
+            window_minimize,
+            window_toggle_maximize,
+            window_close,
+            is_window_maximized,
+            open_devtools,
+            app_quit,
+            get_dsh_version_info
         ])
         .manage(DshState {
             child: Mutex::new(None),
@@ -1861,6 +2515,7 @@ pub fn run() {
             .inner_size(1440.0, 900.0)
             .min_inner_size(900.0, 600.0)
             .center()
+            .decorations(false) // 现代无边框顶栏，由注入组件承载窗口控制与下拉菜单
             .visible(false) // 先隐藏创建，待恢复上次窗口位置后再显示，杜绝在屏幕中央闪烁跳动
             // 文件拖放走 DOM HTML5 拖拽（dsh-file-upload 插件依赖 drag 事件）：
             // 必须同时关掉 tao 窗口拖放目标 和 tauri 默认的 wry 拖放 handler——wry 一装
