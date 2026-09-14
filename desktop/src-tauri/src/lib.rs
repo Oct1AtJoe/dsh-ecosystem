@@ -2305,21 +2305,22 @@ fn custom_titlebar_script() -> &'static str {
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountTitlebar);
-  } else {
-    mountTitlebar();
+  function ensureMounted() {
+    if (!document.body) return;
+    if (!document.getElementById('dsh-desktop-custom-titlebar')) mountTitlebar();
   }
 
-  // 轮询兜底，确保在 React SPA 页面完全挂载后依然可靠注入
-  var pollCount = 0;
-  var pollTimer = setInterval(function() {
-    if (document.body && !document.getElementById('dsh-desktop-custom-titlebar')) {
-      mountTitlebar();
-    }
-    pollCount++;
-    if (pollCount > 30) clearInterval(pollTimer);
-  }, 200);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureMounted);
+  } else {
+    ensureMounted();
+  }
+
+  // 常驻守卫（不设次数上限）：DSH 启动流程、React 重建或页面后续变化把顶栏挤掉时自动补挂
+  setInterval(ensureMounted, 400);
+  new MutationObserver(ensureMounted).observe(document.documentElement, {
+    childList: true, subtree: true,
+  });
 })();
 "##
 }
@@ -2540,8 +2541,8 @@ fn brand_overlay_script() -> &'static str {
   }
   function boot() {
     replaceBrand();
-    if (!document.body) return;
-    new MutationObserver(schedule).observe(document.body, {
+    // 观察 documentElement 而非 body：即使页面重建 body 内容，覆盖仍然生效
+    new MutationObserver(schedule).observe(document.documentElement, {
       childList: true, subtree: true, characterData: true,
     });
   }
@@ -2555,17 +2556,21 @@ fn brand_overlay_script() -> &'static str {
   } else {
     boot();
   }
+  // 常驻低频兜底：React 重建侧栏或切换语言后重新覆盖
+  setInterval(replaceBrand, 1500);
 })();
 "#
 }
 
-/// 导航完成后注入自定义无边框顶栏（DOM 就绪后 eval 注入，避免初始化脚本时序竞态）。
+/// 注入自定义无边框顶栏与品牌覆盖（DOM 就绪后 eval，避免初始化脚本时序竞态）。
+///
+/// 分多次重试：页面刷新/401 重定向后 SPA 落地时间不定，单次注入可能早于
+/// DSH 自己的启动流程；脚本带幂等守卫，重复注入无副作用。
 /// port/token 从 DshState 读取，避免层层传参。
 fn inject_custom_titlebar(app: AppHandle) {
+    const RETRY_DELAYS_MS: [u64; 4] = [1200, 3000, 6000, 12000];
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        // 导航落地 + React 首帧渲染后注入
-        tokio::time::sleep(Duration::from_millis(1800)).await;
         let (port, token) = {
             let state = handle.state::<DshState>();
             let p = state.notify_port.load(Ordering::SeqCst);
@@ -2573,17 +2578,23 @@ fn inject_custom_titlebar(app: AppHandle) {
             (p, t)
         };
         if port == 0 {
+            log::warn!("自定义顶栏注入跳过：通知桥未就绪");
             return;
         }
         let tb = custom_titlebar_script()
             .replace("__PORT__", &port.to_string())
             .replace("__TOKEN__", &token);
         let script = format!("{}\n{}", tb, brand_overlay_script());
-        if let Some(w) = handle.get_webview_window("main") {
-            if let Err(e) = w.eval(&script) {
-                log::warn!("自定义顶栏注入失败：{e}");
-            } else {
-                log::info!("自定义顶栏与品牌覆盖已注入");
+        let mut last = 0u64;
+        for delay in RETRY_DELAYS_MS {
+            tokio::time::sleep(Duration::from_millis(delay - last)).await;
+            last = delay;
+            let Some(w) = handle.get_webview_window("main") else {
+                continue;
+            };
+            match w.eval(&script) {
+                Ok(()) => log::info!("自定义顶栏与品牌覆盖已注入（+{delay}ms）"),
+                Err(e) => log::warn!("自定义顶栏注入失败（+{delay}ms）：{e}"),
             }
         }
     });
@@ -3091,13 +3102,19 @@ pub fn run() {
             .drag_and_drop(false)
             .disable_drag_drop_handler()
             .initialization_script(bridge_init_script(nport, &ntoken))
-            .on_navigation(move |url| {
+            .on_navigation({
+                // 每次导航（含手动刷新、401 回退重定向）都重新注入壳层 UI：
+                // 刷新路径不会再走 wait_ready_and_navigate，只能靠这个钩子兜住。
+                let nav_handle = app.handle().clone();
+                move |url| {
                 log::info!("[nav] on_navigation called: scheme={:?} host={:?} port={:?}", url.scheme(), url.host_str(), url.port());
                 if is_app_origin(url, port) {
                     log::info!("[nav] app origin match, allowing in WebView");
+                    inject_custom_titlebar(nav_handle.clone());
                     return true;
                 }
                 if url.host_str() == Some("tauri.localhost") {
+                    inject_custom_titlebar(nav_handle.clone());
                     return true;
                 }
                 // 外部链接：交给系统浏览器打开（用户点击的链接）
@@ -3106,7 +3123,7 @@ pub fn run() {
                     log::info!("[nav] external URL, opened in browser");
                 }
                 false
-            })
+            }})
             .on_new_window(move |url, _features| {
                 if is_app_origin(&url, port) {
                     return tauri::webview::NewWindowResponse::Allow;
