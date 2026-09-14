@@ -846,7 +846,12 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_theme(Some(if is_dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
                 #[cfg(target_os = "windows")]
-                update_dwm_titlebar(&w, is_dark, color_str);
+                {
+                    update_dwm_titlebar(&w, is_dark, color_str);
+                    // set_theme 会让 tao 重新写回窗口样式（含 WS_CAPTION），立即纠正。
+                    // 不调 set_decorations：那条路径同样经 apply_diff，会再次写回标题栏。
+                    force_borderless_window(&w);
+                }
             }
         }
         let _ = sock
@@ -1199,42 +1204,75 @@ fn capture_window_geometry(window: &tauri::Window) {
     });
 }
 
-/// 强制移除窗口原生标题栏。tao 的 `set_decorations` 走线程队列，
-/// 在部分时序下不再生效（实测 WS_CAPTION 残留），这里直接改 Win32 样式。
+/// 按 HWND 移除原生标题栏；返回是否发生了修改。
 ///
-/// 只去 `WS_CAPTION`（标题栏），保留 `WS_THICKFRAME`：后者提供鼠标拖边调整大小
-/// 与 Win11 圆角/投影，去掉它窗口就再也无法用鼠标缩放。
+/// tao 0.35.3 的 `apply_diff` 用 `to_window_styles()` 写回窗口样式（该方法无条件
+/// 设置 `WS_CAPTION`，无视 `MARKER_DECORATIONS`），所以任何触发 apply_diff 的窗口
+/// 标志变化（主题切换、焦点、最大化等）都会把标题栏加回来，创建时的
+/// `decorations(false)` 与一次性的样式修改都不足以维持。
 #[cfg(target_os = "windows")]
-fn force_borderless_window(window: &tauri::WebviewWindow) {
-    use windows::Win32::Foundation::HWND;
+fn strip_caption_hwnd(hwnd: windows::Win32::Foundation::HWND) -> bool {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
         SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
     };
-    let Ok(h) = window.hwnd() else {
-        log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
-        return;
-    };
-    let hwnd = HWND(h.0 as _);
     unsafe {
         let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
         let stripped = style & !WS_CAPTION.0;
         if stripped == style {
-            log::info!("[window] 窗口已无标题栏（style={style:#010X}）");
-            return;
+            return false;
         }
         SetWindowLongW(hwnd, GWL_STYLE, stripped as i32);
         let _ = SetWindowPos(
             hwnd,
-            HWND::default(),
+            windows::Win32::Foundation::HWND::default(),
             0,
             0,
             0,
             0,
             SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
         );
-        log::info!("[window] 标题栏已移除：{style:#010X} -> {stripped:#010X}");
+        true
     }
+}
+
+/// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放与 Win11 圆角）。
+#[cfg(target_os = "windows")]
+fn force_borderless_window(window: &tauri::WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    let Ok(h) = window.hwnd() else {
+        log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
+        return;
+    };
+    if strip_caption_hwnd(HWND(h.0 as _)) {
+        log::info!("[window] 原生标题栏已移除");
+    }
+}
+
+/// 无边框守护：tao 的 apply_diff 会在主题/焦点/最大化等标志变化时把 `WS_CAPTION`
+/// 写回（见 {@link strip_caption_hwnd}），这里低频巡检并纠正，覆盖所有触发点。
+///
+/// 句柄只在启动时取一次，循环内只有纯 Win32 样式读写，不跨线程碰窗口对象。
+#[cfg(target_os = "windows")]
+fn start_borderless_guard(app: AppHandle) {
+    use windows::Win32::Foundation::HWND;
+    let hwnd = app
+        .get_webview_window("main")
+        .and_then(|w| w.hwnd().ok())
+        .map(|h| h.0 as isize);
+    let Some(raw) = hwnd else {
+        log::warn!("[window] 无边框守护启动失败：未取得窗口句柄");
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_millis(500));
+        loop {
+            ticker.tick().await;
+            if strip_caption_hwnd(HWND(raw as _)) {
+                log::info!("[window] 检测到原生标题栏回写并再次移除");
+            }
+        }
+    });
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -2996,9 +3034,11 @@ pub fn run() {
             apply_saved_geometry(&window);
             #[cfg(target_os = "windows")]
             force_borderless_window(&window);
-            let _ = window.set_decorations(false);
             let _ = window.show();
             let _ = window.set_focus();
+            // tao 会在主题/焦点变化时把 WS_CAPTION 写回，启动守护持续纠正
+            #[cfg(target_os = "windows")]
+            start_borderless_guard(app.handle().clone());
 
             let state = app.state::<DshState>();
             if port_open(port) {
@@ -3120,11 +3160,23 @@ pub fn run() {
                 let state = window.state::<DshState>();
                 state.unread.store(0, Ordering::SeqCst);
                 let _ = window.set_badge_count(None);
+                // 焦点变化同样走 tao 的 apply_diff，立即纠正标题栏回写
+                #[cfg(target_os = "windows")]
+                if window.label() == "main" {
+                    if let Ok(h) = window.hwnd() {
+                        strip_caption_hwnd(windows::Win32::Foundation::HWND(h.0 as _));
+                    }
+                }
             } else if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_))
                 && window.label() == "main"
             {
                 // 移动/缩放即持久化，不依赖退出时机（异常退出也不丢位置）
                 capture_window_geometry(window);
+                // 最大化/还原会重算窗口框架，同样纠正标题栏回写
+                #[cfg(target_os = "windows")]
+                if let Ok(h) = window.hwnd() {
+                    strip_caption_hwnd(windows::Win32::Foundation::HWND(h.0 as _));
+                }
             }
         })
         .build(tauri::generate_context!())
