@@ -672,6 +672,29 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
     spawn_child(&node.to_string_lossy(), &args, port, &extra_envs)
 }
 
+/// 重启完整应用（客户端桌面壳 + 后端服务进程）。
+fn restart_app(app: &AppHandle) {
+    log::info!("收到重启应用请求，准备重启客户端壳与后端服务");
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.hide();
+    }
+    if let Some(w) = app.get_webview_window("pet") {
+        let _ = w.hide();
+    }
+    let state = app.state::<DshState>();
+    if state.spawned_this_run.load(Ordering::SeqCst) {
+        if let Some(mut child) = state.child.lock().unwrap().take() {
+            let pid = child.id();
+            log::info!("正在停止 dsh 子进程（PID {pid}）");
+            let _ = child.kill();
+            let _ = child.wait();
+            log::info!("dsh 子进程已退出");
+        }
+    }
+    tauri_plugin_single_instance::destroy(app);
+    app.restart();
+}
+
 /// 重启后端服务进程（支持安全模式与正常模式切换）。
 fn restart_backend(app: &AppHandle, safe_mode: bool) {
     let state = app.state::<DshState>();
@@ -891,7 +914,11 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                     }
                 }
                 "restart" => {
-                    restart_backend(app, false);
+                    let app_clone = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                        restart_app(&app_clone);
+                    });
                 }
                 "quit" => {
                     app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
@@ -2869,25 +2896,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => show_main(app),
             "restart" => {
-                log::info!("收到托盘重启请求");
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
-                }
-                if let Some(w) = app.get_webview_window("pet") {
-                    let _ = w.hide();
-                }
-                let state = app.state::<DshState>();
-                if state.spawned_this_run.load(Ordering::SeqCst) {
-                    if let Some(mut child) = state.child.lock().unwrap().take() {
-                        let pid = child.id();
-                        log::info!("正在停止 dsh 子进程（PID {pid}）");
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        log::info!("dsh 子进程已退出");
-                    }
-                }
-                tauri_plugin_single_instance::destroy(app);
-                app.restart();
+                restart_app(app);
             }
             "safe_mode" => {
                 let is_safe = app.state::<DshState>().is_safe_mode.load(Ordering::SeqCst);
