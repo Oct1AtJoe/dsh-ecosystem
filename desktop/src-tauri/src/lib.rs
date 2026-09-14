@@ -27,7 +27,7 @@ use tauri::{
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_notification::NotificationExt;
-use tauri_plugin_window_state::{StateFlags, WindowExt};
+use tauri_plugin_window_state::StateFlags;
 
 /// 与 dsh 服务的约定端口（可用 `DSH_DESKTOP_PORT` 覆盖）。
 fn app_port() -> u16 {
@@ -1058,6 +1058,183 @@ fn parse_color_spec(spec: &str) -> Option<(u8, u8, u8)> {
         }
     }
     None
+}
+
+/// 主窗口几何（位置/尺寸/最大化），独立于 window-state 插件持久化。
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
+struct WindowGeometry {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    maximized: bool,
+}
+
+/// 几何文件路径（与窗口状态插件同目录，文件名独立避免互相覆盖）。
+fn geometry_file_path() -> PathBuf {
+    std::env::var("APPDATA")
+        .map(|a| {
+            PathBuf::from(a)
+                .join("ai.deepseek.harness.desktop")
+                .join("window-geometry.json")
+        })
+        .unwrap_or_else(|_| PathBuf::from("window-geometry.json"))
+}
+
+/// 读取上次保存的窗口几何。首次运行（无自有记录）时从窗口状态插件的历史文件迁移一次。
+fn load_geometry() -> Option<WindowGeometry> {
+    if let Ok(data) = std::fs::read_to_string(geometry_file_path()) {
+        if let Ok(geo) = serde_json::from_str(&data) {
+            return Some(geo);
+        }
+    }
+    import_legacy_geometry()
+}
+
+/// 从 window-state 插件的 `.window-state.json` 里取出 main 的几何（一次性迁移）。
+fn import_legacy_geometry() -> Option<WindowGeometry> {
+    let path = std::env::var("APPDATA")
+        .ok()
+        .map(|a| {
+            PathBuf::from(a)
+                .join("ai.deepseek.harness.desktop")
+                .join(".window-state.json")
+        })?;
+    let value: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    let main = value.get("main")?;
+    let geo = WindowGeometry {
+        x: main.get("x")?.as_i64()? as i32,
+        y: main.get("y")?.as_i64()? as i32,
+        width: main.get("width")?.as_u64()? as u32,
+        height: main.get("height")?.as_u64()? as u32,
+        maximized: main
+            .get("maximized")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    };
+    log::info!(
+        "[window] 已从历史窗口状态迁移几何：({},{}) {}x{}",
+        geo.x, geo.y, geo.width, geo.height
+    );
+    Some(geo)
+}
+
+/// 写入窗口几何（JSON 极小，直接落盘）。
+fn save_geometry(geo: &WindowGeometry) {
+    let path = geometry_file_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    match serde_json::to_string_pretty(geo) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(&path, json) {
+                log::warn!("[window] 写入窗口几何失败：{e}");
+            }
+        }
+        Err(e) => log::warn!("[window] 序列化窗口几何失败：{e}"),
+    }
+}
+
+/// 保存的矩形是否与任一显示器相交（显示器拔除后丢弃过期位置）。
+fn geometry_on_screen(window: &tauri::WebviewWindow, geo: &WindowGeometry) -> bool {
+    let Ok(monitors) = window.available_monitors() else {
+        return false;
+    };
+    monitors.iter().any(|m| {
+        let mp = m.position();
+        let ms = m.size();
+        geo.x < mp.x + ms.width as i32
+            && geo.x + geo.width as i32 > mp.x
+            && geo.y < mp.y + ms.height as i32
+            && geo.y + geo.height as i32 > mp.y
+    })
+}
+
+/// 用保存的几何定位窗口；无记录或位置失效时保持构建器的默认居中。
+fn apply_saved_geometry(window: &tauri::WebviewWindow) {
+    let Some(geo) = load_geometry() else {
+        log::info!("[window] 无历史几何记录，使用默认居中位置");
+        return;
+    };
+    if !geometry_on_screen(window, &geo) {
+        log::warn!(
+            "[window] 历史位置 ({},{}) {}x{} 不在当前显示器内，改用默认位置",
+            geo.x, geo.y, geo.width, geo.height
+        );
+        return;
+    }
+    let _ = window.set_size(tauri::PhysicalSize::new(geo.width, geo.height));
+    let _ = window.set_position(tauri::PhysicalPosition::new(geo.x, geo.y));
+    if geo.maximized {
+        let _ = window.maximize();
+    }
+    log::info!(
+        "[window] 已恢复几何：({},{}) {}x{} maximized={}",
+        geo.x, geo.y, geo.width, geo.height, geo.maximized
+    );
+}
+
+/// 记录主窗口当前几何。最大化时保留上一次的普通几何（与 window-state 插件语义一致）。
+fn capture_window_geometry(window: &tauri::Window) {
+    let maximized = window.is_maximized().unwrap_or(false);
+    if maximized {
+        if let Some(mut geo) = load_geometry() {
+            if !geo.maximized {
+                geo.maximized = true;
+                save_geometry(&geo);
+            }
+        }
+        return;
+    }
+    let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else {
+        return;
+    };
+    save_geometry(&WindowGeometry {
+        x: pos.x,
+        y: pos.y,
+        width: size.width,
+        height: size.height,
+        maximized: false,
+    });
+}
+
+/// 强制移除窗口原生标题栏。tao 的 `set_decorations` 走线程队列，
+/// 在部分时序下不再生效（实测 WS_CAPTION 残留），这里直接改 Win32 样式。
+///
+/// 只去 `WS_CAPTION`（标题栏），保留 `WS_THICKFRAME`：后者提供鼠标拖边调整大小
+/// 与 Win11 圆角/投影，去掉它窗口就再也无法用鼠标缩放。
+#[cfg(target_os = "windows")]
+fn force_borderless_window(window: &tauri::WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
+    };
+    let Ok(h) = window.hwnd() else {
+        log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
+        return;
+    };
+    let hwnd = HWND(h.0 as _);
+    unsafe {
+        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+        let stripped = style & !WS_CAPTION.0;
+        if stripped == style {
+            log::info!("[window] 窗口已无标题栏（style={style:#010X}）");
+            return;
+        }
+        SetWindowLongW(hwnd, GWL_STYLE, stripped as i32);
+        let _ = SetWindowPos(
+            hwnd,
+            HWND::default(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+        log::info!("[window] 标题栏已移除：{style:#010X} -> {stripped:#010X}");
+    }
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -2124,9 +2301,45 @@ fn bridge_init_script(port: u16, token: &str) -> String {
   })();
 })();
 "#;
-    js.replace("__PORT__", &port.to_string())
-        .replace("__TOKEN__", token)
+    let mut script = js
+        .replace("__PORT__", &port.to_string())
+        .replace("__TOKEN__", token);
+    // 兜底拖拽条：顶栏渲染失败时窗口仍可拖动（顶栏出现后自动移除）。
+    script.push('\n');
+    script.push_str(DRAG_FALLBACK_SCRIPT);
+    // 顶栏引导器随每个新文档注入：401 回退等页面重载后自动重建，
+    // 不依赖导航后 eval 的时机（两者都有幂等守卫，重复注入无害）。
+    script.push('\n');
+    script.push_str(
+        &custom_titlebar_script()
+            .replace("__PORT__", &port.to_string())
+            .replace("__TOKEN__", token),
+    );
+    script
 }
+
+/// 极简兜底拖拽条：顶栏缺席时保证窗口可拖动。
+const DRAG_FALLBACK_SCRIPT: &str = r#"
+(function(){
+  if (window.__dshDragFallback) return;
+  window.__dshDragFallback = true;
+  function ensure() {
+    if (!document.body) return;
+    var bar = document.getElementById('dsh-desktop-custom-titlebar');
+    var fb = document.getElementById('dsh-drag-fallback');
+    if (bar) { if (fb) fb.remove(); return; }
+    if (fb) return;
+    var d = document.createElement('div');
+    d.id = 'dsh-drag-fallback';
+    d.setAttribute('data-tauri-drag-region', 'true');
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;height:14px;z-index:999980;background:transparent;';
+    document.body.appendChild(d);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensure);
+  else ensure();
+  setInterval(ensure, 400);
+})();
+"#;
 
 /// 生成页面侧任务完成监听脚本：轮询"忙碌→空闲"翻转，翻转即弹桌面通知。
 /// 走 `new Notification` 而非直接 `bridge.fire()`，让 ShimNotification 统一决策
@@ -2644,7 +2857,9 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
-                .skip_initial_state("main")
+                // main 的位置/尺寸由 window-geometry.json 自管理（窗口事件即时落盘），
+                // 插件只负责 pet 窗口，避免两套几何记录互相覆盖。
+                .with_denylist(&["main"])
                 .build(),
         )
         .plugin(tauri_plugin_autostart::Builder::default().build())
@@ -2758,8 +2973,10 @@ pub fn run() {
             })
             .build()?;
 
-            // 在隐藏状态下先恢复上次保存的窗口位置与尺寸，完成后再平滑展示，消除中间闪烁
-            let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
+            // 隐藏状态下先恢复上次几何并强制去边框，完成后再展示：消除中间闪烁与边框闪现
+            apply_saved_geometry(&window);
+            #[cfg(target_os = "windows")]
+            force_borderless_window(&window);
             let _ = window.set_decorations(false);
             let _ = window.show();
             let _ = window.set_focus();
@@ -2884,6 +3101,11 @@ pub fn run() {
                 let state = window.state::<DshState>();
                 state.unread.store(0, Ordering::SeqCst);
                 let _ = window.set_badge_count(None);
+            } else if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_))
+                && window.label() == "main"
+            {
+                // 移动/缩放即持久化，不依赖退出时机（异常退出也不丢位置）
+                capture_window_geometry(window);
             }
         })
         .build(tauri::generate_context!())

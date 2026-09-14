@@ -3,6 +3,14 @@
   "identifier": "default",
   "description": "Capability for the main window and pet window",
   "windows": ["main", "pet"],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://127.0.0.1:3080",
+      "http://localhost:*",
+      "http://localhost:3080"
+    ]
+  },
   "permissions": [
     "core:default",
     "notification:default",
