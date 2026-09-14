@@ -675,8 +675,13 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
 }
 
 /// 重启完整应用（客户端桌面壳 + 后端服务进程）。
+/// 托盘「重启」与顶栏「重启服务与客户端」都走这里，行为必须完全一致。
 fn restart_app(app: &AppHandle) {
     log::info!("收到重启应用请求，准备重启客户端壳与后端服务");
+    // 置位退出标志后再重启：本进程的 RunEvent::ExitRequested 守卫会在 quitting 为 false 时
+    // prevent_exit()，而 Tauri 在非主线程调用 restart() 时走的是 restart_on_exit + request_exit
+    // 延迟分支 —— 不置位就会让重启被自己的守卫吃掉，只剩窗口被隐藏。
+    app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.hide();
     }
@@ -916,10 +921,15 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                     }
                 }
                 "restart" => {
-                    let app_clone = app.clone();
+                    // 与托盘「重启」保持同一执行上下文：都在主线程执行 restart_app。
+                    // 直接在 tokio 工作线程上调 restart() 会走 Tauri 的延迟分支
+                    // （restart_on_exit + request_exit），与托盘的主线程立即重启不是同一条路径。
+                    let handle = app.clone();
                     tauri::async_runtime::spawn(async move {
-                        tokio::time::sleep(Duration::from_millis(200)).await;
-                        restart_app(&app_clone);
+                        // 让 /notify 的 200 响应先写回页面，再重启
+                        tokio::time::sleep(Duration::from_millis(80)).await;
+                        let inner = handle.clone();
+                        let _ = handle.run_on_main_thread(move || restart_app(&inner));
                     });
                 }
                 "quit" => {
