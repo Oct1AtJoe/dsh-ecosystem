@@ -1701,7 +1701,11 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
 fn custom_titlebar_script() -> &'static str {
     r##"
 (function() {
-  if (window.__dshDesktopTitlebarInjected) return;
+  if (window.__dshDesktopTitlebarInjected) {
+    // Rust 侧重试注入：守卫已置位时不重复注册观察器，但补一次挂载尝试
+    if (window.__dshEnsureTitlebar) window.__dshEnsureTitlebar();
+    return;
+  }
   window.__dshDesktopTitlebarInjected = true;
 
   var PORT = __PORT__, TOKEN = "__TOKEN__";
@@ -1723,7 +1727,10 @@ fn custom_titlebar_script() -> &'static str {
 
   function mountTitlebar() {
     if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
-    if (!document.body) return;
+    // 挂到 documentElement：它比 body 更早可用（HTML 解析一开始就有），
+    // 早挂载才能让顶栏出现在页面首帧里，而不是页面渲染完再补上去。
+    var host = document.body || document.documentElement;
+    if (!host) return;
     if (document.getElementById('dsh-desktop-custom-titlebar')) return;
 
     if (!document.getElementById('dsh-desktop-titlebar-styles')) {
@@ -2048,7 +2055,8 @@ fn custom_titlebar_script() -> &'static str {
           background: #388bfd;
         }
       `;
-      (document.head || document.body).appendChild(style);
+      // 早期只有 documentElement 时也要能注入样式（style 挂 html 下同样生效）
+      (document.head || host).appendChild(style);
     }
 
     var bar = document.createElement('div');
@@ -2167,9 +2175,14 @@ fn custom_titlebar_script() -> &'static str {
       </div>
     `;
 
-    document.body.insertBefore(bar, document.body.firstChild);
-    document.body.appendChild(menu);
-    document.body.appendChild(modal);
+    // 顶栏插在最前（视觉层级），菜单与弹窗追加在后
+    if (host.firstChild) {
+      host.insertBefore(bar, host.firstChild);
+    } else {
+      host.appendChild(bar);
+    }
+    host.appendChild(menu);
+    host.appendChild(modal);
 
     bindEvents(bar, menu, modal);
   }
@@ -2306,9 +2319,23 @@ fn custom_titlebar_script() -> &'static str {
   }
 
   function ensureMounted() {
-    if (!document.body) return;
+    if (!document.documentElement) return;
     if (!document.getElementById('dsh-desktop-custom-titlebar')) mountTitlebar();
   }
+  // 暴露给重试注入调用（见脚本顶部守卫分支）
+  window.__dshEnsureTitlebar = ensureMounted;
+
+  // 零延迟启动：不能等 DOMContentLoaded —— 它会等 DSH 的 module 脚本
+  // （整个模块图下载 + Cordis 启动）执行完，那正是几百毫秒的延迟来源。
+  // document.body 在 HTML 解析到 <body> 时即存在（约 10ms），此时立刻挂载。
+  // 上限 5000 次防无 body 文档导致空转。
+  (function bootTick(n) {
+    if (document.body || n > 5000) {
+      ensureMounted();
+      return;
+    }
+    setTimeout(function() { bootTick(n + 1); }, 0);
+  })(0);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', ensureMounted);
@@ -2318,9 +2345,11 @@ fn custom_titlebar_script() -> &'static str {
 
   // 常驻守卫（不设次数上限）：DSH 启动流程、React 重建或页面后续变化把顶栏挤掉时自动补挂
   setInterval(ensureMounted, 400);
-  new MutationObserver(ensureMounted).observe(document.documentElement, {
-    childList: true, subtree: true,
-  });
+  if (document.documentElement) {
+    new MutationObserver(ensureMounted).observe(document.documentElement, {
+      childList: true, subtree: true,
+    });
+  }
 })();
 "##
 }
@@ -2522,13 +2551,18 @@ fn task_notifier_script() -> String {
 fn brand_overlay_script() -> &'static str {
     r#"
 (function() {
-  if (window.__dshBrandOverlayInjected) return;
+  if (window.__dshBrandOverlayInjected) {
+    // Rust 侧重试注入：守卫已置位时不重复注册观察器，但补一次覆盖
+    if (window.__dshEnsureBrand) window.__dshEnsureBrand();
+    return;
+  }
   window.__dshBrandOverlayInjected = true;
   var TARGET = 'Dsh@Oct1AtJoe';
   var SOURCES = ['DSH 本地构建', 'DSH Local Build'];
   function replaceBrand() {
-    if (!document.body) return;
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    var root = document.body || document.documentElement;
+    if (!root) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     var node;
     while ((node = walker.nextNode())) {
       var text = node.nodeValue;
@@ -2539,18 +2573,38 @@ fn brand_overlay_script() -> &'static str {
       }
     }
   }
+  // 微任务级合并：React 写入品牌文字的同一帧内就完成替换，
+  // 避免用户先看到原文字再看到替换（200ms 防抖会造成肉眼可见的闪烁）。
+  var pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    Promise.resolve().then(function() {
+      pending = false;
+      replaceBrand();
+    });
+  }
+  var booted = false;
   function boot() {
+    if (booted) return;
+    booted = true;
     replaceBrand();
     // 观察 documentElement 而非 body：即使页面重建 body 内容，覆盖仍然生效
     new MutationObserver(schedule).observe(document.documentElement, {
       childList: true, subtree: true, characterData: true,
     });
   }
-  var timer = null;
-  function schedule() {
-    if (timer) return;
-    timer = setTimeout(function() { timer = null; replaceBrand(); }, 200);
-  }
+  // 暴露给重试注入调用
+  window.__dshEnsureBrand = boot;
+  // DOM 一出现就尽早建立观察：与顶栏同理，不等 DOMContentLoaded
+  // 上限 5000 次防无 body 文档导致空转。
+  (function bootTick(n) {
+    if (document.body || n > 5000) {
+      boot();
+      return;
+    }
+    setTimeout(function() { bootTick(n + 1); }, 0);
+  })(0);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
