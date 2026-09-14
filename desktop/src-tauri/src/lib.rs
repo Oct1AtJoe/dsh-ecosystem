@@ -1457,6 +1457,7 @@ fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
         }
         #[cfg(target_os = "windows")]
         force_borderless_window(window);
+        layout_content_webview(window.app_handle());
         false
     } else {
         if let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) {
@@ -1473,6 +1474,7 @@ fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
         let _ = window.maximize();
         #[cfg(target_os = "windows")]
         force_borderless_window(window);
+        layout_content_webview(window.app_handle());
         true
     }
 }
@@ -2591,6 +2593,17 @@ pub fn run() {
             let _ = window.set_focus();
             #[cfg(target_os = "windows")]
             start_borderless_guard(app.handle().clone());
+
+            // 内容子 WebView 在 add_child 时是按"创建时默认尺寸"摆放的；窗口几何是
+            // 上面才恢复的（可能还带最大化），必须在这里按实际窗口尺寸重摆一次，
+            // 否则 DSH 页面不会铺满标题栏下方的区域。窗口缩放事件不保证每次都到，
+            // 再延时补一次兜底。
+            layout_content_webview(app.handle());
+            let relayout_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                layout_content_webview(&relayout_app);
+            });
 
             let state = app.state::<DshState>();
             if port_open(port) {
