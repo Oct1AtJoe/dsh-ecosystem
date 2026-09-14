@@ -856,6 +856,63 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
         let _ = sock.flush().await;
         return;
     }
+    if body.contains("\"type\":\"titlebar-action\"") || body.contains("\"type\": \"titlebar-action\"") {
+        log::info!("[titlebar] 收到顶栏动作请求: {body}");
+        let mut resp_json = serde_json::json!({ "ok": true });
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+            let action = val.get("action").and_then(|v| v.as_str()).unwrap_or("");
+            match action {
+                "minimize" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.minimize();
+                    }
+                }
+                "toggle_maximize" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        if let Ok(is_max) = w.is_maximized() {
+                            if is_max {
+                                let _ = w.unminimize();
+                                resp_json["isMaximized"] = serde_json::json!(false);
+                            } else {
+                                let _ = w.maximize();
+                                resp_json["isMaximized"] = serde_json::json!(true);
+                            }
+                        }
+                    }
+                }
+                "close" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.close();
+                    }
+                }
+                "devtools" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        w.open_devtools();
+                    }
+                }
+                "restart" => {
+                    restart_backend(app, false);
+                }
+                "quit" => {
+                    app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
+                    app.exit(0);
+                }
+                "get_version" => {
+                    resp_json["info"] = get_dsh_version_info();
+                }
+                _ => {}
+            }
+        }
+        let resp_str = serde_json::to_string(&resp_json).unwrap_or_else(|_| "{\"ok\":true}".into());
+        let _ = sock
+            .write_all(
+                format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n{CORS_HEADERS}\r\n{resp_str}")
+                    .as_bytes(),
+            )
+            .await;
+        let _ = sock.flush().await;
+        return;
+    }
     let payload = parse_notify_payload(&body);
     notify_completed(
         app,
@@ -1325,292 +1382,359 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
     log::info!("任务完成通知：{}（未读 {unread}，失焦={distracted}）", body);
 }
 
-/// 现代深色无边框自定义顶栏、下拉菜单与关于对话框注入脚本
+/// 现代无边框自定义顶栏、下拉菜单与关于对话框注入脚本
 fn custom_titlebar_script() -> &'static str {
     r##"
 (function() {
   if (window.__dshDesktopTitlebarInjected) return;
   window.__dshDesktopTitlebarInjected = true;
 
-  if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
+  var PORT = __PORT__, TOKEN = "__TOKEN__";
 
-  var style = document.createElement('style');
-  style.id = 'dsh-desktop-titlebar-styles';
-  style.textContent = `
-    :root {
-      --dsh-titlebar-height: 32px;
-    }
-    body {
-      padding-top: var(--dsh-titlebar-height) !important;
-      box-sizing: border-box !important;
-      height: 100vh !important;
-      margin: 0 !important;
-    }
-    #dsh-desktop-custom-titlebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 32px;
-      background: #0d1117;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 999990;
-      user-select: none;
-      -webkit-user-select: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    }
-    #dsh-desktop-custom-titlebar * {
-      box-sizing: border-box;
-    }
-    .dsh-tb-drag {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding-left: 12px;
-      height: 100%;
-      flex: 1;
-      min-width: 0;
-    }
-    .dsh-tb-logo {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-      pointer-events: none;
-    }
-    .dsh-tb-title {
-      font-size: 12px;
-      font-weight: 500;
-      color: #c9d1d9;
-      letter-spacing: 0.2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
-    }
-    .dsh-tb-actions {
-      display: flex;
-      align-items: center;
-      height: 100%;
-      flex-shrink: 0;
-    }
-    .dsh-tb-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      color: #8b949e;
-      height: 32px;
-      cursor: pointer;
-      padding: 0;
-      outline: none;
-      transition: background-color 0.15s, color 0.15s;
-    }
-    .dsh-tb-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #f0f6fc;
-    }
-    .dsh-tb-btn-menu {
-      width: 38px;
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .dsh-tb-btn-menu:hover, .dsh-tb-btn-menu.active {
-      background: rgba(88, 166, 255, 0.15);
-      color: #58a6ff;
-    }
-    .dsh-tb-btn-caption {
-      width: 46px;
-    }
-    .dsh-tb-btn-close:hover {
-      background: #e81123 !important;
-      color: #ffffff !important;
-    }
-
-    #dsh-desktop-menu-dropdown {
-      position: fixed;
-      top: 33px;
-      right: 140px;
-      min-width: 220px;
-      background: rgba(22, 27, 34, 0.96);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
-      padding: 5px;
-      z-index: 999999;
-      display: none;
-      flex-direction: column;
-      gap: 2px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      user-select: none;
-      animation: dshMenuFadeIn 0.12s ease;
-    }
-    @keyframes dshMenuFadeIn {
-      from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .dsh-menu-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      color: #c9d1d9;
-      font-size: 13px;
-      transition: background-color 0.12s, color 0.12s;
-    }
-    .dsh-menu-item:hover {
-      background: rgba(56, 139, 253, 0.15);
-      color: #58a6ff;
-    }
-    .dsh-menu-item-danger:hover {
-      background: rgba(248, 81, 73, 0.18) !important;
-      color: #f85149 !important;
-    }
-    .dsh-menu-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
-    .dsh-menu-label {
-      flex: 1;
-    }
-    .dsh-menu-shortcut {
-      font-size: 11px;
-      color: #6e7681;
-    }
-    .dsh-menu-divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.08);
-      margin: 4px 6px;
-    }
-
-    #dsh-desktop-about-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      z-index: 1000000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      user-select: none;
-    }
-    .dsh-about-card {
-      width: min(400px, calc(100vw - 32px));
-      background: #161b22;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      animation: dshModalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes dshModalPop {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .dsh-about-head {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .dsh-about-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      background: #0d1117;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .dsh-about-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: #f0f6fc;
-      margin: 0;
-    }
-    .dsh-about-desc {
-      font-size: 12px;
-      color: #8b949e;
-      margin: 2px 0 0 0;
-    }
-    .dsh-about-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      background: #0d1117;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
-      padding: 12px;
-    }
-    .dsh-about-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-    }
-    .dsh-about-k {
-      color: #8b949e;
-    }
-    .dsh-about-v {
-      color: #c9d1d9;
-      font-weight: 500;
-    }
-    .dsh-about-badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 12px;
-      background: rgba(56, 139, 253, 0.15);
-      color: #58a6ff;
-      font-weight: 600;
-    }
-    .dsh-about-footer {
-      display: flex;
-      justify-content: flex-end;
-    }
-    .dsh-about-btn {
-      padding: 7px 20px;
-      background: #1f6feb;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .dsh-about-btn:hover {
-      background: #388bfd;
-    }
-  `;
-  (document.head || document.documentElement).appendChild(style);
-
-  function callTauri(cmd, args) {
-    var invoke = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke)
-              || (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke);
-    if (typeof invoke === 'function') {
-      return invoke(cmd, args || {});
-    }
-    return Promise.reject(new Error('Tauri invoke not found'));
+  function sendAction(action, data) {
+    var payload = Object.assign({ type: 'titlebar-action', action: action }, data || {});
+    return fetch('http://127.0.0.1:' + PORT + '/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + TOKEN
+      },
+      body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); }).catch(function(e) {
+      console.warn('[titlebar] action failed:', action, e);
+      return {};
+    });
   }
 
   function mountTitlebar() {
-    if (document.getElementById('dsh-desktop-custom-titlebar')) return;
+    if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
     if (!document.body) return;
+    if (document.getElementById('dsh-desktop-custom-titlebar')) return;
+
+    if (!document.getElementById('dsh-desktop-titlebar-styles')) {
+      var style = document.createElement('style');
+      style.id = 'dsh-desktop-titlebar-styles';
+      style.textContent = `
+        :root {
+          --dsh-titlebar-height: 32px;
+        }
+        body {
+          padding-top: var(--dsh-titlebar-height) !important;
+          box-sizing: border-box !important;
+          height: 100vh !important;
+          margin: 0 !important;
+        }
+        #dsh-desktop-custom-titlebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 32px;
+          background: #0d1117;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          z-index: 999990;
+          user-select: none;
+          -webkit-user-select: none;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+          transition: background-color 0.2s, border-color 0.2s;
+        }
+        body:not([data-ds-dark-theme]) #dsh-desktop-custom-titlebar {
+          background: #f6f8fa;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+          color: #24292f;
+        }
+        #dsh-desktop-custom-titlebar * {
+          box-sizing: border-box;
+        }
+        .dsh-tb-drag {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding-left: 12px;
+          height: 100%;
+          flex: 1;
+          min-width: 0;
+        }
+        .dsh-tb-logo {
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+          pointer-events: none;
+        }
+        .dsh-tb-title {
+          font-size: 12px;
+          font-weight: 500;
+          color: #c9d1d9;
+          letter-spacing: 0.2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+        }
+        body:not([data-ds-dark-theme]) .dsh-tb-title {
+          color: #24292f;
+        }
+        .dsh-tb-actions {
+          display: flex;
+          align-items: center;
+          height: 100%;
+          flex-shrink: 0;
+        }
+        .dsh-tb-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: none;
+          color: #8b949e;
+          height: 32px;
+          cursor: pointer;
+          padding: 0;
+          outline: none;
+          transition: background-color 0.15s, color 0.15s;
+        }
+        body:not([data-ds-dark-theme]) .dsh-tb-btn {
+          color: #57606a;
+        }
+        .dsh-tb-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: #f0f6fc;
+        }
+        body:not([data-ds-dark-theme]) .dsh-tb-btn:hover {
+          background: rgba(0, 0, 0, 0.06);
+          color: #24292f;
+        }
+        .dsh-tb-btn-menu {
+          width: 38px;
+          border-right: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu {
+          border-right: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .dsh-tb-btn-menu:hover, .dsh-tb-btn-menu.active {
+          background: rgba(88, 166, 255, 0.15);
+          color: #58a6ff;
+        }
+        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu:hover,
+        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu.active {
+          background: rgba(9, 105, 218, 0.1);
+          color: #0969da;
+        }
+        .dsh-tb-btn-caption {
+          width: 46px;
+        }
+        .dsh-tb-btn-close:hover {
+          background: #e81123 !important;
+          color: #ffffff !important;
+        }
+
+        #dsh-desktop-menu-dropdown {
+          position: fixed;
+          top: 33px;
+          right: 140px;
+          min-width: 220px;
+          background: rgba(22, 27, 34, 0.98);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 8px;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+          padding: 5px;
+          z-index: 999999;
+          display: none;
+          flex-direction: column;
+          gap: 2px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+          user-select: none;
+          animation: dshMenuFadeIn 0.12s ease;
+        }
+        body:not([data-ds-dark-theme]) #dsh-desktop-menu-dropdown {
+          background: rgba(255, 255, 255, 0.98);
+          border: 1px solid rgba(0, 0, 0, 0.15);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        @keyframes dshMenuFadeIn {
+          from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dsh-menu-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 6px;
+          cursor: pointer;
+          color: #c9d1d9;
+          font-size: 13px;
+          transition: background-color 0.12s, color 0.12s;
+        }
+        body:not([data-ds-dark-theme]) .dsh-menu-item {
+          color: #24292f;
+        }
+        .dsh-menu-item:hover {
+          background: rgba(56, 139, 253, 0.15);
+          color: #58a6ff;
+        }
+        body:not([data-ds-dark-theme]) .dsh-menu-item:hover {
+          background: rgba(9, 105, 218, 0.08);
+          color: #0969da;
+        }
+        .dsh-menu-item-danger:hover {
+          background: rgba(248, 81, 73, 0.18) !important;
+          color: #f85149 !important;
+        }
+        .dsh-menu-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          flex-shrink: 0;
+        }
+        .dsh-menu-label {
+          flex: 1;
+        }
+        .dsh-menu-shortcut {
+          font-size: 11px;
+          color: #6e7681;
+        }
+        .dsh-menu-divider {
+          height: 1px;
+          background: rgba(255, 255, 255, 0.08);
+          margin: 4px 6px;
+        }
+        body:not([data-ds-dark-theme]) .dsh-menu-divider {
+          background: rgba(0, 0, 0, 0.08);
+        }
+
+        #dsh-desktop-about-modal {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 1000000;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+          user-select: none;
+        }
+        .dsh-about-card {
+          width: min(400px, calc(100vw - 32px));
+          background: #161b22;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 12px;
+          padding: 24px;
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          animation: dshModalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        body:not([data-ds-dark-theme]) .dsh-about-card {
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+        }
+        @keyframes dshModalPop {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .dsh-about-head {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .dsh-about-logo {
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+          background: #0d1117;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        body:not([data-ds-dark-theme]) .dsh-about-logo {
+          background: #f6f8fa;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .dsh-about-title {
+          font-size: 17px;
+          font-weight: 600;
+          color: #f0f6fc;
+          margin: 0;
+        }
+        body:not([data-ds-dark-theme]) .dsh-about-title {
+          color: #24292f;
+        }
+        .dsh-about-desc {
+          font-size: 12px;
+          color: #8b949e;
+          margin: 2px 0 0 0;
+        }
+        .dsh-about-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          background: #0d1117;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 8px;
+          padding: 12px;
+        }
+        body:not([data-ds-dark-theme]) .dsh-about-grid {
+          background: #f6f8fa;
+          border-color: rgba(0, 0, 0, 0.08);
+        }
+        .dsh-about-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 13px;
+        }
+        .dsh-about-k {
+          color: #8b949e;
+        }
+        .dsh-about-v {
+          color: #c9d1d9;
+          font-weight: 500;
+        }
+        body:not([data-ds-dark-theme]) .dsh-about-v {
+          color: #24292f;
+        }
+        .dsh-about-badge {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 12px;
+          background: rgba(56, 139, 253, 0.15);
+          color: #58a6ff;
+          font-weight: 600;
+        }
+        .dsh-about-footer {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .dsh-about-btn {
+          padding: 7px 20px;
+          background: #1f6feb;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .dsh-about-btn:hover {
+          background: #388bfd;
+        }
+      `;
+      (document.head || document.body).appendChild(style);
+    }
 
     var bar = document.createElement('div');
     bar.id = 'dsh-desktop-custom-titlebar';
@@ -1753,25 +1877,33 @@ fn custom_titlebar_script() -> &'static str {
 
     if (minBtn) {
       minBtn.onclick = function() {
-        callTauri('window_minimize');
+        sendAction('minimize');
       };
     }
 
     if (maxBtn) {
       maxBtn.onclick = function() {
-        callTauri('window_toggle_maximize').then(updateMaxIcon);
+        sendAction('toggle_maximize').then(function(res) {
+          if (res && res.isMaximized !== undefined) {
+            updateMaxIcon(res.isMaximized);
+          }
+        });
       };
     }
 
     if (closeBtn) {
       closeBtn.onclick = function() {
-        callTauri('window_close');
+        sendAction('close');
       };
     }
 
     bar.ondblclick = function(e) {
       if (e.target.closest('.dsh-tb-actions') || e.target.closest('#dsh-desktop-menu-dropdown')) return;
-      callTauri('window_toggle_maximize').then(updateMaxIcon);
+      sendAction('toggle_maximize').then(function(res) {
+        if (res && res.isMaximized !== undefined) {
+          updateMaxIcon(res.isMaximized);
+        }
+      });
     };
 
     menu.onclick = function(e) {
@@ -1783,17 +1915,15 @@ fn custom_titlebar_script() -> &'static str {
         window.location.reload();
       } else if (action === 'restart') {
         if (confirm('确定要重启 DeepSeek Harness 服务与桌面端吗？')) {
-          callTauri('restart_normal').catch(function(err) {
-            alert('重启失败：' + err);
-          });
+          sendAction('restart');
         }
       } else if (action === 'devtools') {
-        callTauri('open_devtools');
+        sendAction('devtools');
       } else if (action === 'about') {
         showAbout(modal);
       } else if (action === 'quit') {
         if (confirm('确定要完全退出 DeepSeek Harness 吗？')) {
-          callTauri('app_quit');
+          sendAction('quit');
         }
       }
     };
@@ -1822,34 +1952,30 @@ fn custom_titlebar_script() -> &'static str {
       }
     };
 
-    function updateMaxIcon() {
-      callTauri('is_window_maximized').then(function(isMax) {
-        var icon = document.getElementById('dsh-tb-max-icon');
-        if (!icon) return;
-        if (isMax) {
-          icon.innerHTML = '<rect x="4.5" y="2.5" width="8" height="8" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2.5 5.5v8h8" stroke="currentColor" fill="none" stroke-width="1.2"/>';
-          if (maxBtn) maxBtn.title = '还原';
-        } else {
-          icon.innerHTML = '<rect x="3" y="3" width="10" height="10" stroke="currentColor" fill="none" stroke-width="1.2"/>';
-          if (maxBtn) maxBtn.title = '最大化';
-        }
-      }).catch(function(){});
+    function updateMaxIcon(isMax) {
+      var icon = document.getElementById('dsh-tb-max-icon');
+      if (!icon) return;
+      if (isMax) {
+        icon.innerHTML = '<rect x="4.5" y="2.5" width="8" height="8" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2.5 5.5v8h8" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+        if (maxBtn) maxBtn.title = '还原';
+      } else {
+        icon.innerHTML = '<rect x="3" y="3" width="10" height="10" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+        if (maxBtn) maxBtn.title = '最大化';
+      }
     }
-
-    window.addEventListener('resize', updateMaxIcon);
-    setTimeout(updateMaxIcon, 400);
   }
 
   function showAbout(modal) {
     if (!modal) return;
     modal.style.display = 'flex';
-    callTauri('get_dsh_version_info').then(function(info) {
+    sendAction('get_version').then(function(res) {
+      var info = (res && res.info) || {};
       var hVer = document.getElementById('dsh-about-host-ver');
-      if (hVer && info && info.hostVersion) hVer.textContent = 'v' + info.hostVersion;
+      if (hVer && info.hostVersion) hVer.textContent = 'v' + info.hostVersion;
       var dVer = document.getElementById('dsh-about-desktop-ver');
-      if (dVer && info && info.desktopVersion) dVer.textContent = 'v' + info.desktopVersion + ' (Tauri 2)';
+      if (dVer && info.desktopVersion) dVer.textContent = 'v' + info.desktopVersion + ' (Tauri 2)';
       var nVer = document.getElementById('dsh-about-node-ver');
-      if (nVer && info && info.nodeVersion) nVer.textContent = info.nodeVersion + ' · WebView2';
+      if (nVer && info.nodeVersion) nVer.textContent = info.nodeVersion + ' · WebView2';
     }).catch(function() {
       var hVer = document.getElementById('dsh-about-host-ver');
       if (hVer) hVer.textContent = 'v0.1.5-rc.2';
@@ -1862,12 +1988,15 @@ fn custom_titlebar_script() -> &'static str {
     mountTitlebar();
   }
 
-  var dshObserver = new MutationObserver(function() {
-    if (!document.getElementById('dsh-desktop-custom-titlebar') && document.body) {
+  // 轮询兜底，确保在 React SPA 页面完全挂载后依然可靠注入
+  var pollCount = 0;
+  var pollTimer = setInterval(function() {
+    if (document.body && !document.getElementById('dsh-desktop-custom-titlebar')) {
       mountTitlebar();
     }
-  });
-  dshObserver.observe(document.documentElement, { childList: true });
+    pollCount++;
+    if (pollCount > 30) clearInterval(pollTimer);
+  }, 200);
 })();
 "##
 }
@@ -2457,7 +2586,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_state_flags(StateFlags::all() - StateFlags::VISIBLE)
+                .with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED)
                 .skip_initial_state("main")
                 .build(),
         )
@@ -2571,7 +2700,8 @@ pub fn run() {
             .build()?;
 
             // 在隐藏状态下先恢复上次保存的窗口位置与尺寸，完成后再平滑展示，消除中间闪烁
-            let _ = window.restore_state(StateFlags::all() - StateFlags::VISIBLE);
+            let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED);
+            let _ = window.set_decorations(false);
             let _ = window.show();
             let _ = window.set_focus();
 
