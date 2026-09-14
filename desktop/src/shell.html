@@ -6,7 +6,8 @@
     <style>
       /* 壳页面：只画标题栏那一条。DSH 内容在同一个窗口的 content 子 WebView 里，
          本页永不导航，所以标题栏不会随 DSH 页面刷新消失或闪动。
-         注意：下拉菜单必须走原生弹出菜单——HTML 浮层出不了这条 36px。 */
+         动作统一走 Tauri IPC（本地受信页面，窗口权限已在 capabilities 声明）；
+         下拉菜单是原生弹出菜单（HTML 浮层出不了 36px）。 */
       :root {
         --dsh-titlebar-height: 36px;
         --bg: #0d1117;
@@ -52,7 +53,13 @@
         padding: 0 12px;
         cursor: default;
       }
-      .drag svg { width: 16px; height: 16px; flex: 0 0 auto; pointer-events: none; }
+      .drag .mark {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        object-fit: contain;
+        pointer-events: none;
+      }
       .drag span {
         font-size: 12px;
         font-weight: 500;
@@ -85,9 +92,7 @@
   <body class="dark">
     <header id="titlebar">
       <div class="drag" id="drag">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <img class="mark" src="icon.png" alt="DeepSeek Harness" />
         <span>Dsh@Oct1AtJoe</span>
       </div>
       <div class="actions">
@@ -113,54 +118,61 @@
     </header>
 
     <script>
-      // 壳侧动作统一走本地通知桥（POST /notify + Bearer token），不依赖 Tauri IPC 白名单；
-      // port/token 由 Rust 通过 initialization_script 注入到本页。
-      function send(action, data) {
-        var bridge = window.__dshShellBridge;
-        if (!bridge) return Promise.resolve({});
-        var payload = Object.assign({ type: 'titlebar-action', action: action }, data || {});
-        return fetch('http://127.0.0.1:' + bridge.port + '/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + bridge.token },
-          body: JSON.stringify(payload)
-        }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+      // 壳页面动作统一走 Tauri IPC（window.__TAURI__）。壳页面是本地受信页面，
+      // 窗口权限已在 capabilities/default.json 里声明；相比跨源 fetch 通知桥更稳。
+      var current = window.__TAURI__ && window.__TAURI__.window && window.__TAURI__.window.getCurrentWindow();
+      var invoke = window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke;
+
+      function updateMaxIcon(isMax) {
+        var icon = document.getElementById('max-icon');
+        var maxBtn = document.getElementById('max-btn');
+        if (!icon) return;
+        icon.innerHTML = isMax
+          ? '<path d="M5.5 3.5h7v7" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="3.5" y="5.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.2" fill="none"/>'
+          : '<rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>';
+        if (maxBtn) maxBtn.title = isMax ? '还原' : '最大化';
       }
 
       var menuBtn = document.getElementById('menu-btn');
       menuBtn.addEventListener('click', function () {
         menuBtn.classList.add('active');
-        // 原生菜单是模态消息循环：promise 在菜单关闭后才 resolve，正好用来收起高亮
-        send('open_menu').then(function () { menuBtn.classList.remove('active'); });
+        if (invoke) {
+          // 原生菜单是模态消息循环：invoke 在菜单关闭后才 resolve，正好收起高亮
+          invoke('show_shell_menu').then(function () { menuBtn.classList.remove('active'); });
+        } else {
+          menuBtn.classList.remove('active');
+        }
       });
 
-      document.getElementById('min-btn').addEventListener('click', function () { send('minimize'); });
-
-      var maxIcon = document.getElementById('max-icon');
-      var maxBtn = document.getElementById('max-btn');
-      function setMaxIcon(isMax) {
-        maxIcon.innerHTML = isMax
-          ? '<path d="M5.5 3.5h7v7" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="3.5" y="5.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.2" fill="none"/>'
-          : '<rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>';
-        maxBtn.title = isMax ? '还原' : '最大化';
-      }
-      maxBtn.addEventListener('click', function () {
-        send('toggle_maximize').then(function (res) {
-          if (res && res.isMaximized !== undefined) setMaxIcon(res.isMaximized);
-        });
+      document.getElementById('min-btn').addEventListener('click', function () {
+        if (current) current.minimize().catch(function () {});
       });
 
-      document.getElementById('close-btn').addEventListener('click', function () { send('close'); });
+      document.getElementById('max-btn').addEventListener('click', function () {
+        if (!current) return;
+        current.toggleMaximize().catch(function () {});
+        // toggleMaximize 是异步生效的，稍后再读真实状态刷新图标
+        setTimeout(function () {
+          current.isMaximized().then(updateMaxIcon).catch(function () {});
+        }, 60);
+      });
 
-      // 拖拽交给 Rust 的 start_dragging（不依赖 data-tauri-drag-region 的白名单）
+      document.getElementById('close-btn').addEventListener('click', function () {
+        if (current) current.close().catch(function () {});
+      });
+
+      // 拖拽交给 Rust/系统（startDragging），不自己算坐标
       var drag = document.getElementById('drag');
       drag.addEventListener('mousedown', function (e) {
-        if (e.button !== 0) return;
-        send('start_drag');
+        if (e.button !== 0 || !current) return;
+        current.startDragging().catch(function () {});
       });
       drag.addEventListener('dblclick', function () {
-        send('toggle_maximize').then(function (res) {
-          if (res && res.isMaximized !== undefined) setMaxIcon(res.isMaximized);
-        });
+        if (!current) return;
+        current.toggleMaximize().catch(function () {});
+        setTimeout(function () {
+          current.isMaximized().then(updateMaxIcon).catch(function () {});
+        }, 60);
       });
 
       // DSH 主题变化时由 Rust eval 进来

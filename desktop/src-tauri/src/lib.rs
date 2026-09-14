@@ -755,6 +755,12 @@ fn show_about_dialog(app: &AppHandle) {
     log::info!("{text}");
 }
 
+/// 壳标题栏 ☰ 按钮：弹出原生菜单（由壳页面经 Tauri IPC invoke 触发）。
+#[tauri::command]
+fn show_shell_menu(app: AppHandle) {
+    popup_shell_menu(&app);
+}
+
 /// 重启完整应用（客户端桌面壳 + 后端服务进程）。
 /// 托盘「重启」与顶栏「重启服务与客户端」都走这里，行为必须完全一致。
 fn restart_app(app: &AppHandle) {
@@ -1505,15 +1511,6 @@ fn layout_content_webview(app: &AppHandle) {
         w.max(1.0),
         (h - TITLEBAR_HEIGHT).max(1.0),
     ));
-}
-
-/// 壳页面桥：把本地通知桥的 port/token 交给 `shell.html`，
-/// 标题栏动作统一经 `POST /notify` 的 `titlebar-action` 分发（不依赖 Tauri IPC 白名单）。
-fn shell_init_script(port: u16, token: &str) -> String {
-    format!(
-        "window.__dshShellBridge = {{ port: {port}, token: {} }};",
-        serde_json::to_string(token).unwrap_or_else(|_| "\"\"".into())
-    )
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -2462,6 +2459,7 @@ pub fn run() {
             factory_reset,
             is_window_maximized,
             open_devtools,
+            show_shell_menu,
             app_quit,
             get_dsh_version_info
         ])
@@ -2511,8 +2509,6 @@ pub fn run() {
             // TRUE，WebView2 原生处理拖放，页面才能收到 dragenter/dragover/drop。
             .drag_and_drop(false)
             .disable_drag_drop_handler()
-            // 壳页面只拿通知桥的 port/token，用于标题栏动作回传
-            .initialization_script(shell_init_script(nport, &ntoken))
             .build()?;
 
             // 内容子 WebView：DSH 页面。启动页先加载，服务就绪后由 wait_ready_and_navigate 导航。
