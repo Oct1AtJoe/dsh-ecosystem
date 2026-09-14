@@ -6,8 +6,10 @@
   "remote": {
     "urls": [
       "http://127.0.0.1:*",
+      "http://127.0.0.1*",
       "http://127.0.0.1:3080",
       "http://localhost:*",
+      "http://localhost*",
       "http://localhost:3080"
     ]
   },
