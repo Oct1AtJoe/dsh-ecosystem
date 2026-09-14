@@ -876,15 +876,8 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                 }
                 "toggle_maximize" => {
                     if let Some(w) = app.get_webview_window("main") {
-                        if let Ok(is_max) = w.is_maximized() {
-                            if is_max {
-                                let _ = w.unminimize();
-                                resp_json["isMaximized"] = serde_json::json!(false);
-                            } else {
-                                let _ = w.maximize();
-                                resp_json["isMaximized"] = serde_json::json!(true);
-                            }
-                        }
+                        let is_max = do_toggle_maximize(&w);
+                        resp_json["isMaximized"] = serde_json::json!(is_max);
                     }
                 }
                 "close" => {
@@ -1195,6 +1188,17 @@ fn capture_window_geometry(window: &tauri::Window) {
     let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else {
         return;
     };
+    // 防御性过滤：如果抓取到的尺寸大于任何显示器工作区的 90%，
+    // 说明正处于最大化/还原的动画或过渡瞬态，绝不覆盖普通尺寸！
+    if let Ok(monitors) = window.available_monitors() {
+        let looks_like_maximized = monitors.iter().any(|m| {
+            let ms = m.size();
+            size.width >= (ms.width as f64 * 0.90) as u32 && size.height >= (ms.height as f64 * 0.88) as u32
+        });
+        if looks_like_maximized {
+            return;
+        }
+    }
     save_geometry(&WindowGeometry {
         x: pos.x,
         y: pos.y,
@@ -1480,6 +1484,57 @@ fn get_dsh_host_version() -> String {
     "0.1.5-rc.2".to_string()
 }
 
+/// 执行最大化 / 还原切换，并彻底解决 Windows 无边框窗口还原只缩小几个像素的系统 Bug。
+fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
+    let is_max = window.is_maximized().unwrap_or(false);
+    if is_max {
+        // 1. 还原前先读出最大化前记录的纯净正常几何
+        let saved_geo = load_geometry().filter(|g| !g.maximized && g.width > 0 && g.height > 0);
+        
+        // 2. 调用系统 unmaximize
+        let _ = window.unmaximize();
+        
+        // 3. 显式把窗口尺寸与位置拽回最大化前的纯净正常几何（彻底解决 Windows 无边框还原只缩 8px 的系统缺陷）
+        if let Some(geo) = saved_geo {
+            let _ = window.set_size(tauri::PhysicalSize::new(geo.width, geo.height));
+            let _ = window.set_position(tauri::PhysicalPosition::new(geo.x, geo.y));
+            log::info!(
+                "[window] 成功从最大化恢复至正常尺寸：({},{}) {}x{}",
+                geo.x, geo.y, geo.width, geo.height
+            );
+        } else {
+            // 兜底：如果完全没有历史记录，还原到默认推荐尺寸 1440x900 居中
+            let _ = window.set_size(tauri::PhysicalSize::new(1440, 900));
+            let _ = window.center();
+            log::info!("[window] 兜底恢复至默认尺寸 1440x900 居中");
+        }
+
+        // 4. 更新持久化状态为非最大化
+        if let Some(mut geo) = load_geometry() {
+            geo.maximized = false;
+            save_geometry(&geo);
+        }
+        false
+    } else {
+        // 1. 最大化前：当前尺寸绝对是真实的正常窗口，立即精准捕获并锁定！
+        if let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) {
+            save_geometry(&WindowGeometry {
+                x: pos.x,
+                y: pos.y,
+                width: size.width,
+                height: size.height,
+                maximized: true,
+            });
+            log::info!(
+                "[window] 最大化前锁定正常尺寸：({},{}) {}x{}",
+                pos.x, pos.y, size.width, size.height
+            );
+        }
+        let _ = window.maximize();
+        true
+    }
+}
+
 /// 顶栏自定义按钮：最小化窗口
 #[tauri::command]
 fn window_minimize(app: AppHandle) {
@@ -1492,17 +1547,7 @@ fn window_minimize(app: AppHandle) {
 #[tauri::command]
 fn window_toggle_maximize(app: AppHandle) -> bool {
     if let Some(w) = app.get_webview_window("main") {
-        if let Ok(is_max) = w.is_maximized() {
-            if is_max {
-                let _ = w.unmaximize();
-                false
-            } else {
-                let _ = w.maximize();
-                true
-            }
-        } else {
-            false
-        }
+        do_toggle_maximize(&w)
     } else {
         false
     }
@@ -1966,19 +2011,27 @@ fn custom_titlebar_script() -> &'static str {
       <div class="dsh-tb-actions">
         <!-- 最小化左边的下拉菜单按钮 -->
         <button id="dsh-tb-menu-btn" class="dsh-tb-btn dsh-tb-btn-menu" title="主菜单" type="button">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 6L8 9.5 11.5 6h-7z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6.5l4 4 4-4"/>
+          </svg>
         </button>
         <!-- 最小化 -->
         <button id="dsh-tb-min-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最小化" type="button">
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M2 8h12v1H2z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="3" y="8" width="10" height="1.2" rx="0.6"/>
+          </svg>
         </button>
         <!-- 最大化 / 还原 -->
         <button id="dsh-tb-max-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最大化" type="button">
-          <svg id="dsh-tb-max-icon" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="10" height="10"/></svg>
+          <svg id="dsh-tb-max-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="3" y="3" width="10" height="10" rx="1"/>
+          </svg>
         </button>
         <!-- 关闭 -->
         <button id="dsh-tb-close-btn" class="dsh-tb-btn dsh-tb-btn-caption dsh-tb-btn-close" title="关闭 (隐藏至托盘)" type="button">
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 3l10 10M13 3L3 13"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
+          </svg>
         </button>
       </div>
     `;
@@ -2173,10 +2226,10 @@ fn custom_titlebar_script() -> &'static str {
       var icon = document.getElementById('dsh-tb-max-icon');
       if (!icon) return;
       if (isMax) {
-        icon.innerHTML = '<rect x="4.5" y="2.5" width="8" height="8" stroke="currentColor" fill="none" stroke-width="1.2"/><path d="M2.5 5.5v8h8" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+        icon.innerHTML = '<path d="M5.5 3.5h7v7" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="3.5" y="5.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.2" fill="none"/>';
         if (maxBtn) maxBtn.title = '还原';
       } else {
-        icon.innerHTML = '<rect x="3" y="3" width="10" height="10" stroke="currentColor" fill="none" stroke-width="1.2"/>';
+        icon.innerHTML = '<rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>';
         if (maxBtn) maxBtn.title = '最大化';
       }
     }
