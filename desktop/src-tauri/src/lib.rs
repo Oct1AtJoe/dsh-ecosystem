@@ -20,7 +20,7 @@ use std::{
 };
 
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{ContextMenu, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, RunEvent, WindowEvent,
 };
@@ -674,6 +674,87 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
     spawn_child(&node.to_string_lossy(), &args, port, &extra_envs)
 }
 
+/// 壳标题栏 ☰ 的原生弹出菜单。
+///
+/// HTML 浮层出不了标题栏那一条 36px：内容子 WebView 画在它上面，下拉一展开就被盖住。
+/// 系统弹出菜单由 OS 绘制，天然位于所有 webview 之上，也不依赖 Tauri IPC 白名单。
+fn popup_shell_menu(app: &AppHandle) {
+    let Some(window) = app.get_window("main") else {
+        log::warn!("[shell] 弹出菜单失败：未找到 main 窗口");
+        return;
+    };
+    let item = |id: &str, label: &str| MenuItem::with_id(app, id, label, true, None::<&str>);
+    let (Ok(reload), Ok(restart), Ok(devtools), Ok(about), Ok(quit)) = (
+        item("shell:reload", "重新加载页面"),
+        item("shell:restart", "重启服务与客户端"),
+        item("shell:devtools", "开发者工具 (DevTools)"),
+        item("shell:about", "关于 DSH 宿主版本"),
+        item("shell:quit", "退出应用"),
+    ) else {
+        log::warn!("[shell] 构建弹出菜单项失败");
+        return;
+    };
+    let Ok(sep1) = PredefinedMenuItem::separator(app) else {
+        return;
+    };
+    let Ok(sep2) = PredefinedMenuItem::separator(app) else {
+        return;
+    };
+    let Ok(menu) = Menu::with_items(
+        app,
+        &[&reload, &restart, &sep1, &devtools, &about, &sep2, &quit],
+    ) else {
+        log::warn!("[shell] 构建弹出菜单失败");
+        return;
+    };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let w = window
+        .inner_size()
+        .map(|s| s.width as f64 / scale)
+        .unwrap_or(1200.0);
+    // 贴着 ☰ 按钮下方弹出；越界由 OS 自行夹到屏幕内
+    let x = (w - 258.0).max(8.0);
+    if let Err(e) = menu.popup_at(window, tauri::LogicalPosition::new(x, TITLEBAR_HEIGHT - 2.0)) {
+        log::warn!("[shell] 弹出菜单失败：{e}");
+    }
+}
+
+/// 「关于 DSH 宿主版本」：用原生消息框展示版本信息。
+///
+/// 同样因为标题栏只有 36px，HTML 弹窗放不下，改用系统对话框。
+fn show_about_dialog(app: &AppHandle) {
+    let info = get_dsh_version_info();
+    let read = |key: &str, fallback: &str| {
+        info.get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or(fallback)
+            .to_string()
+    };
+    let text = format!(
+        "DeepSeek Harness\n\n宿主核心版本：v{}\n桌面端壳版本：v{} (Tauri 2)\n运行环境：{}",
+        read("hostVersion", "未知"),
+        read("desktopVersion", "0.1.0"),
+        read("nodeVersion", "Node.js"),
+    );
+    #[cfg(target_os = "windows")]
+    {
+        use windows::core::HSTRING;
+        use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+        let hwnd = app
+            .get_webview_window("main")
+            .and_then(|w| w.hwnd().ok())
+            .map(|h| windows::Win32::Foundation::HWND(h.0 as _))
+            .unwrap_or_default();
+        let body = HSTRING::from(text.as_str());
+        let title = HSTRING::from("关于 DeepSeek Harness");
+        unsafe {
+            MessageBoxW(hwnd, &body, &title, MB_OK | MB_ICONINFORMATION);
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    log::info!("{text}");
+}
+
 /// 重启完整应用（客户端桌面壳 + 后端服务进程）。
 /// 托盘「重启」与顶栏「重启服务与客户端」都走这里，行为必须完全一致。
 fn restart_app(app: &AppHandle) {
@@ -738,7 +819,7 @@ fn restart_backend(app: &AppHandle, safe_mode: bool) {
         None
     };
 
-    // 4. 重置主窗口标题并返回加载页
+    // 4. 重置主窗口标题并让内容子 WebView 回到加载页（壳页面不动）
     if let Some(w) = app.get_webview_window("main") {
         let title = if safe_mode {
             "DeepSeek Harness (安全模式)"
@@ -746,8 +827,10 @@ fn restart_backend(app: &AppHandle, safe_mode: bool) {
             "DeepSeek Harness"
         };
         let _ = w.set_title(title);
-        let _ = w.eval("window.location.replace('index.html');");
         let _ = w.show();
+    }
+    if let Some(page) = page_webview(app) {
+        let _ = page.eval("window.location.replace('index.html');");
     }
 
     // 5. 启动新后端进程
@@ -874,6 +957,8 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
             let color_str = val.get("color").and_then(|v| v.as_str());
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_theme(Some(if is_dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
+                // 壳标题栏跟随 DSH 主题（壳页面不重载，靠这次 eval 切换配色）
+                let _ = w.eval(&format!("window.__dshSetTheme && window.__dshSetTheme({});", if is_dark { "true" } else { "false" }));
                 #[cfg(target_os = "windows")]
                 {
                     update_dwm_titlebar(&w, is_dark, color_str);
@@ -895,29 +980,39 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
             let action = val.get("action").and_then(|v| v.as_str()).unwrap_or("");
             match action {
-                "devtools" => {
+                // 壳标题栏动作：拖动/最小化/最大化/关闭都由 Rust 侧执行，
+                // 既绕开 Tauri IPC 的窗口白名单，也不受页面刷新影响。
+                "start_drag" => {
                     if let Some(w) = app.get_webview_window("main") {
-                        w.open_devtools();
+                        let _ = w.start_dragging();
                     }
                 }
-                "restart" => {
-                    // 与托盘「重启」保持同一执行上下文：都在主线程执行 restart_app。
-                    // 直接在 tokio 工作线程上调 restart() 会走 Tauri 的延迟分支
-                    // （restart_on_exit + request_exit），与托盘的主线程立即重启不是同一条路径。
-                    let handle = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        // 让 /notify 的 200 响应先写回页面，再重启
-                        tokio::time::sleep(Duration::from_millis(80)).await;
-                        let inner = handle.clone();
-                        let _ = handle.run_on_main_thread(move || restart_app(&inner));
-                    });
+                "minimize" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.minimize();
+                    }
                 }
-                "quit" => {
-                    app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
-                    app.exit(0);
+                "toggle_maximize" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let is_max = do_toggle_maximize(&w);
+                        resp_json["isMaximized"] = serde_json::json!(is_max);
+                    }
                 }
-                "get_version" => {
-                    resp_json["info"] = get_dsh_version_info();
+                "close" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.close();
+                    }
+                }
+                "reload_page" => {
+                    // 只重载 DSH 页面，壳标题栏不参与刷新
+                    if let Some(page) = page_webview(app) {
+                        let _ = page.eval("window.location.reload();");
+                    }
+                }
+                "open_menu" => {
+                    // 原生弹出菜单是模态消息循环：本响应在菜单关闭后才写回，
+                    // 壳页面正好用它收起 ☰ 的高亮。
+                    popup_shell_menu(app);
                 }
                 _ => {}
             }
@@ -1227,6 +1322,198 @@ fn capture_window_geometry(window: &tauri::Window) {
     });
 }
 
+/// 标题栏高度（逻辑像素）：壳页面画的标题栏，同时也是内容子 WebView 的纵向偏移。
+pub(crate) const TITLEBAR_HEIGHT: f64 = 36.0;
+
+/// 内容子 WebView 的标签：DSH 页面（含启动页、错误页）都跑在它里面，
+/// 壳标题栏则属于窗口自身的 webview（`main`）。
+const CONTENT_LABEL: &str = "content";
+
+/// 按 HWND 移除原生标题栏；返回是否发生了修改。
+///
+/// `decorations(false)` 只在创建时让客户区铺满窗口；tao 0.35.3 的 `apply_diff` 在主题、
+/// 焦点、最大化等标志变化时按 `to_window_styles()` 原样写回样式（该方法无条件设置
+/// `WS_CAPTION`），系统标题栏就会盖回来。这里只摘掉 `WS_CAPTION`，
+/// 保留 `WS_THICKFRAME`（`WS_SIZEBOX`）——鼠标拖边缩放依赖它。
+#[cfg(target_os = "windows")]
+fn strip_caption_hwnd(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
+    };
+    unsafe {
+        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+        let stripped = style & !WS_CAPTION.0;
+        if stripped == style {
+            return false;
+        }
+        SetWindowLongW(hwnd, GWL_STYLE, stripped as i32);
+        let _ = SetWindowPos(
+            hwnd,
+            windows::Win32::Foundation::HWND::default(),
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+        true
+    }
+}
+
+/// DWM 边框是否已隐藏（避免守护线程每 tick 都做一次 DWM 调用）。
+#[cfg(target_os = "windows")]
+static DWM_BORDER_HIDDEN: AtomicBool = AtomicBool::new(false);
+
+/// 隐藏 DWM 绘制的那条 1px 窗口边框（Win11 浅色下就是白边）。
+///
+/// 不能靠移除边框样式来消白边——`WS_THICKFRAME` 必须留着供拖边缩放，
+/// 只能改 DWM 属性 `DWMWA_BORDER_COLOR`（34）为 `DWMWA_COLOR_NONE`。
+#[cfg(target_os = "windows")]
+fn hide_dwm_border(hwnd: windows::Win32::Foundation::HWND) {
+    use std::ffi::c_void;
+    const DWMWA_BORDER_COLOR: u32 = 34;
+    const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
+    unsafe {
+        let res = DwmSetWindowAttribute(
+            hwnd.0 as *mut c_void,
+            DWMWA_BORDER_COLOR,
+            &DWMWA_COLOR_NONE as *const _ as *const c_void,
+            std::mem::size_of::<u32>() as u32,
+        );
+        if res != 0 {
+            // Win10 及更早版本不支持该属性：白边无法消除，缩放与其余行为不受影响
+            log::debug!("[window] 隐藏 DWM 边框不受支持：hr={res}");
+        }
+    }
+}
+
+/// 统一应用无边框外观：移除 `WS_CAPTION` + 隐藏 DWM 白边。
+#[cfg(target_os = "windows")]
+fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
+    let style_changed = strip_caption_hwnd(hwnd);
+    // 样式被 tao 重写后 DWM 边框可能复现，因此样式变化时与首次运行时都重新隐藏
+    if style_changed || !DWM_BORDER_HIDDEN.load(Ordering::Relaxed) {
+        hide_dwm_border(hwnd);
+        DWM_BORDER_HIDDEN.store(true, Ordering::Relaxed);
+    }
+    style_changed
+}
+
+/// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放）。
+#[cfg(target_os = "windows")]
+fn force_borderless_window(window: &tauri::WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    let Ok(h) = window.hwnd() else {
+        log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
+        return;
+    };
+    if apply_borderless_frame(HWND(h.0 as _)) {
+        log::info!("[window] 原生标题栏已移除");
+    }
+}
+
+/// 无边框守护：tao 的 `apply_diff` 会在主题/焦点/最大化等标志变化时写回 `WS_CAPTION`
+/// （见 {@link strip_caption_hwnd}），这里高频巡检并纠正，覆盖所有触发点。
+/// 周期取 150ms：压掉最大化/还原动画期间原生标题栏按钮的闪现。
+#[cfg(target_os = "windows")]
+fn start_borderless_guard(app: AppHandle) {
+    use windows::Win32::Foundation::HWND;
+    let hwnd = app
+        .get_webview_window("main")
+        .and_then(|w| w.hwnd().ok())
+        .map(|h| h.0 as isize);
+    let Some(raw) = hwnd else {
+        log::warn!("[window] 无边框守护启动失败：未取得窗口句柄");
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_millis(150));
+        loop {
+            ticker.tick().await;
+            if apply_borderless_frame(HWND(raw as _)) {
+                log::info!("[window] 检测到原生标题栏回写并再次移除");
+            }
+        }
+    });
+}
+
+/// 执行最大化 / 还原切换，并绕开 Windows 无边框窗口还原只缩几个像素的系统缺陷。
+fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
+    let is_max = window.is_maximized().unwrap_or(false);
+    if is_max {
+        let saved_geo = load_geometry().filter(|g| !g.maximized && g.width > 0 && g.height > 0);
+        let _ = window.unmaximize();
+        if let Some(geo) = saved_geo {
+            let _ = window.set_size(tauri::PhysicalSize::new(geo.width, geo.height));
+            let _ = window.set_position(tauri::PhysicalPosition::new(geo.x, geo.y));
+        } else {
+            let _ = window.set_size(tauri::PhysicalSize::new(1440, 900));
+            let _ = window.center();
+        }
+        if let Some(mut geo) = load_geometry() {
+            geo.maximized = false;
+            save_geometry(&geo);
+        }
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
+        false
+    } else {
+        if let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) {
+            save_geometry(&WindowGeometry {
+                x: pos.x,
+                y: pos.y,
+                width: size.width,
+                height: size.height,
+                maximized: true,
+            });
+        }
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
+        let _ = window.maximize();
+        #[cfg(target_os = "windows")]
+        force_borderless_window(window);
+        true
+    }
+}
+
+/// 内容子 WebView（DSH 页面）句柄。
+fn page_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
+    app.get_webview(CONTENT_LABEL)
+}
+
+/// 把内容子 WebView 摆回标题栏下方并跟随窗口尺寸。
+///
+/// 子 WebView 不参与窗口布局（位置/尺寸由应用负责），窗口缩放与 DPI 变化都要手动纠正。
+fn layout_content_webview(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    let Some(page) = page_webview(app) else {
+        return;
+    };
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let Ok(size) = win.inner_size() else {
+        return;
+    };
+    let w = size.width as f64 / scale;
+    let h = size.height as f64 / scale;
+    let _ = page.set_position(tauri::LogicalPosition::new(0.0, TITLEBAR_HEIGHT));
+    let _ = page.set_size(tauri::LogicalSize::new(
+        w.max(1.0),
+        (h - TITLEBAR_HEIGHT).max(1.0),
+    ));
+}
+
+/// 壳页面桥：把本地通知桥的 port/token 交给 `shell.html`，
+/// 标题栏动作统一经 `POST /notify` 的 `titlebar-action` 分发（不依赖 Tauri IPC 白名单）。
+fn shell_init_script(port: u16, token: &str) -> String {
+    format!(
+        "window.__dshShellBridge = {{ port: {port}, token: {} }};",
+        serde_json::to_string(token).unwrap_or_else(|_| "\"\"".into())
+    )
+}
+
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
 /// dsh-notification-custom 插件（浏览器半）监听后调用 `ctx.sessions.open`。
 fn open_session_script(session_id: &str) -> String {
@@ -1238,7 +1525,7 @@ fn open_session_script(session_id: &str) -> String {
 
 /// 通知被点击：聚焦主窗口，并把会话跳转事件派发给页面。
 fn open_session(app: &AppHandle, session_id: &str) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = page_webview(app) {
         if let Err(e) = w.eval(&open_session_script(session_id)) {
             log::warn!("会话跳转事件派发失败：{e}");
         }
@@ -1259,19 +1546,22 @@ fn pet_open_session(app: AppHandle, session_id: String) {
         let _ = w.unminimize();
         let _ = w.set_always_on_top(true);
         let _ = w.set_focus();
-        // open_session 必须在主线程执行：eval 依赖主线程的 webview 上下文
+        // open_session 必须在主线程执行：eval 依赖主线程的 webview 上下文。
+        // 会话跳转事件派发给内容子 WebView（DSH 页面），不是壳页面。
         if !session_id.is_empty() {
-            let quoted = serde_json::to_string(&session_id).unwrap_or_else(|_| "\"\"".to_string());
-            let script = format!(
-                "console.log('[kanye-pet] eval executing, sid=', {quoted});\
-                 window.dispatchEvent(new CustomEvent('dsh:open-session', {{ detail: {{ sessionId: {quoted} }} }}));\
-                 console.log('[kanye-pet] event dispatched');"
-            );
-            log::info!("pet_open_session eval: session_id={session_id}");
-            if let Err(e) = w.eval(&script) {
-                log::warn!("pet_open_session eval 失败：{e}");
-            } else {
-                log::info!("pet_open_session eval OK");
+            if let Some(page) = page_webview(&handle) {
+                let quoted = serde_json::to_string(&session_id).unwrap_or_else(|_| "\"\"".to_string());
+                let script = format!(
+                    "console.log('[kanye-pet] eval executing, sid=', {quoted});\
+                     window.dispatchEvent(new CustomEvent('dsh:open-session', {{ detail: {{ sessionId: {quoted} }} }}));\
+                     console.log('[kanye-pet] event dispatched');"
+                );
+                log::info!("pet_open_session eval: session_id={session_id}");
+                if let Err(e) = page.eval(&script) {
+                    log::warn!("pet_open_session eval 失败：{e}");
+                } else {
+                    log::info!("pet_open_session eval OK");
+                }
             }
         }
     });
@@ -1440,11 +1730,11 @@ fn is_window_maximized(app: AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-/// 顶栏下拉选项：打开开发者工具
+/// 顶栏下拉选项：打开开发者工具（针对 DSH 内容页，而不是壳页面）
 #[tauri::command]
 fn open_devtools(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        w.open_devtools();
+    if let Some(page) = page_webview(&app) {
+        page.open_devtools();
     }
 }
 
@@ -1515,491 +1805,6 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
     log::info!("任务完成通知：{}（未读 {unread}，失焦={distracted}）", body);
 }
 
-/// 页面内悬浮菜单按钮、下拉菜单与关于对话框注入脚本
-fn custom_titlebar_script() -> &'static str {
-    r##"
-(function() {
-  if (window.__dshDesktopTitlebarInjected) {
-    // Rust 侧重试注入：守卫已置位时不重复注册观察器，但补一次挂载尝试
-    if (window.__dshEnsureTitlebar) window.__dshEnsureTitlebar();
-    return;
-  }
-  window.__dshDesktopTitlebarInjected = true;
-
-  var PORT = __PORT__, TOKEN = "__TOKEN__";
-
-  function sendAction(action, data) {
-    var payload = Object.assign({ type: 'titlebar-action', action: action }, data || {});
-    return fetch('http://127.0.0.1:' + PORT + '/notify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + TOKEN
-      },
-      body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); }).catch(function(e) {
-      console.warn('[titlebar] action failed:', action, e);
-      return {};
-    });
-  }
-
-  function mountTitlebar() {
-    if (window.location && window.location.pathname && window.location.pathname.indexOf('pet.html') !== -1) return;
-    // body 一被解析出来就挂上（实测 69ms，早于首帧 116ms）；documentElement 仅作
-    // 非 HTML 文档的兜底宿主。
-    var host = document.body || document.documentElement;
-    if (!host) return;
-    if (document.getElementById('dsh-desktop-menu-btn')) return;
-
-    if (!document.getElementById('dsh-desktop-titlebar-styles')) {
-      var style = document.createElement('style');
-      style.id = 'dsh-desktop-titlebar-styles';
-      style.textContent = `
-        /* 原生标题栏由系统提供（拖动、最大化、贴边缩放、系统菜单全部归 Windows），
-           页面内只保留一个悬浮 ☰ 按钮承载原下拉菜单的功能。 */
-        #dsh-desktop-menu-btn {
-          position: fixed;
-          top: 6px;
-          right: 8px;
-          width: 28px;
-          height: 28px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(22, 27, 34, 0.72);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 7px;
-          color: #c9d1d9;
-          cursor: pointer;
-          padding: 0;
-          outline: none;
-          z-index: 999990;
-          opacity: 0.5;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          transition: opacity 0.15s, background-color 0.15s, color 0.15s;
-        }
-        #dsh-desktop-menu-btn:hover, #dsh-desktop-menu-btn.active {
-          opacity: 1;
-          background: rgba(88, 166, 255, 0.2);
-          color: #58a6ff;
-        }
-        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn {
-          background: rgba(255, 255, 255, 0.8);
-          border: 1px solid rgba(0, 0, 0, 0.12);
-          color: #57606a;
-        }
-        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn:hover,
-        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn.active {
-          background: rgba(9, 105, 218, 0.12);
-          color: #0969da;
-        }
-
-        #dsh-desktop-menu-dropdown {
-          position: fixed;
-          top: 40px;
-          right: 8px;
-          min-width: 220px;
-          background: rgba(22, 27, 34, 0.98);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 8px;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
-          padding: 5px;
-          z-index: 999999;
-          display: none;
-          flex-direction: column;
-          gap: 2px;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-          user-select: none;
-          animation: dshMenuFadeIn 0.12s ease;
-        }
-        body:not([data-ds-dark-theme]) #dsh-desktop-menu-dropdown {
-          background: rgba(255, 255, 255, 0.98);
-          border: 1px solid rgba(0, 0, 0, 0.15);
-          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        @keyframes dshMenuFadeIn {
-          from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .dsh-menu-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 10px;
-          border-radius: 6px;
-          cursor: pointer;
-          color: #c9d1d9;
-          font-size: 13px;
-          transition: background-color 0.12s, color 0.12s;
-        }
-        body:not([data-ds-dark-theme]) .dsh-menu-item {
-          color: #24292f;
-        }
-        .dsh-menu-item:hover {
-          background: rgba(56, 139, 253, 0.15);
-          color: #58a6ff;
-        }
-        body:not([data-ds-dark-theme]) .dsh-menu-item:hover {
-          background: rgba(9, 105, 218, 0.08);
-          color: #0969da;
-        }
-        .dsh-menu-item-danger:hover {
-          background: rgba(248, 81, 73, 0.18) !important;
-          color: #f85149 !important;
-        }
-        .dsh-menu-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-        }
-        .dsh-menu-label {
-          flex: 1;
-        }
-        .dsh-menu-shortcut {
-          font-size: 11px;
-          color: #6e7681;
-        }
-        .dsh-menu-divider {
-          height: 1px;
-          background: rgba(255, 255, 255, 0.08);
-          margin: 4px 6px;
-        }
-        body:not([data-ds-dark-theme]) .dsh-menu-divider {
-          background: rgba(0, 0, 0, 0.08);
-        }
-
-        #dsh-desktop-about-modal {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          z-index: 1000000;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-          user-select: none;
-        }
-        .dsh-about-card {
-          width: min(400px, calc(100vw - 32px));
-          background: #161b22;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 12px;
-          padding: 24px;
-          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          animation: dshModalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        body:not([data-ds-dark-theme]) .dsh-about-card {
-          background: #ffffff;
-          border: 1px solid rgba(0, 0, 0, 0.12);
-          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
-        }
-        @keyframes dshModalPop {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .dsh-about-head {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-        .dsh-about-logo {
-          width: 44px;
-          height: 44px;
-          border-radius: 10px;
-          background: #0d1117;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        body:not([data-ds-dark-theme]) .dsh-about-logo {
-          background: #f6f8fa;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        .dsh-about-title {
-          font-size: 17px;
-          font-weight: 600;
-          color: #f0f6fc;
-          margin: 0;
-        }
-        body:not([data-ds-dark-theme]) .dsh-about-title {
-          color: #24292f;
-        }
-        .dsh-about-desc {
-          font-size: 12px;
-          color: #8b949e;
-          margin: 2px 0 0 0;
-        }
-        .dsh-about-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          background: #0d1117;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 8px;
-          padding: 12px;
-        }
-        body:not([data-ds-dark-theme]) .dsh-about-grid {
-          background: #f6f8fa;
-          border-color: rgba(0, 0, 0, 0.08);
-        }
-        .dsh-about-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 13px;
-        }
-        .dsh-about-k {
-          color: #8b949e;
-        }
-        .dsh-about-v {
-          color: #c9d1d9;
-          font-weight: 500;
-        }
-        body:not([data-ds-dark-theme]) .dsh-about-v {
-          color: #24292f;
-        }
-        .dsh-about-badge {
-          font-size: 11px;
-          padding: 2px 8px;
-          border-radius: 12px;
-          background: rgba(56, 139, 253, 0.15);
-          color: #58a6ff;
-          font-weight: 600;
-        }
-        .dsh-about-footer {
-          display: flex;
-          justify-content: flex-end;
-        }
-        .dsh-about-btn {
-          padding: 7px 20px;
-          background: #1f6feb;
-          color: #fff;
-          border: none;
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background 0.15s;
-        }
-        .dsh-about-btn:hover {
-          background: #388bfd;
-        }
-      `;
-      // 早期只有 documentElement 时也要能注入样式（style 挂 html 下同样生效）
-      (document.head || host).appendChild(style);
-    }
-
-    var menuBtn = document.createElement('button');
-    menuBtn.id = 'dsh-desktop-menu-btn';
-    menuBtn.type = 'button';
-    menuBtn.title = '主菜单';
-    menuBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M3 8h10M3 11.5h10"/></svg>';
-
-    var menu = document.createElement('div');
-    menu.id = 'dsh-desktop-menu-dropdown';
-    menu.innerHTML = `
-      <div class="dsh-menu-item" data-action="reload">
-        <span class="dsh-menu-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1.705 8.001a6.3 6.3 0 1 1 1.06 3.513.75.75 0 1 0-1.22.873A7.8 7.8 0 1 0 1.5 8h1.205z"/><path d="M.5 4.5v4h4a.75.75 0 0 0 0-1.5H2.07A6.3 6.3 0 0 1 1.705 8H.5z"/></svg>
-        </span>
-        <span class="dsh-menu-label">重新加载页面</span>
-        <span class="dsh-menu-shortcut">Ctrl+R</span>
-      </div>
-      <div class="dsh-menu-item" data-action="restart">
-        <span class="dsh-menu-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5L2.5 9h5l-1 5.5L13.5 7h-5l1-5.5z"/></svg>
-        </span>
-        <span class="dsh-menu-label">重启服务与客户端</span>
-      </div>
-      <div class="dsh-menu-divider"></div>
-      <div class="dsh-menu-item" data-action="devtools">
-        <span class="dsh-menu-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.72 3.22a.75.75 0 0 1 1.06 1.06L2.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25zm6.56 0a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L14.94 8l-3.72-3.72a.75.75 0 0 1 0-1.06z"/></svg>
-        </span>
-        <span class="dsh-menu-label">开发者工具 (DevTools)</span>
-        <span class="dsh-menu-shortcut">F12</span>
-      </div>
-      <div class="dsh-menu-item" data-action="about">
-        <span class="dsh-menu-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm6.5-.25A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-2.75h-.25a.75.75 0 0 1-.75-.75zM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
-        </span>
-        <span class="dsh-menu-label">关于 DSH 宿主版本</span>
-      </div>
-      <div class="dsh-menu-divider"></div>
-      <div class="dsh-menu-item dsh-menu-item-danger" data-action="quit">
-        <span class="dsh-menu-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.75C2 1.784 2.784 1 3.75 1h5.5a.75.75 0 0 1 0 1.5h-5.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h5.5a.75.75 0 0 1 0 1.5h-5.5A1.75 1.75 0 0 1 2 13.25V2.75zm8.97 3.22a.75.75 0 1 1 1.06-1.06l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H6.75a.75.75 0 0 1 0-1.5h6.44l-2.22-2.22z"/></svg>
-        </span>
-        <span class="dsh-menu-label">退出应用</span>
-      </div>
-    `;
-
-    var modal = document.createElement('div');
-    modal.id = 'dsh-desktop-about-modal';
-    modal.innerHTML = `
-      <div class="dsh-about-card">
-        <div class="dsh-about-head">
-          <div class="dsh-about-logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="dsh-about-title">DeepSeek Harness</h3>
-            <p class="dsh-about-desc">现代化全插件 AI Agent 桌面客户端</p>
-          </div>
-        </div>
-        <div class="dsh-about-grid">
-          <div class="dsh-about-row">
-            <span class="dsh-about-k">宿主核心版本</span>
-            <span class="dsh-about-badge" id="dsh-about-host-ver">加载中…</span>
-          </div>
-          <div class="dsh-about-row">
-            <span class="dsh-about-k">桌面端壳版本</span>
-            <span class="dsh-about-v" id="dsh-about-desktop-ver">v0.1.0 (Tauri 2)</span>
-          </div>
-          <div class="dsh-about-row">
-            <span class="dsh-about-k">运行环境</span>
-            <span class="dsh-about-v" id="dsh-about-node-ver">Node.js v24 · WebView2</span>
-          </div>
-          <div class="dsh-about-row">
-            <span class="dsh-about-k">当前生态工作区</span>
-            <span class="dsh-about-v">C:\\dsh-ecosystem</span>
-          </div>
-        </div>
-        <div class="dsh-about-footer">
-          <button id="dsh-about-close-btn" class="dsh-about-btn" type="button">确定</button>
-        </div>
-      </div>
-    `;
-
-    host.appendChild(menuBtn);
-    host.appendChild(menu);
-    host.appendChild(modal);
-
-    bindEvents(menuBtn, menu, modal);
-
-    // 一次性自报：记录菜单按钮在文档启动后第几毫秒挂上。初始化脚本路径是几十毫秒，
-    // Rust 侧重试兜底最早在 1200ms —— t 的量级直接区分走的是哪条路径。
-    if (!window.__dshMountDiag) {
-      window.__dshMountDiag = true;
-      sendAction('diag', { t: Math.round(performance.now()), doc: location.pathname });
-    }
-  }
-
-  function bindEvents(menuBtn, menu, modal) {
-    var aboutCloseBtn = document.getElementById('dsh-about-close-btn');
-
-    function toggleMenu(forceHide) {
-      if (forceHide === true || menu.style.display === 'flex') {
-        menu.style.display = 'none';
-        menuBtn && menuBtn.classList.remove('active');
-      } else {
-        menu.style.display = 'flex';
-        menuBtn && menuBtn.classList.add('active');
-      }
-    }
-
-    if (menuBtn) {
-      menuBtn.onclick = function(e) {
-        e.stopPropagation();
-        toggleMenu();
-      };
-    }
-
-    menu.onclick = function(e) {
-      var item = e.target.closest('[data-action]');
-      if (!item) return;
-      var action = item.getAttribute('data-action');
-      toggleMenu(true);
-      if (action === 'reload') {
-        window.location.reload();
-      } else if (action === 'restart') {
-        if (confirm('确定要重启 DeepSeek Harness 服务与桌面端吗？')) {
-          sendAction('restart');
-        }
-      } else if (action === 'devtools') {
-        sendAction('devtools');
-      } else if (action === 'about') {
-        showAbout(modal);
-      } else if (action === 'quit') {
-        if (confirm('确定要完全退出 DeepSeek Harness 吗？')) {
-          sendAction('quit');
-        }
-      }
-    };
-
-    document.addEventListener('click', function(e) {
-      if (!menu.contains(e.target) && e.target !== menuBtn) {
-        toggleMenu(true);
-      }
-    });
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        toggleMenu(true);
-        if (modal) modal.style.display = 'none';
-      }
-    });
-
-    if (aboutCloseBtn) {
-      aboutCloseBtn.onclick = function() {
-        modal.style.display = 'none';
-      };
-    }
-    modal.onclick = function(e) {
-      if (e.target === modal) {
-        modal.style.display = 'none';
-      }
-    };
-  }
-
-  function showAbout(modal) {
-    if (!modal) return;
-    modal.style.display = 'flex';
-    sendAction('get_version').then(function(res) {
-      var info = (res && res.info) || {};
-      var hVer = document.getElementById('dsh-about-host-ver');
-      if (hVer && info.hostVersion) hVer.textContent = 'v' + info.hostVersion;
-      var dVer = document.getElementById('dsh-about-desktop-ver');
-      if (dVer && info.desktopVersion) dVer.textContent = 'v' + info.desktopVersion + ' (Tauri 2)';
-      var nVer = document.getElementById('dsh-about-node-ver');
-      if (nVer && info.nodeVersion) nVer.textContent = info.nodeVersion + ' · WebView2';
-    }).catch(function() {
-      var hVer = document.getElementById('dsh-about-host-ver');
-      if (hVer) hVer.textContent = 'v0.1.5-rc.2';
-    });
-  }
-
-  function ensureMounted() {
-    if (!document.documentElement) return;
-    if (!document.getElementById('dsh-desktop-menu-btn')) mountTitlebar();
-  }
-  // 暴露给重试注入调用（见脚本顶部守卫分支）
-  window.__dshEnsureTitlebar = ensureMounted;
-
-  // 唯一启动机制：观察 document 本身。document 在 document-created 时就存在，
-  // 而那一刻 documentElement 仍是 null —— 对它 observe 会抛 TypeError，
-  // 整段 initialization_script 就此中断（本脚本曾经因此从未在文档启动时执行过）。
-  // body 一插入观察器立即到手：实测 body 69ms、first-paint 116ms，顶栏必进页面首帧。
-  // 观察器常驻且不设间隔：DSH 启动流程或 React 重建把顶栏挤掉时，同一微任务内补挂。
-  new MutationObserver(ensureMounted).observe(document, { childList: true, subtree: true });
-  ensureMounted();
-})();
-"##
-}
 
 /// WebView2 初始化脚本：文档解析前（页面脚本执行前）注入 Notification API shim 与通知桥。
 /// Windows 底层等价 AddScriptToExecuteOnDocumentCreated，跨所有导航（含远程 URL）持久生效。
@@ -2220,43 +2025,6 @@ fn brand_overlay_script() -> &'static str {
 "#
 }
 
-/// 注入自定义无边框顶栏与品牌覆盖（DOM 就绪后 eval，避免初始化脚本时序竞态）。
-///
-/// 分多次重试：页面刷新/401 重定向后 SPA 落地时间不定，单次注入可能早于
-/// DSH 自己的启动流程；脚本带幂等守卫，重复注入无副作用。
-/// port/token 从 DshState 读取，避免层层传参。
-fn inject_custom_titlebar(app: AppHandle) {
-    const RETRY_DELAYS_MS: [u64; 4] = [1200, 3000, 6000, 12000];
-    let handle = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let (port, token) = {
-            let state = handle.state::<DshState>();
-            let p = state.notify_port.load(Ordering::SeqCst);
-            let t = state.notify_token.lock().unwrap().clone().unwrap_or_default();
-            (p, t)
-        };
-        if port == 0 {
-            log::warn!("自定义顶栏注入跳过：通知桥未就绪");
-            return;
-        }
-        let tb = custom_titlebar_script()
-            .replace("__PORT__", &port.to_string())
-            .replace("__TOKEN__", &token);
-        let script = format!("{}\n{}", tb, brand_overlay_script());
-        let mut last = 0u64;
-        for delay in RETRY_DELAYS_MS {
-            tokio::time::sleep(Duration::from_millis(delay - last)).await;
-            last = delay;
-            let Some(w) = handle.get_webview_window("main") else {
-                continue;
-            };
-            match w.eval(&script) {
-                Ok(()) => log::info!("自定义顶栏与品牌覆盖已注入（+{delay}ms）"),
-                Err(e) => log::warn!("自定义顶栏注入失败（+{delay}ms）：{e}"),
-            }
-        }
-    });
-}
 
 /// 导航完成后注入任务完成启发式监听（桥与 shim 已由初始化脚本注入，脚本自带守卫，重复注入无害）。
 fn inject_task_notifier(app: AppHandle, port: u16) {
@@ -2267,7 +2035,7 @@ fn inject_task_notifier(app: AppHandle, port: u16) {
     let script = task_notifier_script();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(2500)).await;
-        if let Some(w) = handle.get_webview_window("main") {
+        if let Some(w) = page_webview(&handle) {
             if let Err(e) = w.eval(&script) {
                 log::warn!("任务完成监听注入失败：{e}");
             } else {
@@ -2303,8 +2071,8 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
                 None
             };
 
-            let Some(w) = app.get_webview_window("main") else {
-                log::error!("找不到主窗口");
+            let Some(w) = page_webview(&app) else {
+                log::error!("找不到内容子 WebView");
                 return;
             };
 
@@ -2334,7 +2102,7 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
             tauri::async_runtime::spawn(async move {
                 for _ in 0..12 {
                     tokio::time::sleep(Duration::from_millis(500)).await;
-                    let Some(w) = settle_app.get_webview_window("main") else {
+                    let Some(w) = page_webview(&settle_app) else {
                         return;
                     };
                     let script = format!(
@@ -2346,7 +2114,6 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
                 }
             });
             inject_task_notifier(app.clone(), nport);
-            inject_custom_titlebar(app.clone());
             let cp_app = app.clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(30)).await;
@@ -2376,9 +2143,9 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
     }
 }
 
-/// 主窗口跳转到本地错误页并发系统通知。
+/// 内容子 WebView 跳转到本地错误页并发系统通知（壳标题栏保持可用）。
 fn show_error(app: &AppHandle, reason: &str) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = page_webview(app) {
         let target = format!("error.html?reason={reason}");
         let _ = w.eval(&format!("window.location.replace({target:?});"));
     }
@@ -2514,8 +2281,8 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
             "open_logs" => open_in_explorer(&dsh_log_dir()),
             "autostart" => toggle_autostart(app),
             "devtools" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    w.open_devtools();
+                if let Some(page) = page_webview(app) {
+                    page.open_devtools();
                 }
             }
             "quit" => {
@@ -2723,13 +2490,17 @@ pub fn run() {
             let window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
-                tauri::WebviewUrl::App("index.html".into()),
+                tauri::WebviewUrl::App("shell.html".into()),
             )
             .title("DeepSeek Harness")
             .inner_size(1440.0, 900.0)
             .min_inner_size(900.0, 600.0)
             .center()
-            // 原生标题栏：拖动、最大化、贴边缩放、Snap 布局与系统菜单全部交回 Windows
+            // 无边框：标题栏由本地 shell.html 自绘。shell.html 永不导航，
+            // 所以标题栏不会随 DSH 页面的刷新而消失或闪动（这正是自绘方案
+            // 此前踩坑的根源——把标题栏注入到会被替换掉的远程文档里）。
+            .decorations(false)
+            .background_color(tauri::window::Color(13, 17, 23, 255))
             .visible(false) // 先隐藏创建，待恢复上次窗口位置后再显示，杜绝在屏幕中央闪烁跳动
             // 文件拖放走 DOM HTML5 拖拽（dsh-file-upload 插件依赖 drag 事件）：
             // 必须同时关掉 tao 窗口拖放目标 和 tauri 默认的 wry 拖放 handler——wry 一装
@@ -2738,73 +2509,88 @@ pub fn run() {
             // TRUE，WebView2 原生处理拖放，页面才能收到 dragenter/dragover/drop。
             .drag_and_drop(false)
             .disable_drag_drop_handler()
-            // 四个独立 initialization_script，而不是拼成一大段：WebView2 对每一条
-            // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
-            // （曾把多段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
-            // 菜单与品牌脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
-            .initialization_script(bridge_init_script(nport, &ntoken))
-            .initialization_script(BOOT_FAILURE_SCRIPT)
-            .initialization_script(
-                custom_titlebar_script()
-                    .replace("__PORT__", &nport.to_string())
-                    .replace("__TOKEN__", &ntoken),
-            )
-            .initialization_script(brand_overlay_script())
-            .on_navigation({
-                // 每次导航（含手动刷新、401 回退重定向）都重新注入壳层 UI：
-                // 刷新路径不会再走 wait_ready_and_navigate，只能靠这个钩子兜住。
-                let nav_handle = app.handle().clone();
-                move |url| {
-                log::info!("[nav] on_navigation called: scheme={:?} host={:?} port={:?}", url.scheme(), url.host_str(), url.port());
-                if is_app_origin(url, port) {
-                    log::info!("[nav] app origin match, allowing in WebView");
-                    inject_custom_titlebar(nav_handle.clone());
-                    return true;
-                }
-                if url.host_str() == Some("tauri.localhost") {
-                    inject_custom_titlebar(nav_handle.clone());
-                    return true;
-                }
-                // 外部链接：交给系统浏览器打开（用户点击的链接）
-                if url.scheme() == "http" || url.scheme() == "https" {
-                    open_in_browser(url.as_str());
-                    log::info!("[nav] external URL, opened in browser");
-                }
-                false
-            }})
-            .on_new_window(move |url, _features| {
-                if is_app_origin(&url, port) {
-                    return tauri::webview::NewWindowResponse::Allow;
-                }
-                // 外部链接（target=_blank / window.open）：交给系统浏览器，WebView 拒绝
-                if url.scheme() == "http" || url.scheme() == "https" {
-                    open_in_browser(url.as_str());
-                }
-                tauri::webview::NewWindowResponse::Deny
-            })
-            // 下载处理：wry 只在挂了 download handler 时才接管 WebView2 的
-            // DownloadStarting；没有 handler 时壳内 <a download>（Session 日志
-            // 导出等）不会触发任何下载。挂上后 SetHandled(true) 交 WebView2
-            // 写入其建议路径（用户 Downloads 目录 + 服务器建议文件名），
-            // 返回 false 会静默取消下载。
-            .on_download(|_webview, event| match event {
-                tauri::webview::DownloadEvent::Requested { url, destination } => {
-                    log::info!("[download] requested {url} -> {}", destination.display());
-                    true
-                }
-                tauri::webview::DownloadEvent::Finished { url, path, success } => {
-                    log::info!("[download] finished {url} path={path:?} success={success}");
-                    true
-                }
-                // #[non_exhaustive] 跨 crate 匹配的兜底臂
-                _ => true,
-            })
+            // 壳页面只拿通知桥的 port/token，用于标题栏动作回传
+            .initialization_script(shell_init_script(nport, &ntoken))
             .build()?;
+
+            // 内容子 WebView：DSH 页面。启动页先加载，服务就绪后由 wait_ready_and_navigate 导航。
+            if let Some(main_window) = app.get_window("main") {
+                let scale = window.scale_factor().unwrap_or(1.0);
+                let (w, h) = window
+                    .inner_size()
+                    .map(|s| (s.width as f64 / scale, s.height as f64 / scale))
+                    .unwrap_or((1440.0, 900.0));
+                let _content = main_window.add_child(
+                    tauri::webview::WebviewBuilder::new(
+                        CONTENT_LABEL,
+                        tauri::WebviewUrl::App("index.html".into()),
+                    )
+                    // 三条独立 initialization_script，而不是拼成一大段：WebView2 对每一条
+                    // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
+                    // （曾把多段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
+                    // 脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
+                    .initialization_script(bridge_init_script(nport, &ntoken))
+                    .initialization_script(BOOT_FAILURE_SCRIPT)
+                    .initialization_script(brand_overlay_script())
+                    .disable_drag_drop_handler()
+                    .on_navigation(move |url| {
+                        log::info!("[nav] on_navigation called: scheme={:?} host={:?} port={:?}", url.scheme(), url.host_str(), url.port());
+                        if is_app_origin(url, port) {
+                            log::info!("[nav] app origin match, allowing in WebView");
+                            return true;
+                        }
+                        if url.host_str() == Some("tauri.localhost") {
+                            return true;
+                        }
+                        // 外部链接：交给系统浏览器打开（用户点击的链接）
+                        if url.scheme() == "http" || url.scheme() == "https" {
+                            open_in_browser(url.as_str());
+                            log::info!("[nav] external URL, opened in browser");
+                        }
+                        false
+                    })
+                    .on_new_window(move |url, _features| {
+                        if is_app_origin(&url, port) {
+                            return tauri::webview::NewWindowResponse::Allow;
+                        }
+                        // 外部链接（target=_blank / window.open）：交给系统浏览器，WebView 拒绝
+                        if url.scheme() == "http" || url.scheme() == "https" {
+                            open_in_browser(url.as_str());
+                        }
+                        tauri::webview::NewWindowResponse::Deny
+                    })
+                    // 下载处理：wry 只在挂了 download handler 时才接管 WebView2 的
+                    // DownloadStarting；没有 handler 时壳内 <a download>（Session 日志
+                    // 导出等）不会触发任何下载。挂上后 SetHandled(true) 交 WebView2
+                    // 写入其建议路径（用户 Downloads 目录 + 服务器建议文件名），
+                    // 返回 false 会静默取消下载。
+                    .on_download(|_webview, event| match event {
+                        tauri::webview::DownloadEvent::Requested { url, destination } => {
+                            log::info!("[download] requested {url} -> {}", destination.display());
+                            true
+                        }
+                        tauri::webview::DownloadEvent::Finished { url, path, success } => {
+                            log::info!("[download] finished {url} path={path:?} success={success}");
+                            true
+                        }
+                        // #[non_exhaustive] 跨 crate 匹配的兜底臂
+                        _ => true,
+                    }),
+                    tauri::LogicalPosition::new(0.0, TITLEBAR_HEIGHT),
+                    tauri::LogicalSize::new(w.max(1.0), (h - TITLEBAR_HEIGHT).max(1.0)),
+                )?;
+            } else {
+                log::error!("找不到 main 窗口，无法挂载内容子 WebView");
+            }
 
             // 隐藏状态下先恢复上次几何，完成后再展示：消除中间闪烁
             apply_saved_geometry(&window);
+            #[cfg(target_os = "windows")]
+            force_borderless_window(&window);
             let _ = window.show();
             let _ = window.set_focus();
+            #[cfg(target_os = "windows")]
+            start_borderless_guard(app.handle().clone());
 
             let state = app.state::<DshState>();
             if port_open(port) {
@@ -2904,6 +2690,26 @@ pub fn run() {
             ensure_shortcut();
             Ok(())
         })
+        // 壳标题栏 ☰ 的原生弹出菜单事件（托盘菜单有它自己的 on_menu_event，id 不冲突）
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "shell:reload" => {
+                if let Some(page) = page_webview(app) {
+                    let _ = page.eval("window.location.reload();");
+                }
+            }
+            "shell:restart" => restart_app(app),
+            "shell:devtools" => {
+                if let Some(page) = page_webview(app) {
+                    page.open_devtools();
+                }
+            }
+            "shell:about" => show_about_dialog(app),
+            "shell:quit" => {
+                app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
+                app.exit(0);
+            }
+            _ => {}
+        })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let state = window.state::<DshState>();
@@ -2931,6 +2737,14 @@ pub fn run() {
             {
                 // 移动/缩放即持久化，不依赖退出时机（异常退出也不丢位置）
                 capture_window_geometry(window);
+                // 内容子 WebView 不参与布局，窗口尺寸变化后要手动摆正
+                if matches!(event, WindowEvent::Resized(_)) {
+                    layout_content_webview(window.app_handle());
+                }
+            } else if matches!(event, WindowEvent::ScaleFactorChanged { .. })
+                && window.label() == "main"
+            {
+                layout_content_webview(window.app_handle());
             }
         })
         .build(tauri::generate_context!())
