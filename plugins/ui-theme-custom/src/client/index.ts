@@ -172,11 +172,15 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
 /* Right sidebar — 0.1.5 native ui-sidebar-right, a sibling of the app frame:
    rightbarCol hosts an edge-anchored panel ([class*="_panel"], "push" mode)
    that can also go fixed fullscreen. Mirror the left sidebar's glass recipe:
-   column owns the blur backdrop + soft light pool, the panel owns the
-   translucent composite fill; fullscreen gets its own backdrop so the panel
-   doesn't turn flat over the conversation. */
+   the column paints the theme's app-image pools DIRECTLY (same trick as the
+   conversation surface) so the translucent panel has real depth to show
+   through — otherwise its fill sits over the solid frame and reads as flat
+   colour; the column keeps the blur backdrop + soft light pool, the panel
+   keeps the translucent composite fill; fullscreen gets its own backdrop so
+   the panel doesn't turn flat over the conversation. */
 [class*="rightbarCol"]{
-  position:relative;z-index:0;background:transparent !important;
+  position:relative;z-index:0;
+  background:var(--dsw-alias-bg-app-image),var(--dsw-alias-bg-base) !important;
 }
 [class*="rightbarCol"]::before{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
