@@ -162,6 +162,7 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [class*="_panel"]{
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.05) !important;
 }
 body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class*="_panel"]{
   background:
@@ -173,11 +174,30 @@ body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class*="_panel"]{
       rgba(240, 242, 247, 0.35) 40%,
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
-  box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.06) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(15, 23, 42, 0.06),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55) !important;
 }
 [class*="rightbarCol"] [class*="_panel"][data-sidebar-right-panel="fullscreen"]{
   backdrop-filter:var(--dsw-alias-glass-blur,none);
   -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
+}
+/* Floating dock panels are position:fixed inside the same column subtree:
+   the frame already carries a translucent layer-2 fill, so add the theme's
+   glass blur and a specular edge so floats read as real frosted glass. */
+[class*="rightbarCol"] [class$="_float"]{
+  backdrop-filter:var(--dsw-alias-glass-blur,none);
+  -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
+}
+body[data-ds-dark-theme] [class*="rightbarCol"] [class$="_float"]{
+  box-shadow:var(--dsw-elevation-prominent), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.02) !important;
+}
+body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class$="_float"]{
+  box-shadow:
+    var(--dsw-elevation-prominent),
+    inset 0 1px 1px rgba(255,255,255,0.85),
+    inset 0 0 0 1px rgba(255,255,255,0.45) !important;
 }
 
 /* All primary action buttons (Button variant="primary"):
