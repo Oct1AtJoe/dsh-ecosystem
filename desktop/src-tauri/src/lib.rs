@@ -877,10 +877,6 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                 #[cfg(target_os = "windows")]
                 {
                     update_dwm_titlebar(&w, is_dark, color_str);
-                    // set_theme 会让 tao 重新写回窗口样式（含 WS_CAPTION），立即纠正；
-                    // 同时强制重设 DWM 边框隐藏（主题切换可能重置该属性）。
-                    DWM_BORDER_HIDDEN.store(false, Ordering::Relaxed);
-                    force_borderless_window(&w);
                 }
             }
         }
@@ -899,22 +895,6 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
             let action = val.get("action").and_then(|v| v.as_str()).unwrap_or("");
             match action {
-                "minimize" => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.minimize();
-                    }
-                }
-                "toggle_maximize" => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let is_max = do_toggle_maximize(&w);
-                        resp_json["isMaximized"] = serde_json::json!(is_max);
-                    }
-                }
-                "close" => {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.close();
-                    }
-                }
                 "devtools" => {
                     if let Some(w) = app.get_webview_window("main") {
                         w.open_devtools();
@@ -1247,121 +1227,6 @@ fn capture_window_geometry(window: &tauri::Window) {
     });
 }
 
-/// 按 HWND 移除原生标题栏；返回是否发生了修改。
-///
-/// tao 0.35.3 的 `apply_diff` 用 `to_window_styles()` 写回窗口样式（该方法无条件
-/// 设置 `WS_CAPTION`，无视 `MARKER_DECORATIONS`），所以任何触发 apply_diff 的窗口
-/// 标志变化（主题切换、焦点、最大化等）都会把标题栏加回来，创建时的
-/// `decorations(false)` 与一次性的样式修改都不足以维持。
-#[cfg(target_os = "windows")]
-fn strip_caption_hwnd(hwnd: windows::Win32::Foundation::HWND) -> bool {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
-        SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
-    };
-    unsafe {
-        let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
-        let stripped = style & !WS_CAPTION.0;
-        if stripped == style {
-            return false;
-        }
-        SetWindowLongW(hwnd, GWL_STYLE, stripped as i32);
-        let _ = SetWindowPos(
-            hwnd,
-            windows::Win32::Foundation::HWND::default(),
-            0,
-            0,
-            0,
-            0,
-            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-        );
-        true
-    }
-}
-
-/// DWM 边框是否已隐藏（避免守护线程每 tick 都做一次 DWM 调用）。
-#[cfg(target_os = "windows")]
-static DWM_BORDER_HIDDEN: AtomicBool = AtomicBool::new(false);
-
-/// 隐藏 DWM 绘制的 1px 窗口边框（Win11 浅色下就是那条白色外框）。
-///
-/// 必须保留 `WS_THICKFRAME`（拖边缩放依赖它），所以不能用移除边框样式的方式消白边，
-/// 只能改 DWM 的边框颜色属性 `DWMWA_BORDER_COLOR`（34），值 `DWMWA_COLOR_NONE`。
-#[cfg(target_os = "windows")]
-fn hide_dwm_border(hwnd: windows::Win32::Foundation::HWND) {
-    use std::ffi::c_void;
-    const DWMWA_BORDER_COLOR: u32 = 34;
-    const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
-    unsafe {
-        let res = DwmSetWindowAttribute(
-            hwnd.0 as *mut c_void,
-            DWMWA_BORDER_COLOR,
-            &DWMWA_COLOR_NONE as *const _ as *const c_void,
-            std::mem::size_of::<u32>() as u32,
-        );
-        if res != 0 {
-            // Win10 及更早版本不支持该属性：白边无法消除，但缩放与其余行为不受影响
-            log::debug!("[window] 隐藏 DWM 边框不受支持：hr={res}");
-        }
-    }
-}
-
-/// 统一应用无边框外观：移除 `WS_CAPTION` + 隐藏 DWM 白边。
-///
-/// 返回窗口样式是否发生变化，供守护线程做日志去抖。
-#[cfg(target_os = "windows")]
-fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
-    let style_changed = strip_caption_hwnd(hwnd);
-    // 样式被 tao 重写后 DWM 边框可能复现，因此样式变化时与首次运行时都重新隐藏
-    if style_changed || !DWM_BORDER_HIDDEN.load(Ordering::Relaxed) {
-        hide_dwm_border(hwnd);
-        DWM_BORDER_HIDDEN.store(true, Ordering::Relaxed);
-    }
-    style_changed
-}
-
-/// 移除主窗口原生标题栏（保留 `WS_THICKFRAME` 以维持鼠标拖边缩放，白边由 DWM 属性消除）。
-#[cfg(target_os = "windows")]
-fn force_borderless_window(window: &tauri::WebviewWindow) {
-    use windows::Win32::Foundation::HWND;
-    let Ok(h) = window.hwnd() else {
-        log::warn!("[window] 取窗口句柄失败，跳过无边框处理");
-        return;
-    };
-    if apply_borderless_frame(HWND(h.0 as _)) {
-        log::info!("[window] 原生标题栏已移除");
-    }
-}
-
-/// 无边框守护：tao 的 apply_diff 会在主题/焦点/最大化等标志变化时把 `WS_CAPTION`
-/// 写回（见 {@link strip_caption_hwnd}），这里高频巡检并纠正，覆盖所有触发点。
-///
-/// 周期取 150ms：最大化/还原动画期间若残留标题栏，Windows 会短暂绘制原生标题栏按钮，
-/// 巡检间隔必须明显小于动画时长才能压掉这帧闪现。
-///
-/// 句柄只在启动时取一次，循环内只有纯 Win32 样式读写，不跨线程碰窗口对象。
-#[cfg(target_os = "windows")]
-fn start_borderless_guard(app: AppHandle) {
-    use windows::Win32::Foundation::HWND;
-    let hwnd = app
-        .get_webview_window("main")
-        .and_then(|w| w.hwnd().ok())
-        .map(|h| h.0 as isize);
-    let Some(raw) = hwnd else {
-        log::warn!("[window] 无边框守护启动失败：未取得窗口句柄");
-        return;
-    };
-    tauri::async_runtime::spawn(async move {
-        let mut ticker = tokio::time::interval(Duration::from_millis(150));
-        loop {
-            ticker.tick().await;
-            if apply_borderless_frame(HWND(raw as _)) {
-                log::info!("[window] 检测到原生标题栏回写并再次移除");
-            }
-        }
-    });
-}
-
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
 /// dsh-notification-custom 插件（浏览器半）监听后调用 `ctx.sessions.open`。
 fn open_session_script(session_id: &str) -> String {
@@ -1567,92 +1432,6 @@ fn get_dsh_host_version() -> String {
     "0.1.5-rc.2".to_string()
 }
 
-/// 执行最大化 / 还原切换，并彻底解决 Windows 无边框窗口还原只缩小几个像素的系统 Bug。
-fn do_toggle_maximize(window: &tauri::WebviewWindow) -> bool {
-    let is_max = window.is_maximized().unwrap_or(false);
-    if is_max {
-        // 1. 还原前先读出最大化前记录的纯净正常几何
-        let saved_geo = load_geometry().filter(|g| !g.maximized && g.width > 0 && g.height > 0);
-        
-        // 2. 调用系统 unmaximize
-        let _ = window.unmaximize();
-        
-        // 3. 显式把窗口尺寸与位置拽回最大化前的纯净正常几何（彻底解决 Windows 无边框还原只缩 8px 的系统缺陷）
-        if let Some(geo) = saved_geo {
-            let _ = window.set_size(tauri::PhysicalSize::new(geo.width, geo.height));
-            let _ = window.set_position(tauri::PhysicalPosition::new(geo.x, geo.y));
-            log::info!(
-                "[window] 成功从最大化恢复至正常尺寸：({},{}) {}x{}",
-                geo.x, geo.y, geo.width, geo.height
-            );
-        } else {
-            // 兜底：如果完全没有历史记录，还原到默认推荐尺寸 1440x900 居中
-            let _ = window.set_size(tauri::PhysicalSize::new(1440, 900));
-            let _ = window.center();
-            log::info!("[window] 兜底恢复至默认尺寸 1440x900 居中");
-        }
-
-        // 4. 更新持久化状态为非最大化
-        if let Some(mut geo) = load_geometry() {
-            geo.maximized = false;
-            save_geometry(&geo);
-        }
-        // 还原动画后同样要压掉可能回写的原生标题栏
-        #[cfg(target_os = "windows")]
-        force_borderless_window(window);
-        false
-    } else {
-        // 1. 最大化前：当前尺寸绝对是真实的正常窗口，立即精准捕获并锁定！
-        if let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) {
-            save_geometry(&WindowGeometry {
-                x: pos.x,
-                y: pos.y,
-                width: size.width,
-                height: size.height,
-                maximized: true,
-            });
-            log::info!(
-                "[window] 最大化前锁定正常尺寸：({},{}) {}x{}",
-                pos.x, pos.y, size.width, size.height
-            );
-        }
-        // 2. 最大化动画开始前先清掉残留标题栏：否则动画期间 Windows 会绘制原生标题栏按钮
-        #[cfg(target_os = "windows")]
-        force_borderless_window(window);
-        let _ = window.maximize();
-        // 3. 动画期间再补一次，压掉 tao 在标志变化时写回的标题栏
-        #[cfg(target_os = "windows")]
-        force_borderless_window(window);
-        true
-    }
-}
-
-/// 顶栏自定义按钮：最小化窗口
-#[tauri::command]
-fn window_minimize(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.minimize();
-    }
-}
-
-/// 顶栏自定义按钮：最大化 / 还原切换，返回切换后的最大化状态
-#[tauri::command]
-fn window_toggle_maximize(app: AppHandle) -> bool {
-    if let Some(w) = app.get_webview_window("main") {
-        do_toggle_maximize(&w)
-    } else {
-        false
-    }
-}
-
-/// 顶栏自定义按钮：关闭窗口（触发隐藏至系统托盘）
-#[tauri::command]
-fn window_close(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.close();
-    }
-}
-
 /// 查询当前窗口是否最大化
 #[tauri::command]
 fn is_window_maximized(app: AppHandle) -> bool {
@@ -1736,7 +1515,7 @@ fn notify_completed(app: &AppHandle, title: Option<&str>, body: &str, force: boo
     log::info!("任务完成通知：{}（未读 {unread}，失焦={distracted}）", body);
 }
 
-/// 现代无边框自定义顶栏、下拉菜单与关于对话框注入脚本
+/// 页面内悬浮菜单按钮、下拉菜单与关于对话框注入脚本
 fn custom_titlebar_script() -> &'static str {
     r##"
 (function() {
@@ -1770,132 +1549,56 @@ fn custom_titlebar_script() -> &'static str {
     // 非 HTML 文档的兜底宿主。
     var host = document.body || document.documentElement;
     if (!host) return;
-    if (document.getElementById('dsh-desktop-custom-titlebar')) return;
+    if (document.getElementById('dsh-desktop-menu-btn')) return;
 
     if (!document.getElementById('dsh-desktop-titlebar-styles')) {
       var style = document.createElement('style');
       style.id = 'dsh-desktop-titlebar-styles';
       style.textContent = `
-        :root {
-          --dsh-titlebar-height: 32px;
-        }
-        body {
-          padding-top: var(--dsh-titlebar-height) !important;
-          box-sizing: border-box !important;
-          height: 100vh !important;
-          margin: 0 !important;
-        }
-        #dsh-desktop-custom-titlebar {
+        /* 原生标题栏由系统提供（拖动、最大化、贴边缩放、系统菜单全部归 Windows），
+           页面内只保留一个悬浮 ☰ 按钮承载原下拉菜单的功能。 */
+        #dsh-desktop-menu-btn {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 32px;
-          background: #0d1117;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          top: 6px;
+          right: 8px;
+          width: 28px;
+          height: 28px;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          z-index: 999990;
-          user-select: none;
-          -webkit-user-select: none;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-          transition: background-color 0.2s, border-color 0.2s;
-        }
-        body:not([data-ds-dark-theme]) #dsh-desktop-custom-titlebar {
-          background: #f6f8fa;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-          color: #24292f;
-        }
-        #dsh-desktop-custom-titlebar * {
-          box-sizing: border-box;
-        }
-        .dsh-tb-drag {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding-left: 12px;
-          height: 100%;
-          flex: 1;
-          min-width: 0;
-        }
-        .dsh-tb-logo {
-          width: 16px;
-          height: 16px;
-          flex-shrink: 0;
-          pointer-events: none;
-        }
-        .dsh-tb-title {
-          font-size: 12px;
-          font-weight: 500;
-          color: #c9d1d9;
-          letter-spacing: 0.2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          pointer-events: none;
-        }
-        body:not([data-ds-dark-theme]) .dsh-tb-title {
-          color: #24292f;
-        }
-        .dsh-tb-actions {
-          display: flex;
-          align-items: center;
-          height: 100%;
-          flex-shrink: 0;
-        }
-        .dsh-tb-btn {
-          display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: transparent;
-          border: none;
-          color: #8b949e;
-          height: 32px;
+          background: rgba(22, 27, 34, 0.72);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 7px;
+          color: #c9d1d9;
           cursor: pointer;
           padding: 0;
           outline: none;
-          transition: background-color 0.15s, color 0.15s;
+          z-index: 999990;
+          opacity: 0.5;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          transition: opacity 0.15s, background-color 0.15s, color 0.15s;
         }
-        body:not([data-ds-dark-theme]) .dsh-tb-btn {
-          color: #57606a;
-        }
-        .dsh-tb-btn:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: #f0f6fc;
-        }
-        body:not([data-ds-dark-theme]) .dsh-tb-btn:hover {
-          background: rgba(0, 0, 0, 0.06);
-          color: #24292f;
-        }
-        .dsh-tb-btn-menu {
-          width: 38px;
-          border-right: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu {
-          border-right: 1px solid rgba(0, 0, 0, 0.06);
-        }
-        .dsh-tb-btn-menu:hover, .dsh-tb-btn-menu.active {
-          background: rgba(88, 166, 255, 0.15);
+        #dsh-desktop-menu-btn:hover, #dsh-desktop-menu-btn.active {
+          opacity: 1;
+          background: rgba(88, 166, 255, 0.2);
           color: #58a6ff;
         }
-        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu:hover,
-        body:not([data-ds-dark-theme]) .dsh-tb-btn-menu.active {
-          background: rgba(9, 105, 218, 0.1);
+        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn {
+          background: rgba(255, 255, 255, 0.8);
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          color: #57606a;
+        }
+        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn:hover,
+        body:not([data-ds-dark-theme]) #dsh-desktop-menu-btn.active {
+          background: rgba(9, 105, 218, 0.12);
           color: #0969da;
-        }
-        .dsh-tb-btn-caption {
-          width: 46px;
-        }
-        .dsh-tb-btn-close:hover {
-          background: #e81123 !important;
-          color: #ffffff !important;
         }
 
         #dsh-desktop-menu-dropdown {
           position: fixed;
-          top: 33px;
-          right: 140px;
+          top: 40px;
+          right: 8px;
           min-width: 220px;
           background: rgba(22, 27, 34, 0.98);
           backdrop-filter: blur(20px);
@@ -2098,43 +1801,11 @@ fn custom_titlebar_script() -> &'static str {
       (document.head || host).appendChild(style);
     }
 
-    var bar = document.createElement('div');
-    bar.id = 'dsh-desktop-custom-titlebar';
-    bar.setAttribute('data-tauri-drag-region', 'true');
-    bar.innerHTML = `
-      <div class="dsh-tb-drag" data-tauri-drag-region="true">
-        <svg class="dsh-tb-logo" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#58a6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="dsh-tb-title" data-tauri-drag-region="true">Dsh@Oct1AtJoe</span>
-      </div>
-      <div class="dsh-tb-actions">
-        <!-- 最小化左边的下拉菜单按钮 -->
-        <button id="dsh-tb-menu-btn" class="dsh-tb-btn dsh-tb-btn-menu" title="主菜单" type="button">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 6.5l4 4 4-4"/>
-          </svg>
-        </button>
-        <!-- 最小化 -->
-        <button id="dsh-tb-min-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最小化" type="button">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="3" y="8" width="10" height="1.2" rx="0.6"/>
-          </svg>
-        </button>
-        <!-- 最大化 / 还原 -->
-        <button id="dsh-tb-max-btn" class="dsh-tb-btn dsh-tb-btn-caption" title="最大化" type="button">
-          <svg id="dsh-tb-max-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
-            <rect x="3" y="3" width="10" height="10" rx="1"/>
-          </svg>
-        </button>
-        <!-- 关闭 -->
-        <button id="dsh-tb-close-btn" class="dsh-tb-btn dsh-tb-btn-caption dsh-tb-btn-close" title="关闭 (隐藏至托盘)" type="button">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-            <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
-          </svg>
-        </button>
-      </div>
-    `;
+    var menuBtn = document.createElement('button');
+    menuBtn.id = 'dsh-desktop-menu-btn';
+    menuBtn.type = 'button';
+    menuBtn.title = '主菜单';
+    menuBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M3 8h10M3 11.5h10"/></svg>';
 
     var menu = document.createElement('div');
     menu.id = 'dsh-desktop-menu-dropdown';
@@ -2214,18 +1885,13 @@ fn custom_titlebar_script() -> &'static str {
       </div>
     `;
 
-    // 顶栏插在最前（视觉层级），菜单与弹窗追加在后
-    if (host.firstChild) {
-      host.insertBefore(bar, host.firstChild);
-    } else {
-      host.appendChild(bar);
-    }
+    host.appendChild(menuBtn);
     host.appendChild(menu);
     host.appendChild(modal);
 
-    bindEvents(bar, menu, modal);
+    bindEvents(menuBtn, menu, modal);
 
-    // 一次性自报：记录顶栏在文档启动后第几毫秒挂上。初始化脚本路径是几十毫秒，
+    // 一次性自报：记录菜单按钮在文档启动后第几毫秒挂上。初始化脚本路径是几十毫秒，
     // Rust 侧重试兜底最早在 1200ms —— t 的量级直接区分走的是哪条路径。
     if (!window.__dshMountDiag) {
       window.__dshMountDiag = true;
@@ -2233,11 +1899,7 @@ fn custom_titlebar_script() -> &'static str {
     }
   }
 
-  function bindEvents(bar, menu, modal) {
-    var menuBtn = document.getElementById('dsh-tb-menu-btn');
-    var minBtn = document.getElementById('dsh-tb-min-btn');
-    var maxBtn = document.getElementById('dsh-tb-max-btn');
-    var closeBtn = document.getElementById('dsh-tb-close-btn');
+  function bindEvents(menuBtn, menu, modal) {
     var aboutCloseBtn = document.getElementById('dsh-about-close-btn');
 
     function toggleMenu(forceHide) {
@@ -2256,37 +1918,6 @@ fn custom_titlebar_script() -> &'static str {
         toggleMenu();
       };
     }
-
-    if (minBtn) {
-      minBtn.onclick = function() {
-        sendAction('minimize');
-      };
-    }
-
-    if (maxBtn) {
-      maxBtn.onclick = function() {
-        sendAction('toggle_maximize').then(function(res) {
-          if (res && res.isMaximized !== undefined) {
-            updateMaxIcon(res.isMaximized);
-          }
-        });
-      };
-    }
-
-    if (closeBtn) {
-      closeBtn.onclick = function() {
-        sendAction('close');
-      };
-    }
-
-    bar.ondblclick = function(e) {
-      if (e.target.closest('.dsh-tb-actions') || e.target.closest('#dsh-desktop-menu-dropdown')) return;
-      sendAction('toggle_maximize').then(function(res) {
-        if (res && res.isMaximized !== undefined) {
-          updateMaxIcon(res.isMaximized);
-        }
-      });
-    };
 
     menu.onclick = function(e) {
       var item = e.target.closest('[data-action]');
@@ -2333,18 +1964,6 @@ fn custom_titlebar_script() -> &'static str {
         modal.style.display = 'none';
       }
     };
-
-    function updateMaxIcon(isMax) {
-      var icon = document.getElementById('dsh-tb-max-icon');
-      if (!icon) return;
-      if (isMax) {
-        icon.innerHTML = '<path d="M5.5 3.5h7v7" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="3.5" y="5.5" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.2" fill="none"/>';
-        if (maxBtn) maxBtn.title = '还原';
-      } else {
-        icon.innerHTML = '<rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>';
-        if (maxBtn) maxBtn.title = '最大化';
-      }
-    }
   }
 
   function showAbout(modal) {
@@ -2366,7 +1985,7 @@ fn custom_titlebar_script() -> &'static str {
 
   function ensureMounted() {
     if (!document.documentElement) return;
-    if (!document.getElementById('dsh-desktop-custom-titlebar')) mountTitlebar();
+    if (!document.getElementById('dsh-desktop-menu-btn')) mountTitlebar();
   }
   // 暴露给重试注入调用（见脚本顶部守卫分支）
   window.__dshEnsureTitlebar = ensureMounted;
@@ -2511,29 +2130,6 @@ const BOOT_FAILURE_SCRIPT: &str = r#"
   // 对它 observe 会抛 TypeError（本脚本曾因此中断掉排在其后的顶栏与品牌脚本）。
   new MutationObserver(checkBootFailure).observe(document, { childList: true, subtree: true });
   checkBootFailure();
-})();
-"#;
-
-/// 极简兜底拖拽条：顶栏缺席时保证窗口可拖动。
-const DRAG_FALLBACK_SCRIPT: &str = r#"
-(function(){
-  if (window.__dshDragFallback) return;
-  window.__dshDragFallback = true;
-  function ensure() {
-    if (!document.body) return;
-    var bar = document.getElementById('dsh-desktop-custom-titlebar');
-    var fb = document.getElementById('dsh-drag-fallback');
-    if (bar) { if (fb) fb.remove(); return; }
-    if (fb) return;
-    var d = document.createElement('div');
-    d.id = 'dsh-drag-fallback';
-    d.setAttribute('data-tauri-drag-region', 'true');
-    d.style.cssText = 'position:fixed;top:0;left:0;right:0;height:14px;z-index:999980;background:transparent;';
-    document.body.appendChild(d);
-  }
-  // 与顶栏、品牌同一套启动机制：观察 document，body 一插入就到手，不依赖定时器。
-  new MutationObserver(ensure).observe(document, { childList: true, subtree: true });
-  ensure();
 })();
 "#;
 
@@ -2713,7 +2309,7 @@ async fn wait_ready_and_navigate(app: AppHandle, port: u16, nport: u16) {
             };
 
             // ── 导航到带 token 的 URL（或无 token 时到裸 URL） ──────────
-            let query_suffix = "dsh-desktop-mode=advanced&dsh-desktop-platform=win32&dsh-desktop-titlebar-inset=32";
+            let query_suffix = "dsh-desktop-mode=advanced&dsh-desktop-platform=win32";
             let target = match &token {
                 Some(t) => format!("{url}?token={t}&{query_suffix}"),
                 None => format!("{url}?{query_suffix}"),
@@ -3095,9 +2691,6 @@ pub fn run() {
             get_latest_checkpoint_info,
             rollback_checkpoint,
             factory_reset,
-            window_minimize,
-            window_toggle_maximize,
-            window_close,
             is_window_maximized,
             open_devtools,
             app_quit,
@@ -3136,7 +2729,7 @@ pub fn run() {
             .inner_size(1440.0, 900.0)
             .min_inner_size(900.0, 600.0)
             .center()
-            .decorations(false) // 现代无边框顶栏，由注入组件承载窗口控制与下拉菜单
+            // 原生标题栏：拖动、最大化、贴边缩放、Snap 布局与系统菜单全部交回 Windows
             .visible(false) // 先隐藏创建，待恢复上次窗口位置后再显示，杜绝在屏幕中央闪烁跳动
             // 文件拖放走 DOM HTML5 拖拽（dsh-file-upload 插件依赖 drag 事件）：
             // 必须同时关掉 tao 窗口拖放目标 和 tauri 默认的 wry 拖放 handler——wry 一装
@@ -3145,13 +2738,12 @@ pub fn run() {
             // TRUE，WebView2 原生处理拖放，页面才能收到 dragenter/dragover/drop。
             .drag_and_drop(false)
             .disable_drag_drop_handler()
-            // 五个独立 initialization_script，而不是拼成一大段：WebView2 对每一条
+            // 四个独立 initialization_script，而不是拼成一大段：WebView2 对每一条
             // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
-            // （曾把五段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
-            // 顶栏与品牌脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
+            // （曾把多段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
+            // 菜单与品牌脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
             .initialization_script(bridge_init_script(nport, &ntoken))
             .initialization_script(BOOT_FAILURE_SCRIPT)
-            .initialization_script(DRAG_FALLBACK_SCRIPT)
             .initialization_script(
                 custom_titlebar_script()
                     .replace("__PORT__", &nport.to_string())
@@ -3209,15 +2801,10 @@ pub fn run() {
             })
             .build()?;
 
-            // 隐藏状态下先恢复上次几何并强制去边框，完成后再展示：消除中间闪烁与边框闪现
+            // 隐藏状态下先恢复上次几何，完成后再展示：消除中间闪烁
             apply_saved_geometry(&window);
-            #[cfg(target_os = "windows")]
-            force_borderless_window(&window);
             let _ = window.show();
             let _ = window.set_focus();
-            // tao 会在主题/焦点变化时把 WS_CAPTION 写回，启动守护持续纠正
-            #[cfg(target_os = "windows")]
-            start_borderless_guard(app.handle().clone());
 
             let state = app.state::<DshState>();
             if port_open(port) {
@@ -3339,23 +2926,11 @@ pub fn run() {
                 let state = window.state::<DshState>();
                 state.unread.store(0, Ordering::SeqCst);
                 let _ = window.set_badge_count(None);
-                // 焦点变化同样走 tao 的 apply_diff，立即纠正标题栏回写
-                #[cfg(target_os = "windows")]
-                if window.label() == "main" {
-                    if let Ok(h) = window.hwnd() {
-                        apply_borderless_frame(windows::Win32::Foundation::HWND(h.0 as _));
-                    }
-                }
             } else if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_))
                 && window.label() == "main"
             {
                 // 移动/缩放即持久化，不依赖退出时机（异常退出也不丢位置）
                 capture_window_geometry(window);
-                // 最大化/还原会重算窗口框架，同样纠正标题栏回写
-                #[cfg(target_os = "windows")]
-                if let Ok(h) = window.hwnd() {
-                    apply_borderless_frame(windows::Win32::Foundation::HWND(h.0 as _));
-                }
             }
         })
         .build(tauri::generate_context!())
