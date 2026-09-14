@@ -11,11 +11,13 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ThemeDefinition, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
-// Type-only: pulls the locale plugin's Context merge (ctx.locale) and the
-// settings section's SlotMap entry (ctx.slots.register for settings.general.item).
+import type { ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+// Type-only: pulls the locale plugin's Context merge (ctx.locale), the
+// settings section's SlotMap entry (ctx.slots.register for settings.general.item),
+// and the renderer's Context merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { AURORA_TOKENS } from './aurora.ts'
 import { NEBULA_TOKENS } from './nebula.ts'
 import { VOID_TOKENS } from './void.ts'
@@ -94,21 +96,26 @@ const SURFACE_GLASS_CSS = `
    clearly visible glass backplate without relying on translucency alone. (The
    frame keeps its native uniform dark background so overlaid dialogs don't
    reveal a patterned backdrop through their own translucency.) */
-[class$="centerCol"] > :first-child > [class$="_root"]{
+/* 0.1.5+ renders the conversation through nested root-slot anchors:
+   centerCol > [data-slot="main"] > [data-slot="main.conversation"] > root.
+   Keep the 0.1.2 direct-child form for older hosts; the slot anchor form
+   covers the current nesting (anchors are display:contents). */
+[class$="centerCol"] > :first-child > [class$="_root"],
+[class$="centerCol"] [data-slot="main.conversation"] > [class*="_root"]{
   background:var(--dsw-alias-bg-app-image),var(--dsw-alias-bg-base) !important;
 }
 
 /* Sidebar column: transparent base so the sidebar's own glass backdrop
    shows through the alpha — the column wrapper no longer paints a solid
    fill that would block the frosted-glass effect underneath. */
-[class$="sidebarCol"]{
+[class*="sidebarCol"]{
   position:relative;z-index:0;background:transparent !important;
 }
-[class$="sidebarCol"]::before{
+[class*="sidebarCol"]::before{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   backdrop-filter:var(--dsw-alias-glass-blur,none);
 }
-[class$="sidebarCol"]::after{
+[class*="sidebarCol"]::after{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   background:
     radial-gradient(440px 320px at 12% 38%, var(--dsw-alias-surface-glass-spot, rgba(200,192,214,0.16)), transparent 56%);
@@ -162,19 +169,51 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
   fill: currentColor !important;
 }
 
-/* better-sidebar's pane sits OUTSIDE the frame (x > frame width), so no
-   frame pool shines behind it — give the pane its own soft light layer
-   via ::after so the translucent fill has glass-like pools, matching
-   the left sidebar. */
-[class$="_pane"]{
-  background-color:var(--dsw-alias-bg-base) !important;
-  position:relative;z-index:0;
+/* Right sidebar — 0.1.5 native ui-sidebar-right, a sibling of the app frame:
+   rightbarCol hosts an edge-anchored panel ([class*="_panel"], "push" mode)
+   that can also go fixed fullscreen. Mirror the left sidebar's glass recipe:
+   column owns the blur backdrop + soft light pool, the panel owns the
+   translucent composite fill; fullscreen gets its own backdrop so the panel
+   doesn't turn flat over the conversation. */
+[class*="rightbarCol"]{
+  position:relative;z-index:0;background:transparent !important;
 }
-[class$="_pane"]::after{
+[class*="rightbarCol"]::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
+  backdrop-filter:var(--dsw-alias-glass-blur,none);
+}
+[class*="rightbarCol"]::after{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   background:
     radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.16)), transparent 56%);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),inset 0 0 0 1px rgba(255,255,255,0.03);
+  box-shadow:inset -1px 0 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+body[data-ds-dark-theme] [class*="rightbarCol"] [class*="_panel"]{
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
+      transparent 100%),
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 30%, transparent) 0%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
+      transparent 60%),
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
+}
+body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class*="_panel"]{
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%,
+      rgba(255, 255, 255, 0.75) 0%,
+      transparent 100%),
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.50) 0%,
+      rgba(240, 242, 247, 0.35) 40%,
+      transparent 60%),
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
+  box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.06) !important;
+}
+[class*="rightbarCol"] [class*="_panel"][data-sidebar-right-panel="fullscreen"]{
+  backdrop-filter:var(--dsw-alias-glass-blur,none);
+  -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
 }
 
 /* All primary action buttons (Button variant="primary"):
@@ -292,7 +331,7 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
    so there is no visual side effect, and the :has() reverts automatically
    when the dialog closes. A nested :has() cannot be used — Chromium rejects
    it as an invalid selector and silently drops the whole rule. */
-[class$="_sidebarCol"]:has([role="dialog"]){
+[class*="_sidebarCol"]:has([role="dialog"]){
   z-index:9500 !important;
 }
 /* Tooltip inside sidebar: raise sidebar column above center column and message layer (z 20)

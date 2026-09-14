@@ -6,15 +6,32 @@
  * re-assert loop holds the tokens against the official ThemePresenter's
  * boot-time adopt() until the browser half (./client) signals
  * `window.__dshCustomThemeLive` and takes over subsequent switches.
+ *
+ * The injection row and event are typed locally instead of importing the
+ * host webserver package: the row is a tiny structural shape and the event
+ * augmentation shadows the host's, so this node half stays self-contained
+ * and compiles against whatever host version is installed.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import { AURORA_TOKENS } from './client/aurora.ts'
 import { NEBULA_TOKENS } from './client/nebula.ts'
 import { VOID_TOKENS } from './client/void.ts'
 import { JADE_TOKENS } from './client/jade.ts'
 import { SOLAR_TOKENS } from './client/solar.ts'
 import { GLACIAL_TOKENS } from './client/glacial.ts'
+
+/** Local structural stand-in for the host webserver's index injection row. */
+type IndexInjection = {
+  kind: 'script'
+  placement: 'body'
+  text: string
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    'webserver/index-inject'(table: IndexInjection[]): void
+  }
+}
 
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS: Record<string, Record<string, string>> = {
