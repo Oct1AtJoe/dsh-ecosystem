@@ -1859,6 +1859,24 @@ fn bridge_init_script(port: u16, token: &str) -> String {
       } catch(e){}
     }
   };
+
+  // 自动监听并同步 DSH 官方与定制主题深浅色切换：
+  // 官方 DSH 在深色模式下给 body 挂 data-ds-dark-theme，浅色模式下移除该属性。
+  function syncThemeFromDom() {
+    if (!document.body) return;
+    var isDark = document.body.hasAttribute('data-ds-dark-theme');
+    if (window.__dshLastReportedThemeDark === isDark) return;
+    window.__dshLastReportedThemeDark = isDark;
+    if (window.__dshNotifyBridge && window.__dshNotifyBridge.setTheme) {
+      window.__dshNotifyBridge.setTheme(isDark ? 'dark' : 'light');
+    }
+  }
+  new MutationObserver(syncThemeFromDom).observe(document, { attributes: true, subtree: true, attributeFilter: ['data-ds-dark-theme'] });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncThemeFromDom);
+  } else {
+    syncThemeFromDom();
+  }
   // WebView2 无 Web Notification 权限机制：替换为恒 granted 的 shim，
   // 构造器直接触发通知桥——原版插件（new Notification(...)）无需任何改动即可弹系统 toast。
   function ShimNotification(title, options) {
