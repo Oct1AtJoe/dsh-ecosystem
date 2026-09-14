@@ -628,6 +628,8 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
         args.push("127.0.0.1".into());
         args.push("--port".into());
         args.push(port_str);
+        // 壳本身即 UI：无论哪条启动路径都禁止 DSH 的浏览器交接（另两条路径已带 --no-open）
+        args.push("--no-open".into());
         log::info!("按 DSH_DESKTOP_BACKEND 启动：{command} {}", args.join(" "));
         return spawn_child(&command, &args, port, &extra_envs);
     }
