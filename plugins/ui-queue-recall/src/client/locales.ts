@@ -2,7 +2,9 @@ export const NS = 'queueRecall' as const
 
 export const zh = {
   'queue.count': '{n} 条排队消息',
+  'queue.sending': '发送中…',
   'queue.image': '排队消息图片',
+  'queue.file': '排队文件 {name}',
   'queue.recall': '撤回至输入框',
   'queue.recall.unsupported': '包含非文本内容，暂不支持撤回',
   'queue.recallFailed': '撤回排队消息失败',
@@ -15,7 +17,9 @@ export const zh = {
 
 export const en = {
   'queue.count': '{n} queued messages',
+  'queue.sending': 'Sending…',
   'queue.image': 'Queued message image',
+  'queue.file': 'Queued file {name}',
   'queue.recall': 'Recall to draft',
   'queue.recall.unsupported': 'Contains non-text content; recall is not supported yet',
   'queue.recallFailed': 'Failed to recall queued message',
