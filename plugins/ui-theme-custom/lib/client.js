@@ -12,6 +12,7 @@ window.__ModuleLoader__.load({
 		* theme pins its own color scheme, so one value per token is sufficient). */
 		const AURORA_TOKENS = Object.freeze({
 			"--dsw-alias-bg-base": "rgb(22, 19, 30)",
+			"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(62, 52, 96, 0.55), rgba(22, 19, 30, 0) 30%),radial-gradient(600px 440px at 82% 12%, rgba(155, 138, 245, 0.16), transparent 55%),radial-gradient(560px 420px at 6% 46%, rgba(98, 82, 156, 0.18), transparent 52%)",
 			"--dsw-alias-surface-glass-spot": "rgba(198, 184, 250, 0.25)",
 			"--dsw-alias-bg-layer-1": "rgb(36, 28, 52)",
 			"--dsw-alias-bg-layer-2": "rgb(42, 34, 60)",
@@ -884,14 +885,19 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
 }
 
 /* Right sidebar — 0.1.5 native ui-sidebar-right, a sibling of the app frame:
-   rightbarCol hosts an edge-anchored panel ([class*="_panel"], "push" mode)
-   that can also go fixed fullscreen. Mirror the left sidebar's glass recipe:
-   the column paints the theme's app-image pools DIRECTLY (same trick as the
-   conversation surface) so the translucent panel has real depth to show
-   through — otherwise its fill sits over the solid frame and reads as flat
-   colour; the column keeps the blur backdrop + soft light pool, the panel
-   keeps the translucent composite fill; fullscreen gets its own backdrop so
-   the panel doesn't turn flat over the conversation. */
+   rightbarCol hosts an edge-anchored panel ([data-sidebar-right-panel], "push"
+   mode) that can also go fixed fullscreen. Mirror the left sidebar's glass
+   recipe: the column paints the theme's app-image pools DIRECTLY (same trick
+   as the conversation surface) so the translucent panel has real depth to
+   show through — otherwise its fill sits over the solid frame and reads as
+   flat colour; the column keeps the blur backdrop + soft light pool, the
+   panel keeps the translucent composite fill; fullscreen gets its own
+   backdrop so the panel doesn't turn flat over the conversation.
+
+   The panel is matched by its data attribute, never by [class*="_panel"]:
+   that substring also hits the sibling _panelBody class, which painted the
+   same 45% fill a second time over the panel — two stacked translucent layers
+   read as one solid colour. */
 [class*="rightbarCol"]{
   position:relative;z-index:0;
   background:var(--dsw-alias-bg-app-image),var(--dsw-alias-bg-base) !important;
@@ -906,7 +912,7 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
     radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.16)), transparent 56%);
   box-shadow:inset -1px 0 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
 }
-body[data-ds-dark-theme] [class*="rightbarCol"] [class*="_panel"]{
+body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
@@ -918,7 +924,7 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [class*="_panel"]{
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
   box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.05) !important;
 }
-body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class*="_panel"]{
+body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
       rgba(255, 255, 255, 0.75) 0%,
@@ -933,7 +939,7 @@ body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class*="_panel"]{
     inset 1px 0 0 rgba(255, 255, 255, 0.55),
     inset 0 1px 1px rgba(255, 255, 255, 0.55) !important;
 }
-[class*="rightbarCol"] [class*="_panel"][data-sidebar-right-panel="fullscreen"]{
+[class*="rightbarCol"] [data-sidebar-right-panel="fullscreen"]{
   backdrop-filter:var(--dsw-alias-glass-blur,none);
   -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
 }

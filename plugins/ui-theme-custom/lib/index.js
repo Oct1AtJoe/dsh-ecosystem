@@ -3,6 +3,7 @@
 * theme pins its own color scheme, so one value per token is sufficient). */
 const AURORA_TOKENS = Object.freeze({
 	"--dsw-alias-bg-base": "rgb(22, 19, 30)",
+	"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(62, 52, 96, 0.55), rgba(22, 19, 30, 0) 30%),radial-gradient(600px 440px at 82% 12%, rgba(155, 138, 245, 0.16), transparent 55%),radial-gradient(560px 420px at 6% 46%, rgba(98, 82, 156, 0.18), transparent 52%)",
 	"--dsw-alias-surface-glass-spot": "rgba(198, 184, 250, 0.25)",
 	"--dsw-alias-bg-layer-1": "rgb(36, 28, 52)",
 	"--dsw-alias-bg-layer-2": "rgb(42, 34, 60)",
