@@ -1350,16 +1350,16 @@ fn shell_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     app.get_webview("main")
 }
 
-/// 窗口子类化处理过程：精准拦截 `WM_NCCALCSIZE`、`WM_NCPAINT` 与 `WM_GETMINMAXINFO`。
+/// 窗口子类化处理过程：精准拦截 `WM_STYLECHANGING`、`WM_NCACTIVATE`、`WM_NCCALCSIZE`、`WM_NCPAINT` 与 `WM_GETMINMAXINFO`。
 ///
 /// Win32 机制：
-/// 1. 无边框窗口（无 `WS_CAPTION`）在最大化时，系统默认会把窗口尺寸
-///    设置为整个物理显示器分辨率（`rcMonitor`），从而遮盖住 Windows 任务栏。
-///    此处拦截 `WM_GETMINMAXINFO` 与 `WM_NCCALCSIZE`，将最大化尺寸与原点限制在当前显示器的「工作区」（`rcWork`），
-///    确保最大化时任务栏永远可见且贴齐。
-/// 2. 当窗口保留 `WS_THICKFRAME` 用于鼠标缩放时，系统或未禁阴影的 Tao 默认会在 `WM_NCCALCSIZE` 里
-///    将客户区四周内缩 8px（左右各 8px 的非客户区），由系统绘制导致在深色下呈现刺眼的「左右白边」。
-///    此处直接拦截 `WM_NCCALCSIZE` 返回 0（普通状态无内缩填满窗口），并拦截 `WM_NCPAINT` 吞掉非客户区重绘，彻底根治左右白边。
+/// 1. Tao 的 `apply_diff` 在窗口显示/聚焦/最大化时会无条件按 `to_window_styles()` 写回 `WS_CAPTION`，
+///    导致启动/重启瞬间屏幕右上角闪烁出 Windows 原生最小化/最大化/关闭按钮。
+///    此处拦截 `WM_STYLECHANGING`，在内核写回前将 `styleNew` 中的 `WS_CAPTION` 抹除，
+///    配合 `WM_NCACTIVATE` 与 `WM_NCPAINT` 拦截，杜绝原生标题栏按钮闪现。
+/// 2. 无边框窗口在最大化时，系统默认会将窗口尺寸设为物理显示器全屏（`rcMonitor`）遮挡任务栏。
+///    此处拦截 `WM_GETMINMAXINFO` 与 `WM_NCCALCSIZE` 将尺寸夹在工作区（`rcWork`）。
+/// 3. 普通状态下 `WM_NCCALCSIZE` 直接返回 0，让客户区铺满整个物理窗口，消除左右 8px 白边。
 #[cfg(target_os = "windows")]
 unsafe extern "system" fn window_subclass_proc(
     hwnd: windows::Win32::Foundation::HWND,
@@ -1375,9 +1375,23 @@ unsafe extern "system" fn window_subclass_proc(
     };
     use windows::Win32::UI::Shell::DefSubclassProc;
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, GWL_STYLE, MINMAXINFO, NCCALCSIZE_PARAMS, WM_GETMINMAXINFO,
-        WM_NCCALCSIZE, WM_NCPAINT, WS_MAXIMIZE,
+        GetWindowLongW, GWL_STYLE, MINMAXINFO, NCCALCSIZE_PARAMS, STYLESTRUCT, WM_GETMINMAXINFO,
+        WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCPAINT, WM_STYLECHANGING, WS_CAPTION, WS_MAXIMIZE,
     };
+
+    if msg == WM_STYLECHANGING {
+        if (wparam.0 as i32) == GWL_STYLE.0 {
+            let ss = &mut *(lparam.0 as *mut STYLESTRUCT);
+            // 永远剥离 WS_CAPTION，杜绝 Tao 在 show/focus/resize 时把原生标题栏写回
+            ss.styleNew &= !WS_CAPTION.0;
+            return windows::Win32::Foundation::LRESULT(0);
+        }
+    }
+
+    if msg == WM_NCACTIVATE {
+        // 返回 TRUE，指示激活完成，阻止系统绘制原生非客户区标题栏/按钮
+        return windows::Win32::Foundation::LRESULT(1);
+    }
 
     if msg == WM_NCCALCSIZE {
         if wparam.0 != 0 {
@@ -1399,7 +1413,7 @@ unsafe extern "system" fn window_subclass_proc(
     }
 
     if msg == WM_NCPAINT {
-        // 阻止系统绘制非客户区边框
+        // 阻止系统绘制非客户区边框与原生按钮
         return windows::Win32::Foundation::LRESULT(0);
     }
 
@@ -2586,6 +2600,21 @@ pub fn run() {
             // 内容子 WebView：DSH 页面。启动页先加载，服务就绪后由 wait_ready_and_navigate 导航。
             if let Some(main_win) = app.get_window("main") {
                 let _ = main_win.set_shadow(false);
+                #[cfg(target_os = "windows")]
+                if let Ok(h) = main_win.hwnd() {
+                    let hwnd = windows::Win32::Foundation::HWND(h.0 as _);
+                    strip_caption_hwnd(hwnd);
+                    hide_dwm_border(hwnd);
+                    use windows::Win32::UI::Shell::SetWindowSubclass;
+                    unsafe {
+                        let _ = SetWindowSubclass(
+                            hwnd,
+                            Some(window_subclass_proc),
+                            1001,
+                            0,
+                        );
+                    }
+                }
                 // 隐藏状态下先恢复上次几何，消除中间闪烁
                 apply_saved_geometry(&main_win);
                 #[cfg(target_os = "windows")]
@@ -2593,19 +2622,9 @@ pub fn run() {
                 let _ = main_win.show();
                 let _ = main_win.set_focus();
                 #[cfg(target_os = "windows")]
-                start_borderless_guard(app.handle().clone());
+                force_borderless_window(&main_win);
                 #[cfg(target_os = "windows")]
-                if let Ok(h) = main_win.hwnd() {
-                    use windows::Win32::UI::Shell::SetWindowSubclass;
-                    unsafe {
-                        let _ = SetWindowSubclass(
-                            windows::Win32::Foundation::HWND(h.0 as _),
-                            Some(window_subclass_proc),
-                            1001,
-                            0,
-                        );
-                    }
-                }
+                start_borderless_guard(app.handle().clone());
 
                 let scale = main_win.scale_factor().unwrap_or(1.0);
                 let size = main_win
