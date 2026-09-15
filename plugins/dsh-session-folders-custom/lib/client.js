@@ -32,10 +32,8 @@ window.__ModuleLoader__.load({
 		const OPEN_FOLDER_ROUTE = ROUTE_PREFIX + "/open-folder";
 		/** How many archived sessions the Archive block shows before the "Show more" toggle (matches the original browser's collapsed limit). */
 		const ARCHIVE_ROW_LIMIT = 5;
-/** How many most recent workspace sessions the Recent section keeps at hand:
- *  the first ARCHIVE_ROW_LIMIT rows show outright, the rest fold behind the
- *  section's own "Show more" toggle. */
-const RECENT_LIMIT = 10;
+/** How many most recent workspace sessions the Recent section shows. */
+const RECENT_LIMIT = 5;
 /**
  * Pending UI interactions the sidebar reports, in the runtime's own vocabulary
  * (mirrors the built-in browser's presentation filter). Each one means the run
@@ -2472,14 +2470,13 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						e("span", { className: "dsh-ff__folder-icon" }, clockIcon(14)),
 						e("span", { className: "dsh-ff__title" }, t("recent.label"))
 					),
-					recentShown && (moreShown.has("recent") ? recentSessions : recentSessions.slice(0, ARCHIVE_ROW_LIMIT)).map((summary) => renderSessionRow(summary, (item) => {
+					recentShown && recentSessions.map((summary) => renderSessionRow(summary, (item) => {
 						// Reveal the session's home first (expand its workspace
 						// group and folder, scroll there, flash the row), then
 						// open it: the flash marks the original spot.
 						jumpToOrigin(item.id);
 						open(item.id);
-					}, void 0, true)),
-					recentShown && renderMoreToggle("recent", recentSessions.length)
+					}, void 0, true))
 				)
 				: null;
 			const browserList = view.groups.length === 0 && view.ungrouped === null
