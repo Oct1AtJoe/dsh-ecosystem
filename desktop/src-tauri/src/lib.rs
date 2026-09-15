@@ -625,8 +625,7 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
         args.push("127.0.0.1".into());
         args.push("--port".into());
         args.push(port_str);
-        // 壳本身即 UI：无论哪条启动路径都禁止 DSH 的浏览器交接（另两条路径已带 --no-open）
-        args.push("--no-open".into());
+        // 壳本身即 UI：`dsh web` 默认不开浏览器（无 --open 即为否），不要追加已被 0.1.5-rc.2 CLI 移除的 --no-open
         log::info!("按 DSH_DESKTOP_BACKEND 启动：{command} {}", args.join(" "));
         return spawn_child(&command, &args, port, &extra_envs);
     }
@@ -645,7 +644,6 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
             "127.0.0.1".into(),
             "--port".into(),
             port_str.clone(),
-            "--no-open".into(),
         ];
         log::info!("dev 模式：源码仓库 CLI {}", args.join(" "));
         return spawn_child(&node.to_string_lossy(), &args, port, &extra_envs);
@@ -666,7 +664,6 @@ fn spawn_dsh(port: u16, custom_home: Option<&std::path::Path>) -> Result<Child, 
         "127.0.0.1".into(),
         "--port".into(),
         port_str,
-        "--no-open".into(),
     ];
     spawn_child(&node.to_string_lossy(), &args, port, &extra_envs)
 }
