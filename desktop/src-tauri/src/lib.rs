@@ -1350,6 +1350,54 @@ fn shell_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     app.get_webview("main")
 }
 
+/// 窗口子类化处理过程：精准拦截 `WM_GETMINMAXINFO`。
+///
+/// Win32 经典机制：无边框窗口（无 `WS_CAPTION`）在最大化时，系统默认会把窗口尺寸
+/// 设置为整个物理显示器分辨率（`rcMonitor`），从而遮盖住 Windows 任务栏。
+/// 此处拦截该消息，将最大化尺寸与原点限制在当前显示器的「工作区」（`rcWork`），
+/// 确保最大化时任务栏永远可见且贴齐。
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn window_subclass_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    _id: usize,
+    _data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+    use windows::Win32::UI::Shell::DefSubclassProc;
+    use windows::Win32::UI::WindowsAndMessaging::{MINMAXINFO, WM_GETMINMAXINFO};
+
+    if msg == WM_GETMINMAXINFO {
+        let res = DefSubclassProc(hwnd, msg, wparam, lparam);
+        let mmi = &mut *(lparam.0 as *mut MINMAXINFO);
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if GetMonitorInfoW(monitor, &mut info).as_bool() {
+            let work = info.rcWork;
+            let mon = info.rcMonitor;
+            mmi.ptMaxPosition = POINT {
+                x: work.left - mon.left,
+                y: work.top - mon.top,
+            };
+            mmi.ptMaxSize = POINT {
+                x: work.right - work.left,
+                y: work.bottom - work.top,
+            };
+        }
+        return res;
+    }
+
+    DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
 /// 按 HWND 移除原生标题栏；返回是否发生了修改。
 ///
 /// `decorations(false)` 只在创建时让客户区铺满窗口；tao 0.35.3 的 `apply_diff` 在主题、
@@ -2513,6 +2561,18 @@ pub fn run() {
                 let _ = main_win.set_focus();
                 #[cfg(target_os = "windows")]
                 start_borderless_guard(app.handle().clone());
+                #[cfg(target_os = "windows")]
+                if let Ok(h) = main_win.hwnd() {
+                    use windows::Win32::UI::Shell::SetWindowSubclass;
+                    unsafe {
+                        let _ = SetWindowSubclass(
+                            windows::Win32::Foundation::HWND(h.0 as _),
+                            Some(window_subclass_proc),
+                            1001,
+                            0,
+                        );
+                    }
+                }
 
                 let scale = main_win.scale_factor().unwrap_or(1.0);
                 let size = main_win
