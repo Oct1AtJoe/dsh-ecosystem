@@ -1102,6 +1102,9 @@ fn update_dwm_titlebar(window: &tauri::Window, is_dark: bool, color_spec: Option
     let dark_val: i32 = if is_dark { 1 } else { 0 };
 
     unsafe {
+        // 0. 边框隐藏（消除浅色/主题变动下 DWM 1px 白边）
+        hide_dwm_border(windows::Win32::Foundation::HWND(hwnd as _));
+
         // 1. Windows 10 (1809+) & Windows 11: 沉浸式暗黑/浅色标题栏与系统按钮切换
         let res = DwmSetWindowAttribute(
             hwnd,
@@ -1350,12 +1353,16 @@ fn shell_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     app.get_webview("main")
 }
 
-/// 窗口子类化处理过程：精准拦截 `WM_GETMINMAXINFO`。
+/// 窗口子类化处理过程：精准拦截 `WM_NCCALCSIZE`、`WM_NCPAINT` 与 `WM_GETMINMAXINFO`。
 ///
-/// Win32 经典机制：无边框窗口（无 `WS_CAPTION`）在最大化时，系统默认会把窗口尺寸
-/// 设置为整个物理显示器分辨率（`rcMonitor`），从而遮盖住 Windows 任务栏。
-/// 此处拦截该消息，将最大化尺寸与原点限制在当前显示器的「工作区」（`rcWork`），
-/// 确保最大化时任务栏永远可见且贴齐。
+/// Win32 机制：
+/// 1. 无边框窗口（无 `WS_CAPTION`）在最大化时，系统默认会把窗口尺寸
+///    设置为整个物理显示器分辨率（`rcMonitor`），从而遮盖住 Windows 任务栏。
+///    此处拦截 `WM_GETMINMAXINFO` 与 `WM_NCCALCSIZE`，将最大化尺寸与原点限制在当前显示器的「工作区」（`rcWork`），
+///    确保最大化时任务栏永远可见且贴齐。
+/// 2. 当窗口保留 `WS_THICKFRAME` 用于鼠标缩放时，系统或未禁阴影的 Tao 默认会在 `WM_NCCALCSIZE` 里
+///    将客户区四周内缩 8px（左右各 8px 的非客户区），由系统绘制导致在深色下呈现刺眼的「左右白边」。
+///    此处直接拦截 `WM_NCCALCSIZE` 返回 0（普通状态无内缩填满窗口），并拦截 `WM_NCPAINT` 吞掉非客户区重绘，彻底根治左右白边。
 #[cfg(target_os = "windows")]
 unsafe extern "system" fn window_subclass_proc(
     hwnd: windows::Win32::Foundation::HWND,
@@ -1370,7 +1377,34 @@ unsafe extern "system" fn window_subclass_proc(
         GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
     };
     use windows::Win32::UI::Shell::DefSubclassProc;
-    use windows::Win32::UI::WindowsAndMessaging::{MINMAXINFO, WM_GETMINMAXINFO};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongW, GWL_STYLE, MINMAXINFO, NCCALCSIZE_PARAMS, WM_GETMINMAXINFO,
+        WM_NCCALCSIZE, WM_NCPAINT, WS_MAXIMIZE,
+    };
+
+    if msg == WM_NCCALCSIZE {
+        if wparam.0 != 0 {
+            let is_max = (GetWindowLongW(hwnd, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
+            if is_max {
+                let params = &mut *(lparam.0 as *mut NCCALCSIZE_PARAMS);
+                let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                let mut info = MONITORINFO {
+                    cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                    ..Default::default()
+                };
+                if GetMonitorInfoW(monitor, &mut info).as_bool() {
+                    params.rgrc[0] = info.rcWork;
+                }
+            }
+            // 返回 0 让客户区填满物理窗口，消除 8px 非客户区内缩与左右白边
+            return windows::Win32::Foundation::LRESULT(0);
+        }
+    }
+
+    if msg == WM_NCPAINT {
+        // 阻止系统绘制非客户区边框
+        return windows::Win32::Foundation::LRESULT(0);
+    }
 
     if msg == WM_GETMINMAXINFO {
         let res = DefSubclassProc(hwnd, msg, wparam, lparam);
@@ -2540,6 +2574,7 @@ pub fn run() {
             // 所以标题栏不会随 DSH 页面的刷新而消失或闪动（这正是自绘方案
             // 此前踩坑的根源——把标题栏注入到会被替换掉的远程文档里）。
             .decorations(false)
+            .shadow(false)
             .background_color(tauri::window::Color(13, 17, 23, 255))
             .visible(false) // 先隐藏创建，待恢复上次窗口位置后再显示，杜绝在屏幕中央闪烁跳动
             // 文件拖放走 DOM HTML5 拖拽（dsh-file-upload 插件依赖 drag 事件）：
@@ -2553,6 +2588,7 @@ pub fn run() {
 
             // 内容子 WebView：DSH 页面。启动页先加载，服务就绪后由 wait_ready_and_navigate 导航。
             if let Some(main_win) = app.get_window("main") {
+                let _ = main_win.set_shadow(false);
                 // 隐藏状态下先恢复上次几何，消除中间闪烁
                 apply_saved_geometry(&main_win);
                 #[cfg(target_os = "windows")]
@@ -2586,6 +2622,7 @@ pub fn run() {
                         CONTENT_LABEL,
                         tauri::WebviewUrl::App("index.html".into()),
                     )
+                    .background_color(tauri::window::Color(13, 17, 23, 255))
                     // 三条独立 initialization_script，而不是拼成一大段：WebView2 对每一条
                     // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
                     // （曾把多段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
