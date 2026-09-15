@@ -108,8 +108,8 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="8" width="10" height="1.2" rx="0.6"/></svg>
         </button>
         <button class="tb" id="max-btn" type="button" title="最大化">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
-            <rect id="max-icon" x="3" y="3" width="10" height="10" rx="1"/>
+          <svg id="max-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="3" y="3" width="10" height="10" rx="1"/>
           </svg>
         </button>
         <button class="tb close" id="close-btn" type="button" title="关闭（隐藏至托盘）">
@@ -136,6 +136,15 @@
         if (maxBtn) maxBtn.title = isMax ? '还原' : '最大化';
       }
 
+      function syncMaxState() {
+        if (!current) return;
+        current.isMaximized().then(updateMaxIcon).catch(function () {});
+      }
+
+      // 初始化立即核对一次最大化状态，并监听窗口 resize 自动对齐
+      syncMaxState();
+      window.addEventListener('resize', syncMaxState);
+
       var menuBtn = document.getElementById('menu-btn');
       menuBtn.addEventListener('click', function () {
         menuBtn.classList.add('active');
@@ -153,11 +162,9 @@
 
       document.getElementById('max-btn').addEventListener('click', function () {
         if (!current) return;
-        current.toggleMaximize().catch(function () {});
-        // toggleMaximize 是异步生效的，稍后再读真实状态刷新图标
-        setTimeout(function () {
-          current.isMaximized().then(updateMaxIcon).catch(function () {});
-        }, 60);
+        current.toggleMaximize().then(syncMaxState).catch(function () {});
+        setTimeout(syncMaxState, 50);
+        setTimeout(syncMaxState, 200);
       });
 
       document.getElementById('close-btn').addEventListener('click', function () {
@@ -172,10 +179,9 @@
       });
       drag.addEventListener('dblclick', function () {
         if (!current) return;
-        current.toggleMaximize().catch(function () {});
-        setTimeout(function () {
-          current.isMaximized().then(updateMaxIcon).catch(function () {});
-        }, 60);
+        current.toggleMaximize().then(syncMaxState).catch(function () {});
+        setTimeout(syncMaxState, 50);
+        setTimeout(syncMaxState, 200);
       });
 
       // DSH 主题变化时由 Rust eval 进来

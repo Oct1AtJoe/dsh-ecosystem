@@ -24,7 +24,6 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, RunEvent, WindowEvent,
 };
-use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_window_state::StateFlags;
@@ -129,8 +128,6 @@ struct DshState {
     tray_tip_shown: AtomicBool,
     /// 未读任务完成数（Dock 角标）。
     unread: AtomicU32,
-    /// 托盘"开机自启"菜单项（点击切换后同步 label）。
-    autostart_item: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
     /// 是否以安全模式运行（隔离 DSH_HOME）。
     is_safe_mode: AtomicBool,
     /// 本地通知桥端口号。
@@ -2242,86 +2239,45 @@ fn show_main(app: &AppHandle) {
 }
 
 /// 开机自启菜单项文案（实时反映当前状态）。
-fn autostart_item_label(enabled: bool) -> &'static str {
-    if enabled {
-        "开机自启：已开启"
-    } else {
-        "开机自启：已关闭"
-    }
-}
-
-/// 切换开机自启（Windows 注册表 Run 键），并同步托盘菜单文案。
-fn toggle_autostart(app: &AppHandle) {
-    let on = app.autolaunch().is_enabled().unwrap_or(false);
-    let result = if on {
-        app.autolaunch().disable()
-    } else {
-        app.autolaunch().enable()
-    };
-    match result {
-        Ok(()) => log::info!("开机自启已切换为{}", if on { "关闭" } else { "开启" }),
-        Err(e) => log::error!("切换开机自启失败：{e}"),
-    }
-    if let Some(item) = app
-        .state::<DshState>()
-        .autostart_item
-        .lock()
-        .unwrap()
-        .as_ref()
-    {
-        let _ = item.set_text(autostart_item_label(!on));
-    }
-}
-
-/// 构建托盘：左键显示窗口，菜单提供显示/重启/安全模式/配置与日志/开机自启/退出。
+/// 构建托盘：左键显示窗口，右键菜单与顶栏 ☰ 菜单 5 项完全对齐。
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
-    let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
-    let enabled = app.autolaunch().is_enabled().unwrap_or(false);
-    let autostart = MenuItem::with_id(app, "autostart", autostart_item_label(enabled), true, None::<&str>)?;
-    app.state::<DshState>()
-        .autostart_item
-        .lock()
-        .unwrap()
-        .replace(autostart.clone());
-    let restart = MenuItem::with_id(app, "restart", "重启", true, None::<&str>)?;
-    let safe_mode = MenuItem::with_id(app, "safe_mode", "以安全模式重启", true, None::<&str>)?;
-    let open_config = MenuItem::with_id(app, "open_config", "打开配置目录", true, None::<&str>)?;
-    let open_logs = MenuItem::with_id(app, "open_logs", "打开日志目录", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let devtools = MenuItem::with_id(app, "devtools", "开发者工具", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[
-        &show,
-        &restart,
-        &safe_mode,
-        &open_config,
-        &open_logs,
-        &autostart,
-        &devtools,
-        &quit,
-    ])?;
+    let reload = MenuItem::with_id(app, "tray:reload", "重新加载页面", true, None::<&str>)?;
+    let restart = MenuItem::with_id(app, "tray:restart", "重启服务与客户端", true, None::<&str>)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let devtools = MenuItem::with_id(app, "tray:devtools", "开发者工具 (DevTools)", true, None::<&str>)?;
+    let about = MenuItem::with_id(app, "tray:about", "关于 DSH 宿主版本", true, None::<&str>)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "tray:quit", "退出应用", true, None::<&str>)?;
+
+    let menu = Menu::with_items(
+        app,
+        &[&reload, &restart, &sep1, &devtools, &about, &sep2, &quit],
+    )?;
     TrayIconBuilder::with_id("dsh-tray")
         .icon(app.default_window_icon().expect("缺少应用图标").clone())
         .tooltip("DeepSeek Harness")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "show" => show_main(app),
-            "restart" => {
+            "tray:reload" => {
+                show_main(app);
+                if let Some(page) = page_webview(app) {
+                    let _ = page.eval("window.location.reload();");
+                }
+            }
+            "tray:restart" => {
                 restart_app(app);
             }
-            "safe_mode" => {
-                let is_safe = app.state::<DshState>().is_safe_mode.load(Ordering::SeqCst);
-                restart_backend(app, !is_safe);
-            }
-            "open_config" => open_in_explorer(&dsh_home_dir()),
-            "open_logs" => open_in_explorer(&dsh_log_dir()),
-            "autostart" => toggle_autostart(app),
-            "devtools" => {
+            "tray:devtools" => {
+                show_main(app);
                 if let Some(page) = page_webview(app) {
                     page.open_devtools();
                 }
             }
-            "quit" => {
+            "tray:about" => {
+                show_about_dialog(app);
+            }
+            "tray:quit" => {
                 app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
                 app.exit(0);
             }
@@ -2507,7 +2463,6 @@ pub fn run() {
             quitting: AtomicBool::new(false),
             tray_tip_shown: AtomicBool::new(false),
             unread: AtomicU32::new(0),
-            autostart_item: Mutex::new(None),
             is_safe_mode: AtomicBool::new(false),
             notify_port: AtomicU16::new(0),
             notify_token: Mutex::new(None),
