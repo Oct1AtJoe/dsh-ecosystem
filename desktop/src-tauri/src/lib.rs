@@ -1489,73 +1489,221 @@ unsafe extern "system" fn window_subclass_proc(
         }
     }
 
+    if msg == windows::Win32::UI::WindowsAndMessaging::WM_SIZE {
+        border_resizing::update_resize_border_window(hwnd);
+    }
+
     DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
-/// 子窗口命中测试子类化过程：
+/// 无边框窗口四周透明缩放辅助子窗口。
 ///
-/// 当主窗口无边框且处于正常未最大化状态时，若鼠标指针落在距离主窗口物理边缘 7px 范围内，
-/// 子窗口（包含 WebView2 内部所有渲染与容器 HWND）返回 `HTTRANSPARENT`。
-/// 依据 Win32 规范，系统会自动穿透并将 `WM_NCHITTEST` 派发给底层的主窗口，
-/// 从而完美激活原生拖拽缩放光标与大小调整，同时无需任何白边非客户区。
+/// Win32 机制与 WebView2 跨进程屏障：
+/// WebView2 渲染层运行于独立的 msedgewebview2.exe 渲染进程中，同进程 `SetWindowSubclass` 无法穿透其 `WM_NCHITTEST`。
+/// 因此本模块在主窗口最顶层（`HWND_TOP`）挂载一个透明无边框子窗口，
+/// 并通过 GDI Region（`SetWindowRgn`）将中间区域掏空，仅保留外围 7px 边框：
+/// 1. 中间绝大部分区域为透明镂空，所有鼠标事件 100% 直达 WebView2，零性能开销与零遮挡；
+/// 2. 外围 7px 边缘命中此辅助窗口，辅助窗口在 `WM_NCHITTEST` 返回对应的 `HTLEFT` / `HTRIGHT` / `HTBOTTOM` / 四角代码，
+///    并在 `WM_NCLBUTTONDOWN` 时将消息 `PostMessage` 发送给主窗口；
+/// 3. 主窗口在原生 `DefWindowProc` 中自动激活 Windows 系统级拖拽缩放模态循环，彻底解决无边框拖拽缩放问题，且 0 像素白边。
 #[cfg(target_os = "windows")]
-unsafe extern "system" fn child_hit_test_subclass_proc(
-    hwnd: windows::Win32::Foundation::HWND,
-    msg: u32,
-    wparam: windows::Win32::Foundation::WPARAM,
-    lparam: windows::Win32::Foundation::LPARAM,
-    _id: usize,
-    _data: usize,
-) -> windows::Win32::Foundation::LRESULT {
-    use windows::Win32::Foundation::POINT;
-    use windows::Win32::Graphics::Gdi::ScreenToClient;
-    use windows::Win32::UI::Shell::DefSubclassProc;
+mod border_resizing {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINTS, RECT, WPARAM};
+    use windows::Win32::Graphics::Gdi::{
+        CombineRgn, CreateRectRgn, DeleteObject, SetWindowRgn, RGN_DIFF,
+    };
+    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetAncestor, GetClientRect, GetWindowLongW, GA_ROOT, GWL_STYLE, HTTRANSPARENT,
-        WM_NCHITTEST, WS_MAXIMIZE,
+        CreateWindowExW, DefWindowProcW, FindWindowExW, GetClientRect, GetParent, GetWindowLongW,
+        GetWindowRect, PostMessageW, RegisterClassExW, SetWindowPos, GWL_STYLE, HCURSOR, HICON,
+        HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT,
+        HTTRANSPARENT, HWND_TOP, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
+        SWP_NOOWNERZORDER, SWP_NOSIZE, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_NCHITTEST,
+        WM_NCLBUTTONDOWN, WM_PAINT, WNDCLASSEXW, WNDCLASS_STYLES, WS_CHILD, WS_CLIPSIBLINGS,
+        WS_MAXIMIZE, WS_VISIBLE,
     };
 
-    if msg == WM_NCHITTEST {
-        let root = GetAncestor(hwnd, GA_ROOT);
-        if !root.is_invalid() {
-            let is_max = (GetWindowLongW(root, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
-            if !is_max {
-                let mut pt = POINT {
-                    x: ((lparam.0 as usize) & 0xFFFF) as i16 as i32,
-                    y: (((lparam.0 as usize) >> 16) & 0xFFFF) as i16 as i32,
+    const RESIZE_BORDER_WIDTH: i32 = 8;
+    const CLASS_NAME: PCWSTR = windows::core::w!("DSH_RESIZE_BORDER_BORDERS");
+    const WINDOW_NAME: PCWSTR = windows::core::w!("DSH_RESIZE_BORDER_WINDOW");
+
+    unsafe fn update_border_region(child: HWND, width: i32, height: i32) {
+        if width <= RESIZE_BORDER_WIDTH * 2 || height <= RESIZE_BORDER_WIDTH * 2 {
+            return;
+        }
+        let hrgn_full = CreateRectRgn(0, 0, width, height);
+        let hrgn_inner = CreateRectRgn(
+            RESIZE_BORDER_WIDTH,
+            RESIZE_BORDER_WIDTH,
+            width - RESIZE_BORDER_WIDTH,
+            height - RESIZE_BORDER_WIDTH,
+        );
+        CombineRgn(hrgn_full, hrgn_full, hrgn_inner, RGN_DIFF);
+        let _ = SetWindowRgn(child, hrgn_full, true);
+        let _ = DeleteObject(hrgn_inner);
+    }
+
+    unsafe extern "system" fn border_window_proc(
+        child: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        match msg {
+            WM_ERASEBKGND => LRESULT(1),
+            WM_PAINT => {
+                use windows::Win32::Graphics::Gdi::{BeginPaint, EndPaint, PAINTSTRUCT};
+                let mut ps = PAINTSTRUCT::default();
+                let _ = BeginPaint(child, &mut ps);
+                let _ = EndPaint(child, &ps);
+                LRESULT(0)
+            }
+            WM_NCHITTEST => {
+                let Ok(parent) = GetParent(child) else {
+                    return DefWindowProcW(child, msg, wparam, lparam);
                 };
-                let mut rect = windows::Win32::Foundation::RECT::default();
-                if GetClientRect(root, &mut rect).is_ok() && ScreenToClient(root, &mut pt).as_bool() {
-                    let border = 7;
-                    let in_border = pt.x < border
-                        || pt.x >= rect.right - border
-                        || pt.y < border
-                        || pt.y >= rect.bottom - border;
-                    if in_border {
-                        return windows::Win32::Foundation::LRESULT(HTTRANSPARENT as _);
-                    }
+                let is_max = (GetWindowLongW(parent, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
+                if is_max {
+                    return LRESULT(HTTRANSPARENT as _);
                 }
+                let (cx, cy) = (
+                    ((lparam.0 as usize) & 0xFFFF) as i16 as i32,
+                    (((lparam.0 as usize) >> 16) & 0xFFFF) as i16 as i32,
+                );
+                let mut rect = RECT::default();
+                if GetWindowRect(child, &mut rect).is_err() {
+                    return DefWindowProcW(child, msg, wparam, lparam);
+                }
+                let b = RESIZE_BORDER_WIDTH;
+                let on_left = cx < rect.left + b;
+                let on_right = cx >= rect.right - b;
+                let on_top = cy < rect.top + b;
+                let on_bottom = cy >= rect.bottom - b;
+
+                if on_top && on_left { return LRESULT(HTTOPLEFT as _); }
+                if on_top && on_right { return LRESULT(HTTOPRIGHT as _); }
+                if on_bottom && on_left { return LRESULT(HTBOTTOMLEFT as _); }
+                if on_bottom && on_right { return LRESULT(HTBOTTOMRIGHT as _); }
+                if on_left { return LRESULT(HTLEFT as _); }
+                if on_right { return LRESULT(HTRIGHT as _); }
+                if on_bottom { return LRESULT(HTBOTTOM as _); }
+                if on_top { return LRESULT(HTTOP as _); }
+
+                LRESULT(HTTRANSPARENT as _)
+            }
+            WM_NCLBUTTONDOWN => {
+                let Ok(parent) = GetParent(child) else {
+                    return DefWindowProcW(child, msg, wparam, lparam);
+                };
+                let (cx, cy) = (
+                    ((lparam.0 as usize) & 0xFFFF) as i16,
+                    (((lparam.0 as usize) >> 16) & 0xFFFF) as i16,
+                );
+                let pts = POINTS { x: cx, y: cy };
+                let _ = PostMessageW(
+                    parent,
+                    WM_NCLBUTTONDOWN,
+                    wparam,
+                    LPARAM(&pts as *const _ as isize),
+                );
+                LRESULT(0)
+            }
+            _ => DefWindowProcW(child, msg, wparam, lparam),
+        }
+    }
+
+    pub fn ensure_resize_border_window(parent: HWND) {
+        unsafe {
+            if FindWindowExW(parent, None, CLASS_NAME, WINDOW_NAME).is_ok() {
+                return;
+            }
+
+            let class = WNDCLASSEXW {
+                cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+                style: WNDCLASS_STYLES::default(),
+                lpfnWndProc: Some(border_window_proc),
+                cbClsExtra: 0,
+                cbWndExtra: 0,
+                hInstance: GetModuleHandleW(PCWSTR::null()).unwrap_or_default().into(),
+                hIcon: HICON::default(),
+                hCursor: HCURSOR::default(),
+                hbrBackground: Default::default(),
+                lpszMenuName: PCWSTR::null(),
+                lpszClassName: CLASS_NAME,
+                hIconSm: HICON::default(),
+            };
+            let _ = RegisterClassExW(&class);
+
+            let mut rect = RECT::default();
+            if GetClientRect(parent, &mut rect).is_err() {
+                return;
+            }
+            let w = rect.right - rect.left;
+            let h = rect.bottom - rect.top;
+
+            if let Ok(drag_win) = CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                CLASS_NAME,
+                WINDOW_NAME,
+                WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+                0,
+                0,
+                w,
+                h,
+                parent,
+                None,
+                windows::Win32::Foundation::HINSTANCE::default(),
+                None,
+            ) {
+                update_border_region(drag_win, w, h);
+                let _ = SetWindowPos(
+                    drag_win,
+                    HWND_TOP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE,
+                );
             }
         }
     }
 
-    DefSubclassProc(hwnd, msg, wparam, lparam)
-}
+    pub fn update_resize_border_window(parent: HWND) {
+        unsafe {
+            let child = FindWindowExW(parent, None, CLASS_NAME, WINDOW_NAME);
+            let Ok(child) = child else { return };
 
-/// 递归为主窗口的所有子孙 HWND 挂接 `child_hit_test_subclass_proc`。
-#[cfg(target_os = "windows")]
-fn hook_children_for_resizing(parent_hwnd: windows::Win32::Foundation::HWND) {
-    use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
-    use windows::Win32::UI::Shell::SetWindowSubclass;
-    use windows::Win32::UI::WindowsAndMessaging::EnumChildWindows;
-
-    unsafe extern "system" fn enum_proc(child: HWND, _lparam: LPARAM) -> BOOL {
-        let _ = SetWindowSubclass(child, Some(child_hit_test_subclass_proc), 1002, 0);
-        BOOL(1)
-    }
-
-    unsafe {
-        let _ = EnumChildWindows(parent_hwnd, Some(enum_proc), LPARAM(0));
+            let is_max = (GetWindowLongW(parent, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
+            if is_max {
+                let _ = SetWindowPos(
+                    child,
+                    HWND_TOP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOMOVE,
+                );
+            } else {
+                let mut rect = RECT::default();
+                if GetClientRect(parent, &mut rect).is_ok() {
+                    let w = rect.right - rect.left;
+                    let h = rect.bottom - rect.top;
+                    let _ = SetWindowPos(
+                        child,
+                        HWND_TOP,
+                        0,
+                        0,
+                        w,
+                        h,
+                        SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOMOVE,
+                    );
+                    update_border_region(child, w, h);
+                }
+            }
+        }
     }
 }
 
@@ -1738,7 +1886,9 @@ fn layout_webviews(app: &AppHandle) {
 
     #[cfg(target_os = "windows")]
     if let Ok(h) = win.hwnd() {
-        hook_children_for_resizing(windows::Win32::Foundation::HWND(h.0 as _));
+        let parent = windows::Win32::Foundation::HWND(h.0 as _);
+        border_resizing::ensure_resize_border_window(parent);
+        border_resizing::update_resize_border_window(parent);
     }
 }
 
