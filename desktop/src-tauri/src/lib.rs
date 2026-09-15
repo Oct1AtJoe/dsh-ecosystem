@@ -2378,7 +2378,7 @@ fn brand_overlay_script() -> &'static str {
     return;
   }
   window.__dshBrandOverlayInjected = true;
-  var TARGET = 'Dsh@Oct1AtJoe';
+  var TARGET = 'DSH@Oct1AtJoe';
   var SOURCES = ['DSH 本地构建', 'DSH Local Build'];
   function replaceBrand() {
     var root = document.body || document.documentElement;
