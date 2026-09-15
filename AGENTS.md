@@ -5,6 +5,14 @@
 
 ---
 
+## 0. 桌面壳（desktop/）参考文档
+
+**凡涉及 `C:\dsh-ecosystem\desktop` 桌面壳（Tauri 无边框双 WebView 窗口）的修改，必须先读 [desktop/DESKTOP-SHELL.md](desktop/DESKTOP-SHELL.md)**。
+
+该文档涵盖：窗口/WebView 布局与生命周期顺序、Win32 无边框机制（WM_STYLECHANGING / WM_NCCALCSIZE / WM_GETMINMAXINFO / WM_NCHITTEST）、边缘拖拽缩放的跨进程 `border_resizing` 方案、标题栏交互（双击最大化、菜单对齐）、三条独立 initialization_script、重启语义、部署流程与全部踩坑记录。改动壳子前请对照其中的「踩坑记录」表，避免重复引入历史回归。
+
+---
+
 ## 1. 核心铁律（硬约束）
 
 1. **官方源码零修改**：严禁向官方 checkout（`E:\vibeCoding\deepseek-harness\`）写入任何文件或执行修改。上游必须保持 `git pull` 零冲突干净状态。
