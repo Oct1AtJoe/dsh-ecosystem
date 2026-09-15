@@ -1592,17 +1592,14 @@ fn do_toggle_maximize(window: &tauri::Window) -> bool {
     }
 }
 
-/// 把内容子 WebView 摆回标题栏下方并铺满窗口剩余区域。
+/// 把壳标题栏与内容子 WebView 摆正并对齐窗口物理尺寸。
 ///
-/// 子 WebView 不参与窗口布局（位置/尺寸由应用负责），窗口缩放与 DPI 变化都要手动纠正。
-/// 此处使用 PhysicalPosition / PhysicalSize，精确到物理像素，杜绝浮点 DPI 换算舍入误差。
-fn layout_content_webview(app: &AppHandle) {
+/// 1. 壳标题栏 WebView（`shell.html`）：宽度必须严格与窗口物理宽度一致，
+///    杜绝启动或缩放时因事件循环排队导致标题栏只有初始默认宽度（半屏闪烁）。
+/// 2. 内容子 WebView（DSH 页面）：位于标题栏下方，占满剩余高度。
+fn layout_webviews(app: &AppHandle) {
     let Some(win) = main_window(app) else {
         log::warn!("[layout] 未找到 main 窗口");
-        return;
-    };
-    let Some(page) = page_webview(app) else {
-        log::warn!("[layout] 未找到 content webview");
         return;
     };
     let scale = win.scale_factor().unwrap_or(1.0);
@@ -1612,15 +1609,21 @@ fn layout_content_webview(app: &AppHandle) {
     };
     let titlebar_px = (TITLEBAR_HEIGHT * scale).round() as i32;
     let content_h_px = (size.height as i32 - titlebar_px).max(1) as u32;
-    log::info!(
-        "[layout] 重排 content webview: 窗口物理尺寸={}x{}, 标题栏高度={}px, 内容高度={}px",
-        size.width,
-        size.height,
-        titlebar_px,
-        content_h_px
-    );
-    let _ = page.set_position(tauri::PhysicalPosition::new(0, titlebar_px));
-    let _ = page.set_size(tauri::PhysicalSize::new(size.width, content_h_px));
+
+    if let Some(shell) = shell_webview(app) {
+        let _ = shell.set_position(tauri::PhysicalPosition::new(0, 0));
+        let _ = shell.set_size(tauri::PhysicalSize::new(size.width, size.height));
+    }
+
+    if let Some(page) = page_webview(app) {
+        let _ = page.set_position(tauri::PhysicalPosition::new(0, titlebar_px));
+        let _ = page.set_size(tauri::PhysicalSize::new(size.width, content_h_px));
+    }
+}
+
+/// 兼容旧调用名
+fn layout_content_webview(app: &AppHandle) {
+    layout_webviews(app);
 }
 
 /// 通知点击后的会话跳转脚本：派发 `dsh:open-session` CustomEvent，
@@ -2568,6 +2571,13 @@ pub fn run() {
             app.state::<DshState>().notify_port.store(nport, Ordering::SeqCst);
             *app.state::<DshState>().notify_token.lock().unwrap() = Some(ntoken.clone());
             let port = app_port();
+            let saved_geo = load_geometry();
+            let (init_w, init_h) = if let Some(ref g) = saved_geo {
+                (g.width as f64, g.height as f64)
+            } else {
+                (1440.0, 900.0)
+            };
+
             // 主窗口改为代码创建：initialization_script 在文档解析前注入
             // Notification shim + 通知桥（WebView2 无 Web Notification 权限机制）
             // 外部链接处理与 Electron 版对齐：target=_blank/新窗口请求与跨源导航
@@ -2578,7 +2588,7 @@ pub fn run() {
                 tauri::WebviewUrl::App("shell.html".into()),
             )
             .title("DeepSeek Harness")
-            .inner_size(1440.0, 900.0)
+            .inner_size(init_w, init_h)
             .min_inner_size(900.0, 600.0)
             .center()
             // 无边框：标题栏由本地 shell.html 自绘。shell.html 永不导航，
@@ -2615,16 +2625,10 @@ pub fn run() {
                         );
                     }
                 }
-                // 隐藏状态下先恢复上次几何，消除中间闪烁
+                // 隐藏状态下先恢复上次几何
                 apply_saved_geometry(&main_win);
                 #[cfg(target_os = "windows")]
                 force_borderless_window(&main_win);
-                let _ = main_win.show();
-                let _ = main_win.set_focus();
-                #[cfg(target_os = "windows")]
-                force_borderless_window(&main_win);
-                #[cfg(target_os = "windows")]
-                start_borderless_guard(app.handle().clone());
 
                 let scale = main_win.scale_factor().unwrap_or(1.0);
                 let size = main_win
@@ -2694,11 +2698,24 @@ pub fn run() {
                     tauri::PhysicalSize::new(size.width, content_h_px),
                 )?;
 
-                layout_content_webview(app.handle());
+                // 统一重排壳标题栏与内容子 WebView，让两者与当前物理窗口完全贴合
+                layout_webviews(app.handle());
+
+                #[cfg(target_os = "windows")]
+                force_borderless_window(&main_win);
+                #[cfg(target_os = "windows")]
+                start_borderless_guard(app.handle().clone());
+
+                // 所有子 WebView 挂载并排布完毕后再亮相并聚焦，杜绝半屏闪烁与白边
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+
                 let relayout_app = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(Duration::from_millis(300)).await;
-                    layout_content_webview(&relayout_app);
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                    layout_webviews(&relayout_app);
+                    tokio::time::sleep(Duration::from_millis(350)).await;
+                    layout_webviews(&relayout_app);
                 });
             } else {
                 log::error!("找不到 main 窗口，无法挂载内容子 WebView");
