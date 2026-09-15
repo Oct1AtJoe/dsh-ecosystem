@@ -171,17 +171,17 @@
         if (current) current.close().catch(function () {});
       });
 
-      // 拖拽交给 Rust/系统（startDragging），不自己算坐标
+      // 拖拽与双击最大化：单次点击拖拽交给系统（startDragging），双击（detail === 2）切换最大化
       var drag = document.getElementById('drag');
       drag.addEventListener('mousedown', function (e) {
         if (e.button !== 0 || !current) return;
+        if (e.detail === 2) {
+          current.toggleMaximize().then(syncMaxState).catch(function () {});
+          setTimeout(syncMaxState, 50);
+          setTimeout(syncMaxState, 200);
+          return;
+        }
         current.startDragging().catch(function () {});
-      });
-      drag.addEventListener('dblclick', function () {
-        if (!current) return;
-        current.toggleMaximize().then(syncMaxState).catch(function () {});
-        setTimeout(syncMaxState, 50);
-        setTimeout(syncMaxState, 200);
       });
 
       // DSH 主题变化时由 Rust eval 进来

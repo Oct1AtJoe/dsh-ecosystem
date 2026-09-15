@@ -1376,7 +1376,8 @@ unsafe extern "system" fn window_subclass_proc(
     use windows::Win32::UI::Shell::DefSubclassProc;
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, GWL_STYLE, MINMAXINFO, NCCALCSIZE_PARAMS, STYLESTRUCT, WM_GETMINMAXINFO,
-        WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCPAINT, WM_STYLECHANGING, WS_CAPTION, WS_MAXIMIZE,
+        WM_NCACTIVATE, WM_NCCALCSIZE, WM_NCHITTEST, WM_NCPAINT, WM_STYLECHANGING, WS_CAPTION,
+        WS_MAXIMIZE,
     };
 
     if msg == WM_STYLECHANGING {
@@ -1440,7 +1441,122 @@ unsafe extern "system" fn window_subclass_proc(
         return res;
     }
 
+    if msg == WM_NCHITTEST {
+        let is_max = (GetWindowLongW(hwnd, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
+        if !is_max {
+            use windows::Win32::Graphics::Gdi::ScreenToClient;
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GetClientRect, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT, HTTOP,
+                HTTOPLEFT, HTTOPRIGHT,
+            };
+            let mut pt = POINT {
+                x: ((lparam.0 as usize) & 0xFFFF) as i16 as i32,
+                y: (((lparam.0 as usize) >> 16) & 0xFFFF) as i16 as i32,
+            };
+            let mut rect = windows::Win32::Foundation::RECT::default();
+            if GetClientRect(hwnd, &mut rect).is_ok() && ScreenToClient(hwnd, &mut pt).as_bool() {
+                let border = 7;
+                let on_left = pt.x < border;
+                let on_right = pt.x >= rect.right - border;
+                let on_top = pt.y < border;
+                let on_bottom = pt.y >= rect.bottom - border;
+
+                if on_top && on_left {
+                    return windows::Win32::Foundation::LRESULT(HTTOPLEFT as _);
+                }
+                if on_top && on_right {
+                    return windows::Win32::Foundation::LRESULT(HTTOPRIGHT as _);
+                }
+                if on_bottom && on_left {
+                    return windows::Win32::Foundation::LRESULT(HTBOTTOMLEFT as _);
+                }
+                if on_bottom && on_right {
+                    return windows::Win32::Foundation::LRESULT(HTBOTTOMRIGHT as _);
+                }
+                if on_left {
+                    return windows::Win32::Foundation::LRESULT(HTLEFT as _);
+                }
+                if on_right {
+                    return windows::Win32::Foundation::LRESULT(HTRIGHT as _);
+                }
+                if on_bottom {
+                    return windows::Win32::Foundation::LRESULT(HTBOTTOM as _);
+                }
+                if on_top {
+                    return windows::Win32::Foundation::LRESULT(HTTOP as _);
+                }
+            }
+        }
+    }
+
     DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
+/// 子窗口命中测试子类化过程：
+///
+/// 当主窗口无边框且处于正常未最大化状态时，若鼠标指针落在距离主窗口物理边缘 7px 范围内，
+/// 子窗口（包含 WebView2 内部所有渲染与容器 HWND）返回 `HTTRANSPARENT`。
+/// 依据 Win32 规范，系统会自动穿透并将 `WM_NCHITTEST` 派发给底层的主窗口，
+/// 从而完美激活原生拖拽缩放光标与大小调整，同时无需任何白边非客户区。
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn child_hit_test_subclass_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    _id: usize,
+    _data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::Graphics::Gdi::ScreenToClient;
+    use windows::Win32::UI::Shell::DefSubclassProc;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetAncestor, GetClientRect, GetWindowLongW, GA_ROOT, GWL_STYLE, HTTRANSPARENT,
+        WM_NCHITTEST, WS_MAXIMIZE,
+    };
+
+    if msg == WM_NCHITTEST {
+        let root = GetAncestor(hwnd, GA_ROOT);
+        if !root.is_invalid() {
+            let is_max = (GetWindowLongW(root, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
+            if !is_max {
+                let mut pt = POINT {
+                    x: ((lparam.0 as usize) & 0xFFFF) as i16 as i32,
+                    y: (((lparam.0 as usize) >> 16) & 0xFFFF) as i16 as i32,
+                };
+                let mut rect = windows::Win32::Foundation::RECT::default();
+                if GetClientRect(root, &mut rect).is_ok() && ScreenToClient(root, &mut pt).as_bool() {
+                    let border = 7;
+                    let in_border = pt.x < border
+                        || pt.x >= rect.right - border
+                        || pt.y < border
+                        || pt.y >= rect.bottom - border;
+                    if in_border {
+                        return windows::Win32::Foundation::LRESULT(HTTRANSPARENT as _);
+                    }
+                }
+            }
+        }
+    }
+
+    DefSubclassProc(hwnd, msg, wparam, lparam)
+}
+
+/// 递归为主窗口的所有子孙 HWND 挂接 `child_hit_test_subclass_proc`。
+#[cfg(target_os = "windows")]
+fn hook_children_for_resizing(parent_hwnd: windows::Win32::Foundation::HWND) {
+    use windows::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use windows::Win32::UI::Shell::SetWindowSubclass;
+    use windows::Win32::UI::WindowsAndMessaging::EnumChildWindows;
+
+    unsafe extern "system" fn enum_proc(child: HWND, _lparam: LPARAM) -> BOOL {
+        let _ = SetWindowSubclass(child, Some(child_hit_test_subclass_proc), 1002, 0);
+        BOOL(1)
+    }
+
+    unsafe {
+        let _ = EnumChildWindows(parent_hwnd, Some(enum_proc), LPARAM(0));
+    }
 }
 
 /// 按 HWND 移除原生标题栏；返回是否发生了修改。
@@ -1612,12 +1728,17 @@ fn layout_webviews(app: &AppHandle) {
 
     if let Some(shell) = shell_webview(app) {
         let _ = shell.set_position(tauri::PhysicalPosition::new(0, 0));
-        let _ = shell.set_size(tauri::PhysicalSize::new(size.width, size.height));
+        let _ = shell.set_size(tauri::PhysicalSize::new(size.width, titlebar_px as u32));
     }
 
     if let Some(page) = page_webview(app) {
         let _ = page.set_position(tauri::PhysicalPosition::new(0, titlebar_px));
         let _ = page.set_size(tauri::PhysicalSize::new(size.width, content_h_px));
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Ok(h) = win.hwnd() {
+        hook_children_for_resizing(windows::Win32::Foundation::HWND(h.0 as _));
     }
 }
 
