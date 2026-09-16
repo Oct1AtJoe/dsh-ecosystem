@@ -380,6 +380,35 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   z-index:50 !important;
 }
 
+/* Sidebar footer actions: vertical layout so card (e.g. cost-meter) and action buttons stack top-to-bottom */
+[class*="footArea"] [class*="footerActions"]{
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+}
+[class*="footArea"] [class*="footerActions"] > *{
+  min-width: 0 !important;
+  width: 100% !important;
+}
+[class*="footArea"] [class*="footerActions"] .dshRemoteSidebarEntry{
+  order: 10 !important;
+}
+[class*="footArea"] [class*="footerActions"] .dshRemoteSidebarEntry.isWide{
+  width: 100% !important;
+  margin: 0 !important;
+}
+[class*="collapsed"] [class*="footArea"] [class*="footerActions"]{
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: auto !important;
+}
+[class*="collapsed"] [class*="footArea"] [class*="footerActions"] > *{
+  width: auto !important;
+}
+
 /* Dialogs/modals: frosted glass surface */
 body[data-ds-dark-theme] [role="dialog"]{
   background:

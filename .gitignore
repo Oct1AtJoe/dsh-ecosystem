@@ -19,6 +19,7 @@ node_modules/
 /archive/
 /.workbuddy/
 /.dsh/
+/.agent-teams/
 
 # ==========================================
 # 临时日志与系统文件
