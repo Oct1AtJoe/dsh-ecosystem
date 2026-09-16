@@ -386,11 +386,83 @@ window.__ModuleLoader__.load({
 			"uiConversation",
 			"locale"
 		];
+		/**
+		* Reconstruct time of the first token delta from compact stream records without full expansion.
+		*/
+		function assistantStreamFirstTokenTime(stream) {
+			if (!Array.isArray(stream)) return void 0;
+			for (const record of stream) {
+				if (!record || typeof record !== "object") continue;
+				if (record.type === "chunk") {
+					const chunk = record.chunk;
+					if ((chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && chunk.text !== "" || chunk?.type === "tool-call-delta" && (chunk.argumentsDelta !== "" || chunk.name !== void 0)) return record.time;
+				} else {
+					if (record.type === "tool-call-chunks" && record.name !== void 0) return record.time0;
+					const fragments = record.type === "tool-call-chunks" ? record.args : record.texts;
+					if (Array.isArray(fragments)) {
+						let time = typeof record.time0 === "number" ? record.time0 : 0;
+						for (let i = 0; i < fragments.length; i++) {
+							if (i > 0 && Array.isArray(record.dt)) time += typeof record.dt[i - 1] === "number" ? record.dt[i - 1] : 0;
+							if (fragments[i] !== "") return time;
+						}
+					}
+				}
+			}
+		}
+		function patchAssistantDefinition(def) {
+			if (!def || def._tpsPatched) return;
+			def._tpsPatched = true;
+			const origUpdate = def.update;
+			def.update = (context, match) => {
+				const nextState = origUpdate ? origUpdate(context, match) : context.state;
+				if (match.event?.type === "assistant/message" && match.event.data?.stream) {
+					const firstToken = assistantStreamFirstTokenTime(match.event.data.stream);
+					if (firstToken !== void 0) return {
+						...nextState,
+						firstTokenTime: nextState?.firstTokenTime ?? firstToken
+					};
+				}
+				return nextState;
+			};
+			const origBuildLocationData = def.buildLocationData;
+			def.buildLocationData = (context, scope) => {
+				const result = origBuildLocationData ? origBuildLocationData(context, scope) : null;
+				if (scope === "step" && result && result.key === "assistant-step") {
+					const finalNode = result.value?.finalNode;
+					if (finalNode?.timing && finalNode.timing.firstTokenTime === null) {
+						const msgMatch = context.matches?.find((m) => m.event?.type === "assistant/message");
+						if (msgMatch?.event?.data?.stream) {
+							const firstToken = assistantStreamFirstTokenTime(msgMatch.event.data.stream);
+							if (firstToken !== void 0) finalNode.timing.firstTokenTime = firstToken;
+						}
+					}
+				}
+				return result;
+			};
+		}
+		function installTpsPatch(ctx) {
+			const events = ctx.uiConversation?.events;
+			if (!events) return;
+			const existing = events.definitions?.get("assistant-step");
+			if (existing) {
+				patchAssistantDefinition(existing);
+				events.refresh?.();
+			}
+			const origRegister = events.register?.bind(events);
+			if (origRegister && !events._tpsRegisterHooked) {
+				events._tpsRegisterHooked = true;
+				events.register = (definition) => {
+					if (definition?.kind === "assistant-step") patchAssistantDefinition(definition);
+					return origRegister(definition);
+				};
+			}
+		}
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
 			}), "ui-queue-recall: dictionaries");
+			installTpsPatch(ctx);
 			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
 				name: "conversation.input.dock",
 				id: "queue",

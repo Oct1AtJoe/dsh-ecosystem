@@ -962,7 +962,8 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
                 }
             }
             if let Some(shell) = shell_webview(app) {
-                let _ = shell.eval(&format!("window.__dshSetTheme && window.__dshSetTheme({});", if is_dark { "true" } else { "false" }));
+                let payload = serde_json::to_string(&val).unwrap_or_else(|_| "{}".into());
+                let _ = shell.eval(&format!("window.__dshSetTheme && window.__dshSetTheme({payload});"));
             }
         }
         let _ = sock
@@ -2213,12 +2214,12 @@ fn bridge_init_script(port: u16, token: &str) -> String {
         });
       } catch(e){}
     },
-    setTheme: function(theme, color) {
+    setTheme: function(theme, color, titlebar) {
       try {
         fetch('http://127.0.0.1:'+PORT+'/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
-          body: JSON.stringify({ type: 'theme-change', theme: theme, color: color })
+          body: JSON.stringify({ type: 'theme-change', theme: theme, color: color, titlebar: titlebar })
         });
       } catch(e){}
     }
@@ -2228,7 +2229,13 @@ fn bridge_init_script(port: u16, token: &str) -> String {
   // 官方 DSH 在深色模式下给 body 挂 data-ds-dark-theme，浅色模式下移除该属性。
   function syncThemeFromDom() {
     if (!document.body) return;
-    var isDark = document.body.hasAttribute('data-ds-dark-theme');
+    var hasDarkAttr = document.body.hasAttribute('data-ds-dark-theme');
+    // 引导页 index.html 与 error.html 没有任何主题标记：既无 data-ds-dark-theme，
+    // 也无显式 colorScheme。此时必须保持壳当前主题，不能按"浅色"上报——否则冷启动
+    // 先刷白标题栏，等服务就绪、真 GUI 写入主题标记后才被纠正，表现为闪一下浅色。
+    // 真 GUI 无论深浅都必定有显式 colorScheme（boot-theme.ts / applyTokens 写入）。
+    if (!hasDarkAttr && document.documentElement.style.colorScheme !== 'light') return;
+    var isDark = hasDarkAttr;
     if (window.__dshLastReportedThemeDark === isDark) return;
     window.__dshLastReportedThemeDark = isDark;
     if (window.__dshNotifyBridge && window.__dshNotifyBridge.setTheme) {

@@ -18,12 +18,12 @@ import type { ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/ds
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { AURORA_TOKENS } from './aurora.ts'
+import { MOCHA_TOKENS } from './mocha.ts'
 import { NEBULA_TOKENS } from './nebula.ts'
 import { VOID_TOKENS } from './void.ts'
 import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
-import { GLACIAL_TOKENS } from './glacial.ts'
+import { PARCHMENT_TOKENS } from './parchment.ts'
 import { en, zh, type TechThemeKey } from './locales.ts'
 import { createTechThemeStore } from './settings-store.ts'
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
@@ -37,11 +37,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Aurora: the violet variant — alias-token overrides over the dark base palette. */
-const AURORA: ThemeDefinition = Object.freeze({
-  id: 'aurora',
+/** Mocha (栖木): the warm coffee and wood dark variant — rich espresso charcoal + warm caramel amber. */
+const MOCHA: ThemeDefinition = Object.freeze({
+  id: 'mocha',
   colorScheme: 'dark' as const,
-  tokens: AURORA_TOKENS,
+  tokens: MOCHA_TOKENS,
 })
 
 /** Nebula: the deep-space tech variant — matte acrylic surfaces + gradient buttons. */
@@ -72,11 +72,11 @@ const SOLAR: ThemeDefinition = Object.freeze({
   tokens: SOLAR_TOKENS,
 })
 
-/** Glacial: the ice-blue variant — cold arctic frosted glass. */
-const GLACIAL: ThemeDefinition = Object.freeze({
-  id: 'glacial',
-  colorScheme: 'dark' as const,
-  tokens: GLACIAL_TOKENS,
+/** Parchment (缃素): refined warm rice paper & pine soot ink light theme (cream linen, amber cinnabar, ink black). */
+const PARCHMENT: ThemeDefinition = Object.freeze({
+  id: 'parchment',
+  colorScheme: 'light' as const,
+  tokens: PARCHMENT_TOKENS,
 })
 
 /** Surface-glass CSS injected so sidebar, details, and bubbles get
@@ -118,7 +118,7 @@ const SURFACE_GLASS_CSS = `
 [class*="sidebarCol"]::after{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   background:
-    radial-gradient(440px 320px at 12% 38%, var(--dsw-alias-surface-glass-spot, rgba(200,192,214,0.16)), transparent 56%);
+    radial-gradient(440px 320px at 12% 38%, var(--dsw-alias-surface-glass-spot, transparent), transparent 56%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 
@@ -146,18 +146,17 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
 }
-/* Light theme frosted silver sidebar glass (银曜 / light mode) */
+/* Light theme sidebar glass — driven by theme's surface-glass-spot (transparent when spots disabled) */
 body:not([data-ds-dark-theme]) [class*="sidebarCol"] > * > [class*="root"]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
-      rgba(255, 255, 255, 0.75) 0%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 30%, transparent) 0%,
       transparent 100%),
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.50) 0%,
-      rgba(240, 242, 247, 0.35) 40%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 20%, transparent) 0%,
       transparent 60%),
-    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
-  box-shadow: inset -1px 0 0 rgba(15, 23, 42, 0.06) !important;
+    var(--dsw-specific-sidebar-fill) !important;
+  box-shadow: inset -1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.06)) !important;
 }
 
 /* Sidebar active workspace/folder icons: obsidian black in light mode */
@@ -194,7 +193,7 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
 [class*="rightbarCol"]::after{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   background:
-    radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.16)), transparent 56%);
+    radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, transparent), transparent 56%);
   box-shadow:inset -1px 0 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
@@ -212,17 +211,16 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
 body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]{
   background:
     radial-gradient(ellipse 80% 60% at 50% 30%,
-      rgba(255, 255, 255, 0.75) 0%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 30%, transparent) 0%,
       transparent 100%),
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.50) 0%,
-      rgba(240, 242, 247, 0.35) 40%,
+      color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 20%, transparent) 0%,
       transparent 60%),
-    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 70%, transparent) !important;
+    var(--dsw-specific-sidebar-fill) !important;
   box-shadow:
-    inset -1px 0 0 rgba(15, 23, 42, 0.06),
-    inset 1px 0 0 rgba(255, 255, 255, 0.55),
-    inset 0 1px 1px rgba(255, 255, 255, 0.55) !important;
+    inset -1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.06)),
+    inset 1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.04)),
+    inset 0 1px 1px var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.04)) !important;
 }
 [class*="rightbarCol"] [data-sidebar-right-panel="fullscreen"]{
   backdrop-filter:var(--dsw-alias-glass-blur,none);
@@ -273,55 +271,30 @@ body[data-ds-dark-theme] [class*="_primary"]:hover:not(:disabled){
   box-shadow:var(--dsw-alias-button-glow-hover,none) !important;
 }
 
-/* Light mode: Frosted Liquid Silver Glass (银底黑字 · 高级通透金属玻璃) */
+/* Light mode: Primary action buttons driven dynamically by theme tokens */
 body:not([data-ds-dark-theme]) [class*="_primary"],
 body:not([data-ds-dark-theme]) [class*="gitCommitButton"]{
-  background: linear-gradient(145deg,
-    rgba(255, 255, 255, 0.90) 0%,
-    rgba(240, 242, 247, 0.82) 42%,
-    rgba(222, 226, 235, 0.78) 100%) !important;
-  backdrop-filter: blur(12px) saturate(1.25) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(1.25) !important;
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.95),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 0 0 1px rgba(15, 23, 42, 0.09),
-    0 2px 6px rgba(15, 23, 42, 0.08),
-    0 6px 16px rgba(15, 23, 42, 0.05) !important;
-  color: #181a22 !important;
+  background: var(--dsw-alias-button-primary-bg) !important;
+  background-size: var(--dsw-alias-button-primary-bg-size, 200% 100%) !important;
+  box-shadow: var(--dsw-alias-button-glow, none) !important;
+  color: var(--dsw-alias-button-contrast-fill, #181a22) !important;
   font-weight: 550 !important;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: all 180ms var(--ds-ease-in-out, ease-in-out) !important;
 }
 body:not([data-ds-dark-theme]) [class*="_primary"]:hover:not(:disabled),
 body:not([data-ds-dark-theme]) [class*="gitCommitButton"]:hover:not(:disabled){
-  background: linear-gradient(145deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(245, 247, 252, 0.88) 42%,
-    rgba(230, 234, 242, 0.84) 100%) !important;
-  box-shadow:
-    inset 0 1px 1.5px rgba(255, 255, 255, 1),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.75),
-    0 0 0 1px rgba(15, 23, 42, 0.12),
-    0 3px 10px rgba(15, 23, 42, 0.12),
-    0 8px 20px rgba(15, 23, 42, 0.06) !important;
-  color: #0d0f14 !important;
+  background: var(--dsw-alias-button-primary-bg-hover, var(--dsw-alias-button-primary-bg)) !important;
+  box-shadow: var(--dsw-alias-button-glow-hover, none) !important;
   transform: translateY(-0.5px);
 }
 body:not([data-ds-dark-theme]) [class*="_primary"]:active:not(:disabled),
 body:not([data-ds-dark-theme]) [class*="gitCommitButton"]:active:not(:disabled){
   transform: translateY(0.5px);
-  background: linear-gradient(145deg,
-    rgba(228, 231, 238, 0.88) 0%,
-    rgba(218, 222, 230, 0.90) 100%) !important;
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.12),
-    inset 0 0 0 1px rgba(15, 23, 42, 0.08),
-    0 1px 3px rgba(15, 23, 42, 0.06) !important;
+  box-shadow: var(--dsw-alias-button-press-shadow, none) !important;
 }
 body:not([data-ds-dark-theme]) [class*="_primary"] *,
 body:not([data-ds-dark-theme]) [class*="gitCommitButton"] *{
-  color: #181a22 !important;
+  color: var(--dsw-alias-button-contrast-fill, #181a22) !important;
   fill: currentColor !important;
 }
 
@@ -422,19 +395,17 @@ body[data-ds-dark-theme] [role="dialog"]{
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode (银曜): balanced liquid frosted silver glass (~87% opacity)
-   with heavy 36px diffusion blur to smudge out background text completely into soft ambient light,
-   preserving distinct glass translucency without readable text bleed-through. */
+/* Dialogs/modals in light mode: surface driven dynamically by theme tokens */
 body:not([data-ds-dark-theme]) [role="dialog"]{
   background:
     linear-gradient(145deg,
-      rgba(255, 255, 255, 0.89) 0%,
-      rgba(242, 244, 248, 0.85) 100%) !important;
-  backdrop-filter: blur(36px) saturate(1.25) !important;
-  -webkit-backdrop-filter: blur(36px) saturate(1.25) !important;
+      rgba(255, 255, 255, 0.15) 0%,
+      transparent 100%),
+    var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(238, 232, 220))) !important;
+  backdrop-filter: blur(28px) saturate(1.10) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.10) !important;
   box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    0 0 0 1px var(--dsw-alias-border-l2, rgba(15, 23, 42, 0.08)),
     0 12px 32px rgba(15, 23, 42, 0.08),
     0 24px 64px rgba(15, 23, 42, 0.05) !important;
 }
@@ -497,58 +468,130 @@ function injectSurfaceGlass(): () => void {
 
 /** Theme id → tokens map for direct CSS-variable application. */
 const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
-  aurora: AURORA_TOKENS,
+  mocha: MOCHA_TOKENS,
   nebula: NEBULA_TOKENS,
   void: VOID_TOKENS,
   jade: JADE_TOKENS,
   solar: SOLAR_TOKENS,
-  glacial: GLACIAL_TOKENS,
+  parchment: PARCHMENT_TOKENS,
 }
 
 /** Theme id → colorScheme map so light custom themes switch palette properly. */
 const THEME_SCHEME_MAP: Record<string, 'light' | 'dark'> = {
-  aurora: 'dark',
+  mocha: 'dark',
   nebula: 'dark',
   void: 'dark',
   jade: 'light',
   solar: 'dark',
-  glacial: 'dark',
+  parchment: 'light',
 }
 
 /** Token names this plugin wrote inline (its retraction set). */
 const APPLIED_TOKEN_NAMES = new Set<string>()
 
+/** Titlebar visual preset for each custom theme (纯实色无光斑，与主题底色 1:1 绝对统一). */
+interface TitlebarConfig {
+  bg: string
+  accent?: string
+  line?: string
+  text?: string
+  muted?: string
+  hover?: string
+  active?: string
+}
+
+const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
+  nebula: {
+    bg: 'rgb(28, 24, 46)',
+    accent: 'rgb(168, 142, 250)',
+    line: 'rgba(168, 142, 250, 0.18)',
+    text: 'rgb(240, 236, 255)',
+    muted: 'rgb(175, 168, 200)',
+    hover: 'rgba(168, 142, 250, 0.12)',
+    active: 'rgba(168, 142, 250, 0.22)',
+  },
+  solar: {
+    bg: 'rgb(40, 28, 20)',
+    accent: 'rgb(240, 180, 90)',
+    line: 'rgba(240, 180, 90, 0.18)',
+    text: 'rgb(252, 246, 238)',
+    muted: 'rgb(198, 178, 156)',
+    hover: 'rgba(240, 180, 90, 0.12)',
+    active: 'rgba(240, 180, 90, 0.22)',
+  },
+  mocha: {
+    bg: 'rgb(36, 27, 21)',
+    accent: 'rgb(228, 160, 92)',
+    line: 'rgba(228, 160, 92, 0.18)',
+    text: 'rgb(248, 242, 236)',
+    muted: 'rgb(196, 176, 158)',
+    hover: 'rgba(228, 160, 92, 0.12)',
+    active: 'rgba(228, 160, 92, 0.22)',
+  },
+  parchment: {
+    bg: 'rgb(230, 224, 212)',
+    accent: 'rgb(150, 56, 30)',
+    line: 'rgba(38, 32, 28, 0.09)',
+    text: 'rgb(38, 32, 28)',
+    muted: 'rgb(110, 98, 88)',
+    hover: 'rgba(38, 32, 28, 0.06)',
+    active: 'rgba(150, 56, 30, 0.12)',
+  },
+  jade: {
+    bg: 'rgb(226, 228, 233)',
+    accent: 'rgb(20, 22, 28)',
+    line: 'rgba(15, 23, 42, 0.09)',
+    text: 'rgb(20, 22, 28)',
+    muted: 'rgb(90, 98, 110)',
+    hover: 'rgba(15, 23, 42, 0.06)',
+    active: 'rgba(15, 23, 42, 0.10)',
+  },
+  void: {
+    bg: 'rgb(24, 26, 30)',
+    accent: 'rgb(140, 144, 155)',
+    line: 'rgba(140, 144, 155, 0.18)',
+    text: 'rgb(235, 237, 240)',
+    muted: 'rgb(160, 164, 175)',
+    hover: 'rgba(140, 144, 155, 0.08)',
+    active: 'rgba(140, 144, 155, 0.16)',
+  },
+}
+
 /**
  * Synchronize theme and background color with the Tauri desktop shell (if running in desktop).
  * Toggles Windows DWM native title bar dark/light mode and sets caption color on Windows 11.
  */
-function syncDesktopTitlebar(theme: 'light' | 'dark', colorSpec?: string): void {
+function syncDesktopTitlebar(
+  theme: 'light' | 'dark',
+  colorSpec?: string,
+  titlebar?: TitlebarConfig | null,
+): void {
   if (typeof window === 'undefined') return
   const bridge = (window as unknown as {
     __dshNotifyBridge?: {
       port?: number
       token?: string
-      setTheme?: (theme: string, color?: string) => void
+      setTheme?: (theme: string, color?: string, titlebar?: TitlebarConfig | null) => void
     }
   }).__dshNotifyBridge
 
   if (!bridge) return
 
   if (typeof bridge.setTheme === 'function') {
-    bridge.setTheme(theme, colorSpec)
+    bridge.setTheme(theme, colorSpec, titlebar)
   } else if (bridge.port && bridge.token) {
     try {
       fetch(`http://127.0.0.1:${bridge.port}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bridge.token}` },
-        body: JSON.stringify({ type: 'theme-change', theme, color: colorSpec }),
+        body: JSON.stringify({ type: 'theme-change', theme, color: colorSpec, titlebar }),
       }).catch(() => {})
     } catch {}
   }
 }
 
 /** Apply theme tokens as CSS variables on html + body (belt-and-suspenders). */
-function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'): void {
+function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark', themeId?: string): void {
   if (typeof document === 'undefined') return
   document.documentElement.style.colorScheme = colorScheme
   if (colorScheme === 'dark') {
@@ -561,7 +604,8 @@ function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'
     document.body.style.setProperty(key, value)
     APPLIED_TOKEN_NAMES.add(key)
   }
-  syncDesktopTitlebar(colorScheme, tokens['--dsw-alias-bg-base'])
+  const titlebar = themeId ? TITLEBAR_PRESETS[themeId] : undefined
+  syncDesktopTitlebar(colorScheme, titlebar?.bg ?? tokens['--dsw-alias-bg-base'], titlebar)
 }
 
 /**
@@ -638,7 +682,7 @@ export function apply(ctx: Context): void {
     if (!tokens) return
     writeSaved(id)
     try { theme.setTheme(id) } catch { /* theme service may reject unknown ids */ }
-    applyTokens(tokens, THEME_SCHEME_MAP[id] ?? 'dark')
+    applyTokens(tokens, THEME_SCHEME_MAP[id] ?? 'dark', id)
   }
   ctx.effect(() => ctx.locale.register(SETTINGS_NS, { zh, en }), 'ui-theme-custom: row dictionaries')
 
@@ -683,7 +727,8 @@ export function apply(ctx: Context): void {
       if (isBuiltinPreference(preference)) {
         clearTokens()
         const isDark = preference === 'dark' || (preference === 'system' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches)
-        syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7')
+        // null = 显式切回内置主题，通知壳清除自定义顶栏配色
+        syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7', null)
       }
       return
     }
@@ -691,14 +736,15 @@ export function apply(ctx: Context): void {
       // Preference matches, but ensure tokens and dark attributes remain applied
       // in case an outer presenter apply cleared them.
       const tokens = THEME_TOKEN_MAP[desired]
-      if (tokens) applyTokens(tokens, THEME_SCHEME_MAP[desired] ?? 'dark')
+      if (tokens) applyTokens(tokens, THEME_SCHEME_MAP[desired] ?? 'dark', desired)
       return
     }
     if (builtinPickWins(preference, liveBuiltinPick)) {
       clearSaved()
       clearTokens()
       const isDark = preference === 'dark' || (preference === 'system' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches)
-      syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7')
+      // null = 显式切回内置主题，通知壳清除自定义顶栏配色
+      syncDesktopTitlebar(isDark ? 'dark' : 'light', isDark ? '#16161b' : '#f5f5f7', null)
       return
     }
     scheduleRestore(desired)
@@ -729,21 +775,21 @@ export function apply(ctx: Context): void {
   }, TechThemeRow))
 
   ctx.effect(() => {
-    const disposeAurora = ctx.theme.register(AURORA)
+    const disposeMocha = ctx.theme.register(MOCHA)
     const disposeNebula = ctx.theme.register(NEBULA)
     const disposeVoid = ctx.theme.register(VOID)
     const disposeJade = ctx.theme.register(JADE)
     const disposeSolar = ctx.theme.register(SOLAR)
-    const disposeGlacial = ctx.theme.register(GLACIAL)
+    const disposeParchment = ctx.theme.register(PARCHMENT)
     const removeKeyframes = injectButtonDrift()
     const removeSurfaceGlass = injectSurfaceGlass()
     return () => {
-      disposeAurora()
+      disposeMocha()
       disposeNebula()
       disposeVoid()
       disposeJade()
       disposeSolar()
-      disposeGlacial()
+      disposeParchment()
       removeKeyframes()
       removeSurfaceGlass()
       clearTokens()

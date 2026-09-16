@@ -145,7 +145,7 @@ function apply(ctx) {
           content: [{ type: 'text', text: userPrompt }],
           source: { kind: 'plugin', plugin: 'dsh-session-title-custom' },
         })],
-        maxTokens: 32,
+        maxTokens: 48,
         purpose: 'session-title',
         signal,
       })) {

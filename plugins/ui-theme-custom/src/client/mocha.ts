@@ -1,0 +1,123 @@
+/**
+ * The plugin-registered "mocha" theme (栖木 / 焦糖暖木): a warm dark coffee & wood
+ * aesthetic variant over the dark base palette — rich dark espresso charcoal surfaces,
+ * warm caramel amber pools, cinnamon-gold frosted glass panels, and liquid amber tech buttons.
+ *
+ * Palette Philosophy:
+ * - Base: Dark roast espresso & charcoal ebony (rgb(20, 16, 14)).
+ * - Light pools: Warm caramel amber & cinnamon glow, zero harsh blue glare.
+ * - Accents: Roasted amber-gold (rgb(228, 160, 92)).
+ * - Typography: Warm ivory-cream hierarchy (rgb(246, 240, 234)), deeply relaxing to eyes.
+ */
+import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+
+export const MOCHA_TOKENS: ThemeTokens = Object.freeze({
+  '--dsw-alias-bg-app-image':
+    'linear-gradient(180deg, rgba(217, 145, 74, 0.08), rgba(20, 16, 14, 0) 24%),'
+    + 'radial-gradient(560px 420px at 90% 18%, rgba(228, 160, 92, 0.22), transparent 55%),'
+    + 'radial-gradient(540px 420px at 7% 42%, rgba(184, 118, 64, 0.18), transparent 52%)',
+  '--dsw-alias-glass-blur': 'blur(20px) saturate(1.20)',
+  '--dsw-alias-surface-glass-blur': 'blur(12px) saturate(1.0)',
+  '--dsw-alias-bg-base': 'rgb(20, 16, 14)',
+  '--dsw-alias-surface-glass-spot': 'rgba(228, 160, 92, 0.24)',
+  '--dsw-alias-bg-layer-1': 'rgb(34, 27, 23)',
+  '--dsw-alias-bg-layer-2': 'rgb(42, 33, 28)',
+  '--dsw-alias-bg-layer-3': 'rgb(50, 40, 34)',
+  '--dsw-alias-bg-module-platform': 'rgb(44, 35, 30)',
+  '--dsw-alias-bg-multi-select': 'rgb(38, 30, 26)',
+  '--dsw-alias-bg-overlay': 'rgba(58, 46, 39, 0.90)',
+  '--dsw-alias-bg-skeleton': 'rgba(255, 255, 255, 0.06)',
+  '--dsw-alias-bg-mask-1': 'rgba(0, 0, 0, 0.26)',
+  '--dsw-alias-bg-mask-2': 'rgba(0, 0, 0, 0.20)',
+  '--dsw-alias-bg-mask-3': 'rgba(0, 0, 0, 0.48)',
+  '--dsw-alias-bg-mask-photo': 'rgba(0, 0, 0, 0.88)',
+  '--dsw-alias-bg-mask-drop': 'rgba(18, 14, 12, 0.70)',
+  '--dsw-alias-border-inverted': 'rgba(255, 255, 255, 0.08)',
+  '--dsw-alias-border-inverted2': 'rgba(255, 255, 255, 0.10)',
+  '--dsw-alias-border-l1': 'rgba(255, 255, 255, 0.08)',
+  '--dsw-alias-border-l2-darkmode-thin': 'rgba(255, 255, 255, 0.08)',
+  '--dsw-alias-border-l2': 'rgba(255, 255, 255, 0.14)',
+  '--dsw-alias-border-l3': 'rgba(255, 255, 255, 0.18)',
+  '--dsw-alias-border-l4': 'rgba(255, 255, 255, 0.24)',
+  '--dsw-alias-brand-primary': 'rgb(228, 160, 92)',
+  '--dsw-alias-brand-primary-invert': 'rgb(252, 238, 222)',
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': 'rgb(212, 140, 68)',
+  '--dsw-alias-brand-text': 'rgb(228, 160, 92)',
+  '--dsw-alias-button-contrast-fill': 'rgb(228, 160, 92)',
+  '--dsw-alias-button-elevated-fill': 'rgb(42, 33, 28)',
+  '--dsw-alias-button-floating-fill': 'rgb(42, 33, 28)',
+  '--dsw-alias-button-floating-hover': 'rgb(50, 40, 34)',
+  '--dsw-alias-button-ghost-active-border': 'rgb(168, 116, 68)',
+  '--dsw-alias-button-ghost-active-fill': 'rgb(48, 38, 32)',
+  '--dsw-alias-button-ghost-active-hover': 'rgb(56, 44, 38)',
+  '--dsw-alias-button-info-fill': 'rgb(228, 160, 92)',
+  '--dsw-alias-button-info-hover': 'rgb(212, 140, 68)',
+  '--dsw-alias-button-info-bg': 'linear-gradient(135deg, rgba(228, 160, 92, 0.50), rgba(184, 118, 64, 0.32) 55%, rgba(206, 140, 78, 0.44))',
+  '--dsw-alias-button-info-bg-hover': 'linear-gradient(135deg, rgba(238, 172, 104, 0.62), rgba(198, 130, 74, 0.40) 55%, rgba(218, 152, 88, 0.54))',
+  '--dsw-alias-button-radius': '10px',
+  '--dsw-alias-button-radius-sm': '8px',
+  '--dsw-alias-button-primary-bg': 'linear-gradient(135deg, rgba(212, 140, 68, 0.34), rgba(168, 106, 52, 0.18) 50%, rgba(194, 126, 62, 0.30))',
+  '--dsw-alias-button-primary-bg-hover': 'linear-gradient(135deg, rgba(226, 154, 80, 0.44), rgba(182, 118, 62, 0.26) 50%, rgba(208, 140, 74, 0.38))',
+  '--dsw-alias-button-primary-bg-size': '200% 100%',
+  '--dsw-alias-button-primary-motion': 'dsh-button-drift 5s linear infinite',
+  '--dsw-alias-button-glow':
+    'inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 0 0 1px rgba(228, 160, 92, 0.22),'
+    + '0 0 14px rgba(212, 140, 68, 0.30), 0 8px 28px rgba(168, 106, 52, 0.28)',
+  '--dsw-alias-button-glow-hover':
+    'inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 0 0 1px rgba(242, 180, 116, 0.36),'
+    + '0 0 20px rgba(226, 154, 80, 0.44), 0 12px 36px rgba(182, 118, 62, 0.40)',
+  '--dsw-alias-button-press-shadow':
+    'inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(228, 160, 92, 0.14),'
+    + '0 4px 12px rgba(168, 106, 52, 0.18)',
+  '--dsw-alias-button-press-shift': 'translate(0, 1px)',
+  '--dsw-alias-button-outline-glow':
+    'inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(228, 160, 92, 0.26),'
+    + '0 6px 18px rgba(168, 106, 52, 0.16)',
+  '--dsw-alias-button-send-shift-active': 'translateY(-1px) translate(0, 2px)',
+  '--dsw-alias-button-primary-dimmed': 'rgb(48, 38, 32)',
+  '--dsw-alias-button-primary-fill': 'rgb(184, 118, 64)',
+  '--dsw-alias-button-primary-hover': 'rgb(198, 130, 74)',
+  '--dsw-alias-button-tool-bar-fill': 'rgba(46, 36, 30, 0.64)',
+  '--dsw-alias-button-tool-bar-fill-invisible': 'rgba(32, 26, 22, 0.42)',
+  '--dsw-alias-button-tool-bar-hover': 'rgba(46, 36, 30, 0.72)',
+  '--dsw-alias-interactive-bg-active': 'rgba(255, 255, 255, 0.10)',
+  '--dsw-alias-interactive-bg-hover': 'rgba(255, 255, 255, 0.06)',
+  '--dsw-alias-interactive-bg-hover-accent': 'rgba(228, 160, 92, 0.16)',
+  '--dsw-alias-interactive-bg-hover-danger': 'rgba(242, 90, 90, 0.14)',
+  '--dsw-alias-interactive-bg-hover-solid': 'rgb(46, 36, 31)',
+  '--dsw-alias-label-caption': 'rgb(178, 154, 134)',
+  '--dsw-alias-label-dimmed': 'rgb(136, 114, 96)',
+  '--dsw-alias-label-primary-bluish': 'rgb(246, 240, 234)',
+  '--dsw-alias-label-primary-dimmed': 'rgb(240, 232, 224)',
+  '--dsw-alias-label-primary-foreground': 'rgb(252, 248, 244)',
+  '--dsw-alias-label-primary-inverted': 'rgb(34, 27, 23)',
+  '--dsw-alias-label-primary': 'rgb(246, 240, 234)',
+  '--dsw-alias-label-secondary': 'rgb(208, 194, 182)',
+  '--dsw-alias-label-tertiary': 'rgb(166, 150, 138)',
+  '--dsw-alias-markdown-citation': 'rgb(38, 30, 26)',
+  '--dsw-alias-markdown-code-block-banner': 'rgb(24, 19, 16)',
+  '--dsw-alias-markdown-code-block': 'rgb(26, 21, 18)',
+  '--dsw-alias-markdown-code-segment-selected': 'rgb(48, 38, 32)',
+  '--dsw-alias-markdown-code-segment-unselected': 'rgb(26, 21, 18)',
+  '--dsw-alias-markdown-inline-code': 'rgb(38, 30, 26)',
+  '--dsw-alias-markdown-placeholder': 'rgb(32, 25, 21)',
+  '--dsw-alias-markdown-tag': 'rgb(38, 30, 26)',
+  '--dsw-alias-scrollbar-bg-l1': 'rgb(54, 43, 37)',
+  '--dsw-alias-scrollbar-bg-l2': 'rgb(66, 52, 45)',
+  '--dsw-alias-scrollbar-hover-l1': 'rgb(66, 52, 45)',
+  '--dsw-alias-scrollbar-hover-l2': 'rgb(80, 64, 55)',
+  '--dsw-alias-state-business-primary': 'rgb(228, 160, 92)',
+  '--dsw-alias-state-business-tertiary': 'rgb(48, 38, 32)',
+  '--dsw-alias-toast-bg': 'rgba(58, 46, 39, 0.88)',
+  '--dsw-alias-tooltip-bg': 'rgba(64, 51, 43, 0.90)',
+  '--dsw-specific-bubble-highlight': 'rgba(52, 41, 35, 0.84)',
+  '--dsw-specific-bubble': 'rgba(40, 32, 27, 0.78)',
+  '--dsw-specific-input-major': 'rgba(32, 25, 21, 0.74)',
+  '--dsw-specific-login-input': 'rgb(24, 19, 16)',
+  '--dsw-specific-selector': 'rgba(40, 32, 27, 0.82)',
+  '--dsw-specific-sidebar-fill': 'rgb(30, 23, 19)',
+  '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(48, 37, 31)',
+  '--dsw-specific-sidebar-nav-item-active': 'rgb(44, 34, 29)',
+  '--dsw-specific-sidebar-nav-item-hover': 'rgb(36, 28, 24)',
+  '--dsw-specific-tip': 'rgba(40, 32, 27, 0.80)',
+})

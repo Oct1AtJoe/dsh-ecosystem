@@ -13,8 +13,8 @@ import { readFileSync } from 'node:fs'
 
 const bundle = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 
-/** Registration order in the client bundle: aurora, nebula, void, jade, solar, glacial. */
-const THEMES = ['极光 aurora', '星云 nebula', '冥夜 void', '银曜 jade', '灼日 solar', '寒渊 glacial']
+/** Registration order in the client bundle: mocha, nebula, void, jade, solar, parchment. */
+const THEMES = ['栖木 mocha', '星云 nebula', '冥夜 void', '银曜 jade', '灼日 solar', '缃素 parchment']
 
 /** Collect one token's value per registered theme, in registration order. */
 function tokenValues(name) {

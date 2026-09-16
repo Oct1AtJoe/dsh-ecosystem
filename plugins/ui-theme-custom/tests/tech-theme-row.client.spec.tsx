@@ -13,7 +13,7 @@ afterEach(cleanup)
 
 const COPY: Record<string, string> = {
   'tech-theme.title': 'Tech themes',
-  'tech-theme.aurora': 'Aurora',
+  'tech-theme.mocha': 'Mocha',
   'tech-theme.nebula': 'Nebula',
 }
 
@@ -56,27 +56,27 @@ describe('TechThemeRow', () => {
     mount('nebula' as ThemePreference)
     expect(screen.getByText('Tech themes')).toBeDefined()
     expect(pressed(/Nebula/)).toBe('true')
-    expect(pressed(/Aurora/)).toBe('false')
+    expect(pressed(/Mocha/)).toBe('false')
   })
 
   it('leaves both cubes unselected for an official preference', () => {
     mount('dark')
-    expect(pressed(/Aurora/)).toBe('false')
+    expect(pressed(/Mocha/)).toBe('false')
     expect(pressed(/Nebula/)).toBe('false')
   })
 
   it('cube clicks drive setTheme with the theme id', () => {
     const b = mount('system')
-    fireEvent.click(screen.getByRole('button', { name: /Aurora/ }))
-    expect(b.setTheme).toHaveBeenCalledWith('aurora')
+    fireEvent.click(screen.getByRole('button', { name: /Mocha/ }))
+    expect(b.setTheme).toHaveBeenCalledWith('mocha')
     fireEvent.click(screen.getByRole('button', { name: /Nebula/ }))
     expect(b.setTheme).toHaveBeenCalledWith('nebula')
   })
 
   it('selection follows the store mirror, not the click echo', () => {
     const b = mount('system')
-    act(() => { b.store.actions.sync('aurora' as ThemePreference, 1) })
-    expect(pressed(/Aurora/)).toBe('true')
+    act(() => { b.store.actions.sync('mocha' as ThemePreference, 1) })
+    expect(pressed(/Mocha/)).toBe('true')
     expect(pressed(/Nebula/)).toBe('false')
   })
 })

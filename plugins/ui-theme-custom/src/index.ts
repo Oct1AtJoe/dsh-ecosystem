@@ -13,12 +13,12 @@
  * and compiles against whatever host version is installed.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { AURORA_TOKENS } from './client/aurora.ts'
+import { MOCHA_TOKENS } from './client/mocha.ts'
 import { NEBULA_TOKENS } from './client/nebula.ts'
 import { VOID_TOKENS } from './client/void.ts'
 import { JADE_TOKENS } from './client/jade.ts'
 import { SOLAR_TOKENS } from './client/solar.ts'
-import { GLACIAL_TOKENS } from './client/glacial.ts'
+import { PARCHMENT_TOKENS } from './client/parchment.ts'
 
 /** Local structural stand-in for the host webserver's index injection row. */
 type IndexInjection = {
@@ -35,22 +35,22 @@ declare module '@deepseek-ai/cordis' {
 
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS: Record<string, Record<string, string>> = {
-  aurora: AURORA_TOKENS,
+  mocha: MOCHA_TOKENS,
   nebula: NEBULA_TOKENS,
   void: VOID_TOKENS,
   jade: JADE_TOKENS,
   solar: SOLAR_TOKENS,
-  glacial: GLACIAL_TOKENS,
+  parchment: PARCHMENT_TOKENS,
 }
 
 /** Custom theme id → color scheme. */
 const CUSTOM_SCHEME: Record<string, 'light' | 'dark'> = {
-  aurora: 'dark',
+  mocha: 'dark',
   nebula: 'dark',
   void: 'dark',
   jade: 'light',
   solar: 'dark',
-  glacial: 'dark',
+  parchment: 'light',
 }
 
 const BOOT_SCRIPT = `(function(){

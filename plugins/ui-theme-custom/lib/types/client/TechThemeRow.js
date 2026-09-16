@@ -9,18 +9,18 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * `THEME_PREFERENCES` includes them.
  */
 import clsx from 'clsx';
-import { IconSparkle16, IconThinkOutline16, IconAgentPresetOutline16, IconBrowseOutline16, IconGoalOutline16, IconEnhanceOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconBranchOutline16, IconThinkOutline16, IconAgentPresetOutline16, IconBrowseOutline16, IconGoalOutline16, IconListPenOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
 import css from './TechThemeRow.module.css';
 /** Locale namespace registered by this plugin (see src/client/index.ts). */
 export const SETTINGS_NS = 'settings.theme.custom';
 /** Cube order and icons. Id must match a registered theme id. */
 const CUBES = [
-    { id: 'aurora', labelKey: 'tech-theme.aurora', Icon: IconSparkle16 },
+    { id: 'mocha', labelKey: 'tech-theme.mocha', Icon: IconBranchOutline16 },
     { id: 'nebula', labelKey: 'tech-theme.nebula', Icon: IconThinkOutline16 },
     { id: 'void', labelKey: 'tech-theme.void', Icon: IconAgentPresetOutline16 },
     { id: 'jade', labelKey: 'tech-theme.jade', Icon: IconBrowseOutline16 },
     { id: 'solar', labelKey: 'tech-theme.solar', Icon: IconGoalOutline16 },
-    { id: 'glacial', labelKey: 'tech-theme.glacial', Icon: IconEnhanceOutline16 },
+    { id: 'parchment', labelKey: 'tech-theme.parchment', Icon: IconListPenOutline16 },
 ];
 /**
  * Render the tech-theme row.

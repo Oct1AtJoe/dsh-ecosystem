@@ -98,8 +98,19 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 
 1. 编译：`cargo build --release --manifest-path C:\dsh-ecosystem\desktop\src-tauri\Cargo.toml`
 2. **绝不自动杀死运行中的 `DeepSeekHarness.exe`**。
-3. 把 `desktop\dist\DeepSeekHarness.exe` 先改名备份（时间戳后缀），再复制 `target\release\deepseek-harness-desktop.exe` 到 `dist\DeepSeekHarness.exe`。
-4. 告知用户：完全退出旧进程后重新打开 exe 验证。
+3. 部署：**运行中的 exe 可以改名**，无需先关进程。Windows 只锁「覆盖写」，同卷改名是元数据操作，句柄跟随 inode 不跟随文件名。所以：
+
+   ```powershell
+   cd C:\dsh-ecosystem\desktop\dist
+   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+   Rename-Item -Path DeepSeekHarness.exe -NewName "DeepSeekHarness.$stamp.bak.exe"
+   Copy-Item ..\src-tauri\target\release\deepseek-harness-desktop.exe -Destination DeepSeekHarness.exe
+   ```
+
+   - `Rename-Item -NewName` **只接受裸文件名**，传 `dist\xxx.bak.exe` 会报 `Cannot rename the specified target, because it represents a path or device name.`（路径里的反斜杠被当成设备名）。先 `cd` 到 `dist` 再执行。
+   - `Copy-Item` 直接覆盖原名会失败（`being used by another process`）；必须先改名腾出名字。顺序不能颠倒。
+   - 旧进程继续跑它已打开的旧文件，新 exe 落在原名上，用户重启即生效，全程无感。
+4. 告知用户：重启 exe 验证（无需先手动退出，但旧进程要退出才会加载新版本）。
 5. `git add/commit/push` 到 `origin main`（`github.com/Oct1AtJoe/dsh-ecosystem`）。
 
 ## 12. 踩坑记录（改前必读）
@@ -120,6 +131,9 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 | 边缘拖拽无法缩放 | WebView2 跨进程吞命中测试；多 WebView 跳过内置 resize 助手 | `border_resizing` 透明镂空顶层辅助窗口 + 父窗口 `WM_NCHITTEST` |
 | 双击顶栏不最大化 | startDragging 吞掉 dblclick | `mousedown` 里判 `e.detail === 2` |
 | 托盘菜单与顶栏菜单不一致 | 两份菜单各自维护 | 统一为 5 项同一语义 |
+| 部署时 `Copy-Item` 覆盖 exe 报 `being used by another process` | 进程运行中，Windows 锁覆盖写 | 先 `Rename-Item` 腾出名字再复制；运行中改名可行，别去杀进程 |
+| `Rename-Item` 报 `represents a path or device name` | `-NewName` 传了含 `\` 的路径 | `-NewName` 只给裸文件名，先 `cd` 到目标目录 |
+| 冷启动标题栏先浅后深闪一下 | 引导页 `index.html` 无主题标记，`syncThemeFromDom` 把「无标记」当浅色上报 | 守卫：无 `data-ds-dark-theme` 且 `colorScheme` 非 `light` 时不上报；壳用 `localStorage` 记忆首帧主题 |
 
 ## 13. 主要代码位置（lib.rs）
 

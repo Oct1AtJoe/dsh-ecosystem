@@ -19,7 +19,10 @@
         --accent: #58a6ff;
         --close-hover: #e81123;
       }
-      :root.light, html.light, body:not(.dark), body.light {
+      /* 浅色兜底：只在显式 light 类时生效。
+         注意：绝不能用 body:not(.dark) —— 它几乎永远匹配，且定义在 body 上的
+         --bg 会覆盖 html 的内联主题变量，导致自定义主题被刷回默认白。 */
+      :root.light, html.light, body.light {
         --bg: #f6f8fa;
         --line: rgba(0, 0, 0, 0.09);
         --text: #24292f;
@@ -35,7 +38,7 @@
         background: var(--bg);
         color: var(--text);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-        transition: background-color 0.2s, color 0.2s;
+        transition: background-color 0.25s, color 0.25s;
       }
       #titlebar {
         height: var(--dsh-titlebar-height);
@@ -93,6 +96,33 @@
     </style>
   </head>
   <body class="dark">
+    <script>
+      // 首帧前落主题底色（body 已存在，可安全写 body 内联变量）。
+      // 关键：必须同时写 html 与 body —— 浅色兜底调色板定义在 body.light 上，
+      // body 上的 --bg 会覆盖 html 的内联值，只写 html 会被默认白盖掉。
+      try {
+        if (localStorage.getItem('dsh-shell-theme') === 'light') {
+          document.documentElement.classList.add('light');
+          document.body.classList.add('light');
+          document.body.classList.remove('dark');
+        }
+        var tbStr = localStorage.getItem('dsh-shell-titlebar-data');
+        if (tbStr) {
+          var tb = JSON.parse(tbStr);
+          var targets = [document.documentElement, document.body];
+          var write = function (k, v) {
+            for (var i = 0; i < targets.length; i++) targets[i].style.setProperty(k, v);
+          };
+          if (tb.bg) write('--bg', tb.bg);
+          if (tb.accent) write('--accent', tb.accent);
+          if (tb.line) write('--line', tb.line);
+          if (tb.text) write('--text', tb.text);
+          if (tb.muted) write('--muted', tb.muted);
+          if (tb.hover) write('--hover', tb.hover);
+          if (tb.active) write('--active', tb.active);
+        }
+      } catch (e) { /* localStorage 不可用时保持默认深色 */ }
+    </script>
     <header id="titlebar">
       <div class="drag" id="drag">
         <img class="mark" src="icon.png" alt="DeepSeek Harness" />
@@ -185,11 +215,55 @@
       });
 
       // DSH 主题变化时由 Rust eval 进来
-      window.__dshSetTheme = function (isDark) {
+      window.__dshSetTheme = function (payload) {
+        var isDark = typeof payload === 'boolean' ? payload : (payload && payload.theme === 'dark');
         document.body.classList.toggle('dark', !!isDark);
         document.body.classList.toggle('light', !isDark);
         document.documentElement.classList.toggle('dark', !!isDark);
         document.documentElement.classList.toggle('light', !isDark);
+
+        var root = document.documentElement;
+        var bodyEl = document.body;
+        var targets = [root, bodyEl];
+        var write = function (k, v) {
+          for (var i = 0; i < targets.length; i++) targets[i].style.setProperty(k, v);
+        };
+        var clear = function (k) {
+          for (var i = 0; i < targets.length; i++) targets[i].style.removeProperty(k);
+        };
+        // titlebar 三态语义：
+        //   undefined —— 桥的 DOM 观察者旁路上报（只关心深浅），保持壳当前顶栏配色不动；
+        //   null      —— 用户显式切回内置 light/dark，清除内联变量回退默认调色板；
+        //   对象      —— 自定义主题，写入该主题的顶栏纯实色。
+        var tb = payload && payload.titlebar;
+        if (tb === null) {
+          clear('--bg');
+          clear('--accent');
+          clear('--line');
+          clear('--text');
+          clear('--muted');
+          clear('--hover');
+          clear('--active');
+          try {
+            localStorage.removeItem('dsh-shell-titlebar-data');
+            localStorage.setItem('dsh-shell-theme', isDark ? 'dark' : 'light');
+          } catch (e) {}
+        } else if (tb) {
+          if (tb.bg) write('--bg', tb.bg);
+          if (tb.accent) write('--accent', tb.accent);
+          if (tb.line) write('--line', tb.line);
+          if (tb.text) write('--text', tb.text);
+          if (tb.muted) write('--muted', tb.muted);
+          if (tb.hover) write('--hover', tb.hover);
+          if (tb.active) write('--active', tb.active);
+          try {
+            localStorage.setItem('dsh-shell-titlebar-data', JSON.stringify(tb));
+            localStorage.setItem('dsh-shell-theme', isDark ? 'dark' : 'light');
+          } catch (e) {}
+        } else {
+          // 观察者旁路：仅更新深浅记忆，顶栏配色保持不动
+          try { localStorage.setItem('dsh-shell-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+        }
       };
     </script>
   </body>

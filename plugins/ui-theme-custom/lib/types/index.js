@@ -1,26 +1,26 @@
-import { AURORA_TOKENS } from "./client/aurora.js";
+import { MOCHA_TOKENS } from "./client/mocha.js";
 import { NEBULA_TOKENS } from "./client/nebula.js";
 import { VOID_TOKENS } from "./client/void.js";
 import { JADE_TOKENS } from "./client/jade.js";
 import { SOLAR_TOKENS } from "./client/solar.js";
-import { GLACIAL_TOKENS } from "./client/glacial.js";
+import { PARCHMENT_TOKENS } from "./client/parchment.js";
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS = {
-    aurora: AURORA_TOKENS,
+    mocha: MOCHA_TOKENS,
     nebula: NEBULA_TOKENS,
     void: VOID_TOKENS,
     jade: JADE_TOKENS,
     solar: SOLAR_TOKENS,
-    glacial: GLACIAL_TOKENS,
+    parchment: PARCHMENT_TOKENS,
 };
 /** Custom theme id → color scheme. */
 const CUSTOM_SCHEME = {
-    aurora: 'dark',
+    mocha: 'dark',
     nebula: 'dark',
     void: 'dark',
     jade: 'light',
     solar: 'dark',
-    glacial: 'dark',
+    parchment: 'light',
 };
 const BOOT_SCRIPT = `(function(){
 try {
