@@ -134,6 +134,26 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 | 部署时 `Copy-Item` 覆盖 exe 报 `being used by another process` | 进程运行中，Windows 锁覆盖写 | 先 `Rename-Item` 腾出名字再复制；运行中改名可行，别去杀进程 |
 | `Rename-Item` 报 `represents a path or device name` | `-NewName` 传了含 `\` 的路径 | `-NewName` 只给裸文件名，先 `cd` 到目标目录 |
 | 冷启动标题栏先浅后深闪一下 | 引导页 `index.html` 无主题标记，`syncThemeFromDom` 把「无标记」当浅色上报 | 守卫：无 `data-ds-dark-theme` 且 `colorScheme` 非 `light` 时不上报；壳用 `localStorage` 记忆首帧主题 |
+| 窗口四角是直角，不够圆润 | 摘掉 `WS_CAPTION` 后系统按 popup 处理，Win11 的 DWM 圆角只默认给标准窗口 | `DWMWA_WINDOW_CORNER_PREFERENCE`(33) = `DWMWCP_ROUND`(2)，挂进 `apply_borderless_frame` 随守护循环纠偏 |
+| 想用 `SetWindowRgn` 裁更大圆角 | 区域裁剪是 1-bit 的，无抗锯齿；半径越大阶梯锯齿越明显 | 放弃。DWM 原生圆角（实测约 5.8px）自带平滑过渡，半径不可自定义是 Win11 平台限制 |
+
+### 12.1 窗口圆角（DWM 原生，约 5.8px）
+
+无边框窗口的四角圆角由 `round_window_corners()` 设置，随 `apply_borderless_frame()` 一起在 150ms 守护循环里纠偏（tao 重写样式会触发 DWM 重算外观，圆角会丢）。
+
+**平台限制与取舍（已实测，勿重复尝试）**：
+
+| 手段 | 结果 |
+| :--- | :--- |
+| `DWMWA_WINDOW_CORNER_PREFERENCE` = `DWMWCP_ROUND` | ✅ 生效，约 5.8px，**带抗锯齿** |
+| 同上 = `DWMWCP_ROUNDSMALL` | 约 4px |
+| 自定义任意半径（如 12/16px） | ❌ DWM 只给两档预设，无自定义像素值 |
+| `SetWindowRgn` + `CreateRoundRectRgn` | 可任意半径，但**阶梯锯齿**（半径越大越糟），已实测否决 |
+| `DWMWA_NCRENDERING_POLICY` / `DwmExtendFrameIntoClientArea` / 加回 `WS_CAPTION` 求更宽阴影 | ❌ 三者均无效 |
+
+- **DPI**：属性值按逻辑像素解释，实际渲染尺寸随 DPI 缩放。实测环境 DPI 96 / 缩放 1.0，得 5.8 物理像素。
+- **最大化**：DWM 自动给最大化窗口直角，无需特殊处理，也不会漏出桌面。
+- **阴影**：DWM 对无 caption 窗口只给约 8px 硬边灰带（非柔和投影）；macOS 那种大半径柔和阴影在 Windows 上需自绘 layered window，未实施。
 
 ## 13. 主要代码位置（lib.rs）
 

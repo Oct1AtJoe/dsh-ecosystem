@@ -1767,7 +1767,40 @@ fn hide_dwm_border(hwnd: windows::Win32::Foundation::HWND) {
     }
 }
 
-/// 统一应用无边框外观：移除 `WS_CAPTION` + 隐藏 DWM 白边。
+/// DWM 圆角是否已设置（避免守护线程每 tick 都做一次 DWM 调用）。
+#[cfg(target_os = "windows")]
+static DWM_CORNERS_ROUNDED: AtomicBool = AtomicBool::new(false);
+
+/// 给无边框窗口加上 Win11 原生圆角。
+///
+/// 摘掉 `WS_CAPTION` 后系统把窗口当 popup，Win11 的 DWM 圆角默认只给标准窗口，
+/// 于是四角是直角。`DWMWA_WINDOW_CORNER_PREFERENCE`（33）可显式指定圆角，
+/// 且**对无 caption 窗口同样生效**（已实测：DWM 接受该属性并渲染出约 5.8px 圆角）。
+///
+/// 为什么不自己 `SetWindowRgn` 硬裁一个更大的半径：区域裁剪是 1-bit 的，
+/// 没有抗锯齿，半径越大阶梯锯齿越明显（10 倍放大实测对比）；而 DWM 这条路径
+/// 自带平滑过渡。代价是半径固定（只有 ROUND / ROUNDSMALL 两档，实测约 5.8px），
+/// 不能自定义像素值——这是 Win11 的平台限制，取舍已在文档中记录。
+#[cfg(target_os = "windows")]
+fn round_window_corners(hwnd: windows::Win32::Foundation::HWND) {
+    use std::ffi::c_void;
+    const DWMWA_WINDOW_CORNER_PREFERENCE: u32 = 33;
+    const DWMWCP_ROUND: u32 = 2;
+    unsafe {
+        let res = DwmSetWindowAttribute(
+            hwnd.0 as *mut c_void,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &DWMWCP_ROUND as *const _ as *const c_void,
+            std::mem::size_of::<u32>() as u32,
+        );
+        if res != 0 {
+            // Win10 及更早版本不支持该属性：保持直角，其余行为不受影响
+            log::debug!("[window] DWM 圆角不受支持：hr={res}");
+        }
+    }
+}
+
+/// 统一应用无边框外观：移除 `WS_CAPTION` + 隐藏 DWM 白边 + 应用原生圆角。
 #[cfg(target_os = "windows")]
 fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
     let style_changed = strip_caption_hwnd(hwnd);
@@ -1775,6 +1808,12 @@ fn apply_borderless_frame(hwnd: windows::Win32::Foundation::HWND) -> bool {
     if style_changed || !DWM_BORDER_HIDDEN.load(Ordering::Relaxed) {
         hide_dwm_border(hwnd);
         DWM_BORDER_HIDDEN.store(true, Ordering::Relaxed);
+    }
+    // tao 的 apply_diff 重写窗口样式会触发 DWM 重算外观，圆角随之丢失，故同样在
+    // 样式变化时与首次运行时重新应用。
+    if style_changed || !DWM_CORNERS_ROUNDED.load(Ordering::Relaxed) {
+        round_window_corners(hwnd);
+        DWM_CORNERS_ROUNDED.store(true, Ordering::Relaxed);
     }
     style_changed
 }
