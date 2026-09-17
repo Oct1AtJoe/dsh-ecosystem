@@ -24,7 +24,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-deliverables-custom\src\client\DiffBlock.module.css.mjs
-		const css$2 = ".IuSoiG_block{--dsl-diff-radius:12px;--dsl-diff-line-height:22px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-markdown-code-block);border-radius:var(--dsl-diff-radius);margin:16px 0;position:relative}.IuSoiG_copyButton{z-index:1;color:var(--dsw-alias-label-secondary);cursor:pointer;font:var(--dsw-font-xs-13);background-color:#0000;border:none;margin:0;padding:0;position:absolute;top:8px;right:12px}.IuSoiG_body{font:var(--dsw-font-markdown-code-block);padding:12px 14px;overflow:auto hidden}.IuSoiG_line{min-height:var(--dsl-diff-line-height);white-space:pre}.IuSoiG_path{color:var(--dsw-alias-label-primary);padding-right:56px;font-weight:600}.IuSoiG_gap{color:var(--dsw-alias-label-tertiary)}.IuSoiG_del:before{content:\"- \";color:var(--dsw-alias-state-error-primary)}.IuSoiG_del{color:var(--dsw-alias-state-error-primary)}.IuSoiG_add:before{content:\"+ \";color:var(--dsw-alias-state-success-primary)}.IuSoiG_add{color:var(--dsw-alias-state-success-primary)}.IuSoiG_expand{width:100%;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;text-align:left;background-color:#0000;border:none;padding:0;display:block}.IuSoiG_expand:hover{color:var(--dsw-alias-label-secondary)}.IuSoiG_footer{font:var(--dsw-font-markdown-code-block);color:var(--dsw-alias-label-tertiary);padding:0 14px 12px}";
+		const css$2 = ".IuSoiG_block{--dsl-diff-radius:12px;--dsl-diff-line-height:22px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-markdown-code-block);border-radius:var(--dsl-diff-radius);margin:16px 0;position:relative}.IuSoiG_copyButton{z-index:1;color:var(--dsw-alias-label-secondary);cursor:pointer;font:var(--dsw-font-xs-13);background-color:#0000;border:none;margin:0;padding:0;position:absolute;top:8px;right:12px}.IuSoiG_body{font:var(--dsw-font-markdown-code-block);padding:12px 14px;overflow:auto hidden}.IuSoiG_line{min-height:var(--dsl-diff-line-height);line-height:var(--dsl-diff-line-height);white-space:pre;align-items:baseline;display:flex}.IuSoiG_gutter{width:var(--dsl-diff-gutter-width,3ch);text-align:right;-webkit-user-select:none;user-select:none;font-variant-numeric:tabular-nums;opacity:.65;flex:none;margin-right:12px;color:var(--dsw-alias-label-tertiary)!important}.IuSoiG_content{white-space:pre;flex:auto;min-width:0}.IuSoiG_path{color:var(--dsw-alias-label-primary);padding-right:56px;font-weight:600}.IuSoiG_path .IuSoiG_gutter{display:none}.IuSoiG_gap{color:var(--dsw-alias-label-tertiary)}.IuSoiG_del .IuSoiG_content:before{content:\"- \";color:var(--dsw-alias-state-error-primary)}.IuSoiG_del{color:var(--dsw-alias-state-error-primary)}.IuSoiG_add .IuSoiG_content:before{content:\"+ \";color:var(--dsw-alias-state-success-primary)}.IuSoiG_add{color:var(--dsw-alias-state-success-primary)}.IuSoiG_expand{width:100%;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;line-height:var(--dsl-diff-line-height);text-align:left;background-color:#0000;border:none;align-items:baseline;padding:0;display:flex}.IuSoiG_gutterSpacer{width:var(--dsl-diff-gutter-width,3ch);flex:none;margin-right:12px}.IuSoiG_expandText{flex:auto}.IuSoiG_expand:hover{color:var(--dsw-alias-label-secondary)}.IuSoiG_footer{font:var(--dsw-font-markdown-code-block);color:var(--dsw-alias-label-tertiary);padding:0 14px 12px}";
 		const tagId$2 = "@deepseek-ai/dsh-client-ui-deliverables-custom/DiffBlock.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
@@ -37,11 +37,15 @@ window.__ModuleLoader__.load({
 			"add": "IuSoiG_add",
 			"block": "IuSoiG_block",
 			"body": "IuSoiG_body",
+			"content": "IuSoiG_content",
 			"copyButton": "IuSoiG_copyButton",
 			"del": "IuSoiG_del",
 			"expand": "IuSoiG_expand",
+			"expandText": "IuSoiG_expandText",
 			"footer": "IuSoiG_footer",
 			"gap": "IuSoiG_gap",
+			"gutter": "IuSoiG_gutter",
+			"gutterSpacer": "IuSoiG_gutterSpacer",
 			"line": "IuSoiG_line",
 			"path": "IuSoiG_path"
 		};
@@ -91,7 +95,8 @@ window.__ModuleLoader__.load({
 					text: "⋯"
 				});
 				prevPath = diff.path;
-				const change = diffLines(diff.oldText, diff.newText);
+				const startLine = diff.startLine ?? 1;
+				const change = diffLines(diff.oldText, diff.newText, startLine);
 				for (const row of change.rows) {
 					if (row.kind === "gap" && rows.length > 0 && rows[rows.length - 1]?.kind === "gap") continue;
 					rows.push(row);
@@ -124,16 +129,18 @@ window.__ModuleLoader__.load({
 			}
 			return 0;
 		}
-		function computeLcsDiff(oldMid, newMid, allowNormalized) {
+		function computeLcsDiff(oldMid, newMid, allowNormalized, oldStartLine, newStartLine) {
 			const m = oldMid.length;
 			const n = newMid.length;
 			if (m * n > 25e4) {
-				const rows = [...oldMid.map((text) => ({
+				const rows = [...oldMid.map((text, idx) => ({
 					kind: "del",
-					text
-				})), ...newMid.map((text) => ({
+					text,
+					line: oldStartLine + idx
+				})), ...newMid.map((text, idx) => ({
 					kind: "add",
-					text
+					text,
+					line: newStartLine + idx
 				}))];
 				return {
 					removed: [...oldMid],
@@ -167,13 +174,15 @@ window.__ModuleLoader__.load({
 				if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
 					ops.unshift({
 						type: "add",
-						text: newMid[j - 1]
+						text: newMid[j - 1],
+						line: newStartLine + (j - 1)
 					});
 					j--;
 				} else if (i > 0) {
 					ops.unshift({
 						type: "del",
-						text: oldMid[i - 1]
+						text: oldMid[i - 1],
+						line: oldStartLine + (i - 1)
 					});
 					i--;
 				}
@@ -189,26 +198,34 @@ window.__ModuleLoader__.load({
 					kind: "gap",
 					text: "⋯"
 				});
-				for (const text of currentBlockDel) {
+				for (const item of currentBlockDel) {
 					rows.push({
 						kind: "del",
-						text
+						text: item.text,
+						line: item.line
 					});
-					removed.push(text);
+					removed.push(item.text);
 				}
-				for (const text of currentBlockAdd) {
+				for (const item of currentBlockAdd) {
 					rows.push({
 						kind: "add",
-						text
+						text: item.text,
+						line: item.line
 					});
-					added.push(text);
+					added.push(item.text);
 				}
 				currentBlockDel = [];
 				currentBlockAdd = [];
 			};
 			for (const op of ops) if (op.type === "match") flushBlock();
-			else if (op.type === "del") currentBlockDel.push(op.text);
-			else if (op.type === "add") currentBlockAdd.push(op.text);
+			else if (op.type === "del") currentBlockDel.push({
+				text: op.text,
+				line: op.line
+			});
+			else if (op.type === "add") currentBlockAdd.push({
+				text: op.text,
+				line: op.line
+			});
 			flushBlock();
 			return {
 				removed,
@@ -226,17 +243,19 @@ window.__ModuleLoader__.load({
 		* puts every new line on the added side.
 		* @param oldText - prior content, or `null` for a new file.
 		* @param newText - content after the change.
+		* @param startLine - 1-based start line in the file (defaults to 1).
 		* @returns the removed and added content lines along with the structured rows.
 		*/
-		function diffLines(oldText, newText) {
+		function diffLines(oldText, newText, startLine = 1) {
 			if (oldText === null) {
 				const added = contentLines(newText);
 				return {
 					removed: [],
 					added,
-					rows: added.map((text) => ({
+					rows: added.map((text, idx) => ({
 						kind: "add",
-						text
+						text,
+						line: startLine + idx
 					}))
 				};
 			}
@@ -253,6 +272,8 @@ window.__ModuleLoader__.load({
 			}
 			const oldMid = oldSide.slice(start, endOld);
 			const newMid = newSide.slice(start, endNew);
+			const oldStartLine = startLine + start;
+			const newStartLine = startLine + start;
 			if (oldMid.length === 0 && newMid.length === 0) return {
 				removed: [],
 				added: [],
@@ -263,9 +284,10 @@ window.__ModuleLoader__.load({
 				return {
 					removed: [],
 					added,
-					rows: added.map((text) => ({
+					rows: added.map((text, idx) => ({
 						kind: "add",
-						text
+						text,
+						line: newStartLine + idx
 					}))
 				};
 			}
@@ -274,14 +296,15 @@ window.__ModuleLoader__.load({
 				return {
 					removed,
 					added: [],
-					rows: removed.map((text) => ({
+					rows: removed.map((text, idx) => ({
 						kind: "del",
-						text
+						text,
+						line: oldStartLine + idx
 					}))
 				};
 			}
-			const result = computeLcsDiff(oldMid, newMid, true);
-			if (result.removed.length === 0 && result.added.length === 0 && (oldMid.length > 0 || newMid.length > 0)) return computeLcsDiff(oldMid, newMid, false);
+			const result = computeLcsDiff(oldMid, newMid, true, oldStartLine, newStartLine);
+			if (result.removed.length === 0 && result.added.length === 0 && (oldMid.length > 0 || newMid.length > 0)) return computeLcsDiff(oldMid, newMid, false, oldStartLine, newStartLine);
 			return result;
 		}
 		/**
@@ -338,6 +361,15 @@ window.__ModuleLoader__.load({
 			const onToggle = (0, react.useCallback)(() => {
 				setExpanded((value) => !value);
 			}, []);
+			const maxLine = (0, react.useMemo)(() => {
+				let max = 0;
+				for (const r of rows) if (typeof r.line === "number" && r.line > max) max = r.line;
+				return max;
+			}, [rows]);
+			const gutterWidth = (0, react.useMemo)(() => {
+				if (maxLine <= 0) return 0;
+				return Math.max(2, String(maxLine).length);
+			}, [maxLine]);
 			if (rows.length === 0) return null;
 			const hidden = rows.length - maxLines;
 			const capped = hidden > 0 && !expanded;
@@ -357,22 +389,43 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: DiffBlock_module_css_default.body,
+						style: gutterWidth > 0 ? { "--dsl-diff-gutter-width": `${gutterWidth}ch` } : void 0,
 						children: [
-							head.map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							head.map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: clsx(DiffBlock_module_css_default.line, ROW_CLASS[row.kind]),
-								children: row.text
+								children: [gutterWidth > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.gutter,
+									"aria-hidden": "true",
+									children: typeof row.line === "number" ? row.line : ""
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.content,
+									children: row.text
+								})]
 							}, index)),
-							hidden > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							hidden > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
 								type: "button",
 								className: DiffBlock_module_css_default.expand,
 								"aria-expanded": expanded,
 								"aria-label": expanded ? "收起差异" : `展开其余 ${hidden} 行差异`,
 								onClick: onToggle,
-								children: expanded ? "收起" : `… 其余 ${hidden} 行`
+								children: [gutterWidth > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.gutterSpacer,
+									"aria-hidden": "true"
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.expandText,
+									children: expanded ? "收起" : `… 其余 ${hidden} 行`
+								})]
 							}),
-							tail.map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							tail.map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 								className: clsx(DiffBlock_module_css_default.line, ROW_CLASS[row.kind]),
-								children: row.text
+								children: [gutterWidth > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.gutter,
+									"aria-hidden": "true",
+									children: typeof row.line === "number" ? row.line : ""
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DiffBlock_module_css_default.content,
+									children: row.text
+								})]
 							}, index))
 						]
 					}),
@@ -602,6 +655,62 @@ window.__ModuleLoader__.load({
 				removed
 			};
 		}
+		/**
+		* Reconstruct deliverables state from recorded matches when a history-pagination
+		* window cuts away the initial `turn/start` event.
+		*
+		* Why this exists: `history.page` caps a window at 50 messages
+		* (`DEFAULT_MAX_MESSAGES`), and `turn/start` is not a message, so a long single
+		* Turn loses its start when the page is cut mid-Turn. The assembler only runs
+		* `update` once a Context has a start, so `context.state` stays undefined and
+		* the pre-fix `buildLocationData` returned null — the produced-files row silently
+		* vanished on reload while a live session still showed it.
+		*
+		* ponytail: `history` starts empty here. A normal `start()` chains the previous
+		* Turn's map through `reader.previous('deliverables')` for the cumulative
+		* cross-Turn badge, but `buildLocationData` receives no reader, so when the cut
+		* lands mid-Turn the chip badge under-counts. Row visibility and this Turn's
+		* diffs are exact; thread the reader into `start()` if badge fidelity matters.
+		*/
+		function rebuildDeliverablesState(context) {
+			const calls = /* @__PURE__ */ new Map();
+			const produced = [];
+			const history = /* @__PURE__ */ new Map();
+			const turnHunks = /* @__PURE__ */ new Map();
+			let turn = Number.parseInt(context.id, 10);
+			if (!Number.isSafeInteger(turn)) turn = 0;
+			for (const match of context.matches) {
+				const event = match.event;
+				if (event.type === "tool/call") calls.set(String(event.data.callId), {
+					path: mutationPath(event.data.name, event.data.arguments),
+					hunks: mutationHunks(event.data.name, event.data.arguments)
+				});
+				else if (event.type === "tool/result" && isAppendSurfaceEvent(event) && "message" in event.data) {
+					if (event.data.message.content[0].isError === true) continue;
+					const callId = String(event.data.message.source.callId);
+					const call = calls.get(callId);
+					const path = call?.path;
+					if (path === void 0 || path === null) continue;
+					produced.push({
+						seq: event.seq,
+						path
+					});
+					const hunks = call?.hunks ?? [];
+					if (hunks.length > 0) {
+						history.set(path, [...history.get(path) ?? [], ...hunks]);
+						turnHunks.set(path, [...turnHunks.get(path) ?? [], ...hunks]);
+					}
+				}
+			}
+			if (produced.length === 0) return void 0;
+			return {
+				turn,
+				calls,
+				produced,
+				history,
+				turnHunks
+			};
+		}
 		/** Turn-local successful mutation accumulator; it publishes no view Node. */
 		const deliverablesDefinition = {
 			kind: "deliverables",
@@ -667,15 +776,20 @@ window.__ModuleLoader__.load({
 					turnHunks
 				};
 			},
-			buildLocationData: (context, scope) => scope !== "turn" || context.state === void 0 ? null : {
-				kind: "turn",
-				turn: context.state.turn,
-				key: "deliverables",
-				value: {
-					produced: context.state.produced,
-					history: context.state.history,
-					turnHunks: context.state.turnHunks
-				}
+			buildLocationData: (context, scope) => {
+				if (scope !== "turn") return null;
+				const state = context.state ?? rebuildDeliverablesState(context);
+				if (state === void 0) return null;
+				return {
+					kind: "turn",
+					turn: state.turn,
+					key: "deliverables",
+					value: {
+						produced: state.produced,
+						history: state.history,
+						turnHunks: state.turnHunks
+					}
+				};
 			}
 		};
 		/**
@@ -789,8 +903,32 @@ window.__ModuleLoader__.load({
 		* and its own collapse control; the primitive's path headers and footer stay
 		* off inside the panel.
 		*/
-		function ChangePanel({ match, openFile, t, close }) {
+		function ChangePanel({ match, openFile, sessionId, resolveFileLine, t, close }) {
 			const stats = diffStats(match.hunks);
+			const [startLines, setStartLines] = (0, react.useState)({});
+			(0, react.useEffect)(() => {
+				if (!resolveFileLine) return;
+				let cancelled = false;
+				match.hunks.forEach((hunk, index) => {
+					if (hunk.oldText === null) return;
+					const snippet = hunk.newText.trim().length > 0 ? hunk.newText : hunk.oldText;
+					if (!snippet) return;
+					resolveFileLine(sessionId, match.path, snippet).then((line) => {
+						if (!cancelled && typeof line === "number") setStartLines((prev) => ({
+							...prev,
+							[index]: line
+						}));
+					});
+				});
+				return () => {
+					cancelled = true;
+				};
+			}, [
+				sessionId,
+				resolveFileLine,
+				match.path,
+				match.hunks
+			]);
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: ProducedFiles_module_css_default.diff,
 				"data-produced-diff": true,
@@ -826,9 +964,10 @@ window.__ModuleLoader__.load({
 						})
 					]
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DiffBlock, {
-					diffs: match.hunks.map((hunk) => ({
+					diffs: match.hunks.map((hunk, index) => ({
 						path: match.path,
-						...hunk
+						...hunk,
+						startLine: startLines[index] ?? 1
 					})),
 					showPathHeaders: false,
 					showFooter: false,
@@ -841,7 +980,7 @@ window.__ModuleLoader__.load({
 		* @param props - selector-matched paths, the chat view's file opener, and the locale seat.
 		* @returns The produced-files row.
 		*/
-		function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, t }) {
+		function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t }) {
 			(0, react.useEffect)(() => {
 				ensureWorkspacePathOpen();
 			}, [ensureWorkspacePathOpen]);
@@ -920,6 +1059,8 @@ window.__ModuleLoader__.load({
 					expanded !== null && expanded.hunks.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ChangePanel, {
 						match: expanded,
 						openFile,
+						sessionId,
+						resolveFileLine,
 						t,
 						close: () => {
 							setExpandedPath(null);
@@ -1153,6 +1294,38 @@ window.__ModuleLoader__.load({
 		* Client plugin body: register the dictionaries and the turn-tail entry.
 		* @param ctx - client root context.
 		*/
+		async function resolveFileLine(workspaceFiles, sessionId, path, targetSnippet) {
+			if (!workspaceFiles || !targetSnippet || !sessionId || !path) return null;
+			try {
+				const res = await workspaceFiles.read(sessionId, path, {
+					offset: 1,
+					limit: 5e3
+				});
+				if (!res || !res.ok || !res.value?.text) return null;
+				const fileText = res.value.text.replace(/\r\n/g, "\n");
+				const normalizedSnippet = targetSnippet.replace(/\r\n/g, "\n").trim();
+				if (!normalizedSnippet) return null;
+				const exactIdx = fileText.indexOf(normalizedSnippet);
+				if (exactIdx !== -1) return fileText.slice(0, exactIdx).split("\n").length;
+				const snippetLines = normalizedSnippet.split("\n").map((l) => l.trim()).filter(Boolean);
+				if (snippetLines.length > 0) {
+					const firstLine = snippetLines[0];
+					const lines = fileText.split("\n");
+					for (let i = 0; i < lines.length; i++) if (lines[i].trim() === firstLine) {
+						if (snippetLines.length === 1) return i + 1;
+						let allMatch = true;
+						for (let j = 1; j < snippetLines.length && i + j < lines.length; j++) if (lines[i + j].trim() !== snippetLines[j]) {
+							allMatch = false;
+							break;
+						}
+						if (allMatch) return i + 1;
+					}
+				}
+			} catch {
+				return null;
+			}
+			return null;
+		}
 		function apply(ctx) {
 			const workspacePathOpen = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(void 0);
 			let requestedWorkspacePathOpen = false;
@@ -1191,7 +1364,11 @@ window.__ModuleLoader__.load({
 				inject: () => ({
 					isLoopback: ctx.remote.$host.isLoopback,
 					ensureWorkspacePathOpen,
-					hooks: { workspacePathOpen }
+					hooks: { workspacePathOpen },
+					resolveFileLine: (sessionId, path, snippet) => {
+						const sid = sessionId || ctx.sessions?.list?.getSnapshot()?.current || "";
+						return resolveFileLine(ctx.get("remote.workspaceFiles") ?? ctx.remote?.workspaceFiles, sid, path, snippet);
+					}
 				})
 			}, ProducedFiles));
 			ctx.slots.inject("tool.call.toolview", function* () {

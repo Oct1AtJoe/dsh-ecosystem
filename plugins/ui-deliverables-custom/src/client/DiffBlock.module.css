@@ -42,7 +42,28 @@
 
 /* No wrapping, no word-break: a diff is read by its indentation. */
 .line {
+  display: flex;
+  align-items: baseline;
   min-height: var(--dsl-diff-line-height);
+  line-height: var(--dsl-diff-line-height);
+  white-space: pre;
+}
+
+.gutter {
+  flex: none;
+  width: var(--dsl-diff-gutter-width, 3ch);
+  margin-right: 12px;
+  text-align: right;
+  color: var(--dsw-alias-label-tertiary) !important;
+  user-select: none;
+  -webkit-user-select: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+.content {
+  flex: 1 1 auto;
+  min-width: 0;
   white-space: pre;
 }
 
@@ -56,15 +77,19 @@
   padding-right: 56px;
 }
 
+.path .gutter {
+  display: none;
+}
+
 /* A same-file second hunk's separator (a scattered edit), in the dim tone. */
 .gap {
   color: var(--dsw-alias-label-tertiary);
 }
 
 /* The diff's own meaning-carrying colors: removed on the error token, added on
-   the success token. A `- `/`+ ` prefix is drawn here so a copied line and the
-   shown line agree, and so the sign reads without relying on color alone. */
-.del::before {
+   the success token. A `- `/`+ ` prefix is drawn on .content so the gutter
+   comes first, then the sign, then the text. */
+.del .content::before {
   content: '- ';
   color: var(--dsw-alias-state-error-primary);
 }
@@ -73,7 +98,7 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-.add::before {
+.add .content::before {
   content: '+ ';
   color: var(--dsw-alias-state-success-primary);
 }
@@ -83,7 +108,8 @@
 }
 
 .expand {
-  display: block;
+  display: flex;
+  align-items: baseline;
   width: 100%;
   padding: 0;
   border: none;
@@ -91,7 +117,18 @@
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
   font: inherit;
+  line-height: var(--dsl-diff-line-height);
   text-align: left;
+}
+
+.gutterSpacer {
+  flex: none;
+  width: var(--dsl-diff-gutter-width, 3ch);
+  margin-right: 12px;
+}
+
+.expandText {
+  flex: 1 1 auto;
 }
 
 .expand:hover {

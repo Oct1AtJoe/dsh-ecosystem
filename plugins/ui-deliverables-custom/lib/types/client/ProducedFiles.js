@@ -54,16 +54,41 @@ function Stats({ added, removed }) {
  * and its own collapse control; the primitive's path headers and footer stay
  * off inside the panel.
  */
-function ChangePanel({ match, openFile, t, close }) {
+function ChangePanel({ match, openFile, sessionId, resolveFileLine, t, close, }) {
     const stats = diffStats(match.hunks);
-    return (_jsxs("div", { className: css.diff, "data-produced-diff": true, children: [_jsxs("div", { className: css.diffHeader, children: [_jsxs("button", { type: "button", className: css.diffPath, title: match.path, "aria-label": t('produced.open', { name: match.path }), onClick: () => { openFile(match.path); }, children: [_jsx("span", { className: css.diffName, children: basename(match.path) }), dirname(match.path) !== '' && _jsx("span", { className: css.diffDir, children: dirname(match.path) })] }), _jsx(Stats, { added: stats.added, removed: stats.removed }), _jsx("button", { type: "button", className: css.diffCollapse, "aria-label": t('produced.collapsePanel'), onClick: close, children: _jsx(IconChevronUpOutline14, { size: 12 }) })] }), _jsx(DiffBlock, { diffs: match.hunks.map(hunk => ({ path: match.path, ...hunk })), showPathHeaders: false, showFooter: false, className: css.diffBody })] }));
+    const [startLines, setStartLines] = useState({});
+    useEffect(() => {
+        if (!resolveFileLine)
+            return;
+        let cancelled = false;
+        match.hunks.forEach((hunk, index) => {
+            if (hunk.oldText === null)
+                return;
+            const snippet = hunk.newText.trim().length > 0 ? hunk.newText : hunk.oldText;
+            if (!snippet)
+                return;
+            void resolveFileLine(sessionId, match.path, snippet).then((line) => {
+                if (!cancelled && typeof line === 'number') {
+                    setStartLines(prev => ({ ...prev, [index]: line }));
+                }
+            });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [sessionId, resolveFileLine, match.path, match.hunks]);
+    return (_jsxs("div", { className: css.diff, "data-produced-diff": true, children: [_jsxs("div", { className: css.diffHeader, children: [_jsxs("button", { type: "button", className: css.diffPath, title: match.path, "aria-label": t('produced.open', { name: match.path }), onClick: () => { openFile(match.path); }, children: [_jsx("span", { className: css.diffName, children: basename(match.path) }), dirname(match.path) !== '' && _jsx("span", { className: css.diffDir, children: dirname(match.path) })] }), _jsx(Stats, { added: stats.added, removed: stats.removed }), _jsx("button", { type: "button", className: css.diffCollapse, "aria-label": t('produced.collapsePanel'), onClick: close, children: _jsx(IconChevronUpOutline14, { size: 12 }) })] }), _jsx(DiffBlock, { diffs: match.hunks.map((hunk, index) => ({
+                    path: match.path,
+                    ...hunk,
+                    startLine: startLines[index] ?? 1,
+                })), showPathHeaders: false, showFooter: false, className: css.diffBody })] }));
 }
 /**
  * Render one turn's produced files as openable chips.
  * @param props - selector-matched paths, the chat view's file opener, and the locale seat.
  * @returns The produced-files row.
  */
-export function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, t, }) {
+export function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t, }) {
     useEffect(() => { ensureWorkspacePathOpen(); }, [ensureWorkspacePathOpen]);
     const hostCanOpenPath = useWorkspacePathOpen(available => available === true);
     const canOpenPath = isLoopback && hostCanOpenPath;
@@ -98,6 +123,6 @@ export function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWork
                     // that share a basename; the chip itself stays short.
                     title: path, "aria-label": t('produced.open', { name: path }), onClick: () => { openFile(path); }, children: basename(path) }), stats !== null && (_jsxs(_Fragment, { children: [_jsx(Stats, { added: stats.added, removed: stats.removed }), hunks.length > 0 && (_jsx("button", { type: "button", className: css.toggle, "aria-expanded": open, "aria-label": t(open ? 'produced.collapse' : 'produced.expand', { name: path }), onClick: () => { setExpandedPath(open ? null : path); }, children: open ? _jsx(IconChevronUpOutline14, { size: 12 }) : _jsx(IconChevronDownOutline14, { size: 12 }) }))] }))] }, path));
     };
-    return (_jsxs("div", { className: css.root, children: [_jsx("span", { className: css.label, children: t('produced.label') }), _jsxs("div", { className: css.row, "data-produced-files-row": true, children: [shown.map(chip), hasOverflow && (_jsx("button", { type: "button", className: css.moreChip, "aria-expanded": isExpandedAll, "aria-label": t(isExpandedAll ? 'produced.collapseFilesAria' : 'produced.expandFilesAria', { count: String(hiddenCount) }), onClick: handleToggleExpandAll, children: isExpandedAll ? (_jsxs(_Fragment, { children: [_jsx("span", { children: t('produced.collapseFiles') }), _jsx(IconChevronUpOutline14, { size: 12, className: css.moreIcon })] })) : (_jsxs(_Fragment, { children: [_jsx("span", { children: moreLabel(t, hiddenCount) }), _jsx(IconChevronDownOutline14, { size: 12, className: css.moreIcon })] })) }))] }), expanded !== null && expanded.hunks.length > 0 && (_jsx(ChangePanel, { match: expanded, openFile: openFile, t: t, close: () => { setExpandedPath(null); } })), paths.length > 0 && canOpenPath && (_jsx("button", { type: "button", className: css.showFolder, onClick: () => { openFile('.'); }, children: t('produced.showInFolder') }))] }));
+    return (_jsxs("div", { className: css.root, children: [_jsx("span", { className: css.label, children: t('produced.label') }), _jsxs("div", { className: css.row, "data-produced-files-row": true, children: [shown.map(chip), hasOverflow && (_jsx("button", { type: "button", className: css.moreChip, "aria-expanded": isExpandedAll, "aria-label": t(isExpandedAll ? 'produced.collapseFilesAria' : 'produced.expandFilesAria', { count: String(hiddenCount) }), onClick: handleToggleExpandAll, children: isExpandedAll ? (_jsxs(_Fragment, { children: [_jsx("span", { children: t('produced.collapseFiles') }), _jsx(IconChevronUpOutline14, { size: 12, className: css.moreIcon })] })) : (_jsxs(_Fragment, { children: [_jsx("span", { children: moreLabel(t, hiddenCount) }), _jsx(IconChevronDownOutline14, { size: 12, className: css.moreIcon })] })) }))] }), expanded !== null && expanded.hunks.length > 0 && (_jsx(ChangePanel, { match: expanded, openFile: openFile, sessionId: sessionId, resolveFileLine: resolveFileLine, t: t, close: () => { setExpandedPath(null); } })), paths.length > 0 && canOpenPath && (_jsx("button", { type: "button", className: css.showFolder, onClick: () => { openFile('.'); }, children: t('produced.showInFolder') }))] }));
 }
 //# sourceMappingURL=ProducedFiles.js.map

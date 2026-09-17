@@ -59,11 +59,14 @@ export interface ProducedFilesInjected {
     /** Current generation's Session workspace opener capability. */
     workspacePathOpen: HostObservable<boolean | undefined>
   }
+  /** Optional detector for line number in target file. */
+  resolveFileLine?: ((sessionId: string | undefined, path: string, snippet: string) => Promise<number | null>) | undefined
 }
 
 /** Matched paths plus the opener, locale, and injected Host capability. */
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: readonly ProducedFileMatch[]
+  sessionId?: string | undefined
 } & PropsLocale<typeof NS> & InjectFace<ProducedFilesInjected>
 
 function moreLabel(t: ProducedFilesProps['t'], count: number): string {
@@ -87,13 +90,37 @@ function Stats({ added, removed }: { added: number; removed: number }) {
  * and its own collapse control; the primitive's path headers and footer stay
  * off inside the panel.
  */
-function ChangePanel({ match, openFile, t, close }: {
+function ChangePanel({
+  match, openFile, sessionId, resolveFileLine, t, close,
+}: {
   match: ProducedFileMatch
   openFile: (path: string) => void
+  sessionId?: string | undefined
+  resolveFileLine?: ((sessionId: string | undefined, path: string, snippet: string) => Promise<number | null>) | undefined
   t: ProducedFilesProps['t']
   close: () => void
 }) {
   const stats = diffStats(match.hunks)
+  const [startLines, setStartLines] = useState<Record<number, number>>({})
+
+  useEffect(() => {
+    if (!resolveFileLine) return
+    let cancelled = false
+    match.hunks.forEach((hunk, index) => {
+      if (hunk.oldText === null) return
+      const snippet = hunk.newText.trim().length > 0 ? hunk.newText : hunk.oldText
+      if (!snippet) return
+      void resolveFileLine(sessionId, match.path, snippet).then((line) => {
+        if (!cancelled && typeof line === 'number') {
+          setStartLines(prev => ({ ...prev, [index]: line }))
+        }
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, resolveFileLine, match.path, match.hunks])
+
   return (
     <div className={css.diff} data-produced-diff>
       <div className={css.diffHeader}>
@@ -118,7 +145,11 @@ function ChangePanel({ match, openFile, t, close }: {
         </button>
       </div>
       <DiffBlock
-        diffs={match.hunks.map(hunk => ({ path: match.path, ...hunk }))}
+        diffs={match.hunks.map((hunk, index) => ({
+          path: match.path,
+          ...hunk,
+          startLine: startLines[index] ?? 1,
+        }))}
         showPathHeaders={false}
         showFooter={false}
         className={css.diffBody}
@@ -133,7 +164,7 @@ function ChangePanel({ match, openFile, t, close }: {
  * @returns The produced-files row.
  */
 export function ProducedFiles({
-  matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, t,
+  matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t,
 }: ProducedFilesProps) {
   useEffect(() => { ensureWorkspacePathOpen() }, [ensureWorkspacePathOpen])
   const hostCanOpenPath = useWorkspacePathOpen(available => available === true)
@@ -231,6 +262,8 @@ export function ProducedFiles({
         <ChangePanel
           match={expanded}
           openFile={openFile}
+          sessionId={sessionId}
+          resolveFileLine={resolveFileLine}
           t={t}
           close={() => { setExpandedPath(null) }}
         />

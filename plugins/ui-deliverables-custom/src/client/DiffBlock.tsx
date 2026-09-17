@@ -39,6 +39,8 @@ export interface DiffHunk {
   oldText: string | null
   /** Content after the change (the added side). */
   newText: string
+  /** Optional 1-based start line in the file (defaults to 1). */
+  startLine?: number | undefined
 }
 
 export interface DiffBlockProps {
@@ -65,6 +67,7 @@ type RowKind = 'path' | 'del' | 'add' | 'gap'
 export interface Row {
   kind: RowKind
   text: string
+  line?: number | undefined
 }
 
 /** The dim class per row kind (path/gap chrome vs the diff's own +/- colors). */
@@ -112,7 +115,8 @@ function buildRows(diffs: DiffHunk[], showPathHeaders: boolean): {
     }
     prevPath = diff.path
 
-    const change = diffLines(diff.oldText, diff.newText)
+    const startLine = diff.startLine ?? 1
+    const change = diffLines(diff.oldText, diff.newText, startLine)
     for (const row of change.rows) {
       if (row.kind === 'gap' && rows.length > 0 && rows[rows.length - 1]?.kind === 'gap') {
         continue
@@ -150,22 +154,24 @@ function matchWeight(a: string, b: string, allowNormalized: boolean): number {
 }
 
 type LcsOp =
-  | { type: 'del'; text: string }
-  | { type: 'add'; text: string }
+  | { type: 'del'; text: string; line: number }
+  | { type: 'add'; text: string; line: number }
   | { type: 'match'; oldText: string; newText: string }
 
 function computeLcsDiff(
   oldMid: readonly string[],
   newMid: readonly string[],
   allowNormalized: boolean,
+  oldStartLine: number,
+  newStartLine: number,
 ): { removed: string[]; added: string[]; rows: Row[] } {
   const m = oldMid.length
   const n = newMid.length
   // Defensive guard against pathological hunk sizes
   if (m * n > 250_000) {
     const rows: Row[] = [
-      ...oldMid.map(text => ({ kind: 'del' as const, text })),
-      ...newMid.map(text => ({ kind: 'add' as const, text })),
+      ...oldMid.map((text, idx) => ({ kind: 'del' as const, text, line: oldStartLine + idx })),
+      ...newMid.map((text, idx) => ({ kind: 'add' as const, text, line: newStartLine + idx })),
     ]
     return { removed: [...oldMid], added: [...newMid], rows }
   }
@@ -198,10 +204,10 @@ function computeLcsDiff(
       }
     }
     if (j > 0 && (i === 0 || dp[i]![j - 1]! >= dp[i - 1]![j]!)) {
-      ops.unshift({ type: 'add', text: newMid[j - 1]! })
+      ops.unshift({ type: 'add', text: newMid[j - 1]!, line: newStartLine + (j - 1) })
       j--
     } else if (i > 0) {
-      ops.unshift({ type: 'del', text: oldMid[i - 1]! })
+      ops.unshift({ type: 'del', text: oldMid[i - 1]!, line: oldStartLine + (i - 1) })
       i--
     }
   }
@@ -209,21 +215,21 @@ function computeLcsDiff(
   const rows: Row[] = []
   const removed: string[] = []
   const added: string[] = []
-  let currentBlockDel: string[] = []
-  let currentBlockAdd: string[] = []
+  let currentBlockDel: { text: string; line: number }[] = []
+  let currentBlockAdd: { text: string; line: number }[] = []
 
   const flushBlock = () => {
     if (currentBlockDel.length === 0 && currentBlockAdd.length === 0) return
     if (rows.length > 0 && rows[rows.length - 1]?.kind !== 'gap') {
       rows.push({ kind: 'gap', text: '⋯' })
     }
-    for (const text of currentBlockDel) {
-      rows.push({ kind: 'del', text })
-      removed.push(text)
+    for (const item of currentBlockDel) {
+      rows.push({ kind: 'del', text: item.text, line: item.line })
+      removed.push(item.text)
     }
-    for (const text of currentBlockAdd) {
-      rows.push({ kind: 'add', text })
-      added.push(text)
+    for (const item of currentBlockAdd) {
+      rows.push({ kind: 'add', text: item.text, line: item.line })
+      added.push(item.text)
     }
     currentBlockDel = []
     currentBlockAdd = []
@@ -233,9 +239,9 @@ function computeLcsDiff(
     if (op.type === 'match') {
       flushBlock()
     } else if (op.type === 'del') {
-      currentBlockDel.push(op.text)
+      currentBlockDel.push({ text: op.text, line: op.line })
     } else if (op.type === 'add') {
-      currentBlockAdd.push(op.text)
+      currentBlockAdd.push({ text: op.text, line: op.line })
     }
   }
   flushBlock()
@@ -259,15 +265,16 @@ export interface DiffLinesResult {
  * puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
+ * @param startLine - 1-based start line in the file (defaults to 1).
  * @returns the removed and added content lines along with the structured rows.
  */
-export function diffLines(oldText: string | null, newText: string): DiffLinesResult {
+export function diffLines(oldText: string | null, newText: string, startLine = 1): DiffLinesResult {
   if (oldText === null) {
     const added = contentLines(newText)
     return {
       removed: [],
       added,
-      rows: added.map(text => ({ kind: 'add', text })),
+      rows: added.map((text, idx) => ({ kind: 'add', text, line: startLine + idx })),
     }
   }
   const oldSide = contentLines(oldText)
@@ -285,13 +292,16 @@ export function diffLines(oldText: string | null, newText: string): DiffLinesRes
   const oldMid = oldSide.slice(start, endOld)
   const newMid = newSide.slice(start, endNew)
 
+  const oldStartLine = startLine + start
+  const newStartLine = startLine + start
+
   if (oldMid.length === 0 && newMid.length === 0) return { removed: [], added: [], rows: [] }
   if (oldMid.length === 0) {
     const added = newMid
     return {
       removed: [],
       added,
-      rows: added.map(text => ({ kind: 'add', text })),
+      rows: added.map((text, idx) => ({ kind: 'add', text, line: newStartLine + idx })),
     }
   }
   if (newMid.length === 0) {
@@ -299,15 +309,15 @@ export function diffLines(oldText: string | null, newText: string): DiffLinesRes
     return {
       removed,
       added: [],
-      rows: removed.map(text => ({ kind: 'del', text })),
+      rows: removed.map((text, idx) => ({ kind: 'del', text, line: oldStartLine + idx })),
     }
   }
 
   // 1. Try LCS with normalized punctuation matching (tolerates context comma additions/removals)
-  const result = computeLcsDiff(oldMid, newMid, true)
+  const result = computeLcsDiff(oldMid, newMid, true, oldStartLine, newStartLine)
   // 2. Fall back to strict exact matching if normalized matching swallowed the only change
   if (result.removed.length === 0 && result.added.length === 0 && (oldMid.length > 0 || newMid.length > 0)) {
-    return computeLcsDiff(oldMid, newMid, false)
+    return computeLcsDiff(oldMid, newMid, false, oldStartLine, newStartLine)
   }
   return result
 }
@@ -377,6 +387,21 @@ export function DiffBlock({
 
   const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
 
+  const maxLine = useMemo(() => {
+    let max = 0
+    for (const r of rows) {
+      if (typeof r.line === 'number' && r.line > max) {
+        max = r.line
+      }
+    }
+    return max
+  }, [rows])
+
+  const gutterWidth = useMemo(() => {
+    if (maxLine <= 0) return 0
+    return Math.max(2, String(maxLine).length)
+  }, [maxLine])
+
   if (rows.length === 0) return null
 
   const hidden = rows.length - maxLines
@@ -394,10 +419,18 @@ export function DiffBlock({
       <button type="button" className={css.copyButton} onClick={onCopy}>
         {copied ? '复制成功' : '复制'}
       </button>
-      <div className={css.body}>
+      <div
+        className={css.body}
+        style={gutterWidth > 0 ? ({ '--dsl-diff-gutter-width': `${gutterWidth}ch` } as React.CSSProperties) : undefined}
+      >
         {head.map((row, index) => (
           <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>
-            {row.text}
+            {gutterWidth > 0 && (
+              <span className={css.gutter} aria-hidden="true">
+                {typeof row.line === 'number' ? row.line : ''}
+              </span>
+            )}
+            <span className={css.content}>{row.text}</span>
           </div>
         ))}
         {hidden > 0 && (
@@ -408,12 +441,18 @@ export function DiffBlock({
             aria-label={expanded ? '收起差异' : `展开其余 ${hidden} 行差异`}
             onClick={onToggle}
           >
-            {expanded ? '收起' : `… 其余 ${hidden} 行`}
+            {gutterWidth > 0 && <span className={css.gutterSpacer} aria-hidden="true" />}
+            <span className={css.expandText}>{expanded ? '收起' : `… 其余 ${hidden} 行`}</span>
           </button>
         )}
         {tail.map((row, index) => (
           <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>
-            {row.text}
+            {gutterWidth > 0 && (
+              <span className={css.gutter} aria-hidden="true">
+                {typeof row.line === 'number' ? row.line : ''}
+              </span>
+            )}
+            <span className={css.content}>{row.text}</span>
           </div>
         ))}
       </div>

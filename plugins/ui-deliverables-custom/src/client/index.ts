@@ -39,6 +39,56 @@ export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.se
  * Client plugin body: register the dictionaries and the turn-tail entry.
  * @param ctx - client root context.
  */
+async function resolveFileLine(
+  workspaceFiles: any,
+  sessionId: string,
+  path: string,
+  targetSnippet: string,
+): Promise<number | null> {
+  if (!workspaceFiles || !targetSnippet || !sessionId || !path) return null
+  try {
+    const res = await workspaceFiles.read(sessionId, path, { offset: 1, limit: 5000 })
+    if (!res || !res.ok || !res.value?.text) return null
+    const fileText = res.value.text.replace(/\r\n/g, '\n')
+    const normalizedSnippet = targetSnippet.replace(/\r\n/g, '\n').trim()
+    if (!normalizedSnippet) return null
+
+    // 1. Exact match of the whole snippet
+    const exactIdx = fileText.indexOf(normalizedSnippet)
+    if (exactIdx !== -1) {
+      const leading = fileText.slice(0, exactIdx)
+      return leading.split('\n').length
+    }
+
+    // 2. Fallback: match by line sequence
+    const snippetLines = normalizedSnippet.split('\n').map((l: string) => l.trim()).filter(Boolean)
+    if (snippetLines.length > 0) {
+      const firstLine = snippetLines[0]!
+      const lines = fileText.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i]!.trim() === firstLine) {
+          if (snippetLines.length === 1) {
+            return i + 1
+          }
+          let allMatch = true
+          for (let j = 1; j < snippetLines.length && i + j < lines.length; j++) {
+            if (lines[i + j]!.trim() !== snippetLines[j]) {
+              allMatch = false
+              break
+            }
+          }
+          if (allMatch) {
+            return i + 1
+          }
+        }
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 export function apply(ctx: ClientContext): void {
   const workspacePathOpen = createSnapshotStore<boolean | undefined>(undefined)
   let requestedWorkspacePathOpen = false
@@ -83,6 +133,11 @@ export function apply(ctx: ClientContext): void {
         isLoopback: ctx.remote.$host.isLoopback,
         ensureWorkspacePathOpen,
         hooks: { workspacePathOpen },
+        resolveFileLine: (sessionId: string | undefined, path: string, snippet: string) => {
+          const sid = sessionId || (ctx as any).sessions?.list?.getSnapshot()?.current || ''
+          const workspaceFiles = ctx.get('remote.workspaceFiles') ?? (ctx.remote as any)?.workspaceFiles
+          return resolveFileLine(workspaceFiles, sid, path, snippet)
+        },
       }),
     }, ProducedFiles),
   )

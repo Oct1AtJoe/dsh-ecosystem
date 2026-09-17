@@ -19,7 +19,7 @@
  */
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNodeContext, ConversationNodeDefinition } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import { diffLines } from './DiffBlock.tsx'
 
@@ -308,6 +308,58 @@ export function diffStats(hunks: readonly ProducedHunk[]): { added: number; remo
   return { added, removed }
 }
 
+/**
+ * Reconstruct deliverables state from recorded matches when a history-pagination
+ * window cuts away the initial `turn/start` event.
+ *
+ * Why this exists: `history.page` caps a window at 50 messages
+ * (`DEFAULT_MAX_MESSAGES`), and `turn/start` is not a message, so a long single
+ * Turn loses its start when the page is cut mid-Turn. The assembler only runs
+ * `update` once a Context has a start, so `context.state` stays undefined and
+ * the pre-fix `buildLocationData` returned null — the produced-files row silently
+ * vanished on reload while a live session still showed it.
+ *
+ * ponytail: `history` starts empty here. A normal `start()` chains the previous
+ * Turn's map through `reader.previous('deliverables')` for the cumulative
+ * cross-Turn badge, but `buildLocationData` receives no reader, so when the cut
+ * lands mid-Turn the chip badge under-counts. Row visibility and this Turn's
+ * diffs are exact; thread the reader into `start()` if badge fidelity matters.
+ */
+function rebuildDeliverablesState(context: ConversationNodeContext<DeliverablesState>): DeliverablesState | undefined {
+  const calls = new Map<string, CallMutation>()
+  const produced: ProducedPath[] = []
+  const history = new Map<string, readonly ProducedHunk[]>()
+  const turnHunks = new Map<string, readonly ProducedHunk[]>()
+  let turn = Number.parseInt(context.id, 10)
+  if (!Number.isSafeInteger(turn)) turn = 0
+
+  for (const match of context.matches) {
+    const event = match.event
+    if (event.type === 'tool/call') {
+      calls.set(String(event.data.callId), {
+        path: mutationPath(event.data.name, event.data.arguments),
+        hunks: mutationHunks(event.data.name, event.data.arguments),
+      })
+    } else if (event.type === 'tool/result' && isAppendSurfaceEvent(event) && 'message' in event.data) {
+      const result = event.data.message.content[0]
+      if (result.isError === true) continue
+      const callId = String(event.data.message.source.callId)
+      const call = calls.get(callId)
+      const path = call?.path
+      if (path === undefined || path === null) continue
+      produced.push({ seq: event.seq, path })
+      const hunks = call?.hunks ?? []
+      if (hunks.length > 0) {
+        history.set(path, [...(history.get(path) ?? []), ...hunks])
+        turnHunks.set(path, [...(turnHunks.get(path) ?? []), ...hunks])
+      }
+    }
+  }
+
+  if (produced.length === 0) return undefined
+  return { turn, calls, produced, history, turnHunks }
+}
+
 /** Turn-local successful mutation accumulator; it publishes no view Node. */
 export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesState> = {
   kind: 'deliverables',
@@ -366,14 +418,17 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       turnHunks,
     }
   },
-  buildLocationData: (context, scope) => scope !== 'turn' || context.state === undefined
-    ? null
-    : {
+  buildLocationData: (context, scope) => {
+    if (scope !== 'turn') return null
+    const state = context.state ?? rebuildDeliverablesState(context)
+    if (state === undefined) return null
+    return {
       kind: 'turn',
-      turn: context.state.turn,
+      turn: state.turn,
       key: 'deliverables',
-      value: { produced: context.state.produced, history: context.state.history, turnHunks: context.state.turnHunks },
-    },
+      value: { produced: state.produced, history: state.history, turnHunks: state.turnHunks },
+    }
+  },
 }
 
 /**

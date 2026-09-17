@@ -21,15 +21,18 @@ export interface ProducedFilesInjected {
         /** Current generation's Session workspace opener capability. */
         workspacePathOpen: HostObservable<boolean | undefined>;
     };
+    /** Optional detector for line number in target file. */
+    resolveFileLine?: ((sessionId: string | undefined, path: string, snippet: string) => Promise<number | null>) | undefined;
 }
 /** Matched paths plus the opener, locale, and injected Host capability. */
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
     matched: readonly ProducedFileMatch[];
+    sessionId?: string | undefined;
 } & PropsLocale<typeof NS> & InjectFace<ProducedFilesInjected>;
 /**
  * Render one turn's produced files as openable chips.
  * @param props - selector-matched paths, the chat view's file opener, and the locale seat.
  * @returns The produced-files row.
  */
-export declare function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, t, }: ProducedFilesProps): import("react").JSX.Element;
+export declare function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t, }: ProducedFilesProps): import("react").JSX.Element;
 //# sourceMappingURL=ProducedFiles.d.ts.map

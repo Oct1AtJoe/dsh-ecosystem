@@ -8,17 +8,18 @@
 import { Context } from '@deepseek-ai/cordis'
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
 import {
-  ConversationEventRegistry, ConversationNodeAssembler, SlotRegistry,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ConversationEventRegistry, ConversationNodeAssembler,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  ConversationEventInput, ConversationLocationDataStore, ConversationMatch, ConversationNodeDefinition,
+  ConversationLocationDataStore, ConversationMatch, ConversationNodeDefinition,
   ConversationTimelineSnapshot, ConversationTurnDataMap, ConversationViewDefinition,
-  ConversationViewNode, ToolResultNode, TurnLocation,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ConversationViewNode, TurnLocation,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
-import type { ChatFileMentions, TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import type { ChatFileMentions, TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import {
   fitProducedFiles, ProducedFiles, type ProducedFilesProps,
 } from '../src/client/ProducedFiles.tsx'
@@ -31,6 +32,55 @@ import {
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyInvariant } from '../src/invariant.ts'
 import { en, zh } from '../src/client/locales.ts'
+
+/**
+ * Local test doubles for the two `dsh-client-test-runtime` helpers this suite
+ * needs. Inlined rather than imported: that package's published lib pulls the
+ * whole harness source graph in through bare `@deepseek-ai/<pkg>/src/…`
+ * specifiers, which do not resolve from this workspace. Both doubles mirror the
+ * originals (`translate.ts`, `settings-scope.ts`) exactly.
+ */
+function makeTranslate(
+  ...dicts: readonly Record<string, string>[]
+): (key: string, params?: Record<string, unknown>) => string {
+  return (key, params) => {
+    let template = key
+    for (const dict of dicts) {
+      const hit = dict[key]
+      if (hit !== undefined) { template = hit; break }
+    }
+    if (!params) return template
+    return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+      name in params ? String(params[name]) : match)
+  }
+}
+
+function stubSettingsScope<T>() {
+  let snapshot = {
+    status: 'loading', value: undefined, base: undefined, user: undefined,
+    revision: undefined, writable: false, mode: 'host',
+  } as { status: string; value: T | undefined; base: unknown; user: unknown; revision: unknown; writable: boolean; mode: string }
+  const listeners = new Set<() => void>()
+  const set = vi.fn(() => Promise.resolve())
+  const mutate = vi.fn(() => Promise.resolve())
+  const unset = vi.fn(() => Promise.resolve())
+  return {
+    scope: {
+      getSnapshot: () => snapshot,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener)
+        return () => { listeners.delete(listener) }
+      },
+      mutate, set, unset,
+    },
+    set, mutate, unset,
+    listenerCount: () => listeners.size,
+    publish: (next: Record<string, unknown>) => {
+      snapshot = { ...snapshot, ...next } as typeof snapshot
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
 
 const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
 
@@ -114,66 +164,76 @@ function at(
   seq: number,
   type: string,
   data: unknown,
-  view?: ConversationEventInput['view'],
-): ConversationEventInput {
+): SessionLiveEventEntry {
   return {
+    type: 'event',
     event: {
       seq, time: seq * 1_000, type, data,
       ...(type === 'tool/result' ? { surfaceOp: 'append' } : {}),
-    } as ConversationEventInput['event'],
-    view,
+    } as never,
   }
 }
 
-function matched(input: ConversationEventInput, role: ConversationMatch['role']): ConversationMatch {
-  return { ...input, role, location: { kind: 'unresolved' } }
+function matched(input: SessionLiveEventEntry, role: ConversationMatch['role']): ConversationMatch {
+  return { event: input.event, role, location: { kind: 'unresolved' } }
 }
 
+/**
+ * One `tool/call` in the fork's real vocabulary: the derivation reads the tool
+ * name plus its raw arguments, never the call view.
+ */
 function call(
   seq: number,
   callId: string,
-  view: ToolResultNode['callView'],
+  name: string,
+  args: Readonly<Record<string, unknown>>,
   turn = 1,
-): ConversationEventInput {
-  return at(
-    seq,
-    'tool/call',
-    { turn, step: 1, callId, name: 'fixture', arguments: '{}' },
-    { for: 'call', view: view ?? { card: 'generic', title: 'fixture' } },
-  )
+): SessionLiveEventEntry {
+  return at(seq, 'tool/call', {
+    turn, step: 1, callId, name, arguments: JSON.stringify(args),
+  })
 }
 
-function result(seq: number, callId: string, isError = false, turn = 1): ConversationEventInput {
+function result(seq: number, callId: string, isError = false, turn = 1): SessionLiveEventEntry {
   return at(seq, 'tool/result', {
     turn,
     step: 1,
     message: {
-      source: { type: 'tool-result', callId },
-      content: [{ type: 'tool-result', content: [], isError }],
+      source: { kind: 'tool', callId },
+      content: [{ type: 'tool-result', callId, content: [], isError }],
     },
   })
 }
 
-function resultView(seq: number, callId: string, view: ConversationEventInput['view'], turn = 1): ConversationEventInput {
-  const settled = result(seq, callId, false, turn)
-  return { ...settled, view }
+/** A `write` call whose whole content is the new file body. */
+function write(
+  seq: number,
+  callId: string,
+  path: string,
+  content = 'x',
+  turn = 1,
+): SessionLiveEventEntry {
+  return call(seq, callId, 'write', { file_path: path, content }, turn)
 }
 
-function diff(...paths: string[]): ToolResultNode['callView'] {
-  return {
-    card: 'diff', title: `Write ${paths[0] ?? ''}`,
-    diffs: paths.map(path => ({ path, oldText: null, newText: 'x' })),
-    locations: paths.map(path => ({ path })),
-  }
+/** An `edit` call replacing `old_string` with `new_string` in one file. */
+function edit(
+  seq: number,
+  callId: string,
+  path: string,
+  oldString = 'old',
+  newString = 'new',
+  turn = 1,
+): SessionLiveEventEntry {
+  return call(seq, callId, 'edit', {
+    file_path: path, old_string: oldString, new_string: newString,
+  }, turn)
 }
 
-function edit(path: string): ToolResultNode['callView'] {
-  return { card: 'generic', title: `insert ${path}`, kind: 'edit', locations: [{ path }] }
-}
-
-function assembler(entries: readonly ConversationEventInput[], hasMore = false): ConversationNodeAssembler {
+function assembler(entries: readonly SessionLiveEventEntry[], hasMore = false): ConversationNodeAssembler {
   const value = new ConversationNodeAssembler(new TestEventDefinitions(), new TestViewDefinitions())
   value.replaceWindow(entries, hasMore)
+  value.activateTarget('test')
   value.flush()
   return value
 }
@@ -202,42 +262,40 @@ describe('produced-file Turn data', () => {
     expect(selectProducedFiles(tailOwner(undefined, 9, () => {}, 2))).toBeNull()
   })
 
-  it('folds successful diff and generic-edit calls while ignoring reads, failures, and missing locations', () => {
+  it('folds successful write and edit calls while ignoring reads, failures, and non-mutations', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      call(2, 'write', diff('out/index.html', 'out/app.css')),
+      write(2, 'write', 'out/index.html'),
       result(3, 'write'),
-      call(4, 'edit', edit('notes.md')),
+      edit(4, 'edit', 'notes.md'),
       result(5, 'edit'),
-      call(6, 'read', { card: 'generic', title: 'Read', locations: [{ path: 'input.txt' }] }),
+      // A read is not a mutation, and a failed result contributes nothing.
+      call(6, 'read', 'read', { file_path: 'input.txt' }),
       result(7, 'read'),
-      call(8, 'failed', diff('broken.txt')),
+      write(8, 'failed', 'broken.txt'),
       result(9, 'failed', true),
-      call(10, 'locationless', { card: 'diff', title: 'Write', diffs: [] }),
-      result(11, 'locationless'),
+      // A supported name with arguments that name no usable content.
+      call(10, 'no-content', 'write', { file_path: 'empty.txt' }),
+      result(11, 'no-content'),
     ])
 
     expect(producedForClosing(deliverablesOf(value))).toEqual([
-      'out/index.html', 'out/app.css', 'notes.md',
+      'out/index.html', 'notes.md',
     ])
   })
 
-  it('ignores calls without mutation locations, orphan results, and replacement results', () => {
+  it('ignores orphan results and replacement results', () => {
     const replacement = result(8, 'replacement')
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      at(2, 'tool/call', { turn: 1, step: 1, callId: 'no-view', name: 'fixture', arguments: '{}' }),
-      result(3, 'no-view'),
-      call(4, 'locationless-edit', { card: 'generic', title: 'Edit', kind: 'edit' }),
-      result(5, 'locationless-edit'),
-      result(6, 'orphan'),
-      call(7, 'replacement', diff('replaced.txt')),
+      result(3, 'no-call'),
+      write(7, 'replacement', 'replaced.txt'),
       {
         ...replacement,
         event: {
           ...replacement.event,
           surfaceOp: { op: 'replace', start: 1, end: 1 },
-        } as ConversationEventInput['event'],
+        } as never,
       },
       at(9, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
     ])
@@ -266,13 +324,14 @@ describe('produced-file Turn data', () => {
     expect(deliverablesDefinition.update(context, unrelated)).toBe(state)
   })
 
-  it('replays a tail page once prepend supplies its missing Turn start', () => {
+  it('reconstructs deliverables state from recorded matches even when Turn start is cut away by pagination', () => {
     const value = assembler([
-      call(10, 'late', diff('history.txt')),
+      write(10, 'late', 'history.txt'),
       result(11, 'late'),
     ], true)
-    expect(deliverablesOf(value)).toBeUndefined()
+    expect(producedForClosing(deliverablesOf(value))).toEqual(['history.txt'])
 
+    // Scrolling back supplies the start Match; the row must survive the switch.
     value.prepend([at(1, 'turn/start', { turn: 1 })], false)
     value.flush()
     expect(producedForClosing(deliverablesOf(value))).toEqual(['history.txt'])
@@ -281,122 +340,69 @@ describe('produced-file Turn data', () => {
   it('extends the same Turn data incrementally on live append', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      call(2, 'first', diff('first.txt')),
+      write(2, 'first', 'first.txt'),
       result(3, 'first'),
     ])
     const first = deliverablesOf(value)
     expect(producedForClosing(first)).toEqual(['first.txt'])
 
-    value.append(call(4, 'second', diff('second.txt')))
+    value.append(write(4, 'second', 'second.txt'))
     value.append(result(5, 'second'))
     value.flush()
     expect(producedForClosing(deliverablesOf(value))).toEqual(['first.txt', 'second.txt'])
   })
 
-  it('captures applied hunks from the result view and falls back to the call view', () => {
+  it('derives applied hunks from the call arguments for write and edit', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      call(2, 'write', diff('out/a.txt')),
-      resultView(3, 'write', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'out/a.txt', oldText: 'old\n', newText: 'new\n' }] },
-      }),
-      call(4, 'edit', {
-        card: 'diff', title: 'Edit out/b.txt',
-        diffs: [{ path: 'out/b.txt', oldText: null, newText: 'hello\n' }],
-        locations: [{ path: 'out/b.txt' }],
-      }),
-      result(5, 'edit'),
+      write(2, 'a', 'out/a.txt', 'hello\n'),
+      result(3, 'a'),
+      edit(4, 'b', 'out/b.txt', 'old\n', 'new\n'),
+      result(5, 'b'),
     ])
     const data = deliverablesOf(value)
     expect(producedForClosing(data)).toEqual(['out/a.txt', 'out/b.txt'])
-    // The applied hunks ride the result view; without one, the call view's
-    // intended change is the fallback.
-    expect(data?.history.get('out/a.txt')).toEqual([{ oldText: 'old\n', newText: 'new\n' }])
-    expect(data?.history.get('out/b.txt')).toEqual([{ oldText: null, newText: 'hello\n' }])
+    // A whole-file write is one new-file hunk; an edit is old-to-new.
+    expect(data?.history.get('out/a.txt')).toEqual([{ oldText: null, newText: 'hello\n' }])
+    expect(data?.history.get('out/b.txt')).toEqual([{ oldText: 'old\n', newText: 'new\n' }])
     // turnHunks matches history in a single-turn scenario.
-    expect(data?.turnHunks.get('out/a.txt')).toEqual([{ oldText: 'old\n', newText: 'new\n' }])
-    expect(data?.turnHunks.get('out/b.txt')).toEqual([{ oldText: null, newText: 'hello\n' }])
+    expect(data?.turnHunks.get('out/a.txt')).toEqual([{ oldText: null, newText: 'hello\n' }])
+    expect(data?.turnHunks.get('out/b.txt')).toEqual([{ oldText: 'old\n', newText: 'new\n' }])
   })
 
-  it('ignores malformed or non-diff result views and generic-edit calls carry no hunks', () => {
+  it('lists a path with no hunks when the call carries no usable change', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      call(2, 'write', diff('out/a.txt')),
-      resultView(3, 'write', { for: 'result', view: { card: 'generic', title: 'Write' } }),
-      call(4, 'insert', edit('notes.md')),
-      resultView(5, 'insert', { for: 'result', view: { card: 'generic', title: 'Edit' } }),
-      call(6, 'bad', diff('broken.txt')),
-      resultView(7, 'bad', {
-        for: 'result',
-        view: { card: 'diff', diffs: 'nope' } as never,
-      }),
-      // Hostile hunk payloads at the wire boundary narrow to no hunks, like
-      // the diff-card model: a non-object entry, a null entry, a non-string
-      // path, a non-string newText, and a non-string oldText.
-      call(8, 'hunk-junk', diff('junk.txt')),
-      resultView(9, 'hunk-junk', {
-        for: 'result',
-        view: { card: 'diff', diffs: ['junk', null] } as never,
-      }),
-      call(10, 'bad-path', diff('bad-path.txt')),
-      resultView(11, 'bad-path', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 5, newText: 'x' }] } as never,
-      }),
-      call(12, 'bad-new', diff('bad-new.txt')),
-      resultView(13, 'bad-new', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'x', newText: 5 }] } as never,
-      }),
-      call(14, 'bad-old', diff('bad-old.txt')),
-      resultView(15, 'bad-old', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'x', newText: 'y', oldText: 5 }] } as never,
-      }),
+      // `write` with an empty body still names a path (the argument is a
+      // string), but yields no content hunk.
+      call(2, 'empty-body', 'write', { file_path: 'empty.txt', content: '' }),
+      result(3, 'empty-body'),
+      // An `edit` whose two sides are identical is not a mutation at all.
+      edit(4, 'same', 'same.txt', 'same', 'same'),
+      result(5, 'same'),
+      // A read is not a mutation.
+      call(6, 'read', 'read', { file_path: 'input.txt' }),
+      result(7, 'read'),
     ])
     const data = deliverablesOf(value)
-    expect(producedForClosing(data)).toEqual([
-      'out/a.txt', 'notes.md', 'broken.txt', 'junk.txt', 'bad-path.txt', 'bad-new.txt', 'bad-old.txt',
-    ])
-    // A non-diff result (the tool chose the generic card), a generic-edit
-    // card, and each malformed diff payload all contribute no hunks at all.
-    expect(data?.history.get('out/a.txt')).toBeUndefined()
-    expect(data?.history.get('notes.md')).toBeUndefined()
-    expect(data?.history.get('broken.txt')).toBeUndefined()
-    expect(data?.history.get('junk.txt')).toBeUndefined()
-    expect(data?.history.get('bad-path.txt')).toBeUndefined()
-    expect(data?.history.get('bad-new.txt')).toBeUndefined()
-    expect(data?.history.get('bad-old.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('out/a.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('notes.md')).toBeUndefined()
-    expect(data?.turnHunks.get('broken.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('junk.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('bad-path.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('bad-new.txt')).toBeUndefined()
-    expect(data?.turnHunks.get('bad-old.txt')).toBeUndefined()
+    // Only the empty write names a produced path; it carries no hunks.
+    expect(producedForClosing(data)).toEqual(['empty.txt'])
+    expect(data?.history.get('empty.txt')).toBeUndefined()
+    expect(data?.history.get('same.txt')).toBeUndefined()
+    expect(data?.history.get('input.txt')).toBeUndefined()
   })
 
   it('accumulates hunks for repeated edits of one path and chains history across turns', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
-      call(2, 'first', diff('out/a.txt')),
-      resultView(3, 'first', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'out/a.txt', oldText: null, newText: 'one\n' }] },
-      }),
+      write(2, 'first', 'out/a.txt', 'one\n'),
+      result(3, 'first'),
       at(4, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
       at(5, 'turn/start', { turn: 2 }),
-      call(6, 'second', diff('out/a.txt'), 2),
-      resultView(7, 'second', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'out/a.txt', oldText: 'one\n', newText: 'two\n' }] },
-      }, 2),
-      call(8, 'third', diff('out/a.txt'), 2),
-      resultView(9, 'third', {
-        for: 'result',
-        view: { card: 'diff', diffs: [{ path: 'out/a.txt', oldText: 'two\n', newText: 'three\nfour\n' }] },
-      }, 2),
+      edit(6, 'second', 'out/a.txt', 'one\n', 'two\n', 2),
+      result(7, 'second', false, 2),
+      edit(8, 'third', 'out/a.txt', 'two\n', 'three\nfour\n', 2),
+      result(9, 'third', false, 2),
       at(10, 'turn/end', { turn: 2, reason: { kind: 'completed' } }),
     ])
     const turn1 = deliverablesOf(value, 1)
@@ -408,7 +414,7 @@ describe('produced-file Turn data', () => {
       { oldText: 'one\n', newText: 'two\n' },
       { oldText: 'two\n', newText: 'three\nfour\n' },
     ])
-    // turnHunks is per-turn: turn 1 has its single edit, turn 2 has only
+    // turnHunks is per-turn: turn 1 has its single write, turn 2 has only
     // the two edits made in that turn (no chaining).
     expect(turn1?.turnHunks.get('out/a.txt')).toEqual([{ oldText: null, newText: 'one\n' }])
     expect(turn2?.turnHunks.get('out/a.txt')).toEqual([
@@ -464,37 +470,42 @@ describe('diffLines', () => {
     expect(result.removed).toEqual(['b', 'd'])
     expect(result.added).toEqual(['B', 'D'])
     expect(result.rows).toEqual([
-      { kind: 'del', text: 'b' },
-      { kind: 'add', text: 'B' },
+      { kind: 'del', text: 'b', line: 2 },
+      { kind: 'add', text: 'B', line: 2 },
       { kind: 'gap', text: '⋯' },
-      { kind: 'del', text: 'd' },
-      { kind: 'add', text: 'D' },
+      { kind: 'del', text: 'd', line: 4 },
+      { kind: 'add', text: 'D', line: 4 },
     ])
   })
 
   it('keeps single contiguous change without gap rows', () => {
     const result = diffLines('prefix\nold\nsuffix', 'prefix\nnew\nsuffix')
     expect(result.rows).toEqual([
-      { kind: 'del', text: 'old' },
-      { kind: 'add', text: 'new' },
+      { kind: 'del', text: 'old', line: 2 },
+      { kind: 'add', text: 'new', line: 2 },
+    ])
+  })
+
+  it('supports custom startLine for absolute line numbers', () => {
+    const result = diffLines('prefix\nold\nsuffix', 'prefix\nnew\nsuffix', 100)
+    expect(result.rows).toEqual([
+      { kind: 'del', text: 'old', line: 101 },
+      { kind: 'add', text: 'new', line: 101 },
     ])
   })
 })
 
 describe('ProducedFiles row', () => {
   const t = makeTranslate(zh)
+  /** Injected host-capability seats: the fork reads a boolean opener capability. */
   const capability = (
     canOpenPath: boolean | undefined,
     isLoopback = true,
-  ): Pick<ProducedFilesProps, 'isLoopback' | 'useHostDescription'> => {
-    const description = canOpenPath === undefined
-      ? undefined
-      : { version: 'test', cwd: '/workspace', home: '/home', attachedSessions: 1, canOpenPath }
-    return {
-      isLoopback,
-      useHostDescription: selector => selector(description),
-    }
-  }
+  ): Pick<ProducedFilesProps, 'isLoopback' | 'useWorkspacePathOpen' | 'ensureWorkspacePathOpen'> => ({
+    isLoopback,
+    ensureWorkspacePathOpen: () => {},
+    useWorkspacePathOpen: <T,>(selector: (value: boolean | undefined) => T): T => selector(canOpenPath),
+  })
 
   it('selects the largest prefix using the exact remainder width', () => {
     expect(fitProducedFiles(230, 8, [70, 60, 60], [55, 55, 55, 55])).toBe(2)
@@ -516,7 +527,7 @@ describe('ProducedFiles row', () => {
     const view = render(
       <ProducedFiles matched={paths} openFile={openFile} {...capability(true)} t={t} />,
     )
-    expect(view.getByText('产物')).toBeTruthy()
+    expect(view.getByText('本次产物')).toBeTruthy()
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
     // 3 chips fit below the COLLAPSED_LIMIT=4 threshold.
@@ -733,14 +744,18 @@ describe('plugin registration', () => {
         'tool.call.toolview': { kind: 'keyed', scope: 'session' },
       },
     } as never, () => null)
-    const hostDescription = { getSnapshot: () => undefined, subscribe: () => () => {} }
-    ctx.provide('connection', {
-      api: { settings: {} },
-      isLoopback: false,
-      hostDescription,
+    // The fork injects the boolean workspace-path opener capability, not the
+    // host-description object the official package uses. `remote.session` is a
+    // separate injected service name, so it must be provided on its own.
+    const remoteSession = { canOpenWorkspacePath: async () => ({ ok: true, value: true }) }
+    ctx.provide('remote', {
+      ['$host']: { isLoopback: false },
+      session: remoteSession,
     } as never)
+    ctx.provide('remote.session', remoteSession as never)
+    // The plugin's inject list also requires the conversation service face.
+    ctx.provide('uiConversation', { events: { register: () => () => {} } } as never)
     // ui-theme's Appearance row binds a durable scope through these two.
-    ctx.provide('remote', { $on: () => () => {} } as never)
     ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
 
@@ -748,7 +763,7 @@ describe('plugin registration', () => {
     await fiber.await()
     const [entry] = ctx.slots.entries('conversation.chat.turnTail')
     expect(entry).toBeDefined()
-    expect(entry?.inject?.()).toEqual({ isLoopback: false, hooks: { hostDescription } })
+    expect(entry?.inject?.()).toMatchObject({ isLoopback: false })
 
     const toolEntries = ctx.slots.entries('tool.call.toolview')
     expect(toolEntries.map(e => e.options.key)).toEqual(['edit', 'write'])
@@ -789,13 +804,16 @@ describe('ToolMutationRow', () => {
           kind: 'tool-result',
           isError: false,
           callId: 'test-call-1',
-          argsRaw: JSON.stringify({
-            file_path: 'src/config.json',
-            old_string: '  "test456"\n]',
-            new_string: '  "test456",\n  "test232"\n]',
-          }),
+          // A settled call carries its arguments under `block.call`.
+          call: {
+            argsRaw: JSON.stringify({
+              file_path: 'src/config.json',
+              old_string: '  "test456"\n]',
+              new_string: '  "test456",\n  "test232"\n]',
+            }),
+          },
           meta: {
-            // Simulated native meta.diffs with redundant context lines
+            // Simulated native meta.diffs with redundant context lines.
             diffs: [{
               path: 'src/config.json',
               oldText: '[\n  "test123",\n  "test456"\n]',
@@ -804,21 +822,22 @@ describe('ToolMutationRow', () => {
           },
         }}
         openFile={openFile}
-        t={(key: string) => key}
+        // The component renders `t('tool.title.edit')`; pass a dictionary that
+        // carries it so the title resolves to real copy rather than the key.
+        t={makeTranslate({ 'tool.title.edit': '编辑', 'tool.title.write': '写入', 'row.inspect': '查看' }) as never}
       />,
     )
 
-    // Instead of native DSH's duplicate "+5 -4", it calculates "+1 -0"
+    // Instead of native DSH's duplicate "+5 -4", it calculates "+1 -0".
     expect(view.getByText('+1 -0')).toBeTruthy()
 
-    // File link opens file
-    const link = view.getByRole('button', { name: 'src/config.json' })
+    // The file link opens the file via its title.
+    const link = view.getByTitle('src/config.json')
     fireEvent.click(link)
     expect(openFile).toHaveBeenCalledWith('src/config.json')
 
-    // Click row to expand
-    fireEvent.click(view.getByText('tool.title.edit'))
-    // Expanded diff only contains the new element
+    // Expanding reveals only the changed line, not the unchanged context.
+    fireEvent.click(view.getByText('编辑'))
     expect(view.getByText('"test232"')).toBeTruthy()
     expect(view.queryByText('"test123"')).toBeNull()
   })

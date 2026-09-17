@@ -16,6 +16,8 @@ export interface DiffHunk {
     oldText: string | null;
     /** Content after the change (the added side). */
     newText: string;
+    /** Optional 1-based start line in the file (defaults to 1). */
+    startLine?: number | undefined;
 }
 export interface DiffBlockProps {
     /** One entry per applied hunk, in file order; empty renders nothing. */
@@ -33,6 +35,7 @@ type RowKind = 'path' | 'del' | 'add' | 'gap';
 export interface Row {
     kind: RowKind;
     text: string;
+    line?: number | undefined;
 }
 export interface DiffLinesResult {
     removed: string[];
@@ -49,9 +52,10 @@ export interface DiffLinesResult {
  * puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
+ * @param startLine - 1-based start line in the file (defaults to 1).
  * @returns the removed and added content lines along with the structured rows.
  */
-export declare function diffLines(oldText: string | null, newText: string): DiffLinesResult;
+export declare function diffLines(oldText: string | null, newText: string, startLine?: number): DiffLinesResult;
 /**
  * Render a file mutation as an inline diff surface.
  * @param props - see {@link DiffBlockProps}.

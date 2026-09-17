@@ -70,7 +70,8 @@ function buildRows(diffs, showPathHeaders) {
             rows.push({ kind: 'gap', text: '⋯' });
         }
         prevPath = diff.path;
-        const change = diffLines(diff.oldText, diff.newText);
+        const startLine = diff.startLine ?? 1;
+        const change = diffLines(diff.oldText, diff.newText, startLine);
         for (const row of change.rows) {
             if (row.kind === 'gap' && rows.length > 0 && rows[rows.length - 1]?.kind === 'gap') {
                 continue;
@@ -104,14 +105,14 @@ function matchWeight(a, b, allowNormalized) {
     }
     return 0;
 }
-function computeLcsDiff(oldMid, newMid, allowNormalized) {
+function computeLcsDiff(oldMid, newMid, allowNormalized, oldStartLine, newStartLine) {
     const m = oldMid.length;
     const n = newMid.length;
     // Defensive guard against pathological hunk sizes
     if (m * n > 250_000) {
         const rows = [
-            ...oldMid.map(text => ({ kind: 'del', text })),
-            ...newMid.map(text => ({ kind: 'add', text })),
+            ...oldMid.map((text, idx) => ({ kind: 'del', text, line: oldStartLine + idx })),
+            ...newMid.map((text, idx) => ({ kind: 'add', text, line: newStartLine + idx })),
         ];
         return { removed: [...oldMid], added: [...newMid], rows };
     }
@@ -141,11 +142,11 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
             }
         }
         if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-            ops.unshift({ type: 'add', text: newMid[j - 1] });
+            ops.unshift({ type: 'add', text: newMid[j - 1], line: newStartLine + (j - 1) });
             j--;
         }
         else if (i > 0) {
-            ops.unshift({ type: 'del', text: oldMid[i - 1] });
+            ops.unshift({ type: 'del', text: oldMid[i - 1], line: oldStartLine + (i - 1) });
             i--;
         }
     }
@@ -160,13 +161,13 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
         if (rows.length > 0 && rows[rows.length - 1]?.kind !== 'gap') {
             rows.push({ kind: 'gap', text: '⋯' });
         }
-        for (const text of currentBlockDel) {
-            rows.push({ kind: 'del', text });
-            removed.push(text);
+        for (const item of currentBlockDel) {
+            rows.push({ kind: 'del', text: item.text, line: item.line });
+            removed.push(item.text);
         }
-        for (const text of currentBlockAdd) {
-            rows.push({ kind: 'add', text });
-            added.push(text);
+        for (const item of currentBlockAdd) {
+            rows.push({ kind: 'add', text: item.text, line: item.line });
+            added.push(item.text);
         }
         currentBlockDel = [];
         currentBlockAdd = [];
@@ -176,10 +177,10 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
             flushBlock();
         }
         else if (op.type === 'del') {
-            currentBlockDel.push(op.text);
+            currentBlockDel.push({ text: op.text, line: op.line });
         }
         else if (op.type === 'add') {
-            currentBlockAdd.push(op.text);
+            currentBlockAdd.push({ text: op.text, line: op.line });
         }
     }
     flushBlock();
@@ -195,15 +196,16 @@ function computeLcsDiff(oldMid, newMid, allowNormalized) {
  * puts every new line on the added side.
  * @param oldText - prior content, or `null` for a new file.
  * @param newText - content after the change.
+ * @param startLine - 1-based start line in the file (defaults to 1).
  * @returns the removed and added content lines along with the structured rows.
  */
-export function diffLines(oldText, newText) {
+export function diffLines(oldText, newText, startLine = 1) {
     if (oldText === null) {
         const added = contentLines(newText);
         return {
             removed: [],
             added,
-            rows: added.map(text => ({ kind: 'add', text })),
+            rows: added.map((text, idx) => ({ kind: 'add', text, line: startLine + idx })),
         };
     }
     const oldSide = contentLines(oldText);
@@ -220,6 +222,8 @@ export function diffLines(oldText, newText) {
     }
     const oldMid = oldSide.slice(start, endOld);
     const newMid = newSide.slice(start, endNew);
+    const oldStartLine = startLine + start;
+    const newStartLine = startLine + start;
     if (oldMid.length === 0 && newMid.length === 0)
         return { removed: [], added: [], rows: [] };
     if (oldMid.length === 0) {
@@ -227,7 +231,7 @@ export function diffLines(oldText, newText) {
         return {
             removed: [],
             added,
-            rows: added.map(text => ({ kind: 'add', text })),
+            rows: added.map((text, idx) => ({ kind: 'add', text, line: newStartLine + idx })),
         };
     }
     if (newMid.length === 0) {
@@ -235,14 +239,14 @@ export function diffLines(oldText, newText) {
         return {
             removed,
             added: [],
-            rows: removed.map(text => ({ kind: 'del', text })),
+            rows: removed.map((text, idx) => ({ kind: 'del', text, line: oldStartLine + idx })),
         };
     }
     // 1. Try LCS with normalized punctuation matching (tolerates context comma additions/removals)
-    const result = computeLcsDiff(oldMid, newMid, true);
+    const result = computeLcsDiff(oldMid, newMid, true, oldStartLine, newStartLine);
     // 2. Fall back to strict exact matching if normalized matching swallowed the only change
     if (result.removed.length === 0 && result.added.length === 0 && (oldMid.length > 0 || newMid.length > 0)) {
-        return computeLcsDiff(oldMid, newMid, false);
+        return computeLcsDiff(oldMid, newMid, false, oldStartLine, newStartLine);
     }
     return result;
 }
@@ -300,6 +304,20 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className,
         });
     }, [copied, rows]);
     const onToggle = useCallback(() => { setExpanded(value => !value); }, []);
+    const maxLine = useMemo(() => {
+        let max = 0;
+        for (const r of rows) {
+            if (typeof r.line === 'number' && r.line > max) {
+                max = r.line;
+            }
+        }
+        return max;
+    }, [rows]);
+    const gutterWidth = useMemo(() => {
+        if (maxLine <= 0)
+            return 0;
+        return Math.max(2, String(maxLine).length);
+    }, [maxLine]);
     if (rows.length === 0)
         return null;
     const hidden = rows.length - maxLines;
@@ -310,6 +328,6 @@ export function DiffBlock({ diffs, maxLines = DEFAULT_DIFF_MAX_LINES, className,
     const tailLines = maxLines - headLines;
     const head = capped ? rows.slice(0, headLines) : rows;
     const tail = capped ? rows.slice(rows.length - tailLines) : [];
-    return (_jsxs("div", { className: clsx(css.block, className), "data-diff": "", children: [_jsx("button", { type: "button", className: css.copyButton, onClick: onCopy, children: copied ? '复制成功' : '复制' }), _jsxs("div", { className: css.body, children: [head.map((row, index) => (_jsx("div", { className: clsx(css.line, ROW_CLASS[row.kind]), children: row.text }, index))), hidden > 0 && (_jsx("button", { type: "button", className: css.expand, "aria-expanded": expanded, "aria-label": expanded ? '收起差异' : `展开其余 ${hidden} 行差异`, onClick: onToggle, children: expanded ? '收起' : `… 其余 ${hidden} 行` })), tail.map((row, index) => (_jsx("div", { className: clsx(css.line, ROW_CLASS[row.kind]), children: row.text }, index)))] }), showFooter && (_jsxs("div", { className: css.footer, children: ["\u2514 +", added, " -", removed, " \u00B7 ", files, " file", files === 1 ? '' : 's'] }))] }));
+    return (_jsxs("div", { className: clsx(css.block, className), "data-diff": "", children: [_jsx("button", { type: "button", className: css.copyButton, onClick: onCopy, children: copied ? '复制成功' : '复制' }), _jsxs("div", { className: css.body, style: gutterWidth > 0 ? { '--dsl-diff-gutter-width': `${gutterWidth}ch` } : undefined, children: [head.map((row, index) => (_jsxs("div", { className: clsx(css.line, ROW_CLASS[row.kind]), children: [gutterWidth > 0 && (_jsx("span", { className: css.gutter, "aria-hidden": "true", children: typeof row.line === 'number' ? row.line : '' })), _jsx("span", { className: css.content, children: row.text })] }, index))), hidden > 0 && (_jsxs("button", { type: "button", className: css.expand, "aria-expanded": expanded, "aria-label": expanded ? '收起差异' : `展开其余 ${hidden} 行差异`, onClick: onToggle, children: [gutterWidth > 0 && _jsx("span", { className: css.gutterSpacer, "aria-hidden": "true" }), _jsx("span", { className: css.expandText, children: expanded ? '收起' : `… 其余 ${hidden} 行` })] })), tail.map((row, index) => (_jsxs("div", { className: clsx(css.line, ROW_CLASS[row.kind]), children: [gutterWidth > 0 && (_jsx("span", { className: css.gutter, "aria-hidden": "true", children: typeof row.line === 'number' ? row.line : '' })), _jsx("span", { className: css.content, children: row.text })] }, index)))] }), showFooter && (_jsxs("div", { className: css.footer, children: ["\u2514 +", added, " -", removed, " \u00B7 ", files, " file", files === 1 ? '' : 's'] }))] }));
 }
 //# sourceMappingURL=DiffBlock.js.map
