@@ -136,6 +136,7 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 | 冷启动标题栏先浅后深闪一下 | 引导页 `index.html` 无主题标记，`syncThemeFromDom` 把「无标记」当浅色上报 | 守卫：无 `data-ds-dark-theme` 且 `colorScheme` 非 `light` 时不上报；壳用 `localStorage` 记忆首帧主题 |
 | 窗口四角是直角，不够圆润 | 摘掉 `WS_CAPTION` 后系统按 popup 处理，Win11 的 DWM 圆角只默认给标准窗口 | `DWMWA_WINDOW_CORNER_PREFERENCE`(33) = `DWMWCP_ROUND`(2)，挂进 `apply_borderless_frame` 随守护循环纠偏 |
 | 想用 `SetWindowRgn` 裁更大圆角 | 区域裁剪是 1-bit 的，无抗锯齿；半径越大阶梯锯齿越明显 | 放弃。DWM 原生圆角（实测约 5.8px）自带平滑过渡，半径不可自定义是 Win11 平台限制 |
+| 顶栏与内容区之间多一条分隔线 | `#titlebar` 的 `border-bottom: 1px solid var(--line)` | 已移除该声明。壳顶栏与内容子 WebView 紧贴（内容从 y=36 起），内容区自身不画线，删掉顶栏这条即无缝 |
 
 ### 12.1 窗口圆角（DWM 原生，约 5.8px）
 
@@ -154,6 +155,14 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 - **DPI**：属性值按逻辑像素解释，实际渲染尺寸随 DPI 缩放。实测环境 DPI 96 / 缩放 1.0，得 5.8 物理像素。
 - **最大化**：DWM 自动给最大化窗口直角，无需特殊处理，也不会漏出桌面。
 - **阴影**：DWM 对无 caption 窗口只给约 8px 硬边灰带（非柔和投影）；macOS 那种大半径柔和阴影在 Windows 上需自绘 layered window，未实施。
+
+### 12.2 顶栏与内容区必须无缝
+
+壳顶栏 36px（`TITLEBAR_HEIGHT`），内容子 WebView 从 `y=36` 物理像素起（`layout_webviews`），两者紧贴无间隙。
+
+- **`#titlebar` 不得有 `border-bottom`**：曾经那条 1px 分隔线会让顶栏与对话区之间出现一根明显的线。实测像素剖面确认该线只来自壳顶栏（y=35 一行偏暗，y=36 起为纯底色），内容区自身不画线，故删除即可无缝。
+- `--line` 变量与 `titlebar.line` 协议字段**保留**：插件侧 `TITLEBAR_PRESETS` 仍在下发，未来若要恢复分隔线不必改协议。
+- 删除时同步去掉 `transition` 里的 `border-color`，避免留下无效过渡。
 
 ## 13. 主要代码位置（lib.rs）
 

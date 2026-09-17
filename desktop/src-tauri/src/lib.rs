@@ -2648,6 +2648,9 @@ fn show_main(app: &AppHandle) {
             let _ = win.set_always_on_top(false);
             let _ = win.set_focus();
         }
+        if let Some(pet) = handle.get_webview_window("pet") {
+            let _ = pet.set_always_on_top(true);
+        }
     });
 }
 

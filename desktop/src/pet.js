@@ -18,16 +18,11 @@ let frameDir = 1;
 let lastFrameAt = 0;
 let currentConfig = { enabled: true, size: 200, character: 'kanye', opacity: 1 };
 let dragging = false;
-let clickStart = null;           // { x, y } 点击起始位置，与 dragState 区分点击 vs 拖拽
-
-// ---- Drag handler (manual set_position, no Windows Snap) ----
-// 不用 Tauri start_dragging（触 Windows Aero Snap），改用 pointer events +
-// set_position 手动移窗。程序化 SetWindowPos 不触发 Snap。
-// 权限: core:window:allow-set-position / allow-outer-position
-let winX = 0, winY = 0;         // 当前窗口位置（逻辑像素，本地追踪）
-let dragState = null;            // { offsetX, offsetY } 拖拽中鼠标相对窗口偏移
+let dragStart = null;            // { screenX, screenY, clientX, clientY, pointerId }
+let isDragging = false;          // 越过 6px 阈值后才判定为拖拽
 let dragRafId = null;            // requestAnimationFrame id（节流 set_position）
 let pendingPos = null;           // { x, y } 等待 flush 的位置
+let clickReactionTimer = null;   // 点击反馈动画定时器
 
 // ---- 气泡通知 ----
 let lastNotifTag = null
@@ -35,19 +30,6 @@ let bubbleEl = null
 let bubbleTimer = null
 let currentNotif = null
 
-// 启动时同步窗口位置（窗口状态插件可能已恢复上次位置）
-async function queryPosition() {
-  const invoke = window.__TAURI_INTERNALS__?.invoke;
-  if (typeof invoke !== 'function') return;
-  try {
-    const pos = await invoke('plugin:window|outer_position');
-    const p = pos?.value ?? pos ?? {};
-    winX = Number(p.x) ?? 0;
-    winY = Number(p.y) ?? 0;
-  } catch (e) {
-    console.warn('[pet] query outer_position failed:', e);
-  }
-}
 
 // RAF 节流：只发最后一帧位置，避免 IPC 风暴
 function scheduleSetPosition(x, y) {
@@ -71,55 +53,90 @@ function handlePointerDown(e) {
   e.preventDefault();
   // 首次用户手势：解锁 AudioContext（自动播放策略下 suspended 的 ctx 不出声），只做一次
   if (!audioPrimed) { audioPrimed = true; primeAudio(); }
-  clickStart = { x: e.screenX, y: e.screenY };
-  // 记录鼠标相对窗口偏移（screenX/Y 逻辑像素）
-  dragState = {
-    offsetX: e.screenX - winX,
-    offsetY: e.screenY - winY,
+  dragStart = {
+    screenX: e.screenX,
+    screenY: e.screenY,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    pointerId: e.pointerId,
   };
-  dragging = true;
-  pet.style.cursor = 'grabbing';
-  pet.setPointerCapture(e.pointerId);
+  isDragging = false;
+  dragging = false;
 }
 
 function handlePointerMove(e) {
-  if (!dragState) return;
-  // 移动超过 6px → 判定为拖拽，不再是点击
-  if (clickStart && Math.hypot(e.screenX - clickStart.x, e.screenY - clickStart.y) > 6) {
-    clickStart = null;
+  if (!dragStart) return;
+  // 仅在位移超过 6px 阈值后才判定为拖拽并开始移窗，避免纯点击时微动导致窗口飞出屏幕
+  if (!isDragging) {
+    if (Math.hypot(e.screenX - dragStart.screenX, e.screenY - dragStart.screenY) <= 6) {
+      return;
+    }
+    isDragging = true;
+    dragging = true;
+    pet.style.cursor = 'grabbing';
+    try { pet.setPointerCapture(dragStart.pointerId); } catch {}
   }
-  const newX = e.screenX - dragState.offsetX;
-  const newY = e.screenY - dragState.offsetY;
-  winX = newX;
-  winY = newY;
+  // 用 clientX/Y 直接作为抓取锚点偏移，数学上天然自洽，杜绝多屏/DPI/初始化时序错位
+  const newX = e.screenX - dragStart.clientX;
+  const newY = e.screenY - dragStart.clientY;
   scheduleSetPosition(newX, newY);
 }
 
 function handlePointerUp(e) {
-  if (!dragState) return;
-  // 判定为点击（无显著移动）→ 弹出 DSH 主窗口
-  if (clickStart) {
-    const invoke = window.__TAURI_INTERNALS__?.invoke;
-    if (typeof invoke === 'function') {
-      invoke('pet_show_main').catch(() => {});
-    }
+  if (!dragStart) return;
+  const wasDragging = isDragging;
+  if (pet.hasPointerCapture(e.pointerId)) {
+    try { pet.releasePointerCapture(e.pointerId); } catch {}
   }
-  // 刷掉最后挂起的位置
   if (dragRafId) {
     cancelAnimationFrame(dragRafId);
     dragRafId = null;
   }
-  const invoke = window.__TAURI_INTERNALS__?.invoke;
-  if (typeof invoke === 'function' && pendingPos) {
-    invoke('plugin:window|set_position', {
-      value: { Logical: { x: pendingPos.x, y: pendingPos.y } },
-    }).catch(() => {});
+  if (wasDragging) {
+    // 拖拽完成：若有挂起位置则 flush
+    const invoke = window.__TAURI_INTERNALS__?.invoke;
+    if (typeof invoke === 'function' && pendingPos) {
+      invoke('plugin:window|set_position', {
+        value: { Logical: { x: pendingPos.x, y: pendingPos.y } },
+      }).catch(() => {});
+      pendingPos = null;
+    }
+  } else {
+    // 纯点击：丢弃未拖拽的挂起位置，触发点击动画反馈与主窗口唤起
     pendingPos = null;
+    handleClick();
   }
-  dragState = null;
+  dragStart = null;
+  isDragging = false;
   dragging = false;
-  clickStart = null;
   pet.style.cursor = 'grab';
+}
+
+function handleClick() {
+  playClickReaction();
+  const invoke = window.__TAURI_INTERNALS__?.invoke;
+  if (typeof invoke === 'function') {
+    invoke('pet_show_main').catch(() => {});
+  }
+}
+
+function playClickReaction() {
+  const character = manifest?.characters?.[characterId];
+  const reactState = character?.states?.['joy'] ? 'joy' : (character?.states?.['celebrate'] ? 'celebrate' : null);
+  if (!reactState) return;
+  clearTimeout(clickReactionTimer);
+  animState = reactState;
+  frame = 0;
+  frameDir = 1;
+  lastFrameAt = 0;
+  showState(reactState);
+  clickReactionTimer = setTimeout(() => {
+    animState = 'idle';
+    frame = 0;
+    frameDir = 1;
+    lastFrameAt = 0;
+    showState('idle');
+  }, 1200);
 }
 
 function setupDrag() {
@@ -482,7 +499,6 @@ async function pollState() {
 
 // ---- Init ----
 setupDrag();
-void queryPosition();
 void loadManifest();
 void pollConfig();
 void pollState();
