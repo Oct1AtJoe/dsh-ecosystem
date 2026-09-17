@@ -530,7 +530,7 @@ describe('ProducedFiles row', () => {
     expect(view.getByText('本次产物')).toBeTruthy()
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
-    // 3 chips fit below the COLLAPSED_LIMIT=4 threshold.
+    // 3 chips sit exactly at the COLLAPSED_LIMIT=3 threshold, so no fold chip.
     expect(within(row).getAllByRole('button')).toHaveLength(3)
     expect(within(row).queryByText('+')).toBeNull()
     const chip = view.getByRole('button', { name: '打开 deep/a.html' })
@@ -546,7 +546,7 @@ describe('ProducedFiles row', () => {
     expect(openFile).toHaveBeenLastCalledWith('.')
   })
 
-  it('folds chips beyond 4 files, expands on click, and collapses on toggle', () => {
+  it('folds chips beyond 3 files, expands on click, and collapses on toggle', () => {
     const paths = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts']
       .map(path => ({ path, hunks: [], totalHunks: [] }))
     const view = render(
@@ -554,10 +554,10 @@ describe('ProducedFiles row', () => {
     )
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
-    // Shows first 4 chips + 1 moreChip button = 5 buttons
-    expect(within(row).getAllByRole('button')).toHaveLength(5)
-    const expandBtn = within(row).getByRole('button', { name: '展开其余 3 个文件' })
-    expect(expandBtn.textContent).toBe('+ 3 个文件')
+    // Shows first 3 chips + 1 moreChip button = 4 buttons
+    expect(within(row).getAllByRole('button')).toHaveLength(4)
+    const expandBtn = within(row).getByRole('button', { name: '展开其余 4 个文件' })
+    expect(expandBtn.textContent).toBe('+ 4 个文件')
     expect(expandBtn.getAttribute('aria-expanded')).toBe('false')
 
     // Click to expand all
@@ -569,8 +569,8 @@ describe('ProducedFiles row', () => {
 
     // Click to collapse back
     fireEvent.click(collapseBtn)
-    expect(within(row).getAllByRole('button')).toHaveLength(5)
-    expect(within(row).getByText('+ 3 个文件')).toBeTruthy()
+    expect(within(row).getAllByRole('button')).toHaveLength(4)
+    expect(within(row).getByText('+ 4 个文件')).toBeTruthy()
   })
 
   it('shows the conversation +/- totals next to the name and expands the change below the row', () => {
@@ -668,8 +668,8 @@ describe('ProducedFiles row', () => {
   })
 
   it('uses singular English copy when exactly one file is hidden beyond the cap', () => {
-    // 5 files: 4 shown, 1 hidden beyond COLLAPSED_LIMIT (4)
-    const fileCount = 5
+    // 4 files: 3 shown, 1 hidden beyond COLLAPSED_LIMIT (3)
+    const fileCount = 4
     const view = render(
       <ProducedFiles
         matched={Array.from({ length: fileCount }, (_, i) => ({

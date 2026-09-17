@@ -101,5 +101,11 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
   2. 点击后展开平铺所有文件，按钮切换为 `收起`；
   3. 再次点击可折叠回前 4 个，且若折叠时用户正打开位于第 4 个之后的 Diff 面板，自动联动收起该面板，交互平滑闭环。
 
+### 10. 2026-09-17 折叠阈值 4 → 3
+
+- **变更**：`COLLAPSED_LIMIT` 由 `4` 改为 `3`，默认最多展示前 3 个文件 Chip，其余折叠。
+- **影响面**：仅 `src/client/ProducedFiles.tsx` 一处常量（`hasOverflow` / `shown` / `hiddenCount` / 第 4 个之后自动收起 Diff 面板的逻辑全部由它派生），已同步 `tests/produced-files.client.spec.tsx` 中依赖该阈值的 3 条用例。
+- 上文 §9 记录的是当时 `= 4` 的历史决策，保留不改。
+
 
 

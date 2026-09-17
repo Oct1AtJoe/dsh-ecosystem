@@ -15,8 +15,8 @@ import { basename, diffStats, dirname, type ProducedFileMatch } from './turn-del
 import type { NS } from './locales.ts'
 import css from './ProducedFiles.module.css'
 
-/** Fold threshold: up to 4 chips are shown by default; more are folded behind a toggle chip. */
-const COLLAPSED_LIMIT = 4
+/** Fold threshold: up to 3 chips are shown by default; more are folded behind a toggle chip. */
+const COLLAPSED_LIMIT = 3
 
 /**
  * Select the largest prefix whose measured chips and exact remainder fit.

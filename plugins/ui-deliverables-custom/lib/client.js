@@ -878,8 +878,8 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region src/client/ProducedFiles.tsx
-		/** Fold threshold: up to 4 chips are shown by default; more are folded behind a toggle chip. */
-		const COLLAPSED_LIMIT = 4;
+		/** Fold threshold: up to 3 chips are shown by default; more are folded behind a toggle chip. */
+		const COLLAPSED_LIMIT = 3;
 		function moreLabel(t, count) {
 			return count === 1 ? t("produced.moreOne") : t("produced.more", { count: String(count) });
 		}
