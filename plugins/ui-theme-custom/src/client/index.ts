@@ -409,6 +409,20 @@ body:not([data-ds-dark-theme]) [role="dialog"]{
     0 12px 32px rgba(15, 23, 42, 0.08),
     0 24px 64px rgba(15, 23, 42, 0.05) !important;
 }
+
+/* Oriental Calligraphic & Inkstone accents:
+   1. Blockquote: brush-stroke vermilion/ink left spine
+   2. Horizontal rule: dry-brush ink wash taper */
+body:not([data-ds-dark-theme]) blockquote {
+  border-left: 3px solid var(--dsw-alias-brand-primary, #9c301c) !important;
+  background: var(--dsw-alias-markdown-citation, rgba(34, 28, 24, 0.04)) !important;
+  border-radius: 0 6px 6px 0 !important;
+}
+body:not([data-ds-dark-theme]) hr {
+  border: none !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent 0%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 25%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 75%, transparent 100%) !important;
+}
 `
 
 /** localStorage key for the user's custom theme preference. */
@@ -498,6 +512,7 @@ interface TitlebarConfig {
   muted?: string
   hover?: string
   active?: string
+  fontFamily?: string
 }
 
 const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
@@ -530,12 +545,12 @@ const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
   },
   parchment: {
     bg: 'rgb(230, 224, 212)',
-    accent: 'rgb(150, 56, 30)',
-    line: 'rgba(38, 32, 28, 0.09)',
-    text: 'rgb(38, 32, 28)',
-    muted: 'rgb(110, 98, 88)',
-    hover: 'rgba(38, 32, 28, 0.06)',
-    active: 'rgba(150, 56, 30, 0.12)',
+    accent: 'rgb(156, 48, 28)',
+    line: 'rgba(38, 32, 28, 0.08)',
+    text: 'rgb(34, 28, 24)',
+    muted: 'rgb(120, 106, 96)',
+    hover: 'rgba(156, 48, 28, 0.08)',
+    active: 'rgba(156, 48, 28, 0.15)',
   },
   jade: {
     bg: 'rgb(226, 228, 233)',
@@ -598,6 +613,20 @@ function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'
     document.body.setAttribute('data-ds-dark-theme', '')
   } else {
     document.body.removeAttribute('data-ds-dark-theme')
+  }
+  // 清理不再属于新主题的遗留内联 token（如已移除的字体变量）
+  const nextKeys = new Set(Object.keys(tokens))
+  for (const name of APPLIED_TOKEN_NAMES) {
+    if (!nextKeys.has(name)) {
+      document.documentElement.style.removeProperty(name)
+      document.body.style.removeProperty(name)
+      APPLIED_TOKEN_NAMES.delete(name)
+    }
+  }
+  // 显式防御：若未定义自定义字体，彻底抹除内联残留，回退系统默认
+  if (!tokens['--dsw-font-family']) {
+    document.documentElement.style.removeProperty('--dsw-font-family')
+    document.body.style.removeProperty('--dsw-font-family')
   }
   for (const [key, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(key, value)
