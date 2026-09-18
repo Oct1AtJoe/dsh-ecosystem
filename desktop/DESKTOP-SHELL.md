@@ -55,6 +55,7 @@
 - `strip_caption_hwnd` / `hide_dwm_border`（DWMWA_BORDER_COLOR=0xFFFFFFFE）/ `force_borderless_window`：保证无边框。
 - `start_borderless_guard`：150ms 巡检，防 tao 任何 `apply_diff` 写回 `WS_CAPTION`。
 - `do_toggle_maximize`：最大化/还原切换，还原时回读到历史几何（修 Windows 无边框还原只缩几个像素的缺陷）。
+- `monitor_info_for_window`：**唯一**的显示器解析入口，供 `WM_NCCALCSIZE` / `WM_GETMINMAXINFO` 钳制使用。以 `GetWindowPlacement().rcNormalPosition` 为锚点，绝不用窗口当前矩形（最小化时那是哨兵值 `(-32000,-32000)`）。
 
 ## 6. 边缘拖拽缩放（border_resizing 模块）
 
@@ -137,6 +138,8 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 | 窗口四角是直角，不够圆润 | 摘掉 `WS_CAPTION` 后系统按 popup 处理，Win11 的 DWM 圆角只默认给标准窗口 | `DWMWA_WINDOW_CORNER_PREFERENCE`(33) = `DWMWCP_ROUND`(2)，挂进 `apply_borderless_frame` 随守护循环纠偏 |
 | 想用 `SetWindowRgn` 裁更大圆角 | 区域裁剪是 1-bit 的，无抗锯齿；半径越大阶梯锯齿越明显 | 放弃。DWM 原生圆角（实测约 5.8px）自带平滑过渡，半径不可自定义是 Win11 平台限制 |
 | 顶栏与内容区之间多一条分隔线 | `#titlebar` 的 `border-bottom: 1px solid var(--line)` | 已移除该声明。壳顶栏与内容子 WebView 紧贴（内容从 y=36 起），内容区自身不画线，删掉顶栏这条即无缝 |
+| 最小化后再最大化，页面全黑须按 F5 | 最小化时窗口矩形是哨兵值 `(-32000,-32000) 160x28`。`WM_NCCALCSIZE` 以当前矩形解析显示器，哨兵坐标下 `MONITOR_DEFAULTTONEAREST` 退化到主屏，客户区被算成主屏 `rcWork` 尺寸（实测 2560×1392，而窗口在副屏只有 1920×1032）；`layout_webviews` 读该 client rect 把内容 WebView 摆到主屏坐标 `(0,36)`，整块移出窗口可视区 | 显示器解析改用 `monitor_info_for_window()`（`GetWindowPlacement().rcNormalPosition` + `MonitorFromRect`，含哨兵兜底）；`layout_webviews` 最小化时跳过、`inner_size` < 200 视为瞬态跳过；`capture_window_geometry` 最小化/哨兵几何时不落盘 |
+| 重启后窗口跑到屏幕外 | 最小化瞬间 `capture_window_geometry` 把哨兵几何 `(-32000,-32000) 160x28` 写进 `window-geometry.json` | 同上：最小化与哨兵几何一律跳过持久化。已污染的记录需手动删除该文件 |
 
 ### 12.1 窗口圆角（DWM 原生，约 5.8px）
 
@@ -167,9 +170,11 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 ## 13. 主要代码位置（lib.rs）
 
 - 窗口创建/子 WebView 挂载：`run()` 的 setup 段。
-- 无边框子类化：`window_subclass_proc`（约 L1364）。
-- 边缘缩放：`border_resizing`（约 L1510）。
-- 布局：`layout_webviews`（约 L1864）。
+- 显示器解析（最大化钳制用）：`monitor_info_for_window`（约 L1376）。
+- 无边框子类化：`window_subclass_proc`（约 L1428）。
+- 边缘缩放：`border_resizing`（约 L1561）。
+- 布局：`layout_webviews`（约 L1954）。
+- 几何持久化：`capture_window_geometry`（约 L1295）。
 - 菜单：`popup_shell_menu` / `build_tray` / `on_menu_event`。
 - 重启：`restart_app` / `restart_backend`。
 - 通知桥：`start_notify_server` / `bridge_init_script`。

@@ -1303,9 +1303,21 @@ fn capture_window_geometry(window: &tauri::Window) {
         }
         return;
     }
+    // 最小化时窗口矩形是哨兵值 (-32000,-32000) 160x28，写进几何文件会在下次
+    // 启动时把窗口恢复到屏幕外（实测已被污染过），必须直接跳过。
+    if window.is_minimized().unwrap_or(false) {
+        return;
+    }
     let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) else {
         return;
     };
+    if pos.x <= -30000 || size.width < 200 || size.height < 200 {
+        log::debug!(
+            "[window] 几何 ({},{}) {}x{} 疑似最小化哨兵值，跳过持久化",
+            pos.x, pos.y, size.width, size.height
+        );
+        return;
+    }
     // 防御性过滤：如果抓取到的尺寸大于任何显示器工作区的 90%，
     // 说明正处于最大化/还原的动画或过渡瞬态，绝不覆盖普通尺寸！
     if let Ok(monitors) = window.available_monitors() {
@@ -1351,6 +1363,57 @@ fn shell_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
     app.get_webview("main")
 }
 
+/// 取窗口归属显示器的信息，供最大化尺寸钳制使用。
+///
+/// **必须用 `GetWindowPlacement` 的 `rcNormalPosition` 作为锚点，不能用窗口当前矩形。**
+/// 最小化时 Windows 把窗口矩形置为哨兵值 `(-32000,-32000) 160x28`，此时以当前矩形
+/// 解析显示器不可靠（`MONITOR_DEFAULTTONEAREST` 对哨兵坐标会退化到主显示器）；
+/// 一旦钳制按主屏 `rcWork` 计算，客户区就会变成主屏尺寸，`layout_webviews` 据此
+/// 把内容子 WebView 摆到主屏坐标 —— 窗口实际在副屏时整块内容区移出可视范围，
+/// 表现为最小化再最大化后全黑（须 F5 才恢复）。
+/// `rcNormalPosition` 在最小化期间仍保留还原后的真实位置，据此解析显示器才稳定。
+#[cfg(target_os = "windows")]
+fn monitor_info_for_window(
+    hwnd: windows::Win32::Foundation::HWND,
+) -> Option<windows::Win32::Graphics::Gdi::MONITORINFO> {
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromRect, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowPlacement, GetWindowRect, WINDOWPLACEMENT,
+    };
+    unsafe {
+        let mut placement = WINDOWPLACEMENT {
+            length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
+            ..Default::default()
+        };
+        // 还原位置无效（例如从未定位过）时退回窗口当前矩形
+        let mut anchor = if GetWindowPlacement(hwnd, &mut placement).is_ok() {
+            placement.rcNormalPosition
+        } else {
+            let mut rect = RECT::default();
+            if GetWindowRect(hwnd, &mut rect).is_err() {
+                return None;
+            }
+            rect
+        };
+        // 兜底：还原位置本身也落在哨兵区（异常状态），同样不可信
+        if anchor.left <= -30000 {
+            let mut rect = RECT::default();
+            if GetWindowRect(hwnd, &mut rect).is_ok() && rect.left > -30000 {
+                anchor = rect;
+            }
+        }
+        let monitor = MonitorFromRect(&anchor, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        GetMonitorInfoW(monitor, &mut info).as_bool().then_some(info)
+    }
+}
+
 /// 窗口子类化处理过程：精准拦截 `WM_STYLECHANGING`、`WM_NCACTIVATE`、`WM_NCCALCSIZE`、`WM_NCPAINT` 与 `WM_GETMINMAXINFO`。
 ///
 /// Win32 机制：
@@ -1371,9 +1434,6 @@ unsafe extern "system" fn window_subclass_proc(
     _data: usize,
 ) -> windows::Win32::Foundation::LRESULT {
     use windows::Win32::Foundation::POINT;
-    use windows::Win32::Graphics::Gdi::{
-        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
-    };
     use windows::Win32::UI::Shell::DefSubclassProc;
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, GWL_STYLE, MINMAXINFO, NCCALCSIZE_PARAMS, STYLESTRUCT, WM_GETMINMAXINFO,
@@ -1400,12 +1460,7 @@ unsafe extern "system" fn window_subclass_proc(
             let is_max = (GetWindowLongW(hwnd, GWL_STYLE) as u32 & WS_MAXIMIZE.0) != 0;
             if is_max {
                 let params = &mut *(lparam.0 as *mut NCCALCSIZE_PARAMS);
-                let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-                let mut info = MONITORINFO {
-                    cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-                    ..Default::default()
-                };
-                if GetMonitorInfoW(monitor, &mut info).as_bool() {
+                if let Some(info) = monitor_info_for_window(hwnd) {
                     params.rgrc[0] = info.rcWork;
                 }
             }
@@ -1422,12 +1477,7 @@ unsafe extern "system" fn window_subclass_proc(
     if msg == WM_GETMINMAXINFO {
         let res = DefSubclassProc(hwnd, msg, wparam, lparam);
         let mmi = &mut *(lparam.0 as *mut MINMAXINFO);
-        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        let mut info = MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-            ..Default::default()
-        };
-        if GetMonitorInfoW(monitor, &mut info).as_bool() {
+        if let Some(info) = monitor_info_for_window(hwnd) {
             let work = info.rcWork;
             let mon = info.rcMonitor;
             mmi.ptMaxPosition = POINT {
@@ -1906,11 +1956,28 @@ fn layout_webviews(app: &AppHandle) {
         log::warn!("[layout] 未找到 main 窗口");
         return;
     };
+    // 最小化时窗口矩形是哨兵值 (-32000,-32000) 160x28，inner_size() 也失真
+    // （实测内容 WebView 会被压成 160x1）。此时任何重排都是错的，直接跳过：
+    // 还原/最大化会各自再触发 Resized，届时几何已恢复有效。
+    if win.is_minimized().unwrap_or(false) {
+        log::debug!("[layout] 窗口已最小化，跳过重排");
+        return;
+    }
     let scale = win.scale_factor().unwrap_or(1.0);
     let Ok(size) = win.inner_size() else {
         log::warn!("[layout] 未取得 inner_size");
         return;
     };
+    // 防御：几何明显是哨兵/瞬态（超小或位于 -32000 哨兵坐标）时不重排，
+    // 避免把内容子 WebView 摆到屏幕外造成黑屏。
+    if size.width < 200 || size.height < 200 {
+        log::debug!(
+            "[layout] inner_size {}x{} 疑似最小化/瞬态哨兵值，跳过重排",
+            size.width,
+            size.height
+        );
+        return;
+    }
     let titlebar_px = (TITLEBAR_HEIGHT * scale).round() as i32;
     let content_h_px = (size.height as i32 - titlebar_px).max(1) as u32;
 
