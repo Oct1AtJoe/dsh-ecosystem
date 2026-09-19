@@ -40,11 +40,39 @@ check('Fix1：意图防护已进构建产物', clientBundle.includes('assertFont
 // ── Fix 2：全局字号作用域 ──
 check('Fix2：复用官方增量轴 --dsh-content-font-delta', clientSrc.includes('--dsh-content-font-delta'))
 check('Fix2：外壳区域按增量放大（calc + delta）', /calc\(14px \+ var\(--dsh-shell-font-delta/.test(clientSrc))
-check('Fix2：侧边栏行被覆盖', clientSrc.includes('[class*="sidebarCol"] [class*="sessionRow"]'))
+check('Fix2：侧边栏行被覆盖', clientSrc.includes('[class*="sidebarCol"] [class*="dsh-ff__title"]'))
 check('Fix2：设置面板被覆盖', clientSrc.includes('[role="dialog"] [class*="navCell"]'))
 check('Fix2：右侧面板被覆盖', clientSrc.includes('[class*="rightbarCol"]'))
 check('Fix2：行高随字号联动（避免放大压字）', /line-height:calc\(22px \+ var\(--dsh-shell-font-delta/.test(clientSrc))
 check('Fix2：全局字号样式已进构建产物', clientBundle.includes('dsh-shell-font-delta'))
+
+// ── 选择器锚点硬规则（实测坑，静默失效且不报错）──
+// CSS Modules 哈希后类名形如 V41CyG_frame，源码目录名不出现在 DOM 里。
+// 曾把锚点写成 [class*="AppFrame_frame"]，导致 delta 恒为空、字号完全没生效。
+check(
+  '锚点：delta 定义挂 body（官方轴所在处，必然命中）',
+  /body\s*\{\s*--dsh-shell-font-delta:var\(--dsh-content-font-delta/.test(clientSrc),
+)
+check(
+  '锚点：不得使用源码目录名做钩子（AppFrame/SettingsRoot/Rows 不在 DOM 中）',
+  // 只在 CSS 规则里查（排除注释中的说明文字）
+  !/\[class\*="AppFrame_frame"\]\s*\{/.test(clientSrc)
+    && !/\[class\*="SettingsRoot"\]\s*\{/.test(clientSrc)
+    && !/\[class\*="Rows_"\]\s*\{/.test(clientSrc),
+)
+check(
+  '锚点：视窗发丝高光用 _frame 后缀匹配（对哈希稳定）',
+  /\[class\$="_frame"\]/.test(clientSrc),
+)
+check(
+  '锚点：禁止 [class*="title"] 过宽通配（实测误伤 49 个元素含对话区标题）',
+  !/\[class\*="sidebarCol"\]\s*\[class\*="title"\]/.test(clientSrc)
+    && !/\[class\*="rightbarCol"\]\s*\[class\*="title"\]/.test(clientSrc),
+)
+check(
+  '锚点：侧边栏用实测存在的 dsh-ff__ 前缀（better-sidebar）',
+  clientSrc.includes('dsh-ff__title') && clientSrc.includes('dsh-ff__header-title'),
+)
 
 // ── 边界（刻意不跟随）：窗口顶栏属于 chrome，不随字号缩放 ──
 // 交通灯、托盘菜单等窗口装饰都是固定尺寸，只缩放中间标题会让 52px 紧凑条失衡；

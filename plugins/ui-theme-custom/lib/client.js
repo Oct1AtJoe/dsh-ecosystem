@@ -1223,11 +1223,14 @@ body[data-ds-custom-theme="sonoma"] {
   -webkit-font-smoothing: antialiased !important;
 }
 
-/* 视窗外框发丝高光倒角（Hairline Specular Rim：模拟精密切削玻璃微反光） */
-body[data-ds-custom-theme="sequoia"] [class*="AppFrame_frame"] {
+/* 视窗外框发丝高光倒角（Hairline Specular Rim：模拟精密切削玻璃微反光）
+   ⚠️ 实测：AppFrame 的真实类名是 哈希前缀加 _frame（如 V41CyG_frame），源码目录名
+   AppFrame 不在 DOM 里。早前写成 [class*="AppFrame_frame"] 从未命中过，
+   故此高光一直没生效。改用后缀匹配 _frame（对哈希稳定）。 */
+body[data-ds-custom-theme="sequoia"] [class$="_frame"] {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="AppFrame_frame"] {
+body[data-ds-custom-theme="sonoma"] [class$="_frame"] {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
 }
 
@@ -1505,37 +1508,43 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
    14px 的正文小，视觉层级完整保留；Δ=0（默认 14px）时计算结果与原始硬编码
    完全一致，因此不影响默认外观。
 
-   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，
-   官方一改就漏。 */
-[class*="AppFrame_frame"]{
+   ⚠️ 实测硬规则：CSS Modules 哈希后类名形如 V41CyG_frame，**源码目录名
+   （AppFrame / SettingsRoot / Rows）不会出现在 DOM 里**。所以：
+   - 增量锚点必须挂在 body（官方轴所在处，必然命中），不可写 [class*="AppFrame_frame"]；
+   - 区域钩子只能用真实存在的片段（sidebarCol / rightbarCol / dsh-ff__ / role="dialog"）；
+   - 禁止 [class*="title"] 这类过宽通配：实测命中 49 个元素，会误伤对话区标题。
+
+   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，官方一改就漏。 */
+body{
   --dsh-shell-font-delta:var(--dsh-content-font-delta,0px);
 }
-/* 两侧边栏：会话/搜索/工作区行与设置面板导航 */
+/* 左侧边栏：better-sidebar 会话/文件夹/搜索行（真实前缀 dsh-ff__） */
+[class*="sidebarCol"] [class*="dsh-ff__title"],
+[class*="sidebarCol"] [class*="dsh-ff__header-title"],
 [class*="sidebarCol"] [class*="sessionRow"],
 [class*="sidebarCol"] [class*="projectRow"],
 [class*="sidebarCol"] [class*="searchResultTitle"],
-[class*="sidebarCol"] [class*="title"],
 [class*="sidebarCol"] [class*="navLabel"],
 [class*="sidebarCol"] [class*="navCell"]{
   font-size:calc(14px + var(--dsh-shell-font-delta,0px));
 }
 [class*="sidebarCol"] [class*="searchResultWorkspace"],
 [class*="sidebarCol"] [class*="searchResultSnippet"],
-[class*="sidebarCol"] [class*="meta"],
-[class*="sidebarCol"] [class*="time"]{
+[class*="sidebarCol"] [class*="dsh-ff__meta"],
+[class*="sidebarCol"] [class*="dsh-ff__subtitle"]{
   font-size:calc(12px + var(--dsh-shell-font-delta,0px));
 }
-/* 右侧面板与 better-sidebar 侧栏 */
-[class*="rightbarCol"] [class*="title"],
+/* 右侧面板 */
+[class*="rightbarCol"] [class*="sessionRow"],
 [class*="rightbarCol"] [class*="navLabel"],
-[class*="rightbarCol"] [class*="sessionRow"]{
+[class*="rightbarCol"] [class*="dsh-ff__title"]{
   font-size:calc(14px + var(--dsh-shell-font-delta,0px));
 }
-[class*="rightbarCol"] [class*="meta"],
-[class*="rightbarCol"] [class*="snippet"]{
+[class*="rightbarCol"] [class*="searchResultSnippet"],
+[class*="rightbarCol"] [class*="dsh-ff__meta"]{
   font-size:calc(12px + var(--dsh-shell-font-delta,0px));
 }
-/* 设置面板自身：导航标题 16px、导航项 14px、描述 12px */
+/* 设置面板自身：导航标题 16px、导航项 14px */
 [role="dialog"] [class*="navTitle"]{
   font-size:calc(16px + var(--dsh-shell-font-delta,0px));
 }
