@@ -706,8 +706,9 @@ fn popup_shell_menu(app: &AppHandle) {
         .inner_size()
         .map(|s| s.width as f64 / scale)
         .unwrap_or(1200.0);
-    // 贴着 ☰ 按钮下方弹出（右边距 14px + 宽度 28px，菜单宽约 174px，锚定在右上角精准右对齐，消灭向左错位）
-    let x = (w - 188.0).max(8.0);
+    // 贴着 ☰ 按钮下方弹出：壳顶栏右侧 padding 18px、按钮宽 30px，菜单实际宽约 174px，
+    // 故锚点取 w-192 让菜单右边缘与 ☰ 右边缘对齐（此前硬编码 258 会左偏约 70px）。
+    let x = (w - 192.0).max(8.0);
     if let Err(e) = menu.popup_at(window, tauri::LogicalPosition::new(x, TITLEBAR_HEIGHT - 2.0)) {
         log::warn!("[shell] 弹出菜单失败：{e}");
     }
@@ -715,7 +716,7 @@ fn popup_shell_menu(app: &AppHandle) {
 
 /// 「关于 DSH 宿主版本」：用原生消息框展示版本信息。
 ///
-/// 同样因为标题栏只有 36px，HTML 弹窗放不下，改用系统对话框。
+/// 壳顶栏只有 52px，HTML 弹窗放不下，改用系统对话框。
 fn show_about_dialog(app: &AppHandle) {
     let info = get_dsh_version_info();
     let read = |key: &str, fallback: &str| {
@@ -748,11 +749,19 @@ fn show_about_dialog(app: &AppHandle) {
     log::info!("{text}");
 }
 
-/// 壳标题栏 ☰ 按钮：优先通知内容区展示深浅自适应的毛玻璃下拉菜单，回退调用原生菜单。
+/// 壳标题栏 ☰ 按钮：调内容区的 HTML 毛玻璃下拉面板。
+///
+/// **UI 与功能分离**：面板视觉（macOS 液态玻璃样式）由 content WebView 的插件渲染，
+/// 动作不依赖 content 区拿不到的 `__TAURI__`，而是经 `__dshNotifyBridge.shellAction()`
+/// 走通知桥回到 `run_shell_action` —— 与托盘右键菜单、壳原生菜单三处功能完全一致。
+/// 面板首帧未就绪时（插件还没挂载）回退壳原生菜单，保证 ☰ 永远有反馈。
 #[tauri::command]
 fn show_shell_menu(app: AppHandle) {
     if let Some(page) = page_webview(&app) {
-        let _ = page.eval("window.__dshToggleShellMenu && window.__dshToggleShellMenu();");
+        let _ = page.eval(
+            "if (window.__dshToggleShellMenu) { window.__dshToggleShellMenu(); } \
+             else if (window.__dshNotifyBridge) { window.__dshNotifyBridge.shellAction('native_menu'); }",
+        );
     } else {
         popup_shell_menu(&app);
     }
@@ -1026,6 +1035,25 @@ async fn handle_notify_conn(sock: &mut tokio::net::TcpStream, app: &AppHandle, t
         let _ = sock
             .write_all(
                 format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n{CORS_HEADERS}\r\n{resp_str}")
+                    .as_bytes(),
+            )
+            .await;
+        let _ = sock.flush().await;
+        return;
+    }
+    // 内容区毛玻璃下拉面板（HTML UI 留在 content WebView，跨源拿不到 __TAURI__）
+    // 经通知桥回传动作：路由到与托盘/原生菜单同一个 run_shell_action，
+    // 功能语义三处完全一致，只有 UI 是 HTML 的。
+    if body.contains("\"type\":\"shell-action\"") || body.contains("\"type\": \"shell-action\"") {
+        let action = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v.get("action").and_then(|a| a.as_str()).map(|s| s.to_string()))
+            .unwrap_or_default();
+        log::info!("[shell] 收到内容区下拉面板动作: {action}");
+        run_shell_action(app, &action);
+        let _ = sock
+            .write_all(
+                format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n{CORS_HEADERS}\r\n{{\"ok\":true}}")
                     .as_bytes(),
             )
             .await;
@@ -1343,7 +1371,7 @@ fn capture_window_geometry(window: &tauri::Window) {
 }
 
 /// 标题栏高度（逻辑像素）：壳页面画的标题栏，同时也是内容子 WebView 的纵向偏移。
-pub(crate) const TITLEBAR_HEIGHT: f64 = 36.0;
+pub(crate) const TITLEBAR_HEIGHT: f64 = 52.0;
 
 /// 内容子 WebView 的标签：DSH 页面（含启动页、错误页）都跑在它里面，
 /// 壳标题栏则属于窗口自身的主 webview（`main`）。
@@ -2332,6 +2360,17 @@ fn bridge_init_script(port: u16, token: &str) -> String {
           body: JSON.stringify({ type: 'theme-change', theme: theme, color: color, titlebar: titlebar })
         });
       } catch(e){}
+    },
+    // 顶栏 ☰ 的 HTML 毛玻璃面板动作回传：不带 4s 节流（用户可能连点菜单项），
+    // 路由到壳侧 run_shell_action，与托盘/原生菜单共用同一套实现。
+    shellAction: function(action) {
+      try {
+        fetch('http://127.0.0.1:'+PORT+'/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+          body: JSON.stringify({ type: 'shell-action', action: action })
+        });
+      } catch(e){}
     }
   };
 
@@ -2543,9 +2582,192 @@ fn brand_overlay_script() -> &'static str {
 }
 
 
+/// 壳联动 UI 脚本：顶栏 ☰ 的毛玻璃下拉面板 + 「关于 DSH 宿主版本」玻璃弹窗。
+///
+/// **为什么放在 initialization_script 而不是 DSH 插件里**：
+/// 插件要等 Web GUI 加载完才挂载，冷启动「服务未就绪」窗口期（引导页/错误页）没有面板，
+/// ☰ 只能回退壳原生菜单 —— 用户会看到「先原生、后自定义」的跳变。本脚本在 document-created
+/// 即执行，早于任何页面内容，因此引导页、错误页、真 GUI 三态都有同一套面板，零跳变。
+/// 动作仍走 `__dshNotifyBridge.shellAction()` 回到壳侧 `run_shell_action`（与托盘同源）。
+fn shell_ui_script(version: &str, build: &str) -> String {
+    let js = r#"
+(function(){
+  if (window.__dshShellUI) return;
+  window.__dshShellUI = true;
+
+  var VERSION = "__VERSION__";
+  var BUILD = "__BUILD__";
+
+  // ── 深浅判定：三种来源按优先级（内联变量 > colorScheme > body 属性）──
+  function isDark() {
+    var el = document.documentElement;
+    if (!el) return true;
+    var cs = el.style && el.style.colorScheme;
+    if (cs === 'light') return false;
+    if (cs === 'dark') return true;
+    if (document.body && document.body.hasAttribute('data-ds-dark-theme')) return true;
+    return true; // 引导页默认深色，与壳首帧兜底一致
+  }
+
+  function root() { return document.body || document.documentElement; }
+
+  // ── 样式（只注入一次；深浅由 body 上的属性类驱动，无需重复写）──
+  var CSS = [
+    '.dsh-shell-pop{position:fixed;z-index:2147483000;border-radius:14px;',
+    'font:13.5px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;',
+    'backdrop-filter:blur(30px) saturate(190%);-webkit-backdrop-filter:blur(30px) saturate(190%);',
+    'animation:dshPopIn .16s cubic-bezier(.16,1,.3,1);user-select:none;color:#f5f5f7;',
+    'background:rgba(30,34,42,.86);border:1px solid rgba(255,255,255,.12);',
+    'box-shadow:0 22px 54px rgba(0,0,0,.58),inset 0 1px 1px rgba(255,255,255,.15)}',
+    '.dsh-shell-pop[data-light]{color:#1d1d1f;background:rgba(255,255,255,.86);',
+    'border-color:rgba(0,0,0,.10);box-shadow:0 16px 40px rgba(0,0,0,.14),inset 0 1px 1px rgba(255,255,255,.95)}',
+    '@keyframes dshPopIn{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}',
+    // 菜单
+    '.dsh-shell-menu{top:10px;right:18px;width:208px;padding:7px;display:flex;flex-direction:column;gap:2px;transform-origin:top right}',
+    '.dsh-shell-item{padding:8px 13px;border-radius:8px;cursor:pointer;display:flex;align-items:center;font-weight:500;transition:background-color .12s,color .12s}',
+    '.dsh-shell-menu .dsh-shell-item:hover{background:#2997ff;color:#fff}',
+    '.dsh-shell-menu[data-light] .dsh-shell-item:hover{background:#147ce5;color:#fff}',
+    '.dsh-shell-item.danger:hover{background:#ff3b30 !important;color:#fff !important}',
+    '.dsh-shell-sep{height:1px;margin:4px 7px;background:rgba(128,128,128,.28)}',
+    // 关于弹窗
+    '.dsh-about-mask{position:fixed;inset:0;z-index:2147482999;display:flex;align-items:center;justify-content:center;',
+    'background:rgba(0,0,0,.32);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:dshFadeIn .18s ease}',
+    '@keyframes dshFadeIn{from{opacity:0}to{opacity:1}}',
+    '.dsh-about{width:340px;padding:26px 26px 20px;border-radius:16px;text-align:center;transform-origin:center;',
+    'animation:dshPopIn .2s cubic-bezier(.16,1,.3,1)}',
+    '.dsh-about-mark{width:56px;height:56px;margin:0 auto 14px;border-radius:14px;display:flex;align-items:center;justify-content:center;',
+    'background:linear-gradient(180deg,#147ce5,#0d6ecc);box-shadow:0 6px 18px rgba(20,124,229,.35),inset 0 1px 1px rgba(255,255,255,.35)}',
+    '.dsh-about-mark svg{width:30px;height:30px;fill:#fff}',
+    '.dsh-about-title{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:3px}',
+    '.dsh-about-sub{font-size:12px;opacity:.6;margin-bottom:18px}',
+    '.dsh-about-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:20px;text-align:left}',
+    '.dsh-about-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:7px 11px;border-radius:8px;background:rgba(128,128,128,.10)}',
+    '.dsh-about-row b{font-weight:600;font-variant-numeric:tabular-nums}',
+    '.dsh-about-btn{width:100%;height:36px;border:0;border-radius:10px;cursor:pointer;font:inherit;font-weight:550;color:#fff;',
+    'background:linear-gradient(180deg,#3898fc,#147ce5);box-shadow:0 2px 8px rgba(20,124,229,.24),inset 0 1px 1px rgba(255,255,255,.4)}',
+    '.dsh-about-btn:hover{background:linear-gradient(180deg,#4da5ff,#288bf2)}',
+  ].join('');
+
+  function ensureStyle() {
+    if (document.querySelector('style[data-dsh-shell-ui]')) return;
+    var s = document.createElement('style');
+    s.setAttribute('data-dsh-shell-ui', '');
+    s.textContent = CSS;
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  function makePop(extraClass) {
+    ensureStyle();
+    var d = document.createElement('div');
+    d.className = 'dsh-shell-pop ' + extraClass;
+    if (!isDark()) d.setAttribute('data-light', '');
+    return d;
+  }
+
+  function bridge(action) {
+    var b = window.__dshNotifyBridge;
+    if (b && b.shellAction) { b.shellAction(action); return true; }
+    return false;
+  }
+
+  // ── 顶栏 ☰ 下拉面板 ──
+  var openMenu = null;
+  var detach = null;
+
+  function closeMenu() {
+    if (detach) { detach(); detach = null; }
+    if (openMenu) { openMenu.remove(); openMenu = null; }
+  }
+
+  window.__dshToggleShellMenu = function() {
+    if (openMenu) { closeMenu(); return; }
+    var r = root();
+    if (!r) return;
+    var prev = document.querySelector('.dsh-shell-menu');
+    if (prev) prev.remove();
+
+    var m = makePop('dsh-shell-menu');
+    m.innerHTML =
+      '<div class="dsh-shell-item" data-action="reload">重新加载页面</div>' +
+      '<div class="dsh-shell-item" data-action="restart">重启服务与客户端</div>' +
+      '<div class="dsh-shell-sep"></div>' +
+      '<div class="dsh-shell-item" data-action="devtools">开发者工具 (DevTools)</div>' +
+      '<div class="dsh-shell-item" data-action="about">关于 DSH 宿主版本</div>' +
+      '<div class="dsh-shell-sep"></div>' +
+      '<div class="dsh-shell-item danger" data-action="quit">退出应用</div>';
+    m.addEventListener('click', function(e){
+      var it = e.target.closest ? e.target.closest('.dsh-shell-item') : null;
+      if (!it) return;
+      var action = it.getAttribute('data-action');
+      closeMenu();
+      if (action === 'about') { openAbout(); return; }
+      bridge(action);
+    });
+    r.appendChild(m);
+    openMenu = m;
+
+    var onDown = function(e){ if (openMenu && !openMenu.contains(e.target)) closeMenu(); };
+    var onKey = function(e){ if (e.key === 'Escape') closeMenu(); };
+    detach = function(){
+      document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+    setTimeout(function(){
+      document.addEventListener('mousedown', onDown, true);
+      document.addEventListener('keydown', onKey, true);
+    }, 0);
+  };
+
+  // ── 「关于 DSH 宿主版本」玻璃弹窗 ──
+  var aboutEl = null;
+
+  function closeAbout() {
+    if (aboutEl) { aboutEl.remove(); aboutEl = null; }
+  }
+
+  function openAbout() {
+    if (aboutEl) return;
+    var r = root();
+    if (!r) return;
+    var mask = document.createElement('div');
+    mask.className = 'dsh-about-mask';
+
+    var card = makePop('dsh-about');
+    card.innerHTML =
+      '<div class="dsh-about-mark">' +
+        '<svg viewBox="0 0 170 170" aria-hidden="true"><path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.6-7.83-11.7-14.35-6.53-10.42-11.7-22.37-15.5-35.85-3.8-13.48-5.71-25.75-5.71-36.8 0-16.1 4.14-29.35 12.43-39.75 8.28-10.4 18.7-15.71 31.25-15.93 4.46 0 9.58 1.15 15.35 3.46 5.77 2.31 9.4 3.52 10.9 3.63 2.18-.32 6.1-1.63 11.75-3.92 5.65-2.3 10.43-3.4 14.34-3.32 10.66.54 19.64 4.54 26.93 12 7.3 7.46 11.83 16.51 13.6 27.15-9.79 5.86-14.58 14.12-14.36 24.78.22 8.36 3.48 15.31 9.78 20.85 6.3 5.54 13.9 8.68 22.8 9.43-2.18 6.4-4.8 12.6-7.86 18.6zM119.22 31.64c0-7.39 2.61-14.4 7.83-21.03 5.22-6.63 11.96-10.61 20.22-11.94.43 3.69.43 6.95 0 9.78-.65 7.17-3.59 14.01-8.8 20.52-5.22 6.52-11.63 10.32-19.25 11.41-.33-2.71-.43-5.63 0-8.74z"/></svg>' +
+      '</div>' +
+      '<div class="dsh-about-title">DeepSeek Harness</div>' +
+      '<div class="dsh-about-sub">桌面端 · macOS Sequoia / Sonoma Edition</div>' +
+      '<div class="dsh-about-rows">' +
+        '<div class="dsh-about-row"><span>宿主核心版本</span><b>v' + VERSION + '</b></div>' +
+        '<div class="dsh-about-row"><span>桌面端壳版本</span><b>v' + BUILD + '</b></div>' +
+        '<div class="dsh-about-row"><span>运行环境</span><b>Tauri 2 · WebView2</b></div>' +
+      '</div>' +
+      '<button class="dsh-about-btn" type="button">好的</button>';
+
+    mask.appendChild(card);
+    r.appendChild(mask);
+    aboutEl = mask;
+
+    var okBtn = card.querySelector('.dsh-about-btn');
+    if (okBtn) okBtn.addEventListener('click', closeAbout);
+    mask.addEventListener('mousedown', function(e){ if (e.target === mask) closeAbout(); });
+    var onKey = function(e){
+      if (e.key === 'Escape') { closeAbout(); document.removeEventListener('keydown', onKey, true); }
+    };
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  window.__dshOpenAboutPopup = function(){ closeMenu(); openAbout(); };
+  window.__dshCloseShellPop = function(){ closeMenu(); closeAbout(); };
+})();
+"#;
+    js.replace("__VERSION__", version).replace("__BUILD__", build)
+}
+
 /// 导航完成后注入任务完成启发式监听（桥与 shim 已由初始化脚本注入，脚本自带守卫，重复注入无害）。
-fn inject_task_notifier(app: AppHandle, port: u16) {
-    if port == 0 {
+fn inject_task_notifier(app: AppHandle, port: u16) {    if port == 0 {
         return;
     }
     let handle = app.clone();
@@ -2725,6 +2947,55 @@ fn show_main(app: &AppHandle) {
     });
 }
 
+/// 让内容区打开「关于」玻璃弹窗；返回是否成功（脚本没注入时回退原生 MessageBox）。
+fn try_open_about_popup(app: &AppHandle) -> bool {
+    let Some(page) = page_webview(app) else {
+        return false;
+    };
+    // 同时兼容 initialization_script 提供的入口与旧插件实现
+    page.eval(
+        "if (window.__dshOpenAboutPopup) { window.__dshOpenAboutPopup(); } \
+         else { window.__dshToggleShellMenu && window.__dshToggleShellMenu(); }",
+    )
+    .is_ok()
+}
+
+/// 壳顶栏 ☰ 与托盘右键菜单共用的动作执行体。
+///
+/// 两个菜单的 5 项语义必须完全一致（DESKTOP-SHELL.md §7），因此动作只在这里实现一次：
+/// 任一侧新增/调整行为，另一侧自动跟随，不会出现「托盘能重启、顶栏点了没反应」的分叉。
+fn run_shell_action(app: &AppHandle, action: &str) {
+    match action {
+        "reload" => {
+            show_main(app);
+            if let Some(page) = page_webview(app) {
+                let _ = page.eval("window.location.reload();");
+            }
+        }
+        "restart" => restart_app(app),
+        "devtools" => {
+            show_main(app);
+            if let Some(page) = page_webview(app) {
+                page.open_devtools();
+            }
+        }
+        // 关于：一律走内容区自绘玻璃弹窗（不再用系统 MessageBox）
+        "about" => {
+            show_main(app);
+            if !try_open_about_popup(app) {
+                show_about_dialog(app);
+            }
+        }
+        "quit" => {
+            app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
+            app.exit(0);
+        }
+        // 面板脚本尚未注入时的兜底：弹壳原生菜单，让 ☰ 永远有反馈
+        "native_menu" => popup_shell_menu(app),
+        _ => {}
+    }
+}
+
 /// 开机自启菜单项文案（实时反映当前状态）。
 /// 构建托盘：左键显示窗口，右键菜单与顶栏 ☰ 菜单 5 项完全对齐。
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
@@ -2745,30 +3016,11 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         .tooltip("DeepSeek Harness")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "tray:reload" => {
-                show_main(app);
-                if let Some(page) = page_webview(app) {
-                    let _ = page.eval("window.location.reload();");
-                }
+        .on_menu_event(|app, event| {
+            // 托盘 id 前缀 tray: 与顶栏 shell: 只在取后缀时归一，动作实现共用
+            if let Some(action) = event.id().as_ref().strip_prefix("tray:") {
+                run_shell_action(app, action);
             }
-            "tray:restart" => {
-                restart_app(app);
-            }
-            "tray:devtools" => {
-                show_main(app);
-                if let Some(page) = page_webview(app) {
-                    page.open_devtools();
-                }
-            }
-            "tray:about" => {
-                show_about_dialog(app);
-            }
-            "tray:quit" => {
-                app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
-                app.exit(0);
-            }
-            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -3034,13 +3286,19 @@ pub fn run() {
                         tauri::WebviewUrl::App("index.html".into()),
                     )
                     .background_color(tauri::window::Color(13, 17, 23, 255))
-                    // 三条独立 initialization_script，而不是拼成一大段：WebView2 对每一条
+                    // 四条独立 initialization_script，而不是拼成一大段：WebView2 对每一条
                     // 单独 AddScriptToExecuteOnDocumentCreated，任何一条抛异常只中断它自己。
                     // （曾把多段拼成一段，其中一个 observe(null) 抛错，静默带走了排在它后面的
                     // 脚本，只剩 Rust 侧 1200ms 的重试兜底，表现为刷新后明显延迟。）
                     .initialization_script(bridge_init_script(nport, &ntoken))
                     .initialization_script(BOOT_FAILURE_SCRIPT)
                     .initialization_script(brand_overlay_script())
+                    // 壳联动 UI（☰ 毛玻璃面板 + 关于弹窗）：必须在初始化脚本里而非 DSH 插件里，
+                    // 否则冷启动「服务未就绪」窗口期没有面板，☰ 会先弹原生菜单再跳变。
+                    .initialization_script(shell_ui_script(
+                        &get_dsh_host_version(),
+                        env!("CARGO_PKG_VERSION"),
+                    ))
                     .disable_drag_drop_handler()
                     .on_navigation(move |url| {
                         log::info!("[nav] on_navigation called: scheme={:?} host={:?} port={:?}", url.scheme(), url.host_str(), url.port());
@@ -3210,25 +3468,12 @@ pub fn run() {
             ensure_shortcut();
             Ok(())
         })
-        // 壳标题栏 ☰ 的原生弹出菜单事件（托盘菜单有它自己的 on_menu_event，id 不冲突）
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "shell:reload" => {
-                if let Some(page) = page_webview(app) {
-                    let _ = page.eval("window.location.reload();");
-                }
+        // 壳标题栏 ☰ 的原生弹出菜单事件（托盘菜单有它自己的 on_menu_event，id 不冲突）；
+        // 动作体与托盘共用 run_shell_action，保证两边行为永远一致。
+        .on_menu_event(|app, event| {
+            if let Some(action) = event.id().as_ref().strip_prefix("shell:") {
+                run_shell_action(app, action);
             }
-            "shell:restart" => restart_app(app),
-            "shell:devtools" => {
-                if let Some(page) = page_webview(app) {
-                    page.open_devtools();
-                }
-            }
-            "shell:about" => show_about_dialog(app),
-            "shell:quit" => {
-                app.state::<DshState>().quitting.store(true, Ordering::SeqCst);
-                app.exit(0);
-            }
-            _ => {}
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

@@ -687,69 +687,10 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
   box-shadow: none !important;
 }
 
-/* 顶部栏毛玻璃下拉菜单 (macOS Liquid Glass Popover) */
-.dsh-macos-shell-menu {
-  position: fixed;
-  top: 4px;
-  right: 14px;
-  width: 200px;
-  border-radius: 12px;
-  padding: 6px;
-  z-index: 999999;
-  font-size: 13px;
-  line-height: 1.4;
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  animation: dsh-menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: top right;
-}
-@keyframes dsh-menu-in {
-  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-body:not([data-ds-dark-theme]) .dsh-macos-shell-menu {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  color: #1d1d1f;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
-}
-body[data-ds-dark-theme] .dsh-macos-shell-menu {
-  background: rgba(30, 34, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f5f5f7;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-}
-.dsh-macos-shell-menu .menu-item {
-  padding: 7px 12px;
-  border-radius: 7px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.12s ease;
-  font-weight: 500;
-}
-body:not([data-ds-dark-theme]) .dsh-macos-shell-menu .menu-item:hover {
-  background: #0071e3;
-  color: #ffffff;
-}
-body[data-ds-dark-theme] .dsh-macos-shell-menu .menu-item:hover {
-  background: #2997ff;
-  color: #ffffff;
-}
-.dsh-macos-shell-menu .menu-item.danger:hover {
-  background: #ff3b30 !important;
-  color: #ffffff !important;
-}
-.dsh-macos-shell-menu .menu-divider {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.2));
-}
+/* 顶部栏 ☰ 毛玻璃面板与「关于」玻璃弹窗已统一由桌面壳的 initialization_script
+   （shell_ui_script）提供：它在 document-created 即执行，冷启动引导页也有，
+   因此不会出现「先原生菜单、后自定义面板」的跳变。本插件不再重复实现该 UI，
+   以免覆盖壳脚本导致跳变回归。动作仍经 __dshNotifyBridge.shellAction() 回到壳侧。 */
 
 /* Xcode 风格代码块 */
 body[data-ds-custom-theme="sequoia"] pre,
@@ -1052,70 +993,6 @@ function clearSaved(): void {
 export function apply(ctx: Context): void {
   // Signal the boot script's re-assert loop to stop: browser half is live.
   ;(window as unknown as { __dshCustomThemeLive?: boolean }).__dshCustomThemeLive = true
-
-  // 挂载原生 macOS 毛玻璃下拉菜单交互（由顶栏 ☰ 按钮呼出）
-  if (typeof window !== 'undefined') {
-    let activeMenuEl: HTMLDivElement | null = null
-    const closeMenu = () => {
-      if (activeMenuEl) {
-        activeMenuEl.remove()
-        activeMenuEl = null
-      }
-    }
-    ;(window as any).__dshToggleShellMenu = () => {
-      if (activeMenuEl) {
-        closeMenu()
-        return
-      }
-      const menu = document.createElement('div')
-      menu.className = 'dsh-macos-shell-menu'
-      menu.innerHTML = `
-        <div class="menu-item" data-action="reload">重新加载页面</div>
-        <div class="menu-item" data-action="restart">重启服务与客户端</div>
-        <div class="menu-divider"></div>
-        <div class="menu-item" data-action="devtools">开发者工具 (DevTools)</div>
-        <div class="menu-item" data-action="about">关于 DSH 宿主版本</div>
-        <div class="menu-divider"></div>
-        <div class="menu-item danger" data-action="quit">退出应用</div>
-      `
-      menu.addEventListener('click', (e) => {
-        const item = (e.target as HTMLElement).closest('.menu-item') as HTMLElement
-        if (!item) return
-        const action = item.dataset.action
-        closeMenu()
-        const tauri = (window as any).__TAURI__
-        if (action === 'reload') {
-          window.location.reload()
-        } else if (action === 'restart') {
-          tauri?.core?.invoke?.('restart_application').catch(() => window.location.reload())
-        } else if (action === 'devtools') {
-          tauri?.core?.invoke?.('open_devtools').catch(() => {})
-        } else if (action === 'about') {
-          tauri?.core?.invoke?.('show_about_dialog').catch(() => alert('DeepSeek Harness Desktop · macOS Edition'))
-        } else if (action === 'quit') {
-          tauri?.window?.getCurrentWindow?.()?.close?.()
-        }
-      })
-      document.body.appendChild(menu)
-      activeMenuEl = menu
-      const onDocClick = (evt: MouseEvent) => {
-        if (!menu.contains(evt.target as Node)) {
-          closeMenu()
-          document.removeEventListener('mousedown', onDocClick, true)
-        }
-      }
-      const onKeyDown = (evt: KeyboardEvent) => {
-        if (evt.key === 'Escape') {
-          closeMenu()
-          document.removeEventListener('keydown', onKeyDown, true)
-        }
-      }
-      setTimeout(() => {
-        document.addEventListener('mousedown', onDocClick, true)
-        document.addEventListener('keydown', onKeyDown, true)
-      }, 10)
-    }
-  }
 
   const theme = (ctx.theme ?? ctx.get?.('theme')) as ThemeRuntime
 

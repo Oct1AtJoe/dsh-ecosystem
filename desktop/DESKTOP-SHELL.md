@@ -13,7 +13,7 @@
 
 ## 2. 关键路径与常量
 
-- `TITLEBAR_HEIGHT = 36.0`（逻辑像素）：壳标题栏高度，也是内容子 WebView 的纵向偏移基准。
+- `TITLEBAR_HEIGHT = 52.0`（逻辑像素）：壳标题栏高度（对齐 macOS 原生标准大标题栏规格），也是内容子 WebView 的纵向偏移基准。
 - `CONTENT_LABEL = "content"`：内容子 WebView 标签。
 - 窗口几何持久化：`%APPDATA%\ai.deepseek.harness.desktop\window-geometry.json`（关闭/缩放时记录，启动时恢复）。
 
@@ -70,20 +70,38 @@
 ## 7. 标题栏交互（shell.html）
 
 - 动作走 **Tauri IPC**：`window.__TAURI__`（`startDragging` / `toggleMaximize` / `minimize` / `close` / `show_shell_menu`），权限在 `capabilities/default.json` 声明（`main`、`pet`、`content`）。
-- ☰ 菜单用原生弹出菜单：`invoke("show_shell_menu")` → `popup_shell_menu`，5 项：重新加载页面 / 重启服务与客户端 / 开发者工具 (DevTools) / 关于 DSH 宿主版本 / 退出应用。
-- 托盘右键菜单与顶栏菜单**必须保持 5 项对齐**（同一套 id 语义）。
+- ☰ 菜单 **UI 是 content 区的 HTML 毛玻璃面板**（`window.__dshToggleShellMenu()`，由 `ui-theme-custom` 插件渲染、深浅主题自适应）；**功能经通知桥回传**：`__dshNotifyBridge.shellAction(action)` → 桥的 `shell-action` 分支 → `run_shell_action`。
+- **三处菜单动作必须共享 `run_shell_action(app, action)`**：托盘 id 前缀 `tray:`、壳原生菜单 `shell:`、HTML 面板的 `shell-action` 消息，各自归一后缀后调同一函数。**UI 可以不同，功能必须完全一致。**
+  > ⚠️ **历史巨坑（两次踩）**：
+  > 1. 曾把 ☰ 改为在 content 子 WebView 跑 HTML 浮层，但面板动作直接调 `__TAURI__.core.invoke('restart_application')` —— 内容区是远程 `http://127.0.0.1` 源，**根本没有 `__TAURI__`**，且那些命令名也不在 `generate_handler!` 白名单，表现为**顶栏菜单 5 项全部点了没反应**。
+  > 2. 修的时候矫枉过正，把 UI 一起退回壳原生菜单 —— 用户要的是**保留 HTML 毛玻璃面板外观，只把功能对齐托盘**。
+  >
+  > **正解**：UI 留在 content 区（`__dshToggleShellMenu`），动作一律走 `__dshNotifyBridge.shellAction()`（该桥由 `bridge_init_script` 注入，跨源可用、无需 IPC 白名单）回到 `run_shell_action`。面板未挂载时 Rust 侧回退 `native_menu` 动作弹原生菜单，保证 ☰ 永远有反馈。
 - **双击顶栏最大化**：必须在 `mousedown` 里判 `e.detail === 2` 调 `toggleMaximize()`。不能依赖 `dblclick` 事件 —— 第一次单击的 `startDragging()` 会进入系统拖拽模态循环，吞掉后续双击事件。
 - 主题同步：`__dshSetTheme(isDark)` 由 Rust eval 进来切换 `dark`/`light` class。
+- 壳顶栏排版随 `TITLEBAR_HEIGHT` 走：52px 下正中 logo 20px、标题 15px/600、☰ 图标 20px，左右等宽 `74px` 保证绝对居中。
 
-## 8. 内容 WebView 初始化脚本（三条独立注入）
+## 8. 内容 WebView 初始化脚本（四条独立注入）
 
-DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼接**：
+DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼接**：
 
 - `bridge_init_script(port, token)`：Notification shim + 通知桥 + 主题 `MutationObserver`（监听 `data-ds-dark-theme`）。
 - `BOOT_FAILURE_SCRIPT`：启动失败提示。
 - `brand_overlay_script()`：品牌文字覆盖。
+- `shell_ui_script(version, build)`：壳联动 UI —— 顶栏 ☰ 毛玻璃面板 + 「关于 DSH 宿主版本」玻璃弹窗。
 
 > **教训**：曾把多段拼成一段，其中 `observe(document.documentElement)` 在 `document` 创建早期抛错，静默带走后面所有脚本，表现为刷新后明显延迟。必须各自独立注入；WebView2 对每条单独 `AddScriptToExecuteOnDocumentCreated`，单条异常只中断它自己。
+
+### 8.1 壳联动 UI 必须在 initialization_script，不能放 DSH 插件
+
+> ⚠️ **历史巨坑**：面板 UI 起初实现在 `ui-theme-custom` 插件里（`ctx.slots` 挂载时渲染）。但插件要等 Web GUI 加载完才执行，**冷启动「服务未就绪」窗口期（引导页 / 错误页）没有面板**，`show_shell_menu` 只能回退 `popup_shell_menu` 原生菜单 —— 用户看到「exe 刚开是原生菜单，加载好后才变自定义面板」的跳变。
+>
+> **正解**：面板与「关于」弹窗都由 `shell_ui_script` 在 document-created 即注入，引导页 / 错误页 / 真 GUI 三态**同一套 UI，零跳变**。插件侧不得再重复实现同名入口（会覆盖壳脚本、导致跳变回归）。
+
+- 深浅判定优先级：`html.style.colorScheme` > `body[data-ds-dark-theme]` > 默认深色（与壳首帧兜底一致）；弹窗按判定打 `data-light` 属性切换配色。
+- 面板与弹窗的动作一律经 `__dshNotifyBridge.shellAction(action)` 回到 `run_shell_action`；「关于」走本地 `openAbout()` 自绘弹窗，**不再调 `MessageBoxW`**（原 `show_about_dialog` 只保留为脚本缺失时的最后兜底）。
+- 版本号由 Rust 侧 `get_dsh_host_version()` / `env!("CARGO_PKG_VERSION")` 注入脚本占位符，不在前端硬编码。
+- 回归自检：`node desktop/scripts/check-shell-ui.mjs`（17 项，含 2 条负向对照）—— 真实模拟点击，断言 5 项动作路由、关于弹窗结构、版本注入、深浅适配。改壳 UI 后必跑。
 
 ## 9. 服务与重启语义
 
@@ -161,7 +179,7 @@ DSH 页面在导航前注入 3 条独立 `initialization_script`，**绝不拼�
 
 ### 12.2 顶栏与内容区必须无缝
 
-壳顶栏 36px（`TITLEBAR_HEIGHT`），内容子 WebView 从 `y=36` 物理像素起（`layout_webviews`），两者紧贴无间隙。
+壳顶栏 52px（`TITLEBAR_HEIGHT`），内容子 WebView 从 `y=52` 物理像素起（`layout_webviews`），两者紧贴无间隙。
 
 - **`#titlebar` 不得有 `border-bottom`**：曾经那条 1px 分隔线会让顶栏与对话区之间出现一根明显的线。实测像素剖面确认该线只来自壳顶栏（y=35 一行偏暗，y=36 起为纯底色），内容区自身不画线，故删除即可无缝。
 - `--line` 变量与 `titlebar.line` 协议字段**保留**：插件侧 `TITLEBAR_PRESETS` 仍在下发，未来若要恢复分隔线不必改协议。
