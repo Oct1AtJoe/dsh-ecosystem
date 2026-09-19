@@ -25,7 +25,7 @@ if (!raw.includes('__dshToggleShellMenu')) {
   throw new Error('抽取到的脚本不含 __dshToggleShellMenu —— 抽错了代码块')
 }
 
-const js = raw.replace('__VERSION__', '1.2.3').replace('__BUILD__', '0.1.0')
+const js = raw.replace('__VERSION__', '1.2.3').replace('__BUILD__', '0.1.0').replace('__ICON__', 'data:image/png;base64,AAAA')
 
 let failed = 0
 const check = (name, ok, detail = '') => {
@@ -208,6 +208,19 @@ check(
     && card._html.includes('dsh-about-row')
     && card._html.includes('dsh-about-btn'),
 )
+// 品牌 logo：必须是内联鲸鱼位图（<img> + data URI），不再自绘 Apple/蓝色徽标
+check(
+  '关于：logo 为内联小鲸鱼位图（img + data URI）',
+  Boolean(card) && card._html.includes('dsh-about-mark')
+    && card._html.includes('<img src="data:image/png;base64,')
+    && !card._html.includes('<svg'),
+)
+// 副标题那行已按要求移除
+check(
+  '关于：副标题「桌面端 · macOS …」已移除',
+  Boolean(card) && !card._html.includes('dsh-about-sub')
+    && !raw.includes('macOS Sequoia / Sonoma Edition'),
+)
 check('关于：版本号占位已注入', js.includes('1.2.3') && js.includes('0.1.0'))
 check('关于：源码中不再调用系统 MessageBoxW', !raw.includes('MessageBoxW'))
 
@@ -234,7 +247,7 @@ const bs = {
 bs.window = bs
 bs.window.__dshNotifyBridge = { shellAction: (a) => brokenFired.push(a) }
 bs.window.location = { reload() {} }
-vm.runInNewContext(brokenRaw.replace('__VERSION__', '1').replace('__BUILD__', '1'), bs)
+vm.runInNewContext(brokenRaw.replace('__VERSION__', '1').replace('__BUILD__', '1').replace('__ICON__', 'data:image/png;base64,AAAA'), bs)
 bs.window.__dshToggleShellMenu()
 const bm = bs.document.body.children.find(c => String(c.className).includes('dsh-shell-menu'))
 const bi = bm.children.find(c => c.attrs['data-action'] === 'quit')
@@ -261,7 +274,7 @@ const ns = {
 ns.window = ns
 ns.window.__dshNotifyBridge = { shellAction: (a) => nf.push(a) }
 ns.window.location = { reload() {} }
-vm.runInNewContext(noAboutRaw.replace('__VERSION__', '1').replace('__BUILD__', '1'), ns)
+vm.runInNewContext(noAboutRaw.replace('__VERSION__', '1').replace('__BUILD__', '1').replace('__ICON__', 'data:image/png;base64,AAAA'), ns)
 ns.window.__dshToggleShellMenu()
 const nm = ns.document.body.children.find(c => String(c.className).includes('dsh-shell-menu'))
 nm.fire('click', nm.children.find(c => c.attrs['data-action'] === 'about'))

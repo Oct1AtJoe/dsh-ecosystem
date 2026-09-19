@@ -2582,6 +2582,28 @@ fn brand_overlay_script() -> &'static str {
 }
 
 
+/// 品牌小鲸鱼图标（与应用图标同一张）：编译期嵌入，避免运行时读盘。
+/// content WebView 是远程 http 源，取不到 Tauri 本地资源，因此以 data URI 内联进脚本。
+/// 路径相对本文件所在目录（src-tauri/src/）→ 上跳两级到 desktop/src/icon.png。
+const BRAND_ICON_PNG: &[u8] = include_bytes!("../../src/icon.png");
+
+/// 把字节流编码成 base64（标准字母表）。仅用于内联图标，避免为此引入依赖。
+fn base64_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
 /// 壳联动 UI 脚本：顶栏 ☰ 的毛玻璃下拉面板 + 「关于 DSH 宿主版本」玻璃弹窗。
 ///
 /// **为什么放在 initialization_script 而不是 DSH 插件里**：
@@ -2590,6 +2612,7 @@ fn brand_overlay_script() -> &'static str {
 /// 即执行，早于任何页面内容，因此引导页、错误页、真 GUI 三态都有同一套面板，零跳变。
 /// 动作仍走 `__dshNotifyBridge.shellAction()` 回到壳侧 `run_shell_action`（与托盘同源）。
 fn shell_ui_script(version: &str, build: &str) -> String {
+    let icon = format!("data:image/png;base64,{}", base64_encode(BRAND_ICON_PNG));
     let js = r#"
 (function(){
   if (window.__dshShellUI) return;
@@ -2597,6 +2620,7 @@ fn shell_ui_script(version: &str, build: &str) -> String {
 
   var VERSION = "__VERSION__";
   var BUILD = "__BUILD__";
+  var ICON = "__ICON__";
 
   // ── 深浅判定：三种来源按优先级（内联变量 > colorScheme > body 属性）──
   function isDark() {
@@ -2635,11 +2659,12 @@ fn shell_ui_script(version: &str, build: &str) -> String {
     '@keyframes dshFadeIn{from{opacity:0}to{opacity:1}}',
     '.dsh-about{width:340px;padding:26px 26px 20px;border-radius:16px;text-align:center;transform-origin:center;',
     'animation:dshPopIn .2s cubic-bezier(.16,1,.3,1)}',
-    '.dsh-about-mark{width:56px;height:56px;margin:0 auto 14px;border-radius:14px;display:flex;align-items:center;justify-content:center;',
-    'background:linear-gradient(180deg,#147ce5,#0d6ecc);box-shadow:0 6px 18px rgba(20,124,229,.35),inset 0 1px 1px rgba(255,255,255,.35)}',
-    '.dsh-about-mark svg{width:30px;height:30px;fill:#fff}',
-    '.dsh-about-title{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:3px}',
-    '.dsh-about-sub{font-size:12px;opacity:.6;margin-bottom:18px}',
+    // 品牌小鲸鱼：直接复用应用图标（白底圆角 + 黑鲸鱼，四角自带透明），
+    // 不再自绘蓝色渐变徽标——与应用/托盘图标保持同一识别。
+    '.dsh-about-mark{width:64px;height:64px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;',
+    'filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}',
+    '.dsh-about-mark img{width:64px;height:64px;display:block;border-radius:15px}',
+    '.dsh-about-title{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-bottom:20px}',
     '.dsh-about-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:20px;text-align:left}',
     '.dsh-about-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:7px 11px;border-radius:8px;background:rgba(128,128,128,.10)}',
     '.dsh-about-row b{font-weight:600;font-variant-numeric:tabular-nums}',
@@ -2735,10 +2760,9 @@ fn shell_ui_script(version: &str, build: &str) -> String {
     var card = makePop('dsh-about');
     card.innerHTML =
       '<div class="dsh-about-mark">' +
-        '<svg viewBox="0 0 170 170" aria-hidden="true"><path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.6-7.83-11.7-14.35-6.53-10.42-11.7-22.37-15.5-35.85-3.8-13.48-5.71-25.75-5.71-36.8 0-16.1 4.14-29.35 12.43-39.75 8.28-10.4 18.7-15.71 31.25-15.93 4.46 0 9.58 1.15 15.35 3.46 5.77 2.31 9.4 3.52 10.9 3.63 2.18-.32 6.1-1.63 11.75-3.92 5.65-2.3 10.43-3.4 14.34-3.32 10.66.54 19.64 4.54 26.93 12 7.3 7.46 11.83 16.51 13.6 27.15-9.79 5.86-14.58 14.12-14.36 24.78.22 8.36 3.48 15.31 9.78 20.85 6.3 5.54 13.9 8.68 22.8 9.43-2.18 6.4-4.8 12.6-7.86 18.6zM119.22 31.64c0-7.39 2.61-14.4 7.83-21.03 5.22-6.63 11.96-10.61 20.22-11.94.43 3.69.43 6.95 0 9.78-.65 7.17-3.59 14.01-8.8 20.52-5.22 6.52-11.63 10.32-19.25 11.41-.33-2.71-.43-5.63 0-8.74z"/></svg>' +
+        '<img src="' + ICON + '" alt="DeepSeek Harness" />' +
       '</div>' +
       '<div class="dsh-about-title">DeepSeek Harness</div>' +
-      '<div class="dsh-about-sub">桌面端 · macOS Sequoia / Sonoma Edition</div>' +
       '<div class="dsh-about-rows">' +
         '<div class="dsh-about-row"><span>宿主核心版本</span><b>v' + VERSION + '</b></div>' +
         '<div class="dsh-about-row"><span>桌面端壳版本</span><b>v' + BUILD + '</b></div>' +
@@ -2763,7 +2787,9 @@ fn shell_ui_script(version: &str, build: &str) -> String {
   window.__dshCloseShellPop = function(){ closeMenu(); closeAbout(); };
 })();
 "#;
-    js.replace("__VERSION__", version).replace("__BUILD__", build)
+    js.replace("__VERSION__", version)
+        .replace("__BUILD__", build)
+        .replace("__ICON__", &icon)
 }
 
 /// 导航完成后注入任务完成启发式监听（桥与 shim 已由初始化脚本注入，脚本自带守卫，重复注入无害）。

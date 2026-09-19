@@ -101,7 +101,11 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 - 深浅判定优先级：`html.style.colorScheme` > `body[data-ds-dark-theme]` > 默认深色（与壳首帧兜底一致）；弹窗按判定打 `data-light` 属性切换配色。
 - 面板与弹窗的动作一律经 `__dshNotifyBridge.shellAction(action)` 回到 `run_shell_action`；「关于」走本地 `openAbout()` 自绘弹窗，**不再调 `MessageBoxW`**（原 `show_about_dialog` 只保留为脚本缺失时的最后兜底）。
 - 版本号由 Rust 侧 `get_dsh_host_version()` / `env!("CARGO_PKG_VERSION")` 注入脚本占位符，不在前端硬编码。
-- 回归自检：`node desktop/scripts/check-shell-ui.mjs`（17 项，含 2 条负向对照）—— 真实模拟点击，断言 5 项动作路由、关于弹窗结构、版本注入、深浅适配。改壳 UI 后必跑。
+- **品牌 logo 复用应用图标**：`include_bytes!("../../src/icon.png")` 编译期嵌入，运行时由 `base64_encode` 转 data URI 内联。content WebView 是远程 http 源，取不到 Tauri 本地资源，所以必须内联而非引用路径；手写 base64 是为了不为此引入依赖。
+- 回归自检（改壳 UI 后必跑）：
+  - `node desktop/scripts/check-shell-ui.mjs`（19 项，含 2 条负向对照）—— 真实模拟点击，断言 5 项动作路由、关于弹窗结构、logo 为内联位图、副标题已移除、深浅适配。
+  - `node desktop/scripts/check-base64.mjs`（13 项，含 1 条负向对照）—— 与 Node 权威实现逐一对拍 base64 编码器。
+  - `node desktop/scripts/check-dist-artifact.mjs`（9 项，含 1 条负向对照）—— 校验 dist 产物真的嵌入了鲸鱼图标且旧文案已消失。**产物级验证不可省**：exe 里本就有多张 PNG（Tauri 的 128/32 图标），判据必须是「与源码 icon.png 逐字节一致」，取第一张会误判。
 
 ## 9. 服务与重启语义
 
