@@ -435,12 +435,12 @@ body[data-ds-custom-theme="sonoma"] {
   -webkit-font-smoothing: antialiased !important;
 }
 
-/* 视窗外框发丝高光倒角（Hairline Specular Rim） */
+/* 视窗外框发丝高光倒角（Hairline Specular Rim：模拟精密切削玻璃微反光） */
 body[data-ds-custom-theme="sequoia"] [class*="AppFrame_frame"] {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="AppFrame_frame"] {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
 }
 
 /* 悬浮毛玻璃输入坞 (Floating Glass Dock) */
@@ -596,14 +596,15 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
   border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  backdrop-filter: blur(32px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
 }
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255, 160, 90, 0.04) 0%, transparent 100%),
-    rgba(245, 245, 247, 0.65) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.60) !important;
+    radial-gradient(ellipse 85% 65% at 48% 28%, rgba(255, 168, 108, 0.14) 0%, transparent 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.48) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset -1px 0 0 rgba(255, 255, 255, 0.65) !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
@@ -611,14 +612,29 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(30px) saturate(170%) !important;
-  -webkit-backdrop-filter: blur(30px) saturate(170%) !important;
+  backdrop-filter: blur(34px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(170%) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(130, 60, 220, 0.04) 0%, transparent 100%),
-    rgba(18, 20, 25, 0.65) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08) !important;
+    radial-gradient(ellipse 85% 65% at 48% 28%, rgba(140, 70, 240, 0.15) 0%, transparent 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.55) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset -1px 0 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+/* 右侧抽屉面板毛玻璃与发丝镜面反射 */
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+  background:
+    radial-gradient(ellipse 85% 65% at 52% 28%, rgba(130, 108, 255, 0.12) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.48) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+  background:
+    radial-gradient(ellipse 85% 65% at 52% 28%, rgba(41, 151, 255, 0.12) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.55) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.09), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
 }
 
 /* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */

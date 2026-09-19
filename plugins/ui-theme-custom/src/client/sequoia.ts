@@ -6,18 +6,18 @@
 import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 export const SEQUOIA_TOKENS: ThemeTokens = Object.freeze({
-  // 1. Sequoia 阳光加州红杉林壁纸流动漫反射层（淡雅温润空气感微光，消除深重霓虹）
+  // 1. Sequoia 阳光加州红杉林壁纸流动漫反射层（优雅温润空气感漫反射，通透而不刺眼）
   '--dsw-alias-bg-app-image':
-    'radial-gradient(ellipse 900px 520px at 20% 15%, rgba(255, 160, 90, 0.08) 0%, transparent 65%),'
-    + 'radial-gradient(ellipse 850px 600px at 85% 85%, rgba(110, 80, 255, 0.06) 0%, transparent 70%),'
-    + 'radial-gradient(circle at 60% 40%, rgba(255, 100, 130, 0.05) 0%, transparent 60%),'
-    + 'linear-gradient(135deg, rgba(60, 80, 180, 0.03) 0%, rgba(255, 140, 100, 0.02) 50%, rgba(255, 200, 80, 0.03) 100%)',
+    'radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),'
+    + 'radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),'
+    + 'radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),'
+    + 'linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)',
 
   // 2. 超采样高斯液态磨砂与透光亚克力
   '--dsw-alias-glass-blur': 'blur(48px) saturate(200%)',
   '--dsw-alias-surface-glass-blur': 'blur(32px) saturate(180%)',
   '--dsw-alias-bg-base': 'rgba(255, 255, 255, 0.72)',
-  '--dsw-alias-surface-glass-spot': 'transparent',
+  '--dsw-alias-surface-glass-spot': 'rgba(255, 168, 108, 0.16)',
 
   // 3. 原生分层视窗面板
   '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.88)',

@@ -1,10 +1,10 @@
 //#region lib/types/client/sequoia.js
 const SEQUOIA_TOKENS = Object.freeze({
-	"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 20% 15%, rgba(255, 160, 90, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(110, 80, 255, 0.06) 0%, transparent 70%),radial-gradient(circle at 60% 40%, rgba(255, 100, 130, 0.05) 0%, transparent 60%),linear-gradient(135deg, rgba(60, 80, 180, 0.03) 0%, rgba(255, 140, 100, 0.02) 50%, rgba(255, 200, 80, 0.03) 100%)",
+	"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)",
 	"--dsw-alias-glass-blur": "blur(48px) saturate(200%)",
 	"--dsw-alias-surface-glass-blur": "blur(32px) saturate(180%)",
 	"--dsw-alias-bg-base": "rgba(255, 255, 255, 0.72)",
-	"--dsw-alias-surface-glass-spot": "transparent",
+	"--dsw-alias-surface-glass-spot": "rgba(255, 168, 108, 0.16)",
 	"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
 	"--dsw-alias-bg-layer-2": "rgba(245, 245, 247, 0.92)",
 	"--dsw-alias-bg-layer-3": "rgba(235, 235, 238, 0.96)",
@@ -108,11 +108,11 @@ const SEQUOIA_TOKENS = Object.freeze({
 //#endregion
 //#region lib/types/client/sonoma.js
 const SONOMA_TOKENS = Object.freeze({
-	"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 15% 20%, rgba(130, 60, 220, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(40, 150, 255, 0.07) 0%, transparent 65%),radial-gradient(circle at 50% 50%, rgba(240, 70, 130, 0.03) 0%, transparent 60%),linear-gradient(180deg, rgba(12, 13, 17, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%)",
+	"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 15% 18%, rgba(140, 70, 240, 0.18) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 85% 85%, rgba(41, 151, 255, 0.16) 0%, transparent 68%),radial-gradient(circle at 50% 50%, rgba(255, 75, 140, 0.08) 0%, transparent 62%),linear-gradient(180deg, rgba(12, 13, 17, 0.94) 0%, rgba(16, 18, 24, 0.97) 100%)",
 	"--dsw-alias-glass-blur": "blur(50px) saturate(180%)",
 	"--dsw-alias-surface-glass-blur": "blur(34px) saturate(160%)",
 	"--dsw-alias-bg-base": "rgba(22, 24, 30, 0.74)",
-	"--dsw-alias-surface-glass-spot": "transparent",
+	"--dsw-alias-surface-glass-spot": "rgba(140, 70, 240, 0.18)",
 	"--dsw-alias-bg-layer-1": "rgba(28, 32, 40, 0.78)",
 	"--dsw-alias-bg-layer-2": "rgba(34, 38, 48, 0.85)",
 	"--dsw-alias-bg-layer-3": "rgba(42, 46, 58, 0.92)",

@@ -9,11 +9,11 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region src/client/sequoia.ts
 		const SEQUOIA_TOKENS = Object.freeze({
-			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 20% 15%, rgba(255, 160, 90, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(110, 80, 255, 0.06) 0%, transparent 70%),radial-gradient(circle at 60% 40%, rgba(255, 100, 130, 0.05) 0%, transparent 60%),linear-gradient(135deg, rgba(60, 80, 180, 0.03) 0%, rgba(255, 140, 100, 0.02) 50%, rgba(255, 200, 80, 0.03) 100%)",
+			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)",
 			"--dsw-alias-glass-blur": "blur(48px) saturate(200%)",
 			"--dsw-alias-surface-glass-blur": "blur(32px) saturate(180%)",
 			"--dsw-alias-bg-base": "rgba(255, 255, 255, 0.72)",
-			"--dsw-alias-surface-glass-spot": "transparent",
+			"--dsw-alias-surface-glass-spot": "rgba(255, 168, 108, 0.16)",
 			"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
 			"--dsw-alias-bg-layer-2": "rgba(245, 245, 247, 0.92)",
 			"--dsw-alias-bg-layer-3": "rgba(235, 235, 238, 0.96)",
@@ -117,11 +117,11 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/sonoma.ts
 		const SONOMA_TOKENS = Object.freeze({
-			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 15% 20%, rgba(130, 60, 220, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(40, 150, 255, 0.07) 0%, transparent 65%),radial-gradient(circle at 50% 50%, rgba(240, 70, 130, 0.03) 0%, transparent 60%),linear-gradient(180deg, rgba(12, 13, 17, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%)",
+			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 15% 18%, rgba(140, 70, 240, 0.18) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 85% 85%, rgba(41, 151, 255, 0.16) 0%, transparent 68%),radial-gradient(circle at 50% 50%, rgba(255, 75, 140, 0.08) 0%, transparent 62%),linear-gradient(180deg, rgba(12, 13, 17, 0.94) 0%, rgba(16, 18, 24, 0.97) 100%)",
 			"--dsw-alias-glass-blur": "blur(50px) saturate(180%)",
 			"--dsw-alias-surface-glass-blur": "blur(34px) saturate(160%)",
 			"--dsw-alias-bg-base": "rgba(22, 24, 30, 0.74)",
-			"--dsw-alias-surface-glass-spot": "transparent",
+			"--dsw-alias-surface-glass-spot": "rgba(140, 70, 240, 0.18)",
 			"--dsw-alias-bg-layer-1": "rgba(28, 32, 40, 0.78)",
 			"--dsw-alias-bg-layer-2": "rgba(34, 38, 48, 0.85)",
 			"--dsw-alias-bg-layer-3": "rgba(42, 46, 58, 0.92)",
@@ -1223,12 +1223,12 @@ body[data-ds-custom-theme="sonoma"] {
   -webkit-font-smoothing: antialiased !important;
 }
 
-/* 视窗外框发丝高光倒角（Hairline Specular Rim） */
+/* 视窗外框发丝高光倒角（Hairline Specular Rim：模拟精密切削玻璃微反光） */
 body[data-ds-custom-theme="sequoia"] [class*="AppFrame_frame"] {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="AppFrame_frame"] {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
 }
 
 /* 悬浮毛玻璃输入坞 (Floating Glass Dock) */
@@ -1384,14 +1384,15 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
   border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  backdrop-filter: blur(32px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
 }
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255, 160, 90, 0.04) 0%, transparent 100%),
-    rgba(245, 245, 247, 0.65) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.60) !important;
+    radial-gradient(ellipse 85% 65% at 48% 28%, rgba(255, 168, 108, 0.14) 0%, transparent 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.48) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset -1px 0 0 rgba(255, 255, 255, 0.65) !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
@@ -1399,14 +1400,29 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(30px) saturate(170%) !important;
-  -webkit-backdrop-filter: blur(30px) saturate(170%) !important;
+  backdrop-filter: blur(34px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(34px) saturate(170%) !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(130, 60, 220, 0.04) 0%, transparent 100%),
-    rgba(18, 20, 25, 0.65) !important;
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08) !important;
+    radial-gradient(ellipse 85% 65% at 48% 28%, rgba(140, 70, 240, 0.15) 0%, transparent 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.55) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset -1px 0 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+/* 右侧抽屉面板毛玻璃与发丝镜面反射 */
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+  background:
+    radial-gradient(ellipse 85% 65% at 52% 28%, rgba(130, 108, 255, 0.12) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.48) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+  background:
+    radial-gradient(ellipse 85% 65% at 52% 28%, rgba(41, 151, 255, 0.12) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.55) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.09), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
 }
 
 /* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */

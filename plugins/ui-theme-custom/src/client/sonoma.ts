@@ -6,18 +6,18 @@
 import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 export const SONOMA_TOKENS: ThemeTokens = Object.freeze({
-  // 1. Sonoma 暗夜壁纸黑曜石微发光漫反射层（沉静内敛星尘微晕，消除过浓紫蓝霓虹）
+  // 1. Sonoma 暗夜壁纸黑曜石微发光漫反射层（沉静通透星尘微晕，富有空间层次）
   '--dsw-alias-bg-app-image':
-    'radial-gradient(ellipse 900px 520px at 15% 20%, rgba(130, 60, 220, 0.08) 0%, transparent 65%),'
-    + 'radial-gradient(ellipse 850px 600px at 85% 85%, rgba(40, 150, 255, 0.07) 0%, transparent 65%),'
-    + 'radial-gradient(circle at 50% 50%, rgba(240, 70, 130, 0.03) 0%, transparent 60%),'
-    + 'linear-gradient(180deg, rgba(12, 13, 17, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%)',
+    'radial-gradient(ellipse 950px 560px at 15% 18%, rgba(140, 70, 240, 0.18) 0%, transparent 68%),'
+    + 'radial-gradient(ellipse 880px 620px at 85% 85%, rgba(41, 151, 255, 0.16) 0%, transparent 68%),'
+    + 'radial-gradient(circle at 50% 50%, rgba(255, 75, 140, 0.08) 0%, transparent 62%),'
+    + 'linear-gradient(180deg, rgba(12, 13, 17, 0.94) 0%, rgba(16, 18, 24, 0.97) 100%)',
 
   // 2. 黑曜石暗色高折射毛玻璃
   '--dsw-alias-glass-blur': 'blur(50px) saturate(180%)',
   '--dsw-alias-surface-glass-blur': 'blur(34px) saturate(160%)',
   '--dsw-alias-bg-base': 'rgba(22, 24, 30, 0.74)',
-  '--dsw-alias-surface-glass-spot': 'transparent',
+  '--dsw-alias-surface-glass-spot': 'rgba(140, 70, 240, 0.18)',
 
   // 3. 暗夜极客分层视窗面板
   '--dsw-alias-bg-layer-1': 'rgba(28, 32, 40, 0.78)',
