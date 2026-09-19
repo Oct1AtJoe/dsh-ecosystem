@@ -5,6 +5,7 @@
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { ThemePreference } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { DEFAULT_SIDEBAR_FONT } from './sidebar-font.ts'
 
 /** Store state mirrored from the theme snapshot. */
 export interface TechThemeRowState {
@@ -30,6 +31,37 @@ export function createTechThemeStore(): EngineStoreHandle<TechThemeRowState, Tec
       sync: (d, preference, revision) => {
         if (revision <= d.revision) return
         d.preference = preference
+        d.revision = revision
+      },
+    },
+  })
+}
+
+/** 侧边栏字号行的状态（独立于官方对话区字号）。 */
+export interface SidebarFontRowState {
+  /** 已持久化的侧边栏字号（px）。 */
+  size: number
+  /** 递增序号；-1 起，保证首次同步落地。 */
+  revision: number
+}
+
+/** 侧边栏字号行的写面。 */
+type SidebarFontRowActions = {
+  sync: (draft: SidebarFontRowState, size: number, revision: number) => void
+}
+
+/**
+ * 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
+ * 唯一写入方是 apply-world 的同步调用，组件经 useStore 只读。
+ * @returns store 句柄。
+ */
+export function createSidebarFontStore(): EngineStoreHandle<SidebarFontRowState, SidebarFontRowActions> {
+  return defineStore({
+    init: () => ({ size: DEFAULT_SIDEBAR_FONT, revision: -1 }),
+    actions: {
+      sync: (d, size, revision) => {
+        if (revision <= d.revision) return
+        d.size = size
         d.revision = revision
       },
     },

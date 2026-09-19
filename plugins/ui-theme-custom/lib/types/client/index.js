@@ -5,8 +5,10 @@ import { JADE_TOKENS } from "./jade.js";
 import { SOLAR_TOKENS } from "./solar.js";
 import { PARCHMENT_TOKENS } from "./parchment.js";
 import { en, zh } from "./locales.js";
-import { createTechThemeStore } from "./settings-store.js";
+import { createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
 import { SETTINGS_NS, TechThemeRow } from "./TechThemeRow.js";
+import { SidebarFontRow } from "./SidebarFontRow.js";
+import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from "./sidebar-font.js";
 /** Sequoia: macOS Sequoia 液态透光浅色版 (Liquid Frost Light). */
 const SEQUOIA = Object.freeze({
     id: 'sequoia',
@@ -674,25 +676,26 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
    因此不会出现「先原生菜单、后自定义面板」的跳变。本插件不再重复实现该 UI，
    以免覆盖壳脚本导致跳变回归。动作仍经 __dshNotifyBridge.shellAction() 回到壳侧。 */
 
-/* ── 字号全局生效（Global type scale）────────────────────────────────
-   官方只把 --dsh-content-font-size 挂在 body 上，且只有 ui-chat /
-   ui-conversation 等对话模块消费它；两侧边栏（ui-workspace 行、better-sidebar）、
-   设置面板自身（ui-settings-general）用的是硬编码 px，因此调字号时它们纹丝不动。
+/* ── 字号作用域（Type scale）──────────────────────────────────────────
+   分两条独立轴：
+   - 对话区（阅读内容）：官方 --dsh-content-font-size，由官方行控制。
+   - 侧边栏（导航 chrome）：本插件 --dsh-sidebar-font-size，由侧边栏字号行控制。
+   两者独立，因为导航与正文同字号会让内容主体失去视觉重量（VS Code / Slack /
+   Notion 的侧边栏都固定小一档）。
 
-   这里复用官方已有的增量轴 --dsh-content-font-delta（= 设置值 − 14px），
-   对外壳区域做「等比增量」而非「等值替换」：12px 的密集次级文本 +Δ 仍比
-   14px 的正文小，视觉层级完整保留；Δ=0（默认 14px）时计算结果与原始硬编码
-   完全一致，因此不影响默认外观。
+   设置面板自身跟随对话区轴（它是内容的一部分）。
 
    ⚠️ 实测硬规则：CSS Modules 哈希后类名形如 V41CyG_frame，**源码目录名
    （AppFrame / SettingsRoot / Rows）不会出现在 DOM 里**。所以：
-   - 增量锚点必须挂在 body（官方轴所在处，必然命中），不可写 [class*="AppFrame_frame"]；
    - 区域钩子只能用真实存在的片段（sidebarCol / rightbarCol / dsh-ff__ / role="dialog"）；
    - 禁止 [class*="title"] 这类过宽通配：实测命中 49 个元素，会误伤对话区标题。
 
-   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，官方一改就漏。 */
+   ponytail: 侧边栏直接用绝对字号（不是 delta），因为它是独立设置项而非对话区的偏移。 */
 body{
+  /* 对话区增量轴：设置面板等跟随内容缩放的区域用 */
   --dsh-shell-font-delta:var(--dsh-content-font-delta,0px);
+  /* 侧边栏字号兜底：未设置时比对话区默认（14px）小一档 */
+  --dsh-sidebar-font-size:13px;
 }
 /* 左侧边栏：better-sidebar 会话/文件夹/搜索行（真实前缀 dsh-ff__） */
 [class*="sidebarCol"] [class*="dsh-ff__title"],
@@ -702,25 +705,25 @@ body{
 [class*="sidebarCol"] [class*="searchResultTitle"],
 [class*="sidebarCol"] [class*="navLabel"],
 [class*="sidebarCol"] [class*="navCell"]{
-  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+  font-size:var(--dsh-sidebar-font-size,13px);
 }
 [class*="sidebarCol"] [class*="searchResultWorkspace"],
 [class*="sidebarCol"] [class*="searchResultSnippet"],
 [class*="sidebarCol"] [class*="dsh-ff__meta"],
 [class*="sidebarCol"] [class*="dsh-ff__subtitle"]{
-  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+  font-size:calc(var(--dsh-sidebar-font-size,13px) - 1px);
 }
-/* 右侧面板 */
+/* 右侧面板：同样归侧边栏轴 */
 [class*="rightbarCol"] [class*="sessionRow"],
 [class*="rightbarCol"] [class*="navLabel"],
 [class*="rightbarCol"] [class*="dsh-ff__title"]{
-  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+  font-size:var(--dsh-sidebar-font-size,13px);
 }
 [class*="rightbarCol"] [class*="searchResultSnippet"],
 [class*="rightbarCol"] [class*="dsh-ff__meta"]{
-  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+  font-size:calc(var(--dsh-sidebar-font-size,13px) - 1px);
 }
-/* 设置面板自身：导航标题 16px、导航项 14px */
+/* 设置面板自身：跟随对话区轴（它是内容） */
 [role="dialog"] [class*="navTitle"]{
   font-size:calc(16px + var(--dsh-shell-font-delta,0px));
 }
@@ -728,11 +731,10 @@ body{
 [role="dialog"] [class*="navLabel"]{
   font-size:calc(14px + var(--dsh-shell-font-delta,0px));
 }
-/* 外壳行高随字号联动，避免放大后压字（保持原始 10px leading） */
+/* 外壳行高随侧边栏字号联动，避免放大后压字 */
 [class*="sidebarCol"] [class*="sessionRow"],
-[class*="sidebarCol"] [class*="projectRow"],
-[role="dialog"] [class*="navCell"]{
-  line-height:calc(22px + var(--dsh-shell-font-delta,0px));
+[class*="sidebarCol"] [class*="projectRow"]{
+  line-height:calc(var(--dsh-sidebar-font-size,13px) + 8px);
 }
 
 /* Xcode 风格代码块 */
@@ -1178,6 +1180,35 @@ export function apply(ctx) {
         locale: SETTINGS_NS,
         inject: injected,
     }, TechThemeRow));
+    // ── 侧边栏字号行 ───────────────────────────────────────────────────
+    // 紧邻官方「字号大小」行（order 11）之后：对话区字号归官方，侧边栏字号归本插件。
+    // 两者独立设置，因为侧边栏是导航 chrome、对话区是阅读内容，同字号会让正文失去视觉重量。
+    const sidebarStore = createSidebarFontStore();
+    let sidebarBound;
+    let sidebarRevision = 0;
+    const syncSidebarFontRow = () => {
+        sidebarBound?.sync(readSidebarFont(), ++sidebarRevision);
+    };
+    const sidebarInjected = (actions) => {
+        sidebarBound = actions;
+        syncSidebarFontRow();
+        return {
+            setSidebarFont: (px) => {
+                const next = normalizeSidebarFont(px);
+                writeSidebarFont(next);
+                applySidebarFont(next);
+                syncSidebarFontRow();
+            },
+        };
+    };
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+        name: 'settings.general.item',
+        id: 'sidebar-font-custom',
+        order: 12,
+        store: sidebarStore,
+        locale: SETTINGS_NS,
+        inject: sidebarInjected,
+    }, SidebarFontRow));
     ctx.effect(() => {
         const disposeSequoia = ctx.theme.register(SEQUOIA);
         const disposeSonoma = ctx.theme.register(SONOMA);
@@ -1208,6 +1239,11 @@ export function apply(ctx) {
         if (saved !== undefined) {
             activateTheme(saved);
         }
+    }
+    catch { /* localStorage unavailable */ }
+    // 侧边栏字号：apply() 期间立即落变量，首帧就用用户设定值（无闪动）。
+    try {
+        applySidebarFont(readSidebarFont());
     }
     catch { /* localStorage unavailable */ }
 }

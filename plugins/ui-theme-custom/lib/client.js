@@ -7,6 +7,7 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
+		let react = require("react");
 		//#region src/client/sequoia.ts
 		const SEQUOIA_TOKENS = Object.freeze({
 			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)",
@@ -642,7 +643,12 @@ window.__ModuleLoader__.load({
 			"tech-theme.void": "冥夜",
 			"tech-theme.jade": "银曜",
 			"tech-theme.solar": "灼日",
-			"tech-theme.parchment": "缃素"
+			"tech-theme.parchment": "缃素",
+			"sidebar-font.title": "侧边栏字号",
+			"sidebar-font.description": "仅影响两侧边栏。默认比对话区小一档，避免导航与正文抢视觉重量",
+			"sidebar-font.unit": "px",
+			"sidebar-font.increase": "增大侧边栏字号",
+			"sidebar-font.decrease": "减小侧边栏字号"
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -652,8 +658,70 @@ window.__ModuleLoader__.load({
 			"tech-theme.void": "Void",
 			"tech-theme.jade": "Argent",
 			"tech-theme.solar": "Solar",
-			"tech-theme.parchment": "Parchment"
+			"tech-theme.parchment": "Parchment",
+			"sidebar-font.title": "Sidebar font size",
+			"sidebar-font.description": "Affects both sidebars only. Sits one step below the chat area so navigation never competes with the content",
+			"sidebar-font.unit": "px",
+			"sidebar-font.increase": "Increase sidebar font size",
+			"sidebar-font.decrease": "Decrease sidebar font size"
 		};
+		//#endregion
+		//#region src/client/sidebar-font.ts
+		/**
+		* 侧边栏字号偏好：独立于官方的对话区字号（--dsh-content-font-size）。
+		*
+		* 为什么独立：侧边栏是导航 chrome，对话区是阅读内容。两者同字号会让正文失去
+		* 视觉重量（VS Code / Slack / Notion 的侧边栏都固定比正文小一档）。
+		*
+		* 为什么用 localStorage 而非官方 settings：官方 --dsh-content-font-size 属
+		* ui-theme 命名空间，插件不写别人的命名空间（架构铁律）；主题偏好
+		* （dsh-theme-preference）已有同样的先例。
+		*
+		* 应用方式：写 --dsh-sidebar-font-size 到 html + body（内联变量双写，见
+		* AGENTS.md 6.3 的层叠陷阱），由 SURFACE_GLASS_CSS 的规则消费。
+		*/
+		/** localStorage key。 */
+		const KEY = "dsh-sidebar-font-size";
+		/** 驱动侧边栏字号的内联 CSS 变量名。 */
+		const SIDEBAR_FONT_VARIABLE = "--dsh-sidebar-font-size";
+		/** 校验并夹取到合法区间；非整数/非数字回退默认。 */
+		function normalizeSidebarFont(value) {
+			const n = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+			if (!Number.isFinite(n) || !Number.isInteger(n)) return 13;
+			if (n < 11) return 11;
+			if (n > 16) return 16;
+			return n;
+		}
+		/** 读取已保存的侧边栏字号（无记录或不可用时回退默认）。 */
+		function readSidebarFont() {
+			if (typeof localStorage === "undefined") return 13;
+			try {
+				const raw = localStorage.getItem(KEY);
+				if (raw === null || raw === "") return 13;
+				return normalizeSidebarFont(raw);
+			} catch {
+				return 13;
+			}
+		}
+		/** 持久化侧边栏字号。 */
+		function writeSidebarFont(px) {
+			if (typeof localStorage === "undefined") return;
+			try {
+				localStorage.setItem(KEY, String(normalizeSidebarFont(px)));
+			} catch {}
+		}
+		/**
+		* 把侧边栏字号写到 html + body 的内联变量。
+		*
+		* 必须双写：浅色兜底调色板定义在 body 上，其特异性高于 :root；只写
+		* documentElement 会被 body 规则覆盖（AGENTS.md 6.3）。
+		*/
+		function applySidebarFont(px) {
+			if (typeof document === "undefined") return;
+			const value = `${normalizeSidebarFont(px)}px`;
+			document.documentElement.style.setProperty(SIDEBAR_FONT_VARIABLE, value);
+			if (document.body) document.body.style.setProperty(SIDEBAR_FONT_VARIABLE, value);
+		}
 		//#endregion
 		//#region src/client/settings-store.ts
 		/**
@@ -678,6 +746,24 @@ window.__ModuleLoader__.load({
 				} }
 			});
 		}
+		/**
+		* 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
+		* 唯一写入方是 apply-world 的同步调用，组件经 useStore 只读。
+		* @returns store 句柄。
+		*/
+		function createSidebarFontStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({
+					size: 13,
+					revision: -1
+				}),
+				actions: { sync: (d, size, revision) => {
+					if (revision <= d.revision) return;
+					d.size = size;
+					d.revision = revision;
+				} }
+			});
+		}
 		//#endregion
 		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
@@ -695,13 +781,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
-		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
@@ -826,6 +912,124 @@ window.__ModuleLoader__.load({
 						},
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Icon, {}), t(labelKey)]
 					}, id))
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
+		const css = ".LcL5XW_row{border-bottom:1px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_input{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-1);width:56px;height:32px;color:var(--dsw-alias-label-primary);font:inherit;text-align:center;font-variant-numeric:tabular-nums;border-radius:8px;outline:none;padding:0 8px;font-size:14px;line-height:22px}.LcL5XW_input:focus{border-color:var(--dsw-alias-brand-primary)}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{flex-direction:column;gap:2px;display:inline-flex}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var SidebarFontRow_module_css_default = {
+			"arrow": "LcL5XW_arrow",
+			"arrows": "LcL5XW_arrows",
+			"control": "LcL5XW_control",
+			"desc": "LcL5XW_desc",
+			"input": "LcL5XW_input",
+			"row": "LcL5XW_row",
+			"rowText": "LcL5XW_rowText",
+			"title": "LcL5XW_title",
+			"unit": "LcL5XW_unit"
+		};
+		//#endregion
+		//#region src/client/SidebarFontRow.tsx
+		/**
+		* 侧边栏字号偏好行：注册进 General 区的 item 槽，紧邻官方「字号大小」行之后。
+		*
+		* 为什么单独一行而不是改官方那行：官方 FontSizeRow 属 ui-theme 包，且官方源码
+		* 零修改是架构铁律（AGENTS.md 铁律 1）。插件经 settings.general.item 槽位新增
+		* 自己的行，与官方行共用同一套视觉节奏。
+		*
+		* 交互：数字输入框（直接键入）+ 上下步进（微调）。键入非法值在 blur 时夹取回合法值，
+		* 因此不会出现空值或越界持久化。
+		*/
+		/**
+		* 渲染侧边栏字号行。
+		* @param props - 槽位组合 props。
+		* @returns 该行的元素树。
+		*/
+		function SidebarFontRow({ t, setSidebarFont, useStore }) {
+			const size = useStore((s) => s.size);
+			const [draft, setDraft] = (0, react.useState)(null);
+			const commit = (next) => {
+				setSidebarFont(normalizeSidebarFont(next));
+				setDraft(null);
+			};
+			const onInput = (e) => {
+				setDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 2));
+			};
+			const onBlur = () => {
+				if (draft === null) return;
+				if (draft === "") {
+					setDraft(null);
+					return;
+				}
+				commit(Number.parseInt(draft, 10));
+			};
+			const onKeyDown = (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const v = draft ?? String(size);
+					commit(v === "" ? size : Number.parseInt(v, 10));
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: SidebarFontRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: SidebarFontRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: SidebarFontRow_module_css_default.title,
+						children: t("sidebar-font.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: SidebarFontRow_module_css_default.desc,
+						children: t("sidebar-font.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: SidebarFontRow_module_css_default.control,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: SidebarFontRow_module_css_default.input,
+							type: "text",
+							inputMode: "numeric",
+							"aria-label": t("sidebar-font.title"),
+							value: draft ?? String(size),
+							onChange: onInput,
+							onBlur,
+							onKeyDown
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: SidebarFontRow_module_css_default.unit,
+							children: t("sidebar-font.unit")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: SidebarFontRow_module_css_default.arrows,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: SidebarFontRow_module_css_default.arrow,
+								"aria-label": t("sidebar-font.increase"),
+								disabled: size >= 16,
+								onClick: () => {
+									commit(size + 1);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 9 })
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: SidebarFontRow_module_css_default.arrow,
+								"aria-label": t("sidebar-font.decrease"),
+								disabled: size <= 11,
+								onClick: () => {
+									commit(size - 1);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 9 })
+							})]
+						})
+					]
 				})]
 			});
 		}
@@ -1498,25 +1702,26 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
    因此不会出现「先原生菜单、后自定义面板」的跳变。本插件不再重复实现该 UI，
    以免覆盖壳脚本导致跳变回归。动作仍经 __dshNotifyBridge.shellAction() 回到壳侧。 */
 
-/* ── 字号全局生效（Global type scale）────────────────────────────────
-   官方只把 --dsh-content-font-size 挂在 body 上，且只有 ui-chat /
-   ui-conversation 等对话模块消费它；两侧边栏（ui-workspace 行、better-sidebar）、
-   设置面板自身（ui-settings-general）用的是硬编码 px，因此调字号时它们纹丝不动。
+/* ── 字号作用域（Type scale）──────────────────────────────────────────
+   分两条独立轴：
+   - 对话区（阅读内容）：官方 --dsh-content-font-size，由官方行控制。
+   - 侧边栏（导航 chrome）：本插件 --dsh-sidebar-font-size，由侧边栏字号行控制。
+   两者独立，因为导航与正文同字号会让内容主体失去视觉重量（VS Code / Slack /
+   Notion 的侧边栏都固定小一档）。
 
-   这里复用官方已有的增量轴 --dsh-content-font-delta（= 设置值 − 14px），
-   对外壳区域做「等比增量」而非「等值替换」：12px 的密集次级文本 +Δ 仍比
-   14px 的正文小，视觉层级完整保留；Δ=0（默认 14px）时计算结果与原始硬编码
-   完全一致，因此不影响默认外观。
+   设置面板自身跟随对话区轴（它是内容的一部分）。
 
    ⚠️ 实测硬规则：CSS Modules 哈希后类名形如 V41CyG_frame，**源码目录名
    （AppFrame / SettingsRoot / Rows）不会出现在 DOM 里**。所以：
-   - 增量锚点必须挂在 body（官方轴所在处，必然命中），不可写 [class*="AppFrame_frame"]；
    - 区域钩子只能用真实存在的片段（sidebarCol / rightbarCol / dsh-ff__ / role="dialog"）；
    - 禁止 [class*="title"] 这类过宽通配：实测命中 49 个元素，会误伤对话区标题。
 
-   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，官方一改就漏。 */
+   ponytail: 侧边栏直接用绝对字号（不是 delta），因为它是独立设置项而非对话区的偏移。 */
 body{
+  /* 对话区增量轴：设置面板等跟随内容缩放的区域用 */
   --dsh-shell-font-delta:var(--dsh-content-font-delta,0px);
+  /* 侧边栏字号兜底：未设置时比对话区默认（14px）小一档 */
+  --dsh-sidebar-font-size:13px;
 }
 /* 左侧边栏：better-sidebar 会话/文件夹/搜索行（真实前缀 dsh-ff__） */
 [class*="sidebarCol"] [class*="dsh-ff__title"],
@@ -1526,25 +1731,25 @@ body{
 [class*="sidebarCol"] [class*="searchResultTitle"],
 [class*="sidebarCol"] [class*="navLabel"],
 [class*="sidebarCol"] [class*="navCell"]{
-  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+  font-size:var(--dsh-sidebar-font-size,13px);
 }
 [class*="sidebarCol"] [class*="searchResultWorkspace"],
 [class*="sidebarCol"] [class*="searchResultSnippet"],
 [class*="sidebarCol"] [class*="dsh-ff__meta"],
 [class*="sidebarCol"] [class*="dsh-ff__subtitle"]{
-  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+  font-size:calc(var(--dsh-sidebar-font-size,13px) - 1px);
 }
-/* 右侧面板 */
+/* 右侧面板：同样归侧边栏轴 */
 [class*="rightbarCol"] [class*="sessionRow"],
 [class*="rightbarCol"] [class*="navLabel"],
 [class*="rightbarCol"] [class*="dsh-ff__title"]{
-  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+  font-size:var(--dsh-sidebar-font-size,13px);
 }
 [class*="rightbarCol"] [class*="searchResultSnippet"],
 [class*="rightbarCol"] [class*="dsh-ff__meta"]{
-  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+  font-size:calc(var(--dsh-sidebar-font-size,13px) - 1px);
 }
-/* 设置面板自身：导航标题 16px、导航项 14px */
+/* 设置面板自身：跟随对话区轴（它是内容） */
 [role="dialog"] [class*="navTitle"]{
   font-size:calc(16px + var(--dsh-shell-font-delta,0px));
 }
@@ -1552,11 +1757,10 @@ body{
 [role="dialog"] [class*="navLabel"]{
   font-size:calc(14px + var(--dsh-shell-font-delta,0px));
 }
-/* 外壳行高随字号联动，避免放大后压字（保持原始 10px leading） */
+/* 外壳行高随侧边栏字号联动，避免放大后压字 */
 [class*="sidebarCol"] [class*="sessionRow"],
-[class*="sidebarCol"] [class*="projectRow"],
-[role="dialog"] [class*="navCell"]{
-  line-height:calc(22px + var(--dsh-shell-font-delta,0px));
+[class*="sidebarCol"] [class*="projectRow"]{
+  line-height:calc(var(--dsh-sidebar-font-size,13px) + 8px);
 }
 
 /* Xcode 风格代码块 */
@@ -1950,6 +2154,30 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 				locale: SETTINGS_NS,
 				inject: injected
 			}, TechThemeRow));
+			const sidebarStore = createSidebarFontStore();
+			let sidebarBound;
+			let sidebarRevision = 0;
+			const syncSidebarFontRow = () => {
+				sidebarBound?.sync(readSidebarFont(), ++sidebarRevision);
+			};
+			const sidebarInjected = (actions) => {
+				sidebarBound = actions;
+				syncSidebarFontRow();
+				return { setSidebarFont: (px) => {
+					const next = normalizeSidebarFont(px);
+					writeSidebarFont(next);
+					applySidebarFont(next);
+					syncSidebarFontRow();
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "sidebar-font-custom",
+				order: 12,
+				store: sidebarStore,
+				locale: SETTINGS_NS,
+				inject: sidebarInjected
+			}, SidebarFontRow));
 			ctx.effect(() => {
 				const disposeSequoia = ctx.theme.register(SEQUOIA);
 				const disposeSonoma = ctx.theme.register(SONOMA);
@@ -1974,6 +2202,9 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 			try {
 				const saved = readSaved();
 				if (saved !== void 0) activateTheme(saved);
+			} catch {}
+			try {
+				applySidebarFont(readSidebarFont());
 			} catch {}
 		}
 		//#endregion

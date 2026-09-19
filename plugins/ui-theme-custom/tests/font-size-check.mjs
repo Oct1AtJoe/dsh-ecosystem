@@ -5,9 +5,10 @@
 // 任何镜像抖动都会把字号回滚成旧值 —— 用户看到「改完几秒自动弹回」。
 // 插件层补了「字号意图」防护：记住显式提交值，发现被旧镜像回滚就重新断言。
 //
-// 背景（Fix 2）：官方只把 --dsh-content-font-size 挂在 body，且只有对话模块消费它；
-// 两侧边栏与设置面板用硬编码 px，调字号时纹丝不动。插件层用官方增量轴
-// --dsh-content-font-delta 对外壳区域做等比增量。
+// 背景（Fix 2/双轴）：官方只把 --dsh-content-font-size 挂在 body，且只有对话模块消费它；
+// 两侧边栏与设置面板用硬编码 px，调字号时纹丝不动。
+// 现架构：对话区走官方轴（官方行控制），侧边栏走本插件独立轴
+// --dsh-sidebar-font-size（侧边栏字号行控制），设置面板跟随对话区轴。
 //
 // 运行：node plugins/ui-theme-custom/tests/font-size-check.mjs
 import { readFileSync } from 'node:fs'
@@ -17,6 +18,9 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const clientBundle = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8')
 const clientSrc = readFileSync(join(here, '..', 'src', 'client', 'index.ts'), 'utf8')
+const rowSrc = readFileSync(join(here, '..', 'src', 'client', 'SidebarFontRow.tsx'), 'utf8')
+const fontSrc = readFileSync(join(here, '..', 'src', 'client', 'sidebar-font.ts'), 'utf8')
+const localesSrc = readFileSync(join(here, '..', 'src', 'client', 'locales.ts'), 'utf8')
 const shellHtml = readFileSync(join(here, '..', '..', '..', 'desktop', 'src', 'shell.html'), 'utf8')
 
 let failed = 0
@@ -37,21 +41,45 @@ check('Fix1：意图最终会清除（有静默窗口计时器）', clientSrc.in
 check('Fix1：效果随 fiber 释放（restore setFontSize wrapper）', clientSrc.includes('restore setFontSize wrapper'))
 check('Fix1：意图防护已进构建产物', clientBundle.includes('assertFontSizeIntent') && clientBundle.includes('pendingFontSize'))
 
-// ── Fix 2：全局字号作用域 ──
+// ── 字号双轴：对话区（官方）与侧边栏（本插件）独立 ──
 check('Fix2：复用官方增量轴 --dsh-content-font-delta', clientSrc.includes('--dsh-content-font-delta'))
-check('Fix2：外壳区域按增量放大（calc + delta）', /calc\(14px \+ var\(--dsh-shell-font-delta/.test(clientSrc))
-check('Fix2：侧边栏行被覆盖', clientSrc.includes('[class*="sidebarCol"] [class*="dsh-ff__title"]'))
-check('Fix2：设置面板被覆盖', clientSrc.includes('[role="dialog"] [class*="navCell"]'))
-check('Fix2：右侧面板被覆盖', clientSrc.includes('[class*="rightbarCol"]'))
-check('Fix2：行高随字号联动（避免放大压字）', /line-height:calc\(22px \+ var\(--dsh-shell-font-delta/.test(clientSrc))
-check('Fix2：全局字号样式已进构建产物', clientBundle.includes('dsh-shell-font-delta'))
+check('Fix2：侧边栏走独立轴 --dsh-sidebar-font-size', clientSrc.includes('--dsh-sidebar-font-size'))
+check(
+  'Fix2：侧边栏字号直接用独立轴（不再跟随对话区 delta）',
+  // 左侧边栏块：从第一条 sidebarCol 选择器到其规则结束，必须用独立轴且不出现对话区 delta
+  (() => {
+    const start = clientSrc.indexOf('/* 左侧边栏：better-sidebar')
+    const end = clientSrc.indexOf('/* 右侧面板', start)
+    const block = start >= 0 && end > start ? clientSrc.slice(start, end) : ''
+    return block.includes('font-size:var(--dsh-sidebar-font-size')
+      && !block.includes('--dsh-shell-font-delta')
+  })(),
+)
+check(
+  'Fix2：设置面板跟随对话区轴（它是内容）',
+  /\[role="dialog"\] \[class\*="navCell"\][\s\S]{0,80}font-size:calc\(14px \+ var\(--dsh-shell-font-delta/.test(clientSrc),
+)
+check('Fix2：侧边栏次级文本比正文小一档', /--dsh-sidebar-font-size,13px\) - 1px\)/.test(clientSrc))
+check('Fix2：行高随侧边栏字号联动（避免放大压字）', /line-height:calc\(var\(--dsh-sidebar-font-size,13px\) \+ 8px\)/.test(clientSrc))
+check('Fix2：全局字号样式已进构建产物', clientBundle.includes('dsh-sidebar-font-size'))
+
+// ── 侧边栏字号行（独立设置项）──
+check('新行：持久化模块存在（localStorage key + 夹取）', fontSrc.includes("dsh-sidebar-font-size") && fontSrc.includes('SIDEBAR_FONT_MIN'))
+check('新行：默认值比对话区默认 14px 小一档', /DEFAULT_SIDEBAR_FONT\s*=\s*13/.test(fontSrc))
+check('新行：内联变量 html + body 双写（层叠陷阱）', /documentElement\.style\.setProperty\(SIDEBAR_FONT_VARIABLE/.test(fontSrc) && /document\.body\.style\.setProperty\(SIDEBAR_FONT_VARIABLE/.test(fontSrc))
+check('新行：注册进 settings.general.item 槽位', clientSrc.includes('sidebar-font-custom'))
+check('新行：order 紧随官方字号行（11 之后）', /id:\s*'sidebar-font-custom'[\s\S]{0,120}order:\s*12/.test(clientSrc))
+check('新行：组件含数字输入框', rowSrc.includes('inputMode="numeric"'))
+check('新行：输入框非法值在 blur 时夹取', rowSrc.includes('onBlur') && rowSrc.includes('normalizeSidebarFont'))
+check('新行：文案中英齐备', localesSrc.includes('侧边栏字号') && localesSrc.includes('Sidebar font size'))
+check('新行：已进构建产物', clientBundle.includes('sidebar-font.title') && clientBundle.includes('Sidebar font size'))
 
 // ── 选择器锚点硬规则（实测坑，静默失效且不报错）──
 // CSS Modules 哈希后类名形如 V41CyG_frame，源码目录名不出现在 DOM 里。
 // 曾把锚点写成 [class*="AppFrame_frame"]，导致 delta 恒为空、字号完全没生效。
 check(
   '锚点：delta 定义挂 body（官方轴所在处，必然命中）',
-  /body\s*\{\s*--dsh-shell-font-delta:var\(--dsh-content-font-delta/.test(clientSrc),
+  /body\{[\s\S]{0,200}--dsh-shell-font-delta:var\(--dsh-content-font-delta/.test(clientSrc),
 )
 check(
   '锚点：不得使用源码目录名做钩子（AppFrame/SettingsRoot/Rows 不在 DOM 中）',
@@ -87,12 +115,19 @@ check(
     && !/titlebar, fontSize/.test(clientSrc),
 )
 
-// ── 关键回归：默认值下不得改变既有外观 ──
-// delta=0 时 calc(14px + 0px) === 14px，与原始硬编码一致，故默认外观零变化。
+// ── 关键回归：默认值必须合理且合法 ──
+// 侧边栏默认 13px 落在合法区间内、且严格小于对话区默认 14px ——
+// 这正是「不该跟主对话区一样大」的默认表达。
 check(
-  '回归：Δ=0 时计算结果等于原始硬编码（默认外观不变）',
-  /calc\(14px \+ var\(--dsh-shell-font-delta,0px\)\)/.test(clientSrc)
-    && /calc\(12px \+ var\(--dsh-shell-font-delta,0px\)\)/.test(clientSrc),
+  '回归：默认侧边栏字号合法且小于对话区默认 14px',
+  /DEFAULT_SIDEBAR_FONT\s*=\s*13/.test(fontSrc)
+    && /SIDEBAR_FONT_MIN\s*=\s*11/.test(fontSrc)
+    && /SIDEBAR_FONT_MAX\s*=\s*16/.test(fontSrc),
+)
+// CSS 兜底值也必须与 TS 默认一致，否则未设置时会与设置页显示不符
+check(
+  '回归：CSS 兜底值与 TS 默认一致（13px，避免显示与渲染不符）',
+  /--dsh-sidebar-font-size:13px/.test(clientSrc),
 )
 
 // ── 负向对照一：去掉 theme/change 里的断言调用，回滚必须无人纠正 ──

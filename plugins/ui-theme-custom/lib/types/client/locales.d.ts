@@ -10,6 +10,11 @@ export declare const zh: {
     'tech-theme.jade': string;
     'tech-theme.solar': string;
     'tech-theme.parchment': string;
+    'sidebar-font.title': string;
+    'sidebar-font.description': string;
+    'sidebar-font.unit': string;
+    'sidebar-font.increase': string;
+    'sidebar-font.decrease': string;
 };
 /** English dictionary checked against the Chinese key set. */
 export declare const en: {
@@ -20,6 +25,11 @@ export declare const en: {
     'tech-theme.jade': string;
     'tech-theme.solar': string;
     'tech-theme.parchment': string;
+    'sidebar-font.title': string;
+    'sidebar-font.description': string;
+    'sidebar-font.unit': string;
+    'sidebar-font.increase': string;
+    'sidebar-font.decrease': string;
 };
 /** Copy keys shared by both dictionaries. */
 export type TechThemeKey = keyof typeof zh;

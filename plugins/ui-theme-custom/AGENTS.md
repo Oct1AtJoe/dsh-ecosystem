@@ -53,7 +53,7 @@ node tests\font-size-check.mjs
 
 > ⚠️ **踩坑二：字号只作用于对话区**。官方只把 `--dsh-content-font-size` 挂在 `body`，且只有 `ui-chat`/`ui-conversation` 等对话模块消费；两侧边栏（`ui-workspace` 行、better-sidebar）与设置面板（`ui-settings-general`）用硬编码 px，调字号时纹丝不动。
 >
-> **正解**：复用官方增量轴 `--dsh-content-font-delta`（= 设置值 − 14px），对外壳区域做**等比增量**而非等值替换（12px 密集次级文本 +Δ 仍小于 14px 正文，层级保留）。Δ=0 时结果与原始硬编码完全一致，默认外观零变化。
+> **正解**：见 §1.4「字号是两条独立轴」—— 侧边栏走本插件的 `--dsh-sidebar-font-size`（有独立设置行），设置面板跟随对话区增量轴 `--dsh-content-font-delta`。
 
 > ⚠️ **踩坑三：选择器写错会静默失效（实测坑）**。CSS Modules 哈希后类名形如 `V41CyG_frame`、`GLea6a_navCell`，
 > **源码目录名（AppFrame / SettingsRoot / Rows）根本不出现在 DOM 里**。曾把增量锚点写成 `[class*="AppFrame_frame"]`，
@@ -67,6 +67,25 @@ node tests\font-size-check.mjs
 > 改字号选择器后，务必用真实浏览器打开 3080 端口实测 `getComputedStyle(...).fontSize`，**不要只看源码断言**。
 
 **边界（刻意不跟随）**：**窗口顶栏不随字号缩放**。顶栏属于 chrome —— 交通灯、托盘菜单、原生菜单弹出项都是固定尺寸，只缩放中间标题会让 52px 紧凑条失衡；官方 `--dsh-content-font-size` 是 content 轴，本就不覆盖窗口装饰。插件因此**不向桌面壳下发字号**。
+
+### 1.4 字号是两条独立轴（对话区 / 侧边栏）
+
+| 轴 | 变量 | 控制方 | 默认 |
+| :--- | :--- | :--- | :--- |
+| **对话区**（阅读内容） | `--dsh-content-font-size` | 官方「字号大小」行 | 14px |
+| **侧边栏**（导航 chrome） | `--dsh-sidebar-font-size` | 本插件「侧边栏字号」行 | **13px（比对话区小一档）** |
+| 设置面板 | 跟随对话区轴 | — | — |
+
+**为什么不共用一个轴**：侧边栏是导航 chrome，对话区是阅读内容；同字号会让内容主体失去视觉重量。VS Code / Slack / Notion 的侧边栏都固定比正文小一档。
+
+**实现要点**：
+- 官方 `FontSizeRow` 属 ui-theme 包且不可改（铁律 1），故本插件经 `settings.general.item` 槽位**新增一行**（`id: sidebar-font-custom`, `order: 12`，紧随官方 order 11）。
+- 侧边栏字号存 **localStorage**（`dsh-sidebar-font-size`），不写官方 settings 命名空间。
+- 组件 `SidebarFontRow.tsx`：数字输入框（直接键入）+ 上下步进；非法值在 blur/Enter 时经 `normalizeSidebarFont` 夹取到 11..16，因此不会持久化空值或越界值。
+- 内联变量**必须 html + body 双写**（见 6.3 层叠陷阱）；`apply()` 期间立即落变量，首帧即用用户设定值。
+- CSS 兜底值与 TS 默认值必须一致（都是 13px），否则未设置时设置页显示与渲染不符。
+
+> ⚠️ **测试手法坑**：用 `Object.getOwnPropertyDescriptor(...).set` 直接赋 `input.value` 会**绕过 React 的 value tracker**，`onChange` 不触发，看起来像功能失效。验证输入框务必用**真实键入**（Playwright `locator.type()`），不要用 setter 赋值。
 
 ---
 

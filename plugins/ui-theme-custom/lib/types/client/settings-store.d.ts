@@ -21,5 +21,22 @@ type TechThemeRowActions = {
  * @returns the store handle.
  */
 export declare function createTechThemeStore(): EngineStoreHandle<TechThemeRowState, TechThemeRowActions>;
+/** 侧边栏字号行的状态（独立于官方对话区字号）。 */
+export interface SidebarFontRowState {
+    /** 已持久化的侧边栏字号（px）。 */
+    size: number;
+    /** 递增序号；-1 起，保证首次同步落地。 */
+    revision: number;
+}
+/** 侧边栏字号行的写面。 */
+type SidebarFontRowActions = {
+    sync: (draft: SidebarFontRowState, size: number, revision: number) => void;
+};
+/**
+ * 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
+ * 唯一写入方是 apply-world 的同步调用，组件经 useStore 只读。
+ * @returns store 句柄。
+ */
+export declare function createSidebarFontStore(): EngineStoreHandle<SidebarFontRowState, SidebarFontRowActions>;
 export {};
 //# sourceMappingURL=settings-store.d.ts.map
