@@ -55,6 +55,18 @@ check('产物不含旧 dsh-about-sub 样式', !s.includes('dsh-about-sub'))
 // 5. 动作回传通路仍在
 check('产物含 shell-action 动作类型', s.includes('shell-action'))
 
+// 6. 菜单文案三处一致：托盘 / 壳原生菜单 / HTML 面板都应为「关于 DSH」。
+//    注意不能用 `!includes('关于 DSH 宿主版本')` 这种过宽判据 —— 脚本里的中文注释
+//    仍会提到该词，会把注释误判成残留文案。只断言「用户可见的菜单项字面量」。
+const utf8 = b.toString('utf8')
+check('产物含新文案「关于 DSH」', utf8.includes('关于 DSH'))
+check(
+  '产物无用户可见的旧文案（托盘 / 壳菜单 / 面板三处字面量）',
+  !utf8.includes('"tray:about", "关于 DSH 宿主版本"')
+    && !utf8.includes('"shell:about", "关于 DSH 宿主版本"')
+    && !utf8.includes('data-action="about">关于 DSH 宿主版本'),
+)
+
 // ── 负向对照 ──
 // 用一张明显不同的 PNG（128 图标）反证「逐字节一致」判据有牙齿：
 // 它一定不等于源图标，因此上面那条 PASS 不可能是随便一张图蒙对的。

@@ -88,7 +88,7 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 - `bridge_init_script(port, token)`：Notification shim + 通知桥 + 主题 `MutationObserver`（监听 `data-ds-dark-theme`）。
 - `BOOT_FAILURE_SCRIPT`：启动失败提示。
 - `brand_overlay_script()`：品牌文字覆盖。
-- `shell_ui_script(version, build)`：壳联动 UI —— 顶栏 ☰ 毛玻璃面板 + 「关于 DSH 宿主版本」玻璃弹窗。
+- `shell_ui_script(version, build)`：壳联动 UI —— 顶栏 ☰ 毛玻璃面板 + 「关于 DSH」玻璃弹窗。
 
 > **教训**：曾把多段拼成一段，其中 `observe(document.documentElement)` 在 `document` 创建早期抛错，静默带走后面所有脚本，表现为刷新后明显延迟。必须各自独立注入；WebView2 对每条单独 `AddScriptToExecuteOnDocumentCreated`，单条异常只中断它自己。
 

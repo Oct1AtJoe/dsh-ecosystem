@@ -224,6 +224,22 @@ check(
 check('关于：版本号占位已注入', js.includes('1.2.3') && js.includes('0.1.0'))
 check('关于：源码中不再调用系统 MessageBoxW', !raw.includes('MessageBoxW'))
 
+// 「关于 DSH」文案必须三处一致：托盘 / 壳原生菜单 / HTML 面板。
+// 三处的 id 各自独立（tray:about / shell:about / 面板 data-action="about"），
+// 文案却是肉眼可见的同一项；改一处漏两处，用户会看到同一功能有两个名字。
+check(
+  '文案：托盘项为「关于 DSH」',
+  /MenuItem::with_id\(app, "tray:about", "关于 DSH"/.test(libRs),
+)
+check(
+  '文案：壳原生菜单项为「关于 DSH」',
+  /item\("shell:about", "关于 DSH"\)/.test(libRs),
+)
+check(
+  '文案：HTML 面板项为「关于 DSH」',
+  raw.includes('data-action="about">关于 DSH</div>'),
+)
+
 // ── 6. 深浅主题适配 ──
 check(
   '主题：按 colorScheme / data-ds-dark-theme 判定深浅并打 data-light',

@@ -682,7 +682,7 @@ fn popup_shell_menu(app: &AppHandle) {
         item("shell:reload", "重新加载页面"),
         item("shell:restart", "重启服务与客户端"),
         item("shell:devtools", "开发者工具 (DevTools)"),
-        item("shell:about", "关于 DSH 宿主版本"),
+        item("shell:about", "关于 DSH"),
         item("shell:quit", "退出应用"),
     ) else {
         log::warn!("[shell] 构建弹出菜单项失败");
@@ -2717,7 +2717,7 @@ fn shell_ui_script(version: &str, build: &str) -> String {
       '<div class="dsh-shell-item" data-action="restart">重启服务与客户端</div>' +
       '<div class="dsh-shell-sep"></div>' +
       '<div class="dsh-shell-item" data-action="devtools">开发者工具 (DevTools)</div>' +
-      '<div class="dsh-shell-item" data-action="about">关于 DSH 宿主版本</div>' +
+      '<div class="dsh-shell-item" data-action="about">关于 DSH</div>' +
       '<div class="dsh-shell-sep"></div>' +
       '<div class="dsh-shell-item danger" data-action="quit">退出应用</div>';
     m.addEventListener('click', function(e){
@@ -3029,7 +3029,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let restart = MenuItem::with_id(app, "tray:restart", "重启服务与客户端", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let devtools = MenuItem::with_id(app, "tray:devtools", "开发者工具 (DevTools)", true, None::<&str>)?;
-    let about = MenuItem::with_id(app, "tray:about", "关于 DSH 宿主版本", true, None::<&str>)?;
+    let about = MenuItem::with_id(app, "tray:about", "关于 DSH", true, None::<&str>)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "tray:quit", "退出应用", true, None::<&str>)?;
 
