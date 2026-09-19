@@ -1495,6 +1495,61 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
    因此不会出现「先原生菜单、后自定义面板」的跳变。本插件不再重复实现该 UI，
    以免覆盖壳脚本导致跳变回归。动作仍经 __dshNotifyBridge.shellAction() 回到壳侧。 */
 
+/* ── 字号全局生效（Global type scale）────────────────────────────────
+   官方只把 --dsh-content-font-size 挂在 body 上，且只有 ui-chat /
+   ui-conversation 等对话模块消费它；两侧边栏（ui-workspace 行、better-sidebar）、
+   设置面板自身（ui-settings-general）用的是硬编码 px，因此调字号时它们纹丝不动。
+
+   这里复用官方已有的增量轴 --dsh-content-font-delta（= 设置值 − 14px），
+   对外壳区域做「等比增量」而非「等值替换」：12px 的密集次级文本 +Δ 仍比
+   14px 的正文小，视觉层级完整保留；Δ=0（默认 14px）时计算结果与原始硬编码
+   完全一致，因此不影响默认外观。
+
+   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，
+   官方一改就漏。 */
+[class*="AppFrame_frame"]{
+  --dsh-shell-font-delta:var(--dsh-content-font-delta,0px);
+}
+/* 两侧边栏：会话/搜索/工作区行与设置面板导航 */
+[class*="sidebarCol"] [class*="sessionRow"],
+[class*="sidebarCol"] [class*="projectRow"],
+[class*="sidebarCol"] [class*="searchResultTitle"],
+[class*="sidebarCol"] [class*="title"],
+[class*="sidebarCol"] [class*="navLabel"],
+[class*="sidebarCol"] [class*="navCell"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+[class*="sidebarCol"] [class*="searchResultWorkspace"],
+[class*="sidebarCol"] [class*="searchResultSnippet"],
+[class*="sidebarCol"] [class*="meta"],
+[class*="sidebarCol"] [class*="time"]{
+  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+}
+/* 右侧面板与 better-sidebar 侧栏 */
+[class*="rightbarCol"] [class*="title"],
+[class*="rightbarCol"] [class*="navLabel"],
+[class*="rightbarCol"] [class*="sessionRow"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+[class*="rightbarCol"] [class*="meta"],
+[class*="rightbarCol"] [class*="snippet"]{
+  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+}
+/* 设置面板自身：导航标题 16px、导航项 14px、描述 12px */
+[role="dialog"] [class*="navTitle"]{
+  font-size:calc(16px + var(--dsh-shell-font-delta,0px));
+}
+[role="dialog"] [class*="navCell"],
+[role="dialog"] [class*="navLabel"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+/* 外壳行高随字号联动，避免放大后压字（保持原始 10px leading） */
+[class*="sidebarCol"] [class*="sessionRow"],
+[class*="sidebarCol"] [class*="projectRow"],
+[role="dialog"] [class*="navCell"]{
+  line-height:calc(22px + var(--dsh-shell-font-delta,0px));
+}
+
 /* Xcode 风格代码块 */
 body[data-ds-custom-theme="sequoia"] pre,
 body[data-ds-custom-theme="sequoia"] [class*="codeBlock"] {
@@ -1646,6 +1701,10 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 		/**
 		* Synchronize theme and background color with the Tauri desktop shell (if running in desktop).
 		* Toggles Windows DWM native title bar dark/light mode and sets caption color on Windows 11.
+		*
+		* 刻意不下发字号：窗口顶栏属于 chrome（交通灯、托盘菜单都是固定尺寸），
+		* 业界惯例与官方 --dsh-content-font-size（content 轴）都不缩放窗口装饰。
+		* 字号只作用于页面内的内容区与侧边栏/设置面板。
 		*/
 		function syncDesktopTitlebar(theme, colorSpec, titlebar) {
 			if (typeof window === "undefined") return;
@@ -1786,6 +1845,44 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 			ctx.effect(() => () => {
 				theme.setTheme = originalSetTheme;
 			}, "ui-theme-custom: restore setTheme wrapper");
+			let pendingFontSize = null;
+			let pendingFontSizeSettle;
+			const originalSetFontSize = theme.setFontSize;
+			const recordFontSizeIntent = (px) => {
+				pendingFontSize = px;
+				if (pendingFontSizeSettle !== void 0) clearTimeout(pendingFontSizeSettle);
+				pendingFontSizeSettle = void 0;
+			};
+			theme.setFontSize = function(px) {
+				recordFontSizeIntent(px);
+				originalSetFontSize.call(this, px);
+			};
+			ctx.effect(() => () => {
+				theme.setFontSize = originalSetFontSize;
+				if (pendingFontSizeSettle !== void 0) clearTimeout(pendingFontSizeSettle);
+			}, "ui-theme-custom: restore setFontSize wrapper");
+			/**
+			* 若快照里的字号被旧镜像回滚，重新断言用户意图。
+			* @returns true 表示已重新断言（调用方应中止本次后续处理）。
+			*/
+			const assertFontSizeIntent = (snapshotFontSize) => {
+				if (pendingFontSize === null) return false;
+				if (snapshotFontSize === pendingFontSize) {
+					if (pendingFontSizeSettle === void 0) pendingFontSizeSettle = setTimeout(() => {
+						pendingFontSize = null;
+						pendingFontSizeSettle = void 0;
+					}, 1500);
+					return false;
+				}
+				if (pendingFontSizeSettle !== void 0) {
+					clearTimeout(pendingFontSizeSettle);
+					pendingFontSizeSettle = void 0;
+				}
+				try {
+					originalSetFontSize.call(theme, pendingFontSize);
+				} catch {}
+				return true;
+			};
 			let restorePending = false;
 			const scheduleRestore = (desired) => {
 				if (restorePending) return;
@@ -1825,6 +1922,7 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 			};
 			applyDesired();
 			ctx.on("theme/change", (snapshot) => {
+				if (assertFontSizeIntent(snapshot.fontSize)) return;
 				applyDesired();
 				bound?.sync(snapshot.preference, snapshot.revision);
 			});

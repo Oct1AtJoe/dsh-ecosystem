@@ -671,6 +671,61 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
    因此不会出现「先原生菜单、后自定义面板」的跳变。本插件不再重复实现该 UI，
    以免覆盖壳脚本导致跳变回归。动作仍经 __dshNotifyBridge.shellAction() 回到壳侧。 */
 
+/* ── 字号全局生效（Global type scale）────────────────────────────────
+   官方只把 --dsh-content-font-size 挂在 body 上，且只有 ui-chat /
+   ui-conversation 等对话模块消费它；两侧边栏（ui-workspace 行、better-sidebar）、
+   设置面板自身（ui-settings-general）用的是硬编码 px，因此调字号时它们纹丝不动。
+
+   这里复用官方已有的增量轴 --dsh-content-font-delta（= 设置值 − 14px），
+   对外壳区域做「等比增量」而非「等值替换」：12px 的密集次级文本 +Δ 仍比
+   14px 的正文小，视觉层级完整保留；Δ=0（默认 14px）时计算结果与原始硬编码
+   完全一致，因此不影响默认外观。
+
+   ponytail: 用字号增量而非重写各模块字号阶梯 —— 后者要逐类名映射，
+   官方一改就漏。 */
+[class*="AppFrame_frame"]{
+  --dsh-shell-font-delta:var(--dsh-content-font-delta,0px);
+}
+/* 两侧边栏：会话/搜索/工作区行与设置面板导航 */
+[class*="sidebarCol"] [class*="sessionRow"],
+[class*="sidebarCol"] [class*="projectRow"],
+[class*="sidebarCol"] [class*="searchResultTitle"],
+[class*="sidebarCol"] [class*="title"],
+[class*="sidebarCol"] [class*="navLabel"],
+[class*="sidebarCol"] [class*="navCell"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+[class*="sidebarCol"] [class*="searchResultWorkspace"],
+[class*="sidebarCol"] [class*="searchResultSnippet"],
+[class*="sidebarCol"] [class*="meta"],
+[class*="sidebarCol"] [class*="time"]{
+  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+}
+/* 右侧面板与 better-sidebar 侧栏 */
+[class*="rightbarCol"] [class*="title"],
+[class*="rightbarCol"] [class*="navLabel"],
+[class*="rightbarCol"] [class*="sessionRow"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+[class*="rightbarCol"] [class*="meta"],
+[class*="rightbarCol"] [class*="snippet"]{
+  font-size:calc(12px + var(--dsh-shell-font-delta,0px));
+}
+/* 设置面板自身：导航标题 16px、导航项 14px、描述 12px */
+[role="dialog"] [class*="navTitle"]{
+  font-size:calc(16px + var(--dsh-shell-font-delta,0px));
+}
+[role="dialog"] [class*="navCell"],
+[role="dialog"] [class*="navLabel"]{
+  font-size:calc(14px + var(--dsh-shell-font-delta,0px));
+}
+/* 外壳行高随字号联动，避免放大后压字（保持原始 10px leading） */
+[class*="sidebarCol"] [class*="sessionRow"],
+[class*="sidebarCol"] [class*="projectRow"],
+[role="dialog"] [class*="navCell"]{
+  line-height:calc(22px + var(--dsh-shell-font-delta,0px));
+}
+
 /* Xcode 风格代码块 */
 body[data-ds-custom-theme="sequoia"] pre,
 body[data-ds-custom-theme="sequoia"] [class*="codeBlock"] {
@@ -818,6 +873,10 @@ const TITLEBAR_PRESETS = {
 /**
  * Synchronize theme and background color with the Tauri desktop shell (if running in desktop).
  * Toggles Windows DWM native title bar dark/light mode and sets caption color on Windows 11.
+ *
+ * 刻意不下发字号：窗口顶栏属于 chrome（交通灯、托盘菜单都是固定尺寸），
+ * 业界惯例与官方 --dsh-content-font-size（content 轴）都不缩放窗口装饰。
+ * 字号只作用于页面内的内容区与侧边栏/设置面板。
  */
 function syncDesktopTitlebar(theme, colorSpec, titlebar) {
     if (typeof window === 'undefined')
@@ -977,6 +1036,63 @@ export function apply(ctx) {
     ctx.effect(() => () => {
         theme.setTheme = originalSetTheme;
     }, 'ui-theme-custom: restore setTheme wrapper');
+    // ── 字号持久化意图保护 ──────────────────────────────────────────────
+    // 官方 ThemeRuntime.setFontSize 是「先乐观改本地 fontSize → void host.set() 异步写盘」，
+    // 而 adopt() 每次收到 settings 镜像变更就**无条件**用镜像值覆盖本地 fontSize
+    // （见 ui-theme/src/client/index.ts 的 setFontSize 与 adopt）。
+    // 于是在写入飞行窗口内，任何镜像抖动（其他命名空间落盘、document-updated、
+    // connection/reset）都会把刚改的字号回滚成旧值——表现为「改完几秒自动弹回」。
+    //
+    // 官方已为 preference 用 liveBuiltinPick 防住同类竞态，字号却没有。这里补上等价防护：
+    // 记住用户显式提交的值，一旦发现快照被旧镜像回滚就重新断言，直到写盘落地后静默。
+    // ponytail: 以「静默窗口」判定写盘落地，不引入 settingsScope 依赖；若日后官方
+    // 暴露 setFontSize 的写盘 Promise，应改为 await 该 Promise 精确清除意图。
+    let pendingFontSize = null;
+    let pendingFontSizeSettle;
+    const originalSetFontSize = theme.setFontSize;
+    const recordFontSizeIntent = (px) => {
+        pendingFontSize = px;
+        if (pendingFontSizeSettle !== undefined)
+            clearTimeout(pendingFontSizeSettle);
+        pendingFontSizeSettle = undefined;
+    };
+    theme.setFontSize = function (px) {
+        recordFontSizeIntent(px);
+        originalSetFontSize.call(this, px);
+    };
+    ctx.effect(() => () => {
+        theme.setFontSize = originalSetFontSize;
+        if (pendingFontSizeSettle !== undefined)
+            clearTimeout(pendingFontSizeSettle);
+    }, 'ui-theme-custom: restore setFontSize wrapper');
+    /**
+     * 若快照里的字号被旧镜像回滚，重新断言用户意图。
+     * @returns true 表示已重新断言（调用方应中止本次后续处理）。
+     */
+    const assertFontSizeIntent = (snapshotFontSize) => {
+        if (pendingFontSize === null)
+            return false;
+        if (snapshotFontSize === pendingFontSize) {
+            // 已追上用户意图：再观察一个静默窗口，确认写盘落地后清除意图
+            if (pendingFontSizeSettle === undefined) {
+                pendingFontSizeSettle = setTimeout(() => {
+                    pendingFontSize = null;
+                    pendingFontSizeSettle = undefined;
+                }, 1500);
+            }
+            return false;
+        }
+        // 被回滚：重新断言（用原函数，不重置意图与计时器）
+        if (pendingFontSizeSettle !== undefined) {
+            clearTimeout(pendingFontSizeSettle);
+            pendingFontSizeSettle = undefined;
+        }
+        try {
+            originalSetFontSize.call(theme, pendingFontSize);
+        }
+        catch { /* 超出 12..17 时忽略，保持当前渲染 */ }
+        return true;
+    };
     // Defer the restore out of the current dispatch (microtask) so the custom
     // theme's setTheme is always the LAST event the ThemePresenter sees,
     // preventing the outer dispatch's stale built-in snapshot from overwriting
@@ -1028,6 +1144,11 @@ export function apply(ctx) {
     };
     applyDesired();
     ctx.on('theme/change', (snapshot) => {
+        // 字号意图保护必须在其它处理之前：若快照被旧镜像回滚，先重新断言用户的字号，
+        // 再走主题恢复逻辑。重新断言会再次触发 theme/change，但此时快照已等于意图，
+        // 第二轮只登记静默计时器即返回，递归自然终止。
+        if (assertFontSizeIntent(snapshot.fontSize))
+            return;
         applyDesired();
         bound?.sync(snapshot.preference, snapshot.revision);
     });

@@ -67,6 +67,14 @@ check(
     && !utf8.includes('data-action="about">关于 DSH 宿主版本'),
 )
 
+// 7. 通知桥通路仍在（主题/顶栏配色/shell-action 都经它回传）。
+//    注意：壳 HTML 是 Tauri 构建期打包的资源，**不以明文嵌入 exe**
+//    （连早已存在的 --dsh-titlebar-height / traffic-lights 同样查不到），
+//    所以这里不能查壳 HTML 的串。壳 HTML 自身断言由 check-shell-ui.mjs
+//    与 check-boot-theme.mjs 从源码校验。
+check('产物通知桥 theme-change 通路仍在', utf8.includes('theme-change'))
+check('产物通知桥 shellAction 通路仍在', utf8.includes('shell-action'))
+
 // ── 负向对照 ──
 // 用一张明显不同的 PNG（128 图标）反证「逐字节一致」判据有牙齿：
 // 它一定不等于源图标，因此上面那条 PASS 不可能是随便一张图蒙对的。

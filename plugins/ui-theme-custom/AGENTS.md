@@ -9,10 +9,11 @@
 
 ### 1.1 文件拓扑
 - `src/index.ts`：Node 宿主半，在服务启动时向 HTML body 注入 `BOOT_SCRIPT`，根据 localStorage 预填主题 token，防止首帧白屏/闪烁。
-- `src/client/index.ts`：浏览器客户端入口，注入 `SURFACE_GLASS_CSS` 全局样式、注册 6 大主题定义，管理主题切换与恢复。
+- `src/client/index.ts`：浏览器客户端入口，注入 `SURFACE_GLASS_CSS` 全局样式、注册 6 大主题定义，管理主题切换与恢复、字号意图保护与全局字号覆盖。
 - `src/client/<theme>.ts`：各主题的具体 Token 字典（`sequoia`、`sonoma`、`void`、`jade`、`solar`、`parchment`）。
 - `src/client/TechThemeRow.tsx`：设置页「外观」行下方的科技主题色块选择器。
 - `tests/badge-token-check.mjs`：主题对比度合规门禁（必须通过）。
+- `tests/font-size-check.mjs` / `tests/font-size-race.mjs`：字号持久化与全局生效的门禁（含竞态行为验证）。
 
 ### 1.2 标准两阶段构建命令
 ```powershell
@@ -21,8 +22,21 @@ $env:NODE_OPTIONS=""
 node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
 node tests\badge-token-check.mjs
+node tests\font-size-check.mjs
 ```
 构建成功后浏览器按 `Ctrl+F5` 硬刷新即可生效（profile 中为 `link:` 软链）。
+
+### 1.3 字号（--dsh-content-font-size）的两条硬规则
+
+> ⚠️ **踩坑一：字号会「改完几秒自动弹回」**。官方 `ThemeRuntime.setFontSize` 是「先乐观改本地 → `void host.set()` 异步写盘」，而 `adopt()` 每次收到 settings 镜像变更就**无条件**用镜像值覆盖本地 `fontSize`。写入飞行窗口内任何镜像抖动（其他命名空间落盘、`document-updated`、`connection/reset`）都会把字号回滚成旧值。官方已为 `preference` 用 `liveBuiltinPick` 防住同类竞态，字号却没有。
+>
+> **正解**：插件层补「字号意图」防护（`recordFontSizeIntent` + `assertFontSizeIntent`），在 `theme/change` 最前面优先断言；发现被旧镜像回滚就用**原函数**重发，追上意图后经静默窗口清除意图。修改字号逻辑后必须跑 `tests/font-size-race.mjs`（含负向对照）。
+
+> ⚠️ **踩坑二：字号只作用于对话区**。官方只把 `--dsh-content-font-size` 挂在 `body`，且只有 `ui-chat`/`ui-conversation` 等对话模块消费；两侧边栏（`ui-workspace` 行、better-sidebar）与设置面板（`ui-settings-general`）用硬编码 px，调字号时纹丝不动。
+>
+> **正解**：复用官方增量轴 `--dsh-content-font-delta`（= 设置值 − 14px），对外壳区域做**等比增量**而非等值替换（12px 密集次级文本 +Δ 仍小于 14px 正文，层级保留）。Δ=0 时结果与原始硬编码完全一致，默认外观零变化。
+
+**边界（刻意不跟随）**：**窗口顶栏不随字号缩放**。顶栏属于 chrome —— 交通灯、托盘菜单、原生菜单弹出项都是固定尺寸，只缩放中间标题会让 52px 紧凑条失衡；官方 `--dsh-content-font-size` 是 content 轴，本就不覆盖窗口装饰。插件因此**不向桌面壳下发字号**。
 
 ---
 
@@ -94,7 +108,7 @@ node tests\badge-token-check.mjs
 
 ## 6. 桌面顶栏（Tauri 壳）联动与三态语义（必读）
 
-主题色要贯通到桌面壳的 36px 顶栏，链路是：
+主题色要贯通到桌面壳的顶栏（`TITLEBAR_HEIGHT = 52px`），链路是：
 `src/client/index.ts` 的 `TITLEBAR_PRESETS` + `syncDesktopTitlebar()`
 → 通知桥 `POST /notify {type:'theme-change'}`
 → `desktop/src-tauri/src/lib.rs` 转发整个 payload 给 `shell_webview`
