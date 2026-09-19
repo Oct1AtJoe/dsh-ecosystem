@@ -593,29 +593,34 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] 
   height: 100vh !important;
 }
 
-/* 选中态与分类标签组件视觉调优：柔和半透底色，绝不喧宾夺主，14px 协调几何圆弧 */
+/* 选中态与分类标签组件视觉调优：柔和半透底色，绝不喧宾夺主，14px 协调几何圆弧
+   （涵盖插件市场分类标签、dsh-cost-meter 等扩展的胶囊式 Tab，确保背景与文字对比度充足醒目） */
 body[data-ds-custom-theme="sequoia"] [class*="cats"] button[class*="active"],
 body[data-ds-custom-theme="sequoia"] [class*="catsWrap"] button[class*="active"],
 body[data-ds-custom-theme="sequoia"] [class*="tag"][class*="active"],
-body[data-ds-custom-theme="sequoia"] [class*="badge"][class*="active"] {
-  background: rgba(0, 113, 227, 0.12) !important;
+body[data-ds-custom-theme="sequoia"] [class*="badge"][class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="cm-tab"][class*="active"],
+body[data-ds-custom-theme="sequoia"] button[class*="cm-tab"][class*="active"] {
+  background: rgba(0, 113, 227, 0.14) !important;
   color: #0071e3 !important;
   border: 1px solid rgba(0, 113, 227, 0.28) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 2px 6px rgba(0, 113, 227, 0.12) !important;
-  font-weight: 550 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 6px rgba(0, 113, 227, 0.10) !important;
+  font-weight: 600 !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="cats"] button[class*="active"],
 body[data-ds-custom-theme="sonoma"] [class*="catsWrap"] button[class*="active"],
 body[data-ds-custom-theme="sonoma"] [class*="tag"][class*="active"],
-body[data-ds-custom-theme="sonoma"] [class*="badge"][class*="active"] {
-  background: rgba(41, 151, 255, 0.16) !important;
+body[data-ds-custom-theme="sonoma"] [class*="badge"][class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-tab"][class*="active"],
+body[data-ds-custom-theme="sonoma"] button[class*="cm-tab"][class*="active"] {
+  background: rgba(41, 151, 255, 0.18) !important;
   color: #2997ff !important;
   border: 1px solid rgba(41, 151, 255, 0.35) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 0 10px rgba(41, 151, 255, 0.20) !important;
-  font-weight: 550 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 10px rgba(41, 151, 255, 0.18) !important;
+  font-weight: 600 !important;
 }
 
 /* 侧边栏会话/工作区 Nav 条目：仅限真正的侧栏列表，严格排除 [role="dialog"] 与 [role="tab"] */
@@ -643,12 +648,6 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] * {
   color: #2997ff !important;
   fill: currentColor !important;
-}
-
-/* 确保 Tab 标签页保持清爽高质感的下划线指示，杜绝蓝厚块污染 */
-[role="tab"] {
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 /* 顶部栏 ☰ 毛玻璃面板与「关于」玻璃弹窗已统一由桌面壳的 initialization_script
