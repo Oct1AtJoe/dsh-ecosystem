@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSH 主题插件 · macOS Sequoia & Sonoma 拟真交付原型</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      position: relative;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.4s ease;
+    }
+
+    /* ==========================================================================
+       顶部 macOS 状态栏与主题分段胶囊控 (Native Top Switcher Bar)
+       ========================================================================== */
+    .macos-master-bar {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(30, 30, 35, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 40px;
+      padding: 5px 8px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .apple-brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px 0 10px;
+      border-right: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    .apple-logo-svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    .theme-toggle-btn {
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.75);
+      padding: 7px 18px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: inherit;
+    }
+
+    .theme-toggle-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .theme-toggle-btn.active {
+      background: #ffffff;
+      color: #111111;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .theme-toggle-btn .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .export-action-btn {
+      margin-left: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 6px 14px;
+      border-radius: 18px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .export-action-btn:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    /* ==========================================================================
+       桌面窗口系统 (macOS Window Host)
+       ========================================================================== */
+    .desktop-stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 72px 40px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.4s ease;
+    }
+
+    /* 方案 1 背景：macOS Sequoia 阳光加州红杉林流光 */
+    body[data-os-mode="sequoia"] .desktop-stage {
+      background: 
+        radial-gradient(ellipse 900px 520px at 20% 15%, #ff8a43 0%, transparent 65%),
+        radial-gradient(ellipse 850px 600px at 85% 85%, #6038ff 0%, transparent 70%),
+        radial-gradient(circle at 60% 40%, #ff4b72 0%, transparent 60%),
+        linear-gradient(135deg, #2b3990 0%, #ff6b4a 50%, #fdbb2d 100%);
+      background-size: cover;
+    }
+
+    /* 方案 2 背景：macOS Sonoma 深空曜黑暗夜流光 */
+    body[data-os-mode="sonoma"] .desktop-stage {
+      background: 
+        radial-gradient(ellipse 900px 520px at 15% 20%, rgba(130, 45, 220, 0.38) 0%, transparent 65%),
+        radial-gradient(ellipse 850px 600px at 85% 85%, rgba(0, 145, 255, 0.32) 0%, transparent 65%),
+        radial-gradient(circle at 50% 50%, rgba(240, 60, 120, 0.18) 0%, transparent 60%),
+        #0c0d11;
+      background-size: cover;
+    }
+
+    /* 原生 macOS 拟真视窗 */
+    .macos-window {
+      width: 100%;
+      max-width: 1180px;
+      height: 100%;
+      max-height: 800px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Sequoia 浅色视窗材质 */
+    body[data-os-mode="sequoia"] .macos-window {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      box-shadow: 
+        0 30px 90px rgba(0, 0, 0, 0.35),
+        0 10px 30px rgba(0, 0, 0, 0.2),
+        inset 0 1px 1px rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(48px) saturate(2.0);
+      -webkit-backdrop-filter: blur(48px) saturate(2.0);
+      color: #1d1d1f;
+    }
+
+    /* Sonoma 暗色视窗材质 */
+    body[data-os-mode="sonoma"] .macos-window {
+      background: rgba(22, 24, 30, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 
+        0 40px 100px rgba(0, 0, 0, 0.75),
+        0 12px 36px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(50px) saturate(1.8);
+      -webkit-backdrop-filter: blur(50px) saturate(1.8);
+      color: #f5f5f7;
+    }
+
+    /* 视窗标题栏 */
+    .window-header {
+      height: 52px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      transition: background 0.3s ease, border 0.3s ease;
+    }
+
+    body[data-os-mode="sequoia"] .window-header {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    body[data-os-mode="sonoma"] .window-header {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(30, 32, 40, 0.45);
+    }
+
+    /* 交通灯 */
+    .traffic-lights {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .traffic-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .traffic-close { background: #ff5f56; border: 0.5px solid #e0443e; }
+    .traffic-minimize { background: #ffbd2e; border: 0.5px solid #dea123; }
+    .traffic-maximize { background: #27c93f; border: 0.5px solid #1aab29; }
+
+    .traffic-lights:hover .traffic-close::after {
+      content: "×";
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 900;
+      color: #4d0000;
+      position: absolute;
+      top: -0.5px;
+    }
+
+    .traffic-lights:hover .traffic-minimize::after {
+      content: "–";
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 900;
+      color: #5c3b00;
+      position: absolute;
+      top: -0.5px;
+    }
+
+    .traffic-lights:hover .traffic-maximize::after {
+      content: "+";
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 900;
+      color: #004d1a;
+      position: absolute;
+      top: -0.5px;
+    }
+
+    .window-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    body[data-os-mode="sequoia"] .window-title { color: #1d1d1f; }
+    body[data-os-mode="sonoma"] .window-title { color: #f5f5f7; }
+
+    .window-status {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    body[data-os-mode="sequoia"] .window-status { color: #86868b; }
+    body[data-os-mode="sonoma"] .window-status { color: #a1a1a6; }
+
+    /* 视窗分栏工作区 */
+    .window-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* 原生磨砂 Vibrancy 侧边栏 */
+    .window-sidebar {
+      width: 256px;
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      user-select: none;
+      transition: background 0.3s ease, border 0.3s ease;
+    }
+
+    body[data-os-mode="sequoia"] .window-sidebar {
+      background: rgba(245, 245, 247, 0.45);
+      border-right: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    body[data-os-mode="sonoma"] .window-sidebar {
+      background: rgba(18, 20, 25, 0.55);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 4px 10px 6px;
+      text-transform: uppercase;
+    }
+
+    body[data-os-mode="sequoia"] .sidebar-section-label { color: #86868b; }
+    body[data-os-mode="sonoma"] .sidebar-section-label { color: #86868b; }
+
+    .sidebar-item {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+
+    body[data-os-mode="sequoia"] .sidebar-item { color: #333336; }
+    body[data-os-mode="sequoia"] .sidebar-item:hover { background: rgba(0, 0, 0, 0.04); }
+    body[data-os-mode="sequoia"] .sidebar-item.active {
+      background: #0071e3;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 113, 227, 0.35);
+    }
+
+    body[data-os-mode="sonoma"] .sidebar-item { color: #a1a1a6; }
+    body[data-os-mode="sonoma"] .sidebar-item:hover { background: rgba(255, 255, 255, 0.06); color: #f5f5f7; }
+    body[data-os-mode="sonoma"] .sidebar-item.active {
+      background: #2997ff;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 0 16px rgba(41, 151, 255, 0.45);
+    }
+
+    /* 主对话视窗 */
+    .main-chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 34px 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* 用户气泡 */
+    .user-bubble {
+      align-self: flex-end;
+      padding: 12px 18px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      max-width: 80%;
+      color: #ffffff;
+    }
+
+    body[data-os-mode="sequoia"] .user-bubble {
+      background: #0071e3;
+      box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28);
+    }
+
+    body[data-os-mode="sonoma"] .user-bubble {
+      background: #2997ff;
+      box-shadow: 0 4px 16px rgba(41, 151, 255, 0.35);
+    }
+
+    /* AI 气泡 */
+    .ai-bubble {
+      align-self: flex-start;
+      padding: 24px 28px;
+      border-radius: 18px 18px 18px 4px;
+      font-size: 14.5px;
+      line-height: 1.65;
+      max-width: 88%;
+      transition: all 0.3s ease;
+    }
+
+    body[data-os-mode="sequoia"] .ai-bubble {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(0, 0, 0, 0.07);
+      color: #1d1d1f;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    body[data-os-mode="sonoma"] .ai-bubble {
+      background: rgba(28, 32, 40, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      color: #f5f5f7;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Xcode 风格代码块 */
+    .xcode-terminal {
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    body[data-os-mode="sequoia"] .xcode-terminal {
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      color: #24292f;
+    }
+
+    body[data-os-mode="sonoma"] .xcode-terminal {
+      background: #14161b;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e6edf3;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    /* 底部悬浮输入坞 (Floating Dock Input) */
+    .input-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 34px;
+      right: 34px;
+      border-radius: 20px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      transition: all 0.3s ease;
+    }
+
+    body[data-os-mode="sequoia"] .input-dock {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
+    }
+
+    body[data-os-mode="sonoma"] .input-dock {
+      background: rgba(26, 30, 38, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 14px 42px rgba(0, 0, 0, 0.5);
+    }
+
+    .native-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 14.5px;
+      font-family: inherit;
+    }
+
+    body[data-os-mode="sequoia"] .native-input { color: #1d1d1f; }
+    body[data-os-mode="sonoma"] .native-input { color: #f5f5f7; }
+
+    .action-send-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 8px 22px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #ffffff;
+      transition: all 0.15s;
+    }
+
+    body[data-os-mode="sequoia"] .action-send-btn {
+      background: #0071e3;
+      box-shadow: 0 3px 10px rgba(0, 113, 227, 0.35);
+    }
+    body[data-os-mode="sequoia"] .action-send-btn:hover { background: #0077ed; }
+
+    body[data-os-mode="sonoma"] .action-send-btn {
+      background: #2997ff;
+      box-shadow: 0 0 16px rgba(41, 151, 255, 0.45);
+    }
+    body[data-os-mode="sonoma"] .action-send-btn:hover { background: #3fa5ff; }
+
+    /* ==========================================================================
+       Token 规范抽屉
+       ========================================================================== */
+    .token-modal {
+      position: fixed;
+      top: 0;
+      right: -440px;
+      width: 440px;
+      height: 100vh;
+      background: rgba(28, 30, 36, 0.95);
+      border-left: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      z-index: 10000;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+      transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      color: #f5f5f7;
+    }
+
+    .token-modal.open { right: 0; }
+
+    .token-modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .token-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      font-size: 13px;
+    }
+
+    .token-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      margin-bottom: 8px;
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+    }
+
+    .copy-toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(18, 18, 20, 0.92);
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 10001;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .copy-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body data-os-mode="sequoia">
+
+  <!-- 顶部 macOS 胶囊控制栏 -->
+  <nav class="macos-master-bar" data-od-id="macos-master-bar">
+    <div class="apple-brand-badge">
+      <svg class="apple-logo-svg" viewBox="0 0 170 170">
+        <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.6-7.83-11.7-14.35-6.53-10.42-11.7-22.37-15.5-35.85-3.8-13.48-5.71-25.75-5.71-36.8 0-16.1 4.14-29.35 12.43-39.75 8.28-10.4 18.7-15.71 31.25-15.93 4.46 0 9.58 1.15 15.35 3.46 5.77 2.31 9.4 3.52 10.9 3.63 2.18-.32 6.1-1.63 11.75-3.92 5.65-2.3 10.43-3.4 14.34-3.32 10.66.54 19.64 4.54 26.93 12 7.3 7.46 11.83 16.51 13.6 27.15-9.79 5.86-14.58 14.12-14.36 24.78.22 8.36 3.48 15.31 9.78 20.85 6.3 5.54 13.9 8.68 22.8 9.43-2.18 6.4-4.8 12.6-7.86 18.6zM119.22 31.64c0-7.39 2.61-14.4 7.83-21.03 5.22-6.63 11.96-10.61 20.22-11.94.43 3.69.43 6.95 0 9.78-.65 7.17-3.59 14.01-8.8 20.52-5.22 6.52-11.63 10.32-19.25 11.41-.33-2.71-.43-5.63 0-8.74z"/>
+      </svg>
+      <span>macOS 沉浸视窗</span>
+    </div>
+    <button class="theme-toggle-btn active" id="btn-sequoia" onclick="switchThemeMode('sequoia')">
+      <span class="status-dot" style="background:#ff8a43;"></span>
+      1. Sequoia 液态透光 (浅色)
+    </button>
+    <button class="theme-toggle-btn" id="btn-sonoma" onclick="switchThemeMode('sonoma')">
+      <span class="status-dot" style="background:#2997ff;"></span>
+      2. Sonoma 深空曜黑 (暗色)
+    </button>
+    <button class="export-action-btn" onclick="toggleTokenDrawer()">
+      <span>开发规范 Tokens</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- 桌面环境舞台 -->
+  <div class="desktop-stage">
+    <div class="macos-window">
+      <!-- 标题栏 -->
+      <header class="window-header">
+        <div class="traffic-lights">
+          <span class="traffic-btn traffic-close" title="关闭窗口"></span>
+          <span class="traffic-btn traffic-minimize" title="最小化"></span>
+          <span class="traffic-btn traffic-maximize" title="全屏缩放"></span>
+        </div>
+        <div class="window-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" id="win-indicator-icon">
+            <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+          <span id="win-title-text">DeepSeek Desktop · macOS Sequoia Edition</span>
+        </div>
+        <div class="window-status" id="win-engine-text">
+          Metal Acrylic Blur · 60 FPS
+        </div>
+      </header>
+
+      <!-- 双栏视窗主体 -->
+      <div class="window-body">
+        <aside class="window-sidebar">
+          <div class="sidebar-section-label">工作区目录</div>
+          <div class="sidebar-item active">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            macOS 视觉规范研发
+          </div>
+          <div class="sidebar-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            SwiftUI 物理弹簧阻尼模型
+          </div>
+          <div class="sidebar-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Metal 亚克力毛玻璃着色器
+          </div>
+          <div class="sidebar-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            DSH 插件生态架构
+          </div>
+        </aside>
+
+        <main class="main-chat-area">
+          <div class="chat-messages">
+            <div class="user-bubble">
+              前两个拟 macOS 的主题我都挺喜欢（Sequoia 浅色液态透光 & Sonoma 深空曜黑），帮我将最终原型和开发规范全部落地！
+            </div>
+
+            <div class="ai-bubble">
+              <div style="font-size:16px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#0071e3;" id="ai-status-indicator"></span>
+                <span id="ai-title-text">Apple 原生桌面级设计语言已就绪</span>
+              </div>
+              <p>
+                已为您锁定并完成<strong>「macOS Sequoia 浅色液态透光」</strong>与<strong>「macOS Sonoma 深空曜黑」</strong>双模研发标准：
+              </p>
+              <ul style="margin: 10px 0 14px 22px;">
+                <li><strong>超采样透光物理毛玻璃</strong>：浅色模式下呈现透亮加州晨曦流光，深色模式下呈现沉稳夜间黑曜石紫粉微晕；</li>
+                <li><strong>高精度高光倒角（Hairline Specular）</strong>：视窗边缘采用 <code>1px rgba(255, 255, 255, 0.65)</code>（浅色）与 <code>1px rgba(255, 255, 255, 0.14)</code>（暗色）镜面反光线；</li>
+                <li><strong>代码高亮双模支持</strong>：Xcode 经典双主题配色，字符锐利，行距经过精心光学校正。</li>
+              </ul>
+
+              <div class="xcode-terminal" id="code-snippet-box">
+<span style="color:#6e7781;">// DSH macOS 官方规范 Token 映射</span>
+<span style="color:#cf222e;">import</span> { <span style="color:#953800;">ThemeTokens</span> } <span style="color:#cf222e;">from</span> <span style="color:#0a3069;">'@deepseek-ai/dsh-client-ui-theme'</span>
+
+<span style="color:#cf222e;">export const</span> <span style="color:#116329;" id="code-export-name">MACOS_THEME_TOKENS</span>: <span style="color:#953800;">ThemeTokens</span> = {
+  <span style="color:#0a3069;">'--dsw-alias-bg-base'</span>: <span style="color:#0a3069;" id="code-token-bg">'rgba(255, 255, 255, 0.72)'</span>,
+  <span style="color:#0a3069;">'--dsw-alias-glass-blur'</span>: <span style="color:#0a3069;" id="code-token-blur">'blur(48px) saturate(200%)'</span>,
+  <span style="color:#0a3069;">'--dsw-alias-brand-primary'</span>: <span style="color:#0a3069;" id="code-token-brand">'#0071e3'</span>,
+  <span style="color:#0a3069;">'--dsw-alias-button-radius'</span>: <span style="color:#0a3069;">'14px'</span>
+}
+              </div>
+
+              <p style="font-size:13.5px; opacity:0.85;">
+                💡 <strong>提示</strong>：点击顶部工具栏的<strong>「1. Sequoia 浅色」</strong>与<strong>「2. Sonoma 暗色」</strong>，即可随时随地在双模式之间零延迟流畅对比！
+              </p>
+            </div>
+          </div>
+
+          <div class="input-dock">
+            <input type="text" class="native-input" id="user-input-box" placeholder="键入你的指令或与 DeepSeek 探讨 macOS 调校（回车发送）..." onkeydown="handleInputEnter(event)" />
+            <button class="action-send-btn" onclick="sendMessage()">发送</button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Token 规范与源码抽屉 -->
+  <aside class="token-modal" id="token-modal">
+    <div class="token-modal-header">
+      <span>DSH 拟 macOS Token 规范体系</span>
+      <button style="background:transparent; border:none; color:#fff; font-size:18px; cursor:pointer;" onclick="toggleTokenDrawer()">×</button>
+    </div>
+    <div class="token-modal-body">
+      <div style="font-weight:700; color:#2997ff; margin-bottom:12px;" id="drawer-theme-title">
+        当前激活：macOS Sequoia 液态透光 (浅色)
+      </div>
+      <div id="drawer-tokens-list"></div>
+
+      <div style="margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.12);">
+        <button style="width:100%; padding:12px; border-radius:10px; background:#0071e3; color:#fff; font-weight:700; border:none; cursor:pointer; font-family:inherit;" onclick="copyTokensCode()">
+          一键复制该主题 TypeScript 源码 (.ts)
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="copy-toast" id="toast">已成功复制</div>
+
+  <!-- 交互脚本 -->
+  <script>
+    const TOKENS_DATA = {
+      sequoia: {
+        name: "macOS Sequoia 液态透光浅色版",
+        title: "DeepSeek Desktop · macOS Sequoia Edition",
+        engine: "Metal Acrylic Liquid · 60 FPS",
+        brandColor: "#0071e3",
+        tokens: {
+          "--dsw-alias-bg-base": "rgba(255, 255, 255, 0.72)",
+          "--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
+          "--dsw-alias-bg-layer-2": "rgba(245, 245, 247, 0.92)",
+          "--dsw-specific-sidebar-fill": "rgba(245, 245, 247, 0.45)",
+          "--dsw-alias-glass-blur": "blur(48px) saturate(200%)",
+          "--dsw-alias-brand-primary": "#0071e3",
+          "--dsw-alias-label-primary": "#1d1d1f",
+          "--dsw-alias-button-radius": "14px",
+          "--dsw-code-bg": "#f6f8fa"
+        }
+      },
+      sonoma: {
+        name: "macOS Sonoma 深空曜黑暗色版",
+        title: "DeepSeek Pro · macOS Sonoma Dark Mode",
+        engine: "Metal Obsidian Dark · 60 FPS",
+        brandColor: "#2997ff",
+        tokens: {
+          "--dsw-alias-bg-base": "rgba(22, 24, 30, 0.74)",
+          "--dsw-alias-bg-layer-1": "rgba(28, 32, 40, 0.78)",
+          "--dsw-alias-bg-layer-2": "rgba(34, 38, 48, 0.85)",
+          "--dsw-specific-sidebar-fill": "rgba(18, 20, 25, 0.55)",
+          "--dsw-alias-glass-blur": "blur(50px) saturate(180%)",
+          "--dsw-alias-brand-primary": "#2997ff",
+          "--dsw-alias-label-primary": "#f5f5f7",
+          "--dsw-alias-button-radius": "14px",
+          "--dsw-code-bg": "#14161b"
+        }
+      }
+    };
+
+    let activeMode = 'sequoia';
+
+    function switchThemeMode(mode) {
+      activeMode = mode;
+      document.body.setAttribute('data-os-mode', mode);
+
+      // 按钮切换高亮
+      document.querySelectorAll('.theme-toggle-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('btn-' + mode);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // 更新窗口标题与标识
+      const meta = TOKENS_DATA[mode];
+      document.getElementById('win-title-text').textContent = meta.title;
+      document.getElementById('win-engine-text').textContent = meta.engine;
+      document.getElementById('ai-status-indicator').style.background = meta.brandColor;
+      document.getElementById('ai-status-indicator').style.boxShadow = mode === 'sonoma' ? '0 0 8px #2997ff' : 'none';
+      document.getElementById('ai-title-text').textContent = mode === 'sequoia' ? 'Sequoia 原生液态亚克力规范' : 'Sonoma Dark Obsidian 极客暗黑规范';
+
+      // 更新代码片段展示
+      document.getElementById('code-export-name').textContent = mode.toUpperCase() + '_TOKENS';
+      document.getElementById('code-token-bg').textContent = "'" + meta.tokens['--dsw-alias-bg-base'] + "'";
+      document.getElementById('code-token-blur').textContent = "'" + meta.tokens['--dsw-alias-glass-blur'] + "'";
+      document.getElementById('code-token-brand').textContent = "'" + meta.tokens['--dsw-alias-brand-primary'] + "'";
+
+      renderDrawerTokens();
+      showToast(`已切换至「${meta.name}」`);
+    }
+
+    function toggleTokenDrawer() {
+      const drawer = document.getElementById('token-modal');
+      drawer.classList.toggle('open');
+      if (drawer.classList.contains('open')) {
+        renderDrawerTokens();
+      }
+    }
+
+    function renderDrawerTokens() {
+      const container = document.getElementById('drawer-tokens-list');
+      const cur = TOKENS_DATA[activeMode];
+      if (!cur) return;
+
+      document.getElementById('drawer-theme-title').textContent = '当前激活：' + cur.name;
+
+      let html = '';
+      for (const [k, v] of Object.entries(cur.tokens)) {
+        html += `
+          <div class="token-row">
+            <span style="color:#a1a1a6;">${k}</span>
+            <span style="color:${cur.brandColor}; font-weight:700;">${v}</span>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    function copyTokensCode() {
+      const cur = TOKENS_DATA[activeMode];
+      const code = `import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+
+export const ${activeMode.toUpperCase()}_TOKENS: ThemeTokens = Object.freeze({
+${Object.entries(cur.tokens).map(([k, v]) => `  '${k}': '${v}',`).join('\n')}
+})`;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast("已成功复制代码至剪贴板！");
+      }).catch(() => {
+        showToast("复制成功！");
+      });
+    }
+
+    function handleInputEnter(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('user-input-box');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chatContainer = document.querySelector('.chat-messages');
+
+      const userMsg = document.createElement('div');
+      userMsg.className = 'user-bubble';
+      userMsg.textContent = text;
+      chatContainer.appendChild(userMsg);
+
+      input.value = '';
+
+      setTimeout(() => {
+        const aiMsg = document.createElement('div');
+        aiMsg.className = 'ai-bubble';
+        aiMsg.innerHTML = `
+          <div style="font-weight:700; margin-bottom:6px;">macOS 响应反馈</div>
+          <p>已在当前「${TOKENS_DATA[activeMode].name}」模式下收到指示：“${escapeHtml(text)}”。高采样毛玻璃与高光视窗渲染完全正常。</p>
+        `;
+        chatContainer.appendChild(aiMsg);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }, 400);
+
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    // 初始化渲染
+    renderDrawerTokens();
+  </script>
+</body>
+</html>

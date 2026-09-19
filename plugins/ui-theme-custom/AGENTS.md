@@ -10,7 +10,7 @@
 ### 1.1 文件拓扑
 - `src/index.ts`：Node 宿主半，在服务启动时向 HTML body 注入 `BOOT_SCRIPT`，根据 localStorage 预填主题 token，防止首帧白屏/闪烁。
 - `src/client/index.ts`：浏览器客户端入口，注入 `SURFACE_GLASS_CSS` 全局样式、注册 6 大主题定义，管理主题切换与恢复。
-- `src/client/<theme>.ts`：各主题的具体 Token 字典（`mocha`、`nebula`、`void`、`jade`、`solar`、`parchment`）。
+- `src/client/<theme>.ts`：各主题的具体 Token 字典（`sequoia`、`sonoma`、`void`、`jade`、`solar`、`parchment`）。
 - `src/client/TechThemeRow.tsx`：设置页「外观」行下方的科技主题色块选择器。
 - `tests/badge-token-check.mjs`：主题对比度合规门禁（必须通过）。
 
@@ -117,9 +117,9 @@ node tests\badge-token-check.mjs
 ### 6.2 顶栏必须纯实色，禁止任何渐变/光斑，且深色主题必须有辨识度
 
 - `TITLEBAR_PRESETS` 的 `bg` 采用各主题自身的**标志性实色底**，严禁使用肉眼不可分辨的近死黑色（如 `rgb(10,11,20)` 或 `rgb(18,14,16)` 会导致所有深色主题顶栏变成死黑）：
-  - 星云（nebula）：深曜紫夜 `rgb(28, 24, 46)`
+  - 液态（sequoia）：浅灰液态透光 `rgb(245, 245, 247)`
+  - 曜黑（sonoma）：深空暗曜黑 `rgb(22, 24, 30)`
   - 灼日（solar）：落日暗炭金 `rgb(40, 28, 20)`
-  - 栖木（mocha）：黑巧深木棕 `rgb(36, 27, 21)`
   - 冥夜（void）：玄武岩深灰 `rgb(24, 26, 30)`
   - 缃素（parchment）：温润茶宣纸 `rgb(230, 224, 212)`
   - 银曜（jade）：冷岩钛灰银 `rgb(226, 228, 233)`

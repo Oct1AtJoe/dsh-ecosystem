@@ -13,8 +13,8 @@ afterEach(cleanup)
 
 const COPY: Record<string, string> = {
   'tech-theme.title': 'Tech themes',
-  'tech-theme.mocha': 'Mocha',
-  'tech-theme.nebula': 'Nebula',
+  'tech-theme.sequoia': 'Liquid',
+  'tech-theme.sonoma': 'Obsidian',
 }
 
 /** Empty global standard-kit hooks (the row reads neither). */
@@ -52,31 +52,31 @@ const pressed = (name: RegExp): string | null =>
   screen.getByRole('button', { name }).getAttribute('aria-pressed')
 
 describe('TechThemeRow', () => {
-  it('renders the title and two cubes with the persisted cube selected', () => {
-    mount('nebula' as ThemePreference)
+  it('renders the title and cubes with the persisted cube selected', () => {
+    mount('sonoma' as ThemePreference)
     expect(screen.getByText('Tech themes')).toBeDefined()
-    expect(pressed(/Nebula/)).toBe('true')
-    expect(pressed(/Mocha/)).toBe('false')
+    expect(pressed(/Obsidian/)).toBe('true')
+    expect(pressed(/Liquid/)).toBe('false')
   })
 
-  it('leaves both cubes unselected for an official preference', () => {
+  it('leaves cubes unselected for an official preference', () => {
     mount('dark')
-    expect(pressed(/Mocha/)).toBe('false')
-    expect(pressed(/Nebula/)).toBe('false')
+    expect(pressed(/Liquid/)).toBe('false')
+    expect(pressed(/Obsidian/)).toBe('false')
   })
 
   it('cube clicks drive setTheme with the theme id', () => {
     const b = mount('system')
-    fireEvent.click(screen.getByRole('button', { name: /Mocha/ }))
-    expect(b.setTheme).toHaveBeenCalledWith('mocha')
-    fireEvent.click(screen.getByRole('button', { name: /Nebula/ }))
-    expect(b.setTheme).toHaveBeenCalledWith('nebula')
+    fireEvent.click(screen.getByRole('button', { name: /Liquid/ }))
+    expect(b.setTheme).toHaveBeenCalledWith('sequoia')
+    fireEvent.click(screen.getByRole('button', { name: /Obsidian/ }))
+    expect(b.setTheme).toHaveBeenCalledWith('sonoma')
   })
 
   it('selection follows the store mirror, not the click echo', () => {
     const b = mount('system')
-    act(() => { b.store.actions.sync('mocha' as ThemePreference, 1) })
-    expect(pressed(/Mocha/)).toBe('true')
-    expect(pressed(/Nebula/)).toBe('false')
+    act(() => { b.store.actions.sync('sequoia' as ThemePreference, 1) })
+    expect(pressed(/Liquid/)).toBe('true')
+    expect(pressed(/Obsidian/)).toBe('false')
   })
 })

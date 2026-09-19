@@ -4,8 +4,8 @@
  */
 export const zh = {
   'tech-theme.title': '科技主题',
-  'tech-theme.mocha': '栖木',
-  'tech-theme.nebula': '星云',
+  'tech-theme.sequoia': '液态',
+  'tech-theme.sonoma': '曜黑',
   'tech-theme.void': '冥夜',
   'tech-theme.jade': '银曜',
   'tech-theme.solar': '灼日',
@@ -15,8 +15,8 @@ export const zh = {
 /** English dictionary checked against the Chinese key set. */
 export const en = {
   'tech-theme.title': 'Tech themes',
-  'tech-theme.mocha': 'Mocha',
-  'tech-theme.nebula': 'Nebula',
+  'tech-theme.sequoia': 'Liquid',
+  'tech-theme.sonoma': 'Obsidian',
   'tech-theme.void': 'Void',
   'tech-theme.jade': 'Argent',
   'tech-theme.solar': 'Solar',

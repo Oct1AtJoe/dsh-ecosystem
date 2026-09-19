@@ -18,8 +18,8 @@ import type { ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/ds
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { MOCHA_TOKENS } from './mocha.ts'
-import { NEBULA_TOKENS } from './nebula.ts'
+import { SEQUOIA_TOKENS } from './sequoia.ts'
+import { SONOMA_TOKENS } from './sonoma.ts'
 import { VOID_TOKENS } from './void.ts'
 import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
@@ -37,18 +37,18 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Mocha (栖木): the warm coffee and wood dark variant — rich espresso charcoal + warm caramel amber. */
-const MOCHA: ThemeDefinition = Object.freeze({
-  id: 'mocha',
-  colorScheme: 'dark' as const,
-  tokens: MOCHA_TOKENS,
+/** Sequoia: macOS Sequoia 液态透光浅色版 (Liquid Frost Light). */
+const SEQUOIA: ThemeDefinition = Object.freeze({
+  id: 'sequoia',
+  colorScheme: 'light' as const,
+  tokens: SEQUOIA_TOKENS,
 })
 
-/** Nebula: the deep-space tech variant — matte acrylic surfaces + gradient buttons. */
-const NEBULA: ThemeDefinition = Object.freeze({
-  id: 'nebula',
+/** Sonoma: macOS Sonoma 深空曜黑暗色版 (Dark Obsidian Pro). */
+const SONOMA: ThemeDefinition = Object.freeze({
+  id: 'sonoma',
   colorScheme: 'dark' as const,
-  tokens: NEBULA_TOKENS,
+  tokens: SONOMA_TOKENS,
 })
 
 /** Void: the volcanic-ash dark variant — warm charcoal frosted glass. */
@@ -423,6 +423,349 @@ body:not([data-ds-dark-theme]) hr {
   height: 1px !important;
   background: linear-gradient(90deg, transparent 0%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 25%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 75%, transparent 100%) !important;
 }
+
+/* ==========================================================================
+   macOS Sequoia & Sonoma Liquid Glass & Physical Material Engine
+   ========================================================================== */
+
+/* 全局字体：优先采用 Apple 原生 SF Pro 排版 */
+body[data-ds-custom-theme="sequoia"],
+body[data-ds-custom-theme="sonoma"] {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* 视窗外框发丝高光倒角（Hairline Specular Rim） */
+body[data-ds-custom-theme="sequoia"] [class*="AppFrame_frame"] {
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="AppFrame_frame"] {
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+}
+
+/* 悬浮毛玻璃输入坞 (Floating Glass Dock) */
+body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"] {
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(36px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+  margin-bottom: 8px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"]:focus-within {
+  border-color: rgba(0, 113, 227, 0.45) !important;
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.15),
+    0 0 0 3px rgba(0, 113, 227, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"] {
+  border-radius: 20px !important;
+  background: rgba(24, 28, 36, 0.80) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(38px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(38px) saturate(180%) !important;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.65),
+    0 6px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
+  margin-bottom: 8px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"]:focus-within {
+  border-color: rgba(41, 151, 255, 0.45) !important;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.75),
+    0 0 0 3px rgba(41, 151, 255, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 全局 Primary 按钮（涵盖插件市场「全部更新」、「安装」、发送按钮与操作确认键）：
+   彻底消除深暗高对比刺眼纯色，升级为 Apple 原生透光晴空蓝微渐变与发丝微反光 */
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"],
+body[data-ds-custom-theme="sequoia"] [class*="_primary"],
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"] {
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #3898fc 0%, #147ce5 100%) !important;
+  box-shadow:
+    0 2px 8px rgba(20, 124, 229, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.40) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"] *,
+body[data-ds-custom-theme="sequoia"] [class*="_primary"] *,
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"] * {
+  color: #ffffff !important;
+  fill: currentColor !important;
+}
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sequoia"] [class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4da5ff 0%, #288bf2 100%) !important;
+  box-shadow:
+    0 4px 12px rgba(20, 124, 229, 0.32),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55) !important;
+  transform: translateY(-0.5px);
+}
+
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"],
+body[data-ds-custom-theme="sonoma"] [class*="_primary"],
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"] {
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #3aa0ff 0%, #2997ff 100%) !important;
+  box-shadow:
+    0 0 14px rgba(41, 151, 255, 0.32),
+    inset 0 1px 1px rgba(255, 255, 255, 0.30) !important;
+  border: 1px solid rgba(255, 255, 255, 0.20) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"] *,
+body[data-ds-custom-theme="sonoma"] [class*="_primary"] *,
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"] * {
+  color: #ffffff !important;
+  fill: currentColor !important;
+}
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sonoma"] [class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4da9ff 0%, #3aa0ff 100%) !important;
+  box-shadow:
+    0 0 20px rgba(41, 151, 255, 0.48),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45) !important;
+  transform: translateY(-0.5px);
+}
+
+/* 用户气泡：Apple 官方高光胶囊 */
+body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] {
+  border-radius: 18px 18px 4px 18px !important;
+  background: #0071e3 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] * {
+  color: #ffffff !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] {
+  border-radius: 18px 18px 4px 18px !important;
+  background: #2997ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px rgba(41, 151, 255, 0.40) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] * {
+  color: #ffffff !important;
+}
+
+/* AI 助手回复：半透液态玻璃卡片化 */
+body[data-ds-custom-theme="sequoia"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(0, 0, 0, 0.07) !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
+  background: rgba(28, 32, 40, 0.74) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.40), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(22px) saturate(160%) !important;
+}
+
+/* 侧边栏毛玻璃材质与透光 (Sidebar Glassmorphism)
+   注意（历史硬规则）：绝对不能在 [class*="sidebarCol"] 主元素上直接设置 backdrop-filter！
+   因为设置弹窗 (Settings Dialog) 的 Portal 挂载在 sidebarCol DOM 树下，backdrop-filter 会为
+   position: fixed 子元素创建新的包含块 (Containing Block)，导致设置弹窗宽度被压死成侧边栏同宽！
+   毛玻璃滤镜必须严格挂载在伪元素 ::before 上，该伪元素不是弹窗的祖先节点，完全安全。 */
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
+  background: transparent !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255, 160, 90, 0.04) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.65) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.60) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
+  background: transparent !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"]::before {
+  backdrop-filter: blur(30px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(170%) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(130, 60, 220, 0.04) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.65) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */
+[role="presentation"]:has(> [role="dialog"]) {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* 选中态与分类标签组件视觉调优：柔和半透底色，绝不喧宾夺主，14px 协调几何圆弧 */
+body[data-ds-custom-theme="sequoia"] [class*="cats"] button[class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="catsWrap"] button[class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="tag"][class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="badge"][class*="active"] {
+  background: rgba(0, 113, 227, 0.12) !important;
+  color: #0071e3 !important;
+  border: 1px solid rgba(0, 113, 227, 0.28) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 6px rgba(0, 113, 227, 0.12) !important;
+  font-weight: 550 !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="cats"] button[class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="catsWrap"] button[class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="tag"][class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="badge"][class*="active"] {
+  background: rgba(41, 151, 255, 0.16) !important;
+  color: #2997ff !important;
+  border: 1px solid rgba(41, 151, 255, 0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 0 10px rgba(41, 151, 255, 0.20) !important;
+  font-weight: 550 !important;
+}
+
+/* 侧边栏会话/工作区 Nav 条目：仅限真正的侧栏列表，严格排除 [role="dialog"] 与 [role="tab"] */
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]),
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] {
+  background: rgba(0, 113, 227, 0.12) !important;
+  color: #0071e3 !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]) *,
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] * {
+  color: #0071e3 !important;
+  fill: currentColor !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]),
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] {
+  background: rgba(41, 151, 255, 0.16) !important;
+  color: #2997ff !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]) *,
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] * {
+  color: #2997ff !important;
+  fill: currentColor !important;
+}
+
+/* 确保 Tab 标签页保持清爽高质感的下划线指示，杜绝蓝厚块污染 */
+[role="tab"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 顶部栏毛玻璃下拉菜单 (macOS Liquid Glass Popover) */
+.dsh-macos-shell-menu {
+  position: fixed;
+  top: 4px;
+  right: 14px;
+  width: 200px;
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 999999;
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  animation: dsh-menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+@keyframes dsh-menu-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+body:not([data-ds-dark-theme]) .dsh-macos-shell-menu {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  color: #1d1d1f;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+}
+body[data-ds-dark-theme] .dsh-macos-shell-menu {
+  background: rgba(30, 34, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f5f5f7;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+.dsh-macos-shell-menu .menu-item {
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.12s ease;
+  font-weight: 500;
+}
+body:not([data-ds-dark-theme]) .dsh-macos-shell-menu .menu-item:hover {
+  background: #0071e3;
+  color: #ffffff;
+}
+body[data-ds-dark-theme] .dsh-macos-shell-menu .menu-item:hover {
+  background: #2997ff;
+  color: #ffffff;
+}
+.dsh-macos-shell-menu .menu-item.danger:hover {
+  background: #ff3b30 !important;
+  color: #ffffff !important;
+}
+.dsh-macos-shell-menu .menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.2));
+}
+
+/* Xcode 风格代码块 */
+body[data-ds-custom-theme="sequoia"] pre,
+body[data-ds-custom-theme="sequoia"] [class*="codeBlock"] {
+  border-radius: 10px !important;
+  border: 1px solid #d0d7de !important;
+  background: #f6f8fa !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+body[data-ds-custom-theme="sonoma"] pre,
+body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #14161b !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
 `
 
 /** localStorage key for the user's custom theme preference. */
@@ -482,8 +825,8 @@ function injectSurfaceGlass(): () => void {
 
 /** Theme id → tokens map for direct CSS-variable application. */
 const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
-  mocha: MOCHA_TOKENS,
-  nebula: NEBULA_TOKENS,
+  sequoia: SEQUOIA_TOKENS,
+  sonoma: SONOMA_TOKENS,
   void: VOID_TOKENS,
   jade: JADE_TOKENS,
   solar: SOLAR_TOKENS,
@@ -492,8 +835,8 @@ const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
 
 /** Theme id → colorScheme map so light custom themes switch palette properly. */
 const THEME_SCHEME_MAP: Record<string, 'light' | 'dark'> = {
-  mocha: 'dark',
-  nebula: 'dark',
+  sequoia: 'light',
+  sonoma: 'dark',
   void: 'dark',
   jade: 'light',
   solar: 'dark',
@@ -516,14 +859,23 @@ interface TitlebarConfig {
 }
 
 const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
-  nebula: {
-    bg: 'rgb(28, 24, 46)',
-    accent: 'rgb(168, 142, 250)',
-    line: 'rgba(168, 142, 250, 0.18)',
-    text: 'rgb(240, 236, 255)',
-    muted: 'rgb(175, 168, 200)',
-    hover: 'rgba(168, 142, 250, 0.12)',
-    active: 'rgba(168, 142, 250, 0.22)',
+  sequoia: {
+    bg: 'rgb(245, 245, 247)',
+    accent: 'rgb(0, 113, 227)',
+    line: 'rgba(0, 0, 0, 0.08)',
+    text: 'rgb(29, 29, 31)',
+    muted: 'rgb(110, 110, 115)',
+    hover: 'rgba(0, 113, 227, 0.08)',
+    active: 'rgba(0, 113, 227, 0.16)',
+  },
+  sonoma: {
+    bg: 'rgb(22, 24, 30)',
+    accent: 'rgb(41, 151, 255)',
+    line: 'rgba(255, 255, 255, 0.10)',
+    text: 'rgb(245, 245, 247)',
+    muted: 'rgb(161, 161, 166)',
+    hover: 'rgba(41, 151, 255, 0.12)',
+    active: 'rgba(41, 151, 255, 0.22)',
   },
   solar: {
     bg: 'rgb(40, 28, 20)',
@@ -533,15 +885,6 @@ const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
     muted: 'rgb(198, 178, 156)',
     hover: 'rgba(240, 180, 90, 0.12)',
     active: 'rgba(240, 180, 90, 0.22)',
-  },
-  mocha: {
-    bg: 'rgb(36, 27, 21)',
-    accent: 'rgb(228, 160, 92)',
-    line: 'rgba(228, 160, 92, 0.18)',
-    text: 'rgb(248, 242, 236)',
-    muted: 'rgb(196, 176, 158)',
-    hover: 'rgba(228, 160, 92, 0.12)',
-    active: 'rgba(228, 160, 92, 0.22)',
   },
   parchment: {
     bg: 'rgb(230, 224, 212)',
@@ -614,6 +957,11 @@ function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'
   } else {
     document.body.removeAttribute('data-ds-dark-theme')
   }
+  if (themeId) {
+    document.body.setAttribute('data-ds-custom-theme', themeId)
+  } else {
+    document.body.removeAttribute('data-ds-custom-theme')
+  }
   // 清理不再属于新主题的遗留内联 token（如已移除的字体变量）
   const nextKeys = new Set(Object.keys(tokens))
   for (const name of APPLIED_TOKEN_NAMES) {
@@ -645,6 +993,7 @@ function applyTokens(tokens: ThemeTokens, colorScheme: 'light' | 'dark' = 'dark'
  */
 function clearTokens(): void {
   if (typeof document === 'undefined') return
+  document.body.removeAttribute('data-ds-custom-theme')
   for (const name of APPLIED_TOKEN_NAMES) {
     document.documentElement.style.removeProperty(name)
     document.body.style.removeProperty(name)
@@ -703,6 +1052,71 @@ function clearSaved(): void {
 export function apply(ctx: Context): void {
   // Signal the boot script's re-assert loop to stop: browser half is live.
   ;(window as unknown as { __dshCustomThemeLive?: boolean }).__dshCustomThemeLive = true
+
+  // 挂载原生 macOS 毛玻璃下拉菜单交互（由顶栏 ☰ 按钮呼出）
+  if (typeof window !== 'undefined') {
+    let activeMenuEl: HTMLDivElement | null = null
+    const closeMenu = () => {
+      if (activeMenuEl) {
+        activeMenuEl.remove()
+        activeMenuEl = null
+      }
+    }
+    ;(window as any).__dshToggleShellMenu = () => {
+      if (activeMenuEl) {
+        closeMenu()
+        return
+      }
+      const menu = document.createElement('div')
+      menu.className = 'dsh-macos-shell-menu'
+      menu.innerHTML = `
+        <div class="menu-item" data-action="reload">重新加载页面</div>
+        <div class="menu-item" data-action="restart">重启服务与客户端</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" data-action="devtools">开发者工具 (DevTools)</div>
+        <div class="menu-item" data-action="about">关于 DSH 宿主版本</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item danger" data-action="quit">退出应用</div>
+      `
+      menu.addEventListener('click', (e) => {
+        const item = (e.target as HTMLElement).closest('.menu-item') as HTMLElement
+        if (!item) return
+        const action = item.dataset.action
+        closeMenu()
+        const tauri = (window as any).__TAURI__
+        if (action === 'reload') {
+          window.location.reload()
+        } else if (action === 'restart') {
+          tauri?.core?.invoke?.('restart_application').catch(() => window.location.reload())
+        } else if (action === 'devtools') {
+          tauri?.core?.invoke?.('open_devtools').catch(() => {})
+        } else if (action === 'about') {
+          tauri?.core?.invoke?.('show_about_dialog').catch(() => alert('DeepSeek Harness Desktop · macOS Edition'))
+        } else if (action === 'quit') {
+          tauri?.window?.getCurrentWindow?.()?.close?.()
+        }
+      })
+      document.body.appendChild(menu)
+      activeMenuEl = menu
+      const onDocClick = (evt: MouseEvent) => {
+        if (!menu.contains(evt.target as Node)) {
+          closeMenu()
+          document.removeEventListener('mousedown', onDocClick, true)
+        }
+      }
+      const onKeyDown = (evt: KeyboardEvent) => {
+        if (evt.key === 'Escape') {
+          closeMenu()
+          document.removeEventListener('keydown', onKeyDown, true)
+        }
+      }
+      setTimeout(() => {
+        document.addEventListener('mousedown', onDocClick, true)
+        document.addEventListener('keydown', onKeyDown, true)
+      }, 10)
+    }
+  }
+
   const theme = (ctx.theme ?? ctx.get?.('theme')) as ThemeRuntime
 
   /** Apply a custom theme via direct CSS variables and the theme service. */
@@ -804,8 +1218,8 @@ export function apply(ctx: Context): void {
   }, TechThemeRow))
 
   ctx.effect(() => {
-    const disposeMocha = ctx.theme.register(MOCHA)
-    const disposeNebula = ctx.theme.register(NEBULA)
+    const disposeSequoia = ctx.theme.register(SEQUOIA)
+    const disposeSonoma = ctx.theme.register(SONOMA)
     const disposeVoid = ctx.theme.register(VOID)
     const disposeJade = ctx.theme.register(JADE)
     const disposeSolar = ctx.theme.register(SOLAR)
@@ -813,8 +1227,8 @@ export function apply(ctx: Context): void {
     const removeKeyframes = injectButtonDrift()
     const removeSurfaceGlass = injectSurfaceGlass()
     return () => {
-      disposeMocha()
-      disposeNebula()
+      disposeSequoia()
+      disposeSonoma()
       disposeVoid()
       disposeJade()
       disposeSolar()

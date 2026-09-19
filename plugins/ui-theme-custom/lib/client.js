@@ -7,206 +7,220 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		//#region src/client/mocha.ts
-		const MOCHA_TOKENS = Object.freeze({
-			"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(217, 145, 74, 0.08), rgba(20, 16, 14, 0) 24%),radial-gradient(560px 420px at 90% 18%, rgba(228, 160, 92, 0.22), transparent 55%),radial-gradient(540px 420px at 7% 42%, rgba(184, 118, 64, 0.18), transparent 52%)",
-			"--dsw-alias-glass-blur": "blur(20px) saturate(1.20)",
-			"--dsw-alias-surface-glass-blur": "blur(12px) saturate(1.0)",
-			"--dsw-alias-bg-base": "rgb(20, 16, 14)",
-			"--dsw-alias-surface-glass-spot": "rgba(228, 160, 92, 0.24)",
-			"--dsw-alias-bg-layer-1": "rgb(34, 27, 23)",
-			"--dsw-alias-bg-layer-2": "rgb(42, 33, 28)",
-			"--dsw-alias-bg-layer-3": "rgb(50, 40, 34)",
-			"--dsw-alias-bg-module-platform": "rgb(44, 35, 30)",
-			"--dsw-alias-bg-multi-select": "rgb(38, 30, 26)",
-			"--dsw-alias-bg-overlay": "rgba(58, 46, 39, 0.90)",
-			"--dsw-alias-bg-skeleton": "rgba(255, 255, 255, 0.06)",
-			"--dsw-alias-bg-mask-1": "rgba(0, 0, 0, 0.26)",
-			"--dsw-alias-bg-mask-2": "rgba(0, 0, 0, 0.20)",
-			"--dsw-alias-bg-mask-3": "rgba(0, 0, 0, 0.48)",
-			"--dsw-alias-bg-mask-photo": "rgba(0, 0, 0, 0.88)",
-			"--dsw-alias-bg-mask-drop": "rgba(18, 14, 12, 0.70)",
-			"--dsw-alias-border-inverted": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-inverted2": "rgba(255, 255, 255, 0.10)",
-			"--dsw-alias-border-l1": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-l2-darkmode-thin": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-border-l2": "rgba(255, 255, 255, 0.14)",
-			"--dsw-alias-border-l3": "rgba(255, 255, 255, 0.18)",
-			"--dsw-alias-border-l4": "rgba(255, 255, 255, 0.24)",
-			"--dsw-alias-brand-primary": "rgb(228, 160, 92)",
-			"--dsw-alias-brand-primary-invert": "rgb(252, 238, 222)",
-			"--dsw-alias-brand-primary-new-colorprimary-new-color": "rgb(212, 140, 68)",
-			"--dsw-alias-brand-text": "rgb(228, 160, 92)",
-			"--dsw-alias-button-contrast-fill": "rgb(228, 160, 92)",
-			"--dsw-alias-button-elevated-fill": "rgb(42, 33, 28)",
-			"--dsw-alias-button-floating-fill": "rgb(42, 33, 28)",
-			"--dsw-alias-button-floating-hover": "rgb(50, 40, 34)",
-			"--dsw-alias-button-ghost-active-border": "rgb(168, 116, 68)",
-			"--dsw-alias-button-ghost-active-fill": "rgb(48, 38, 32)",
-			"--dsw-alias-button-ghost-active-hover": "rgb(56, 44, 38)",
-			"--dsw-alias-button-info-fill": "rgb(228, 160, 92)",
-			"--dsw-alias-button-info-hover": "rgb(212, 140, 68)",
-			"--dsw-alias-button-info-bg": "linear-gradient(135deg, rgba(228, 160, 92, 0.50), rgba(184, 118, 64, 0.32) 55%, rgba(206, 140, 78, 0.44))",
-			"--dsw-alias-button-info-bg-hover": "linear-gradient(135deg, rgba(238, 172, 104, 0.62), rgba(198, 130, 74, 0.40) 55%, rgba(218, 152, 88, 0.54))",
-			"--dsw-alias-button-radius": "10px",
+		//#region src/client/sequoia.ts
+		const SEQUOIA_TOKENS = Object.freeze({
+			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 20% 15%, rgba(255, 160, 90, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(110, 80, 255, 0.06) 0%, transparent 70%),radial-gradient(circle at 60% 40%, rgba(255, 100, 130, 0.05) 0%, transparent 60%),linear-gradient(135deg, rgba(60, 80, 180, 0.03) 0%, rgba(255, 140, 100, 0.02) 50%, rgba(255, 200, 80, 0.03) 100%)",
+			"--dsw-alias-glass-blur": "blur(48px) saturate(200%)",
+			"--dsw-alias-surface-glass-blur": "blur(32px) saturate(180%)",
+			"--dsw-alias-bg-base": "rgba(255, 255, 255, 0.72)",
+			"--dsw-alias-surface-glass-spot": "transparent",
+			"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
+			"--dsw-alias-bg-layer-2": "rgba(245, 245, 247, 0.92)",
+			"--dsw-alias-bg-layer-3": "rgba(235, 235, 238, 0.96)",
+			"--dsw-specific-sidebar-fill": "rgba(245, 245, 247, 0.45)",
+			"--dsw-alias-bg-module-platform": "rgb(240, 240, 243)",
+			"--dsw-alias-bg-multi-select": "rgb(230, 230, 235)",
+			"--dsw-alias-bg-overlay": "rgba(255, 255, 255, 0.95)",
+			"--dsw-alias-bg-skeleton": "rgba(0, 0, 0, 0.05)",
+			"--dsw-alias-bg-mask-1": "rgba(0, 0, 0, 0.15)",
+			"--dsw-alias-bg-mask-2": "rgba(0, 0, 0, 0.08)",
+			"--dsw-alias-bg-mask-3": "rgba(0, 0, 0, 0.35)",
+			"--dsw-alias-bg-mask-photo": "rgba(0, 0, 0, 0.75)",
+			"--dsw-alias-bg-mask-drop": "rgba(255, 255, 255, 0.85)",
+			"--dsw-alias-border-inverted": "rgba(255, 255, 255, 0.65)",
+			"--dsw-alias-border-inverted2": "rgba(255, 255, 255, 0.85)",
+			"--dsw-alias-border-l1": "rgba(0, 0, 0, 0.06)",
+			"--dsw-alias-border-l2-darkmode-thin": "rgba(0, 0, 0, 0.08)",
+			"--dsw-alias-border-l2": "rgba(0, 0, 0, 0.10)",
+			"--dsw-alias-border-l3": "rgba(0, 0, 0, 0.16)",
+			"--dsw-alias-border-l4": "rgba(0, 0, 0, 0.22)",
+			"--dsw-alias-brand-primary": "#147ce5",
+			"--dsw-alias-brand-primary-invert": "#ffffff",
+			"--dsw-alias-brand-primary-new-colorprimary-new-color": "#0d6ecc",
+			"--dsw-alias-brand-text": "#147ce5",
+			"--dsw-alias-button-contrast-fill": "#1d1d1f",
+			"--dsw-alias-button-elevated-fill": "rgba(255, 255, 255, 0.90)",
+			"--dsw-alias-button-floating-fill": "rgba(255, 255, 255, 0.85)",
+			"--dsw-alias-button-floating-hover": "rgba(255, 255, 255, 0.95)",
+			"--dsw-alias-button-ghost-active-border": "rgba(20, 124, 229, 0.30)",
+			"--dsw-alias-button-ghost-active-fill": "rgba(20, 124, 229, 0.08)",
+			"--dsw-alias-button-ghost-active-hover": "rgba(20, 124, 229, 0.12)",
+			"--dsw-alias-button-info-fill": "rgb(0, 102, 212)",
+			"--dsw-alias-button-info-hover": "#005bb5",
+			"--dsw-alias-button-info-bg": "linear-gradient(180deg, rgba(56, 152, 252, 0.90), rgba(20, 124, 229, 0.85))",
+			"--dsw-alias-button-info-bg-hover": "linear-gradient(180deg, rgba(77, 165, 255, 0.95), rgba(40, 139, 242, 0.90))",
+			"--dsw-alias-button-radius": "14px",
 			"--dsw-alias-button-radius-sm": "8px",
-			"--dsw-alias-button-primary-bg": "linear-gradient(135deg, rgba(212, 140, 68, 0.34), rgba(168, 106, 52, 0.18) 50%, rgba(194, 126, 62, 0.30))",
-			"--dsw-alias-button-primary-bg-hover": "linear-gradient(135deg, rgba(226, 154, 80, 0.44), rgba(182, 118, 62, 0.26) 50%, rgba(208, 140, 74, 0.38))",
-			"--dsw-alias-button-primary-bg-size": "200% 100%",
-			"--dsw-alias-button-primary-motion": "dsh-button-drift 5s linear infinite",
-			"--dsw-alias-button-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 0 0 1px rgba(228, 160, 92, 0.22),0 0 14px rgba(212, 140, 68, 0.30), 0 8px 28px rgba(168, 106, 52, 0.28)",
-			"--dsw-alias-button-glow-hover": "inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 0 0 1px rgba(242, 180, 116, 0.36),0 0 20px rgba(226, 154, 80, 0.44), 0 12px 36px rgba(182, 118, 62, 0.40)",
-			"--dsw-alias-button-press-shadow": "inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(228, 160, 92, 0.14),0 4px 12px rgba(168, 106, 52, 0.18)",
+			"--dsw-alias-button-primary-bg": "linear-gradient(180deg, #3898fc 0%, #147ce5 100%)",
+			"--dsw-alias-button-primary-bg-hover": "linear-gradient(180deg, #4da5ff 0%, #288bf2 100%)",
+			"--dsw-alias-button-primary-bg-size": "100% 100%",
+			"--dsw-alias-button-primary-motion": "none",
+			"--dsw-alias-button-glow": "0 2px 8px rgba(20, 124, 229, 0.20)",
+			"--dsw-alias-button-glow-hover": "0 4px 12px rgba(20, 124, 229, 0.30)",
+			"--dsw-alias-button-press-shadow": "inset 0 1px 3px rgba(0, 0, 0, 0.20)",
 			"--dsw-alias-button-press-shift": "translate(0, 1px)",
-			"--dsw-alias-button-outline-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(228, 160, 92, 0.26),0 6px 18px rgba(168, 106, 52, 0.16)",
+			"--dsw-alias-button-outline-glow": "0 0 0 2px rgba(20, 124, 229, 0.20)",
 			"--dsw-alias-button-send-shift-active": "translateY(-1px) translate(0, 2px)",
-			"--dsw-alias-button-primary-dimmed": "rgb(48, 38, 32)",
-			"--dsw-alias-button-primary-fill": "rgb(184, 118, 64)",
-			"--dsw-alias-button-primary-hover": "rgb(198, 130, 74)",
-			"--dsw-alias-button-tool-bar-fill": "rgba(46, 36, 30, 0.64)",
-			"--dsw-alias-button-tool-bar-fill-invisible": "rgba(32, 26, 22, 0.42)",
-			"--dsw-alias-button-tool-bar-hover": "rgba(46, 36, 30, 0.72)",
-			"--dsw-alias-interactive-bg-active": "rgba(255, 255, 255, 0.10)",
-			"--dsw-alias-interactive-bg-hover": "rgba(255, 255, 255, 0.06)",
-			"--dsw-alias-interactive-bg-hover-accent": "rgba(228, 160, 92, 0.16)",
-			"--dsw-alias-interactive-bg-hover-danger": "rgba(242, 90, 90, 0.14)",
-			"--dsw-alias-interactive-bg-hover-solid": "rgb(46, 36, 31)",
-			"--dsw-alias-label-caption": "rgb(178, 154, 134)",
-			"--dsw-alias-label-dimmed": "rgb(136, 114, 96)",
-			"--dsw-alias-label-primary-bluish": "rgb(246, 240, 234)",
-			"--dsw-alias-label-primary-dimmed": "rgb(240, 232, 224)",
-			"--dsw-alias-label-primary-foreground": "rgb(252, 248, 244)",
-			"--dsw-alias-label-primary-inverted": "rgb(34, 27, 23)",
-			"--dsw-alias-label-primary": "rgb(246, 240, 234)",
-			"--dsw-alias-label-secondary": "rgb(208, 194, 182)",
-			"--dsw-alias-label-tertiary": "rgb(166, 150, 138)",
-			"--dsw-alias-markdown-citation": "rgb(38, 30, 26)",
-			"--dsw-alias-markdown-code-block-banner": "rgb(24, 19, 16)",
-			"--dsw-alias-markdown-code-block": "rgb(26, 21, 18)",
-			"--dsw-alias-markdown-code-segment-selected": "rgb(48, 38, 32)",
-			"--dsw-alias-markdown-code-segment-unselected": "rgb(26, 21, 18)",
-			"--dsw-alias-markdown-inline-code": "rgb(38, 30, 26)",
-			"--dsw-alias-markdown-placeholder": "rgb(32, 25, 21)",
-			"--dsw-alias-markdown-tag": "rgb(38, 30, 26)",
-			"--dsw-alias-scrollbar-bg-l1": "rgb(54, 43, 37)",
-			"--dsw-alias-scrollbar-bg-l2": "rgb(66, 52, 45)",
-			"--dsw-alias-scrollbar-hover-l1": "rgb(66, 52, 45)",
-			"--dsw-alias-scrollbar-hover-l2": "rgb(80, 64, 55)",
-			"--dsw-alias-state-business-primary": "rgb(228, 160, 92)",
-			"--dsw-alias-state-business-tertiary": "rgb(48, 38, 32)",
-			"--dsw-alias-toast-bg": "rgba(58, 46, 39, 0.88)",
-			"--dsw-alias-tooltip-bg": "rgba(64, 51, 43, 0.90)",
-			"--dsw-specific-bubble-highlight": "rgba(52, 41, 35, 0.84)",
-			"--dsw-specific-bubble": "rgba(40, 32, 27, 0.78)",
-			"--dsw-specific-input-major": "rgba(32, 25, 21, 0.74)",
-			"--dsw-specific-login-input": "rgb(24, 19, 16)",
-			"--dsw-specific-selector": "rgba(40, 32, 27, 0.82)",
-			"--dsw-specific-sidebar-fill": "rgb(30, 23, 19)",
-			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(48, 37, 31)",
-			"--dsw-specific-sidebar-nav-item-active": "rgb(44, 34, 29)",
-			"--dsw-specific-sidebar-nav-item-hover": "rgb(36, 28, 24)",
-			"--dsw-specific-tip": "rgba(40, 32, 27, 0.80)"
+			"--dsw-alias-button-primary-dimmed": "rgba(20, 124, 229, 0.12)",
+			"--dsw-alias-button-primary-fill": "#147ce5",
+			"--dsw-alias-button-primary-hover": "#288bf2",
+			"--dsw-alias-button-tool-bar-fill": "rgba(0, 0, 0, 0.04)",
+			"--dsw-alias-button-tool-bar-fill-invisible": "transparent",
+			"--dsw-alias-button-tool-bar-hover": "rgba(0, 0, 0, 0.08)",
+			"--dsw-alias-interactive-bg-active": "rgba(0, 0, 0, 0.08)",
+			"--dsw-alias-interactive-bg-hover": "rgba(0, 0, 0, 0.04)",
+			"--dsw-alias-interactive-bg-hover-accent": "rgba(0, 113, 227, 0.08)",
+			"--dsw-alias-interactive-bg-hover-danger": "rgba(255, 59, 48, 0.08)",
+			"--dsw-alias-interactive-bg-hover-solid": "rgb(242, 242, 245)",
+			"--dsw-alias-label-primary": "#1d1d1f",
+			"--dsw-alias-label-secondary": "#6e6e73",
+			"--dsw-alias-label-caption": "#86868b",
+			"--dsw-alias-label-dimmed": "#a1a1a6",
+			"--dsw-alias-label-primary-bluish": "#1d1d1f",
+			"--dsw-alias-label-primary-dimmed": "#424245",
+			"--dsw-alias-label-primary-foreground": "#ffffff",
+			"--dsw-alias-label-primary-inverted": "#ffffff",
+			"--dsw-alias-label-tertiary": "#86868b",
+			"--dsw-alias-markdown-citation": "rgba(0, 0, 0, 0.04)",
+			"--dsw-alias-markdown-code-block-banner": "rgb(240, 242, 245)",
+			"--dsw-alias-markdown-code-block": "#f6f8fa",
+			"--dsw-alias-markdown-code-segment-selected": "rgba(0, 113, 227, 0.12)",
+			"--dsw-alias-markdown-code-segment-unselected": "rgba(0, 0, 0, 0.03)",
+			"--dsw-alias-markdown-inline-code": "rgba(0, 0, 0, 0.05)",
+			"--dsw-alias-markdown-placeholder": "rgba(0, 0, 0, 0.03)",
+			"--dsw-alias-markdown-tag": "rgba(0, 0, 0, 0.05)",
+			"--dsw-alias-scrollbar-bg-l1": "rgba(0, 0, 0, 0.12)",
+			"--dsw-alias-scrollbar-bg-l2": "rgba(0, 0, 0, 0.18)",
+			"--dsw-alias-scrollbar-hover-l1": "rgba(0, 0, 0, 0.24)",
+			"--dsw-alias-scrollbar-hover-l2": "rgba(0, 0, 0, 0.32)",
+			"--dsw-alias-state-business-primary": "#0071e3",
+			"--dsw-alias-state-business-tertiary": "rgba(0, 113, 227, 0.10)",
+			"--dsw-alias-toast-bg": "rgba(30, 30, 35, 0.88)",
+			"--dsw-alias-tooltip-bg": "rgba(30, 30, 35, 0.90)",
+			"--dsw-specific-bubble-highlight": "rgba(255, 255, 255, 0.92)",
+			"--dsw-specific-bubble": "rgba(255, 255, 255, 0.85)",
+			"--dsw-specific-input-major": "rgba(255, 255, 255, 0.85)",
+			"--dsw-specific-login-input": "rgba(255, 255, 255, 0.90)",
+			"--dsw-specific-selector": "rgba(245, 245, 247, 0.85)",
+			"--dsw-specific-tip": "rgba(245, 245, 247, 0.80)",
+			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(234, 238, 246)",
+			"--dsw-specific-sidebar-nav-item-active": "rgba(255, 255, 255, 0.85)",
+			"--dsw-specific-sidebar-nav-item-hover": "rgba(0, 0, 0, 0.04)",
+			"--dsw-code-bg": "#f6f8fa",
+			"--dsw-code-fg": "#24292f",
+			"--dsw-code-border": "#d0d7de",
+			"--dsw-code-comment": "#6e7781",
+			"--dsw-code-keyword": "#cf222e",
+			"--dsw-code-string": "#0a3069",
+			"--dsw-code-function": "#8250df"
 		});
 		//#endregion
-		//#region src/client/nebula.ts
-		/** Alias-token overrides for the nebula theme. */
-		const NEBULA_TOKENS = Object.freeze({
-			"--dsw-alias-bg-app-image": "linear-gradient(180deg, rgba(148, 163, 255, 0.1), rgba(148, 163, 255, 0) 26%),radial-gradient(1100px 560px at 88% -12%, rgba(91, 108, 255, 0.28), transparent 62%),radial-gradient(1000px 560px at 4% 34%, rgba(139, 92, 246, 0.3), transparent 60%),radial-gradient(900px 520px at 50% 46%, rgba(122, 108, 255, 0.26), transparent 62%),radial-gradient(900px 500px at 52% 96%, rgba(79, 70, 229, 0.2), transparent 62%)",
-			"--dsw-alias-glass-blur": "blur(20px) saturate(1.25)",
-			"--dsw-alias-bg-base": "rgb(11, 13, 25)",
-			"--dsw-alias-surface-glass-spot": "rgba(139, 92, 246, 0.28)",
-			"--dsw-alias-bg-layer-1": "rgb(28, 32, 60)",
-			"--dsw-alias-bg-layer-2": "rgb(34, 38, 68)",
-			"--dsw-alias-bg-layer-3": "rgb(40, 44, 78)",
-			"--dsw-alias-bg-module-platform": "rgb(30, 36, 64)",
-			"--dsw-alias-bg-multi-select": "rgba(24, 27, 51, 0.8)",
-			"--dsw-alias-bg-overlay": "rgb(52, 58, 100)",
-			"--dsw-alias-bg-skeleton": "rgba(255, 255, 255, 0.08)",
-			"--dsw-alias-bg-mask-1": "rgba(0, 0, 0, 0.26)",
-			"--dsw-alias-bg-mask-2": "rgba(0, 0, 0, 0.2)",
-			"--dsw-alias-bg-mask-3": "rgba(0, 0, 0, 0.48)",
-			"--dsw-alias-bg-mask-photo": "rgba(0, 0, 0, 0.88)",
-			"--dsw-alias-bg-mask-drop": "rgba(12, 13, 26, 0.7)",
-			"--dsw-alias-border-inverted": "rgba(255, 255, 255, 0.1)",
-			"--dsw-alias-border-inverted2": "rgba(255, 255, 255, 0.12)",
-			"--dsw-alias-border-l1": "rgba(255, 255, 255, 0.1)",
-			"--dsw-alias-border-l2-darkmode-thin": "rgba(255, 255, 255, 0.1)",
-			"--dsw-alias-border-l2": "rgba(255, 255, 255, 0.16)",
-			"--dsw-alias-border-l3": "rgba(255, 255, 255, 0.2)",
+		//#region src/client/sonoma.ts
+		const SONOMA_TOKENS = Object.freeze({
+			"--dsw-alias-bg-app-image": "radial-gradient(ellipse 900px 520px at 15% 20%, rgba(130, 60, 220, 0.08) 0%, transparent 65%),radial-gradient(ellipse 850px 600px at 85% 85%, rgba(40, 150, 255, 0.07) 0%, transparent 65%),radial-gradient(circle at 50% 50%, rgba(240, 70, 130, 0.03) 0%, transparent 60%),linear-gradient(180deg, rgba(12, 13, 17, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%)",
+			"--dsw-alias-glass-blur": "blur(50px) saturate(180%)",
+			"--dsw-alias-surface-glass-blur": "blur(34px) saturate(160%)",
+			"--dsw-alias-bg-base": "rgba(22, 24, 30, 0.74)",
+			"--dsw-alias-surface-glass-spot": "transparent",
+			"--dsw-alias-bg-layer-1": "rgba(28, 32, 40, 0.78)",
+			"--dsw-alias-bg-layer-2": "rgba(34, 38, 48, 0.85)",
+			"--dsw-alias-bg-layer-3": "rgba(42, 46, 58, 0.92)",
+			"--dsw-specific-sidebar-fill": "rgba(18, 20, 25, 0.55)",
+			"--dsw-alias-bg-module-platform": "rgb(26, 29, 36)",
+			"--dsw-alias-bg-multi-select": "rgb(36, 40, 52)",
+			"--dsw-alias-bg-overlay": "rgba(20, 22, 28, 0.95)",
+			"--dsw-alias-bg-skeleton": "rgba(255, 255, 255, 0.05)",
+			"--dsw-alias-bg-mask-1": "rgba(0, 0, 0, 0.45)",
+			"--dsw-alias-bg-mask-2": "rgba(0, 0, 0, 0.25)",
+			"--dsw-alias-bg-mask-3": "rgba(0, 0, 0, 0.65)",
+			"--dsw-alias-bg-mask-photo": "rgba(0, 0, 0, 0.85)",
+			"--dsw-alias-bg-mask-drop": "rgba(16, 18, 24, 0.90)",
+			"--dsw-alias-border-inverted": "rgba(255, 255, 255, 0.14)",
+			"--dsw-alias-border-inverted2": "rgba(255, 255, 255, 0.20)",
+			"--dsw-alias-border-l1": "rgba(255, 255, 255, 0.06)",
+			"--dsw-alias-border-l2-darkmode-thin": "rgba(255, 255, 255, 0.08)",
+			"--dsw-alias-border-l2": "rgba(255, 255, 255, 0.10)",
+			"--dsw-alias-border-l3": "rgba(255, 255, 255, 0.18)",
 			"--dsw-alias-border-l4": "rgba(255, 255, 255, 0.26)",
-			"--dsw-alias-brand-primary": "rgb(168, 190, 255)",
-			"--dsw-alias-brand-primary-invert": "rgb(232, 238, 255)",
-			"--dsw-alias-brand-primary-new-colorprimary-new-color": "rgb(122, 144, 255)",
-			"--dsw-alias-brand-text": "rgb(168, 190, 255)",
-			"--dsw-alias-button-contrast-fill": "rgb(168, 190, 255)",
-			"--dsw-alias-button-elevated-fill": "rgb(24, 27, 51)",
-			"--dsw-alias-button-floating-fill": "rgb(24, 27, 51)",
-			"--dsw-alias-button-floating-hover": "rgb(31, 34, 63)",
-			"--dsw-alias-button-ghost-active-border": "rgb(106, 118, 190)",
-			"--dsw-alias-button-ghost-active-fill": "rgb(31, 34, 63)",
-			"--dsw-alias-button-ghost-active-hover": "rgb(37, 41, 76)",
-			"--dsw-alias-button-info-fill": "rgb(122, 144, 255)",
-			"--dsw-alias-button-info-hover": "rgb(104, 128, 246)",
-			"--dsw-alias-button-info-bg": "linear-gradient(135deg, rgba(110, 120, 255, 0.6), rgba(76, 94, 246, 0.38) 55%, rgba(139, 92, 246, 0.5))",
-			"--dsw-alias-button-info-bg-hover": "linear-gradient(135deg, rgba(126, 134, 255, 0.72), rgba(92, 110, 255, 0.46) 55%, rgba(150, 104, 255, 0.6))",
-			"--dsw-alias-button-radius": "10px",
+			"--dsw-alias-brand-primary": "#2997ff",
+			"--dsw-alias-brand-primary-invert": "#ffffff",
+			"--dsw-alias-brand-primary-new-colorprimary-new-color": "#1f80e6",
+			"--dsw-alias-brand-text": "#2997ff",
+			"--dsw-alias-button-contrast-fill": "#2997ff",
+			"--dsw-alias-button-elevated-fill": "rgb(34, 38, 48)",
+			"--dsw-alias-button-floating-fill": "rgba(34, 38, 48, 0.85)",
+			"--dsw-alias-button-floating-hover": "rgb(42, 46, 58)",
+			"--dsw-alias-button-ghost-active-border": "rgba(41, 151, 255, 0.40)",
+			"--dsw-alias-button-ghost-active-fill": "rgba(41, 151, 255, 0.12)",
+			"--dsw-alias-button-ghost-active-hover": "rgba(41, 151, 255, 0.18)",
+			"--dsw-alias-button-info-fill": "rgb(41, 151, 255)",
+			"--dsw-alias-button-info-hover": "#1f80e6",
+			"--dsw-alias-button-info-bg": "linear-gradient(180deg, rgba(58, 160, 255, 0.60), rgba(41, 151, 255, 0.38))",
+			"--dsw-alias-button-info-bg-hover": "linear-gradient(180deg, rgba(77, 169, 255, 0.72), rgba(58, 160, 255, 0.48))",
+			"--dsw-alias-button-radius": "14px",
 			"--dsw-alias-button-radius-sm": "8px",
-			"--dsw-alias-button-primary-bg": "linear-gradient(135deg, rgba(122, 144, 255, 0.4), rgba(91, 106, 245, 0.2) 50%, rgba(139, 92, 246, 0.36))",
-			"--dsw-alias-button-primary-bg-hover": "linear-gradient(135deg, rgba(134, 156, 255, 0.5), rgba(104, 118, 255, 0.3) 50%, rgba(150, 104, 255, 0.44))",
-			"--dsw-alias-button-primary-bg-size": "200% 100%",
-			"--dsw-alias-button-primary-motion": "dsh-button-drift 5s linear infinite",
-			"--dsw-alias-button-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px rgba(168, 190, 255, 0.3),0 0 18px rgba(104, 118, 255, 0.45), 0 8px 28px rgba(91, 106, 245, 0.4)",
-			"--dsw-alias-button-glow-hover": "inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(196, 210, 255, 0.45),0 0 24px rgba(122, 144, 255, 0.6), 0 12px 36px rgba(104, 118, 255, 0.55)",
-			"--dsw-alias-button-press-shadow": "inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(168, 190, 255, 0.18),0 4px 12px rgba(91, 106, 245, 0.25)",
+			"--dsw-alias-button-primary-bg": "linear-gradient(180deg, #3aa0ff 0%, #2997ff 100%)",
+			"--dsw-alias-button-primary-bg-hover": "linear-gradient(180deg, #4da9ff 0%, #3aa0ff 100%)",
+			"--dsw-alias-button-primary-bg-size": "100% 100%",
+			"--dsw-alias-button-primary-motion": "none",
+			"--dsw-alias-button-glow": "0 0 12px rgba(41, 151, 255, 0.32)",
+			"--dsw-alias-button-glow-hover": "0 0 18px rgba(41, 151, 255, 0.48)",
+			"--dsw-alias-button-press-shadow": "inset 0 1px 3px rgba(0, 0, 0, 0.50)",
 			"--dsw-alias-button-press-shift": "translate(0, 1px)",
-			"--dsw-alias-button-outline-glow": "inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(168, 190, 255, 0.32),0 6px 18px rgba(91, 106, 245, 0.22)",
+			"--dsw-alias-button-outline-glow": "0 0 0 2px rgba(41, 151, 255, 0.35)",
 			"--dsw-alias-button-send-shift-active": "translateY(-1px) translate(0, 2px)",
-			"--dsw-alias-button-primary-dimmed": "rgb(32, 36, 70)",
-			"--dsw-alias-button-primary-fill": "rgb(91, 106, 245)",
-			"--dsw-alias-button-primary-hover": "rgb(104, 118, 255)",
-			"--dsw-alias-button-tool-bar-fill": "rgba(33, 37, 68, 0.64)",
-			"--dsw-alias-button-tool-bar-fill-invisible": "rgba(31, 31, 31, 0.42)",
-			"--dsw-alias-button-tool-bar-hover": "rgba(33, 37, 68, 0.72)",
+			"--dsw-alias-button-primary-dimmed": "rgba(41, 151, 255, 0.18)",
+			"--dsw-alias-button-primary-fill": "#2997ff",
+			"--dsw-alias-button-primary-hover": "#3aa0ff",
+			"--dsw-alias-button-tool-bar-fill": "rgba(255, 255, 255, 0.06)",
+			"--dsw-alias-button-tool-bar-fill-invisible": "transparent",
+			"--dsw-alias-button-tool-bar-hover": "rgba(255, 255, 255, 0.12)",
 			"--dsw-alias-interactive-bg-active": "rgba(255, 255, 255, 0.12)",
 			"--dsw-alias-interactive-bg-hover": "rgba(255, 255, 255, 0.07)",
-			"--dsw-alias-interactive-bg-hover-accent": "rgba(122, 144, 255, 0.18)",
-			"--dsw-alias-interactive-bg-hover-danger": "rgba(242, 90, 90, 0.15)",
-			"--dsw-alias-interactive-bg-hover-solid": "rgb(31, 34, 63)",
-			"--dsw-alias-label-caption": "rgb(129, 138, 178)",
-			"--dsw-alias-label-dimmed": "rgb(86, 93, 130)",
-			"--dsw-alias-label-primary-bluish": "rgb(230, 235, 255)",
-			"--dsw-alias-label-primary-dimmed": "rgb(224, 229, 252)",
-			"--dsw-alias-label-primary-foreground": "rgb(245, 246, 255)",
-			"--dsw-alias-label-primary-inverted": "rgb(30, 33, 62)",
-			"--dsw-alias-label-primary": "rgb(236, 240, 255)",
-			"--dsw-alias-label-secondary": "rgb(185, 192, 224)",
-			"--dsw-alias-label-tertiary": "rgb(140, 148, 186)",
-			"--dsw-alias-markdown-citation": "rgb(24, 27, 51)",
-			"--dsw-alias-markdown-code-block-banner": "rgb(16, 18, 34)",
-			"--dsw-alias-markdown-code-block": "rgb(17, 19, 36)",
-			"--dsw-alias-markdown-code-segment-selected": "rgb(31, 34, 63)",
-			"--dsw-alias-markdown-code-segment-unselected": "rgb(17, 19, 36)",
-			"--dsw-alias-markdown-inline-code": "rgb(24, 27, 51)",
-			"--dsw-alias-markdown-placeholder": "rgb(22, 24, 46)",
-			"--dsw-alias-markdown-tag": "rgb(24, 27, 51)",
-			"--dsw-alias-scrollbar-bg-l1": "rgb(40, 44, 80)",
-			"--dsw-alias-scrollbar-bg-l2": "rgb(52, 58, 104)",
-			"--dsw-alias-scrollbar-hover-l1": "rgb(52, 58, 104)",
-			"--dsw-alias-scrollbar-hover-l2": "rgb(62, 70, 124)",
-			"--dsw-alias-state-business-primary": "rgb(122, 144, 255)",
-			"--dsw-alias-state-business-tertiary": "rgb(30, 35, 66)",
-			"--dsw-alias-toast-bg": "rgba(47, 52, 96, 0.88)",
-			"--dsw-alias-tooltip-bg": "rgba(54, 60, 110, 0.9)",
-			"--dsw-specific-bubble-highlight": "rgba(43, 47, 88, 0.84)",
-			"--dsw-specific-bubble": "rgba(30, 34, 63, 0.78)",
-			"--dsw-specific-input-major": "rgba(20, 23, 44, 0.74)",
-			"--dsw-specific-login-input": "rgb(16, 18, 36)",
-			"--dsw-specific-selector": "rgba(28, 32, 59, 0.82)",
-			"--dsw-specific-sidebar-fill": "rgb(22, 28, 56)",
-			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(36, 40, 76)",
-			"--dsw-specific-sidebar-nav-item-active": "rgb(31, 34, 63)",
-			"--dsw-specific-sidebar-nav-item-hover": "rgb(26, 29, 54)",
-			"--dsw-specific-tip": "rgba(24, 27, 51, 0.8)"
+			"--dsw-alias-interactive-bg-hover-accent": "rgba(41, 151, 255, 0.16)",
+			"--dsw-alias-interactive-bg-hover-danger": "rgba(255, 69, 58, 0.15)",
+			"--dsw-alias-interactive-bg-hover-solid": "rgb(34, 38, 48)",
+			"--dsw-alias-label-primary": "#f5f5f7",
+			"--dsw-alias-label-secondary": "#a1a1a6",
+			"--dsw-alias-label-caption": "#86868b",
+			"--dsw-alias-label-dimmed": "#6e6e73",
+			"--dsw-alias-label-primary-bluish": "#f5f5f7",
+			"--dsw-alias-label-primary-dimmed": "#d1d1d6",
+			"--dsw-alias-label-primary-foreground": "#ffffff",
+			"--dsw-alias-label-primary-inverted": "#1c1c1e",
+			"--dsw-alias-label-tertiary": "#86868b",
+			"--dsw-alias-markdown-citation": "rgb(24, 27, 34)",
+			"--dsw-alias-markdown-code-block-banner": "rgb(16, 18, 23)",
+			"--dsw-alias-markdown-code-block": "#14161b",
+			"--dsw-alias-markdown-code-segment-selected": "rgb(36, 40, 52)",
+			"--dsw-alias-markdown-code-segment-unselected": "#14161b",
+			"--dsw-alias-markdown-inline-code": "rgba(255, 255, 255, 0.08)",
+			"--dsw-alias-markdown-placeholder": "rgb(20, 22, 28)",
+			"--dsw-alias-markdown-tag": "rgb(28, 32, 40)",
+			"--dsw-alias-scrollbar-bg-l1": "rgba(255, 255, 255, 0.10)",
+			"--dsw-alias-scrollbar-bg-l2": "rgba(255, 255, 255, 0.16)",
+			"--dsw-alias-scrollbar-hover-l1": "rgba(255, 255, 255, 0.22)",
+			"--dsw-alias-scrollbar-hover-l2": "rgba(255, 255, 255, 0.28)",
+			"--dsw-alias-state-business-primary": "#2997ff",
+			"--dsw-alias-state-business-tertiary": "rgba(41, 151, 255, 0.15)",
+			"--dsw-alias-toast-bg": "rgba(28, 32, 40, 0.90)",
+			"--dsw-alias-tooltip-bg": "rgba(34, 38, 48, 0.92)",
+			"--dsw-specific-bubble-highlight": "rgba(34, 38, 48, 0.88)",
+			"--dsw-specific-bubble": "rgba(28, 32, 40, 0.82)",
+			"--dsw-specific-input-major": "rgba(22, 24, 30, 0.82)",
+			"--dsw-specific-login-input": "rgb(20, 22, 28)",
+			"--dsw-specific-selector": "rgba(28, 32, 40, 0.85)",
+			"--dsw-specific-tip": "rgba(24, 27, 34, 0.80)",
+			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(36, 40, 56)",
+			"--dsw-specific-sidebar-nav-item-active": "rgba(42, 46, 58, 0.85)",
+			"--dsw-specific-sidebar-nav-item-hover": "rgba(255, 255, 255, 0.05)",
+			"--dsw-code-bg": "#14161b",
+			"--dsw-code-fg": "#e6edf3",
+			"--dsw-code-border": "rgba(255, 255, 255, 0.12)",
+			"--dsw-code-comment": "#7d8590",
+			"--dsw-code-keyword": "#ff7b72",
+			"--dsw-code-string": "#a5d6ff",
+			"--dsw-code-function": "#d2a8ff"
 		});
 		//#endregion
 		//#region src/client/void.ts
@@ -623,8 +637,8 @@ window.__ModuleLoader__.load({
 		*/
 		const zh = {
 			"tech-theme.title": "科技主题",
-			"tech-theme.mocha": "栖木",
-			"tech-theme.nebula": "星云",
+			"tech-theme.sequoia": "液态",
+			"tech-theme.sonoma": "曜黑",
 			"tech-theme.void": "冥夜",
 			"tech-theme.jade": "银曜",
 			"tech-theme.solar": "灼日",
@@ -633,8 +647,8 @@ window.__ModuleLoader__.load({
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
 			"tech-theme.title": "Tech themes",
-			"tech-theme.mocha": "Mocha",
-			"tech-theme.nebula": "Nebula",
+			"tech-theme.sequoia": "Liquid",
+			"tech-theme.sonoma": "Obsidian",
 			"tech-theme.void": "Void",
 			"tech-theme.jade": "Argent",
 			"tech-theme.solar": "Solar",
@@ -681,7 +695,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:var(--dsw-alias-bg-module-platform);border-color:var(--dsw-static-neutral-bluish-400)}";
+		const css = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
 		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -702,25 +716,71 @@ window.__ModuleLoader__.load({
 		/**
 		* Tech-theme preference row registered into the General section item slot
 		* beside the official Appearance row (id `appearance-custom`, after it).
-		* Two cubes — aurora and nebula — rendered only when this plugin mounts, so
-		* the official ui-theme package never references the custom theme ids.
-		* Selection follows the persisted preference, never the resolved active
-		* theme; the ids persist through the official settings scope because
-		* `THEME_PREFERENCES` includes them.
+		* Six cubes rendered only when this plugin mounts, so the official ui-theme
+		* package never references the custom theme ids. Selection follows the persisted
+		* preference, never the resolved active theme; the ids persist through the official
+		* settings scope because `THEME_PREFERENCES` includes them.
 		*/
+		/** 液态 (Liquid Frost) 主题专有图标：透光液态水滴，带镜面反射微弧 */
+		function IconLiquid16({ size = 16, className }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+				width: size,
+				height: size,
+				viewBox: "0 0 16 16",
+				fill: "none",
+				stroke: "currentColor",
+				strokeWidth: "1.3",
+				strokeLinecap: "round",
+				strokeLinejoin: "round",
+				className,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", { d: "M8 2.2C8 2.2 3.8 7.4 3.8 10.2C3.8 12.5 5.7 14.4 8 14.4C10.3 14.4 12.2 12.5 12.2 10.2C12.2 7.4 8 2.2 8 2.2Z" }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+					d: "M6.2 9.8C6.3 11.2 7.4 12.2 8.6 12.3",
+					strokeWidth: "1.1",
+					strokeLinecap: "round",
+					opacity: "0.65"
+				})]
+			});
+		}
+		/** 曜黑 (Dark Obsidian) 主题专有图标：黑曜石多面体切面晶石棱镜 */
+		function IconObsidian16({ size = 16, className }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+				width: size,
+				height: size,
+				viewBox: "0 0 16 16",
+				fill: "none",
+				stroke: "currentColor",
+				strokeWidth: "1.3",
+				strokeLinecap: "round",
+				strokeLinejoin: "round",
+				className,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("polygon", { points: "8,1.8 13.8,6 11.6,13.8 4.4,13.8 2.2,6" }),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("polyline", {
+						points: "8,1.8 8,13.8",
+						strokeWidth: "1",
+						opacity: "0.6"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("polyline", {
+						points: "2.2,6 8,8.2 13.8,6",
+						strokeWidth: "1",
+						opacity: "0.6"
+					})
+				]
+			});
+		}
 		/** Locale namespace registered by this plugin (see src/client/index.ts). */
 		const SETTINGS_NS = "settings.theme.custom";
 		/** Cube order and icons. Id must match a registered theme id. */
 		const CUBES = [
 			{
-				id: "mocha",
-				labelKey: "tech-theme.mocha",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16
+				id: "sequoia",
+				labelKey: "tech-theme.sequoia",
+				Icon: IconLiquid16
 			},
 			{
-				id: "nebula",
-				labelKey: "tech-theme.nebula",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconThinkOutline16
+				id: "sonoma",
+				labelKey: "tech-theme.sonoma",
+				Icon: IconObsidian16
 			},
 			{
 				id: "void",
@@ -771,17 +831,17 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region src/client/index.ts
-		/** Mocha (栖木): the warm coffee and wood dark variant — rich espresso charcoal + warm caramel amber. */
-		const MOCHA = Object.freeze({
-			id: "mocha",
-			colorScheme: "dark",
-			tokens: MOCHA_TOKENS
+		/** Sequoia: macOS Sequoia 液态透光浅色版 (Liquid Frost Light). */
+		const SEQUOIA = Object.freeze({
+			id: "sequoia",
+			colorScheme: "light",
+			tokens: SEQUOIA_TOKENS
 		});
-		/** Nebula: the deep-space tech variant — matte acrylic surfaces + gradient buttons. */
-		const NEBULA = Object.freeze({
-			id: "nebula",
+		/** Sonoma: macOS Sonoma 深空曜黑暗色版 (Dark Obsidian Pro). */
+		const SONOMA = Object.freeze({
+			id: "sonoma",
 			colorScheme: "dark",
-			tokens: NEBULA_TOKENS
+			tokens: SONOMA_TOKENS
 		});
 		/** Void: the volcanic-ash dark variant — warm charcoal frosted glass. */
 		const VOID = Object.freeze({
@@ -1151,6 +1211,349 @@ body:not([data-ds-dark-theme]) hr {
   height: 1px !important;
   background: linear-gradient(90deg, transparent 0%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 25%, var(--dsw-alias-border-l3, rgba(34, 28, 24, 0.15)) 75%, transparent 100%) !important;
 }
+
+/* ==========================================================================
+   macOS Sequoia & Sonoma Liquid Glass & Physical Material Engine
+   ========================================================================== */
+
+/* 全局字体：优先采用 Apple 原生 SF Pro 排版 */
+body[data-ds-custom-theme="sequoia"],
+body[data-ds-custom-theme="sonoma"] {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* 视窗外框发丝高光倒角（Hairline Specular Rim） */
+body[data-ds-custom-theme="sequoia"] [class*="AppFrame_frame"] {
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="AppFrame_frame"] {
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+}
+
+/* 悬浮毛玻璃输入坞 (Floating Glass Dock) */
+body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"] {
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(36px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+  margin-bottom: 8px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"]:focus-within {
+  border-color: rgba(0, 113, 227, 0.45) !important;
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.15),
+    0 0 0 3px rgba(0, 113, 227, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"] {
+  border-radius: 20px !important;
+  background: rgba(24, 28, 36, 0.80) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(38px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(38px) saturate(180%) !important;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.65),
+    0 6px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
+  margin-bottom: 8px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"]:focus-within {
+  border-color: rgba(41, 151, 255, 0.45) !important;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.75),
+    0 0 0 3px rgba(41, 151, 255, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 全局 Primary 按钮（涵盖插件市场「全部更新」、「安装」、发送按钮与操作确认键）：
+   彻底消除深暗高对比刺眼纯色，升级为 Apple 原生透光晴空蓝微渐变与发丝微反光 */
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"],
+body[data-ds-custom-theme="sequoia"] [class*="_primary"],
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"] {
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #3898fc 0%, #147ce5 100%) !important;
+  box-shadow:
+    0 2px 8px rgba(20, 124, 229, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.40) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"] *,
+body[data-ds-custom-theme="sequoia"] [class*="_primary"] *,
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"] * {
+  color: #ffffff !important;
+  fill: currentColor !important;
+}
+body[data-ds-custom-theme="sequoia"] button[class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sequoia"] [class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sequoia"] button[class*="sendButton"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4da5ff 0%, #288bf2 100%) !important;
+  box-shadow:
+    0 4px 12px rgba(20, 124, 229, 0.32),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55) !important;
+  transform: translateY(-0.5px);
+}
+
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"],
+body[data-ds-custom-theme="sonoma"] [class*="_primary"],
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"] {
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #3aa0ff 0%, #2997ff 100%) !important;
+  box-shadow:
+    0 0 14px rgba(41, 151, 255, 0.32),
+    inset 0 1px 1px rgba(255, 255, 255, 0.30) !important;
+  border: 1px solid rgba(255, 255, 255, 0.20) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"] *,
+body[data-ds-custom-theme="sonoma"] [class*="_primary"] *,
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"] * {
+  color: #ffffff !important;
+  fill: currentColor !important;
+}
+body[data-ds-custom-theme="sonoma"] button[class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sonoma"] [class*="_primary"]:hover:not(:disabled),
+body[data-ds-custom-theme="sonoma"] button[class*="sendButton"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4da9ff 0%, #3aa0ff 100%) !important;
+  box-shadow:
+    0 0 20px rgba(41, 151, 255, 0.48),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45) !important;
+  transform: translateY(-0.5px);
+}
+
+/* 用户气泡：Apple 官方高光胶囊 */
+body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] {
+  border-radius: 18px 18px 4px 18px !important;
+  background: #0071e3 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] * {
+  color: #ffffff !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] {
+  border-radius: 18px 18px 4px 18px !important;
+  background: #2997ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px rgba(41, 151, 255, 0.40) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] * {
+  color: #ffffff !important;
+}
+
+/* AI 助手回复：半透液态玻璃卡片化 */
+body[data-ds-custom-theme="sequoia"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(0, 0, 0, 0.07) !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
+  background: rgba(28, 32, 40, 0.74) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.40), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(22px) saturate(160%) !important;
+}
+
+/* 侧边栏毛玻璃材质与透光 (Sidebar Glassmorphism)
+   注意（历史硬规则）：绝对不能在 [class*="sidebarCol"] 主元素上直接设置 backdrop-filter！
+   因为设置弹窗 (Settings Dialog) 的 Portal 挂载在 sidebarCol DOM 树下，backdrop-filter 会为
+   position: fixed 子元素创建新的包含块 (Containing Block)，导致设置弹窗宽度被压死成侧边栏同宽！
+   毛玻璃滤镜必须严格挂载在伪元素 ::before 上，该伪元素不是弹窗的祖先节点，完全安全。 */
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
+  background: transparent !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255, 160, 90, 0.04) 0%, transparent 100%),
+    rgba(245, 245, 247, 0.65) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.60) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
+  background: transparent !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"]::before {
+  backdrop-filter: blur(30px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(170%) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(130, 60, 220, 0.04) 0%, transparent 100%),
+    rgba(18, 20, 25, 0.65) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */
+[role="presentation"]:has(> [role="dialog"]) {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* 选中态与分类标签组件视觉调优：柔和半透底色，绝不喧宾夺主，14px 协调几何圆弧 */
+body[data-ds-custom-theme="sequoia"] [class*="cats"] button[class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="catsWrap"] button[class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="tag"][class*="active"],
+body[data-ds-custom-theme="sequoia"] [class*="badge"][class*="active"] {
+  background: rgba(0, 113, 227, 0.12) !important;
+  color: #0071e3 !important;
+  border: 1px solid rgba(0, 113, 227, 0.28) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 6px rgba(0, 113, 227, 0.12) !important;
+  font-weight: 550 !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="cats"] button[class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="catsWrap"] button[class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="tag"][class*="active"],
+body[data-ds-custom-theme="sonoma"] [class*="badge"][class*="active"] {
+  background: rgba(41, 151, 255, 0.16) !important;
+  color: #2997ff !important;
+  border: 1px solid rgba(41, 151, 255, 0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 0 10px rgba(41, 151, 255, 0.20) !important;
+  font-weight: 550 !important;
+}
+
+/* 侧边栏会话/工作区 Nav 条目：仅限真正的侧栏列表，严格排除 [role="dialog"] 与 [role="tab"] */
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]),
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] {
+  background: rgba(0, 113, 227, 0.12) !important;
+  color: #0071e3 !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]) *,
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] * {
+  color: #0071e3 !important;
+  fill: currentColor !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]),
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] {
+  background: rgba(41, 151, 255, 0.16) !important;
+  color: #2997ff !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) nav [class*="active"]:not([role="tab"]) *,
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > :not([role="dialog"]) [class*="navItem"][class*="active"] * {
+  color: #2997ff !important;
+  fill: currentColor !important;
+}
+
+/* 确保 Tab 标签页保持清爽高质感的下划线指示，杜绝蓝厚块污染 */
+[role="tab"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 顶部栏毛玻璃下拉菜单 (macOS Liquid Glass Popover) */
+.dsh-macos-shell-menu {
+  position: fixed;
+  top: 4px;
+  right: 14px;
+  width: 200px;
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 999999;
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  animation: dsh-menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+@keyframes dsh-menu-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+body:not([data-ds-dark-theme]) .dsh-macos-shell-menu {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  color: #1d1d1f;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+}
+body[data-ds-dark-theme] .dsh-macos-shell-menu {
+  background: rgba(30, 34, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f5f5f7;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+.dsh-macos-shell-menu .menu-item {
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.12s ease;
+  font-weight: 500;
+}
+body:not([data-ds-dark-theme]) .dsh-macos-shell-menu .menu-item:hover {
+  background: #0071e3;
+  color: #ffffff;
+}
+body[data-ds-dark-theme] .dsh-macos-shell-menu .menu-item:hover {
+  background: #2997ff;
+  color: #ffffff;
+}
+.dsh-macos-shell-menu .menu-item.danger:hover {
+  background: #ff3b30 !important;
+  color: #ffffff !important;
+}
+.dsh-macos-shell-menu .menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.2));
+}
+
+/* Xcode 风格代码块 */
+body[data-ds-custom-theme="sequoia"] pre,
+body[data-ds-custom-theme="sequoia"] [class*="codeBlock"] {
+  border-radius: 10px !important;
+  border: 1px solid #d0d7de !important;
+  background: #f6f8fa !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+body[data-ds-custom-theme="sonoma"] pre,
+body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #14161b !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
 `;
 		/** localStorage key for the user's custom theme preference. */
 		const LS_KEY = "dsh-theme-preference";
@@ -1210,8 +1613,8 @@ body:not([data-ds-dark-theme]) hr {
 		}
 		/** Theme id → tokens map for direct CSS-variable application. */
 		const THEME_TOKEN_MAP = {
-			mocha: MOCHA_TOKENS,
-			nebula: NEBULA_TOKENS,
+			sequoia: SEQUOIA_TOKENS,
+			sonoma: SONOMA_TOKENS,
 			void: VOID_TOKENS,
 			jade: JADE_TOKENS,
 			solar: SOLAR_TOKENS,
@@ -1219,8 +1622,8 @@ body:not([data-ds-dark-theme]) hr {
 		};
 		/** Theme id → colorScheme map so light custom themes switch palette properly. */
 		const THEME_SCHEME_MAP = {
-			mocha: "dark",
-			nebula: "dark",
+			sequoia: "light",
+			sonoma: "dark",
 			void: "dark",
 			jade: "light",
 			solar: "dark",
@@ -1229,14 +1632,23 @@ body:not([data-ds-dark-theme]) hr {
 		/** Token names this plugin wrote inline (its retraction set). */
 		const APPLIED_TOKEN_NAMES = /* @__PURE__ */ new Set();
 		const TITLEBAR_PRESETS = {
-			nebula: {
-				bg: "rgb(28, 24, 46)",
-				accent: "rgb(168, 142, 250)",
-				line: "rgba(168, 142, 250, 0.18)",
-				text: "rgb(240, 236, 255)",
-				muted: "rgb(175, 168, 200)",
-				hover: "rgba(168, 142, 250, 0.12)",
-				active: "rgba(168, 142, 250, 0.22)"
+			sequoia: {
+				bg: "rgb(245, 245, 247)",
+				accent: "rgb(0, 113, 227)",
+				line: "rgba(0, 0, 0, 0.08)",
+				text: "rgb(29, 29, 31)",
+				muted: "rgb(110, 110, 115)",
+				hover: "rgba(0, 113, 227, 0.08)",
+				active: "rgba(0, 113, 227, 0.16)"
+			},
+			sonoma: {
+				bg: "rgb(22, 24, 30)",
+				accent: "rgb(41, 151, 255)",
+				line: "rgba(255, 255, 255, 0.10)",
+				text: "rgb(245, 245, 247)",
+				muted: "rgb(161, 161, 166)",
+				hover: "rgba(41, 151, 255, 0.12)",
+				active: "rgba(41, 151, 255, 0.22)"
 			},
 			solar: {
 				bg: "rgb(40, 28, 20)",
@@ -1246,15 +1658,6 @@ body:not([data-ds-dark-theme]) hr {
 				muted: "rgb(198, 178, 156)",
 				hover: "rgba(240, 180, 90, 0.12)",
 				active: "rgba(240, 180, 90, 0.22)"
-			},
-			mocha: {
-				bg: "rgb(36, 27, 21)",
-				accent: "rgb(228, 160, 92)",
-				line: "rgba(228, 160, 92, 0.18)",
-				text: "rgb(248, 242, 236)",
-				muted: "rgb(196, 176, 158)",
-				hover: "rgba(228, 160, 92, 0.12)",
-				active: "rgba(228, 160, 92, 0.22)"
 			},
 			parchment: {
 				bg: "rgb(230, 224, 212)",
@@ -1315,6 +1718,8 @@ body:not([data-ds-dark-theme]) hr {
 			document.documentElement.style.colorScheme = colorScheme;
 			if (colorScheme === "dark") document.body.setAttribute("data-ds-dark-theme", "");
 			else document.body.removeAttribute("data-ds-dark-theme");
+			if (themeId) document.body.setAttribute("data-ds-custom-theme", themeId);
+			else document.body.removeAttribute("data-ds-custom-theme");
 			const nextKeys = new Set(Object.keys(tokens));
 			for (const name of APPLIED_TOKEN_NAMES) if (!nextKeys.has(name)) {
 				document.documentElement.style.removeProperty(name);
@@ -1341,6 +1746,7 @@ body:not([data-ds-dark-theme]) hr {
 		*/
 		function clearTokens() {
 			if (typeof document === "undefined") return;
+			document.body.removeAttribute("data-ds-custom-theme");
 			for (const name of APPLIED_TOKEN_NAMES) {
 				document.documentElement.style.removeProperty(name);
 				document.body.style.removeProperty(name);
@@ -1398,6 +1804,62 @@ body:not([data-ds-dark-theme]) hr {
 		*/
 		function apply(ctx) {
 			window.__dshCustomThemeLive = true;
+			if (typeof window !== "undefined") {
+				let activeMenuEl = null;
+				const closeMenu = () => {
+					if (activeMenuEl) {
+						activeMenuEl.remove();
+						activeMenuEl = null;
+					}
+				};
+				window.__dshToggleShellMenu = () => {
+					if (activeMenuEl) {
+						closeMenu();
+						return;
+					}
+					const menu = document.createElement("div");
+					menu.className = "dsh-macos-shell-menu";
+					menu.innerHTML = `
+        <div class="menu-item" data-action="reload">重新加载页面</div>
+        <div class="menu-item" data-action="restart">重启服务与客户端</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" data-action="devtools">开发者工具 (DevTools)</div>
+        <div class="menu-item" data-action="about">关于 DSH 宿主版本</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item danger" data-action="quit">退出应用</div>
+      `;
+					menu.addEventListener("click", (e) => {
+						const item = e.target.closest(".menu-item");
+						if (!item) return;
+						const action = item.dataset.action;
+						closeMenu();
+						const tauri = window.__TAURI__;
+						if (action === "reload") window.location.reload();
+						else if (action === "restart") tauri?.core?.invoke?.("restart_application").catch(() => window.location.reload());
+						else if (action === "devtools") tauri?.core?.invoke?.("open_devtools").catch(() => {});
+						else if (action === "about") tauri?.core?.invoke?.("show_about_dialog").catch(() => alert("DeepSeek Harness Desktop · macOS Edition"));
+						else if (action === "quit") tauri?.window?.getCurrentWindow?.()?.close?.();
+					});
+					document.body.appendChild(menu);
+					activeMenuEl = menu;
+					const onDocClick = (evt) => {
+						if (!menu.contains(evt.target)) {
+							closeMenu();
+							document.removeEventListener("mousedown", onDocClick, true);
+						}
+					};
+					const onKeyDown = (evt) => {
+						if (evt.key === "Escape") {
+							closeMenu();
+							document.removeEventListener("keydown", onKeyDown, true);
+						}
+					};
+					setTimeout(() => {
+						document.addEventListener("mousedown", onDocClick, true);
+						document.addEventListener("keydown", onKeyDown, true);
+					}, 10);
+				};
+			}
 			const theme = ctx.theme ?? ctx.get?.("theme");
 			/** Apply a custom theme via direct CSS variables and the theme service. */
 			const activateTheme = (id) => {
@@ -1482,8 +1944,8 @@ body:not([data-ds-dark-theme]) hr {
 				inject: injected
 			}, TechThemeRow));
 			ctx.effect(() => {
-				const disposeMocha = ctx.theme.register(MOCHA);
-				const disposeNebula = ctx.theme.register(NEBULA);
+				const disposeSequoia = ctx.theme.register(SEQUOIA);
+				const disposeSonoma = ctx.theme.register(SONOMA);
 				const disposeVoid = ctx.theme.register(VOID);
 				const disposeJade = ctx.theme.register(JADE);
 				const disposeSolar = ctx.theme.register(SOLAR);
@@ -1491,8 +1953,8 @@ body:not([data-ds-dark-theme]) hr {
 				const removeKeyframes = injectButtonDrift();
 				const removeSurfaceGlass = injectSurfaceGlass();
 				return () => {
-					disposeMocha();
-					disposeNebula();
+					disposeSequoia();
+					disposeSonoma();
 					disposeVoid();
 					disposeJade();
 					disposeSolar();

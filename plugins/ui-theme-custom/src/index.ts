@@ -1,5 +1,5 @@
 /**
- * Aurora, nebula, and custom tech themes, node half. Injects a boot script
+ * Sequoia, sonoma, and custom tech themes, node half. Injects a boot script
  * that reads the user's localStorage preference and applies the saved
  * custom theme's full token set inline before the first paint, so the page
  * never flashes the default built-in palette. A requestAnimationFrame
@@ -13,8 +13,8 @@
  * and compiles against whatever host version is installed.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { MOCHA_TOKENS } from './client/mocha.ts'
-import { NEBULA_TOKENS } from './client/nebula.ts'
+import { SEQUOIA_TOKENS } from './client/sequoia.ts'
+import { SONOMA_TOKENS } from './client/sonoma.ts'
 import { VOID_TOKENS } from './client/void.ts'
 import { JADE_TOKENS } from './client/jade.ts'
 import { SOLAR_TOKENS } from './client/solar.ts'
@@ -35,8 +35,8 @@ declare module '@deepseek-ai/cordis' {
 
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS: Record<string, Record<string, string>> = {
-  mocha: MOCHA_TOKENS,
-  nebula: NEBULA_TOKENS,
+  sequoia: SEQUOIA_TOKENS,
+  sonoma: SONOMA_TOKENS,
   void: VOID_TOKENS,
   jade: JADE_TOKENS,
   solar: SOLAR_TOKENS,
@@ -45,8 +45,8 @@ const CUSTOM_TOKENS: Record<string, Record<string, string>> = {
 
 /** Custom theme id → color scheme. */
 const CUSTOM_SCHEME: Record<string, 'light' | 'dark'> = {
-  mocha: 'dark',
-  nebula: 'dark',
+  sequoia: 'light',
+  sonoma: 'dark',
   void: 'dark',
   jade: 'light',
   solar: 'dark',
@@ -64,6 +64,7 @@ try {
   var apply = function () {
     document.documentElement.style.colorScheme = scheme;
     document.body.toggleAttribute('data-ds-dark-theme', scheme === 'dark');
+    document.body.setAttribute('data-ds-custom-theme', id);
     var html = document.documentElement;
     var body = document.body;
     for (var k in tokens) {

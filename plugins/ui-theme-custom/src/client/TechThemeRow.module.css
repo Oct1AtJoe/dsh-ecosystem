@@ -44,6 +44,14 @@
 }
 
 .selected {
-  background: var(--dsw-alias-bg-module-platform);
-  border-color: var(--dsw-static-neutral-bluish-400);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent) !important;
+  border: 1.5px solid var(--dsw-alias-brand-primary) !important;
+  color: var(--dsw-alias-brand-primary) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent) !important;
+  border-radius: 14px !important;
+}
+
+.selected * {
+  color: var(--dsw-alias-brand-primary) !important;
+  fill: currentColor !important;
 }

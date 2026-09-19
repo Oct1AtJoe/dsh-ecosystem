@@ -4,8 +4,8 @@
  */
 export declare const zh: {
     'tech-theme.title': string;
-    'tech-theme.mocha': string;
-    'tech-theme.nebula': string;
+    'tech-theme.sequoia': string;
+    'tech-theme.sonoma': string;
     'tech-theme.void': string;
     'tech-theme.jade': string;
     'tech-theme.solar': string;
@@ -14,8 +14,8 @@ export declare const zh: {
 /** English dictionary checked against the Chinese key set. */
 export declare const en: {
     'tech-theme.title': string;
-    'tech-theme.mocha': string;
-    'tech-theme.nebula': string;
+    'tech-theme.sequoia': string;
+    'tech-theme.sonoma': string;
     'tech-theme.void': string;
     'tech-theme.jade': string;
     'tech-theme.solar': string;

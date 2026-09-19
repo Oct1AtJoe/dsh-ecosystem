@@ -706,8 +706,8 @@ fn popup_shell_menu(app: &AppHandle) {
         .inner_size()
         .map(|s| s.width as f64 / scale)
         .unwrap_or(1200.0);
-    // 贴着 ☰ 按钮下方弹出；越界由 OS 自行夹到屏幕内
-    let x = (w - 258.0).max(8.0);
+    // 贴着 ☰ 按钮下方弹出（右边距 14px + 宽度 28px，菜单宽约 174px，锚定在右上角精准右对齐，消灭向左错位）
+    let x = (w - 188.0).max(8.0);
     if let Err(e) = menu.popup_at(window, tauri::LogicalPosition::new(x, TITLEBAR_HEIGHT - 2.0)) {
         log::warn!("[shell] 弹出菜单失败：{e}");
     }
@@ -748,10 +748,14 @@ fn show_about_dialog(app: &AppHandle) {
     log::info!("{text}");
 }
 
-/// 壳标题栏 ☰ 按钮：弹出原生菜单（由壳页面经 Tauri IPC invoke 触发）。
+/// 壳标题栏 ☰ 按钮：优先通知内容区展示深浅自适应的毛玻璃下拉菜单，回退调用原生菜单。
 #[tauri::command]
 fn show_shell_menu(app: AppHandle) {
-    popup_shell_menu(&app);
+    if let Some(page) = page_webview(&app) {
+        let _ = page.eval("window.__dshToggleShellMenu && window.__dshToggleShellMenu();");
+    } else {
+        popup_shell_menu(&app);
+    }
 }
 
 /// 重启完整应用（客户端桌面壳 + 后端服务进程）。

@@ -1,13 +1,13 @@
-import { MOCHA_TOKENS } from "./client/mocha.js";
-import { NEBULA_TOKENS } from "./client/nebula.js";
+import { SEQUOIA_TOKENS } from "./client/sequoia.js";
+import { SONOMA_TOKENS } from "./client/sonoma.js";
 import { VOID_TOKENS } from "./client/void.js";
 import { JADE_TOKENS } from "./client/jade.js";
 import { SOLAR_TOKENS } from "./client/solar.js";
 import { PARCHMENT_TOKENS } from "./client/parchment.js";
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS = {
-    mocha: MOCHA_TOKENS,
-    nebula: NEBULA_TOKENS,
+    sequoia: SEQUOIA_TOKENS,
+    sonoma: SONOMA_TOKENS,
     void: VOID_TOKENS,
     jade: JADE_TOKENS,
     solar: SOLAR_TOKENS,
@@ -15,8 +15,8 @@ const CUSTOM_TOKENS = {
 };
 /** Custom theme id → color scheme. */
 const CUSTOM_SCHEME = {
-    mocha: 'dark',
-    nebula: 'dark',
+    sequoia: 'light',
+    sonoma: 'dark',
     void: 'dark',
     jade: 'light',
     solar: 'dark',
@@ -33,6 +33,7 @@ try {
   var apply = function () {
     document.documentElement.style.colorScheme = scheme;
     document.body.toggleAttribute('data-ds-dark-theme', scheme === 'dark');
+    document.body.setAttribute('data-ds-custom-theme', id);
     var html = document.documentElement;
     var body = document.body;
     for (var k in tokens) {
