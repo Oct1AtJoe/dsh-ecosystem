@@ -79,9 +79,11 @@ node tests\font-size-check.mjs
 **为什么不共用一个轴**：侧边栏是导航 chrome，对话区是阅读内容；同字号会让内容主体失去视觉重量。VS Code / Slack / Notion 的侧边栏都固定比正文小一档。
 
 **实现要点**：
-- 官方 `FontSizeRow` 属 ui-theme 包且不可改（铁律 1），故本插件经 `settings.general.item` 槽位**新增一行**（`id: sidebar-font-custom`, `order: 12`，紧随官方 order 11）。
+- 官方 `FontSizeRow` 属 ui-theme 包且不可改（铁律 1），故本插件经 `settings.general.item` 槽位**新增一行**（`id: sidebar-font-custom`, `order: 11.5`，紧随官方 order 11 会话字号）。
+- 科技主题设置区块（`id: appearance-custom`）设为 `order: 10.5`，紧随官方 `appearance`（10）下方，从而形成 `外观(10) -> 科技主题(10.5) -> 会话字号(11) -> 侧边栏字号(11.5) -> 对话显示(12)` 的自然操作流，彻底避免混在底部。
+- 组件 `SidebarFontRow.tsx` 几何与排版严格对齐官方 `FontSizeRow.module.css`：药丸容器（`72x36 r18`，模块填充）、居中数值输入（`14px / lh22 / tabular-nums`）、右侧绝对定位微调箭头列（`hover / focus-within` 显现，与官方微交互完全一致）以及后置 `px` 单位标签。
 - 侧边栏字号存 **localStorage**（`dsh-sidebar-font-size`），不写官方 settings 命名空间。
-- 组件 `SidebarFontRow.tsx`：数字输入框（直接键入）+ 上下步进；非法值在 blur/Enter 时经 `normalizeSidebarFont` 夹取到 11..16，因此不会持久化空值或越界值。
+- 非法值在 blur/Enter 时经 `normalizeSidebarFont` 夹取到 11..16，因此不会持久化空值或越界值。
 - 内联变量**必须 html + body 双写**（见 6.3 层叠陷阱）；`apply()` 期间立即落变量，首帧即用用户设定值。
 - CSS 兜底值与 TS 默认值必须一致（都是 13px），否则未设置时设置页显示与渲染不符。
 

@@ -1,13 +1,17 @@
-/* 侧边栏字号行：标题 + 数字输入框 + 单位 + 步进箭头。
-   节奏对齐官方 FontSizeRow（gap 8、padding 16px 0、发丝分隔线），
-   控件风格对齐官方 Input（32px 高、8px 圆角、layer-1 底、聚焦品牌色描边）。 */
+/* 侧边栏字号行：几何与排版严格对齐官方 FontSizeRow.module.css，
+   唯一差异是官方 value 是只读 span，这里换成同几何的可编辑 input。
+   官方规格来源：ui-theme/src/client/FontSizeRow.module.css
+   （row: gap 8 / padding 16px 0；stepper: min-width 72 / h36 / r18 /
+   bg-module-platform；value: min-width 18 / 14px / lh22 / tabular-nums；
+   arrows: absolute right 8 / gap 2 / hover 显现；arrow: 17x12 / r3；
+   unit: 14px / lh22 / label-secondary） */
 
 .row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .rowText {
@@ -40,26 +44,39 @@
   flex: none;
 }
 
-/* 数字输入框：复用官方 Input 的几何与材质 */
-.input {
-  box-sizing: border-box;
-  width: 56px;
-  height: 32px;
-  padding: 0 8px;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary);
+/* 药丸：与官方 stepper 同几何（72x36 r18，模块填充） */
+.stepper {
+  position: relative; /* 箭头列锚定到药丸右缘 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+/* 可编辑数值：与官方 .value 同字体规格，但去掉输入框的原生外观，
+   使其在静止状态下与官方只读数值视觉一致。 */
+.value {
+  min-width: 18px;
+  width: 34px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  text-align: center;
   font: inherit;
   font-size: 14px;
   line-height: 22px;
-  text-align: center;
   font-variant-numeric: tabular-nums;
-  outline: none;
+  color: var(--dsw-alias-label-primary);
 }
 
-.input:focus {
-  border-color: var(--dsw-alias-brand-primary);
+/* 聚焦时给出可见反馈，但不改变布局（官方 stepper 无边框，这里用柔和描边） */
+.value:focus-visible {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);
 }
 
 .unit {
@@ -68,11 +85,21 @@
   color: var(--dsw-alias-label-secondary);
 }
 
-/* 步进箭头列：竖排小芯片，风格与官方 stepper 的箭头一致 */
+/* 箭头列：右缘绝对定位，value 始终居中；hover/focus 显现。
+   用 opacity 而非 visibility —— 按钮保留在 tab 序与无障碍树中，
+   因此键盘聚焦本身就能触发展开（与官方一致）。 */
 .arrows {
-  display: inline-flex;
+  position: absolute;
+  right: 8px;
+  display: flex;
   flex-direction: column;
   gap: 2px;
+  opacity: 0;
+}
+
+.stepper:hover .arrows,
+.stepper:focus-within .arrows {
+  opacity: 1;
 }
 
 .arrow {

@@ -68,7 +68,25 @@ check('新行：持久化模块存在（localStorage key + 夹取）', fontSrc.i
 check('新行：默认值比对话区默认 14px 小一档', /DEFAULT_SIDEBAR_FONT\s*=\s*13/.test(fontSrc))
 check('新行：内联变量 html + body 双写（层叠陷阱）', /documentElement\.style\.setProperty\(SIDEBAR_FONT_VARIABLE/.test(fontSrc) && /document\.body\.style\.setProperty\(SIDEBAR_FONT_VARIABLE/.test(fontSrc))
 check('新行：注册进 settings.general.item 槽位', clientSrc.includes('sidebar-font-custom'))
-check('新行：order 紧随官方字号行（11 之后）', /id:\s*'sidebar-font-custom'[\s\S]{0,120}order:\s*12/.test(clientSrc))
+// order 必须避开官方占用值，且使外观、科技主题、字号流形成完美紧凑层级：
+// 官方 appearance(10) -> 科技主题(10.5) -> 官方 font-size(11) -> 侧边栏字号(11.5) -> 官方 transcript-view(12)
+check(
+  '新行：order 紧随官方字号大小(11)，设为 11.5',
+  /id:\s*'sidebar-font-custom'[\s\S]{0,120}order:\s*11\.5/.test(clientSrc),
+)
+check(
+  '新行：order 未与官方 transcript-view(12) 冲突',
+  !/id:\s*'sidebar-font-custom'[\s\S]{0,120}order:\s*12\b/.test(clientSrc),
+)
+// 科技主题区块：紧随官方外观行（10），不再落在页面最底部（原 20）
+check(
+  '重排：科技主题 order 紧随官方外观配置区（10.5，原为 20）',
+  /id:\s*'appearance-custom'[\s\S]{0,120}order:\s*10\.5/.test(clientSrc),
+)
+check(
+  '重排：科技主题不再使用 order 20（会与 composer-enter 混排落到底部）',
+  !/id:\s*'appearance-custom'[\s\S]{0,120}order:\s*20/.test(clientSrc),
+)
 check('新行：组件含数字输入框', rowSrc.includes('inputMode="numeric"'))
 check('新行：输入框非法值在 blur 时夹取', rowSrc.includes('onBlur') && rowSrc.includes('normalizeSidebarFont'))
 check('新行：文案中英齐备', localesSrc.includes('侧边栏字号') && localesSrc.includes('Sidebar font size'))

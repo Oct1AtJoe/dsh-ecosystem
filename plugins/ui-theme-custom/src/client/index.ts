@@ -1234,18 +1234,22 @@ export function apply(ctx: Context): void {
       },
     }
   }
+  // ── 科技主题区块 ───────────────────────────────────────────────────
+  // order 10.5：紧随官方「外观」(10) 之后，与浅色/深色/跟随系统同处一个外观模式区块。
+  // 此前是 order 20（混在最底部），后曾调为 14（被官方 transcript-view 切断）。
+  // 设为 10.5 保证紧跟外观模式，随后是官方字号(11)与侧边栏字号(11.5)。
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
     id: 'appearance-custom',
-    order: 20,
+    order: 10.5,
     store,
     locale: SETTINGS_NS,
     inject: injected,
   }, TechThemeRow))
 
   // ── 侧边栏字号行 ───────────────────────────────────────────────────
-  // 紧邻官方「字号大小」行（order 11）之后：对话区字号归官方，侧边栏字号归本插件。
-  // 两者独立设置，因为侧边栏是导航 chrome、对话区是阅读内容，同字号会让正文失去视觉重量。
+  // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。
+  // 对话区字号归官方(11)，侧边栏字号归本插件(11.5)，随后才是对话显示(12)。
   const sidebarStore = createSidebarFontStore()
   let sidebarBound: BoundActions<typeof sidebarStore> | undefined
   let sidebarRevision = 0
@@ -1267,7 +1271,7 @@ export function apply(ctx: Context): void {
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
     id: 'sidebar-font-custom',
-    order: 12,
+    order: 11.5,
     store: sidebarStore,
     locale: SETTINGS_NS,
     inject: sidebarInjected,

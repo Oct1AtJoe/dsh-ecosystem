@@ -74,37 +74,39 @@ export function SidebarFontRow({ t, setSidebarFont, useStore }: SidebarFontRowPr
         <div className={css.desc}>{t('sidebar-font.description')}</div>
       </div>
       <div className={css.control}>
-        <input
-          className={css.input}
-          type="text"
-          inputMode="numeric"
-          aria-label={t('sidebar-font.title')}
-          value={draft ?? String(size)}
-          onChange={onInput}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-        />
+        <div className={css.stepper}>
+          <input
+            className={css.value}
+            type="text"
+            inputMode="numeric"
+            aria-label={t('sidebar-font.title')}
+            value={draft ?? String(size)}
+            onChange={onInput}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+          />
+          <span className={css.arrows}>
+            <button
+              type="button"
+              className={css.arrow}
+              aria-label={t('sidebar-font.increase')}
+              disabled={size >= SIDEBAR_FONT_MAX}
+              onClick={() => { commit(size + 1) }}
+            >
+              <IconChevronUpOutline14 size={9} />
+            </button>
+            <button
+              type="button"
+              className={css.arrow}
+              aria-label={t('sidebar-font.decrease')}
+              disabled={size <= SIDEBAR_FONT_MIN}
+              onClick={() => { commit(size - 1) }}
+            >
+              <IconChevronDownOutline14 size={9} />
+            </button>
+          </span>
+        </div>
         <span className={css.unit}>{t('sidebar-font.unit')}</span>
-        <span className={css.arrows}>
-          <button
-            type="button"
-            className={css.arrow}
-            aria-label={t('sidebar-font.increase')}
-            disabled={size >= SIDEBAR_FONT_MAX}
-            onClick={() => { commit(size + 1) }}
-          >
-            <IconChevronUpOutline14 size={9} />
-          </button>
-          <button
-            type="button"
-            className={css.arrow}
-            aria-label={t('sidebar-font.decrease')}
-            disabled={size <= SIDEBAR_FONT_MIN}
-            onClick={() => { commit(size - 1) }}
-          >
-            <IconChevronDownOutline14 size={9} />
-          </button>
-        </span>
       </div>
     </div>
   )

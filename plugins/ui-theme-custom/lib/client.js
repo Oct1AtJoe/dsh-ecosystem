@@ -917,7 +917,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css = ".LcL5XW_row{border-bottom:1px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_input{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-1);width:56px;height:32px;color:var(--dsw-alias-label-primary);font:inherit;text-align:center;font-variant-numeric:tabular-nums;border-radius:8px;outline:none;padding:0 8px;font-size:14px;line-height:22px}.LcL5XW_input:focus{border-color:var(--dsw-alias-brand-primary)}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{flex-direction:column;gap:2px;display:inline-flex}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const css = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);background:0 0;border:none;outline:none;padding:0;font-size:14px;line-height:22px}.LcL5XW_value:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);border-radius:6px}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
 		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -931,11 +931,12 @@ window.__ModuleLoader__.load({
 			"arrows": "LcL5XW_arrows",
 			"control": "LcL5XW_control",
 			"desc": "LcL5XW_desc",
-			"input": "LcL5XW_input",
 			"row": "LcL5XW_row",
 			"rowText": "LcL5XW_rowText",
+			"stepper": "LcL5XW_stepper",
 			"title": "LcL5XW_title",
-			"unit": "LcL5XW_unit"
+			"unit": "LcL5XW_unit",
+			"value": "LcL5XW_value"
 		};
 		//#endregion
 		//#region src/client/SidebarFontRow.tsx
@@ -992,9 +993,10 @@ window.__ModuleLoader__.load({
 					})]
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: SidebarFontRow_module_css_default.control,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-							className: SidebarFontRow_module_css_default.input,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: SidebarFontRow_module_css_default.stepper,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: SidebarFontRow_module_css_default.value,
 							type: "text",
 							inputMode: "numeric",
 							"aria-label": t("sidebar-font.title"),
@@ -1002,12 +1004,7 @@ window.__ModuleLoader__.load({
 							onChange: onInput,
 							onBlur,
 							onKeyDown
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: SidebarFontRow_module_css_default.unit,
-							children: t("sidebar-font.unit")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 							className: SidebarFontRow_module_css_default.arrows,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
@@ -1028,8 +1025,11 @@ window.__ModuleLoader__.load({
 								},
 								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 9 })
 							})]
-						})
-					]
+						})]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: SidebarFontRow_module_css_default.unit,
+						children: t("sidebar-font.unit")
+					})]
 				})]
 			});
 		}
@@ -2149,7 +2149,7 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
 				name: "settings.general.item",
 				id: "appearance-custom",
-				order: 20,
+				order: 10.5,
 				store,
 				locale: SETTINGS_NS,
 				inject: injected
@@ -2173,7 +2173,7 @@ body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
 			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
 				name: "settings.general.item",
 				id: "sidebar-font-custom",
-				order: 12,
+				order: 11.5,
 				store: sidebarStore,
 				locale: SETTINGS_NS,
 				inject: sidebarInjected
