@@ -150,16 +150,18 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
+        gap: 9px;
         height: 100%;
         cursor: default;
         pointer-events: none; /* 穿透至 #titlebar，全栏顺畅拖拽 */
       }
       .drag .mark {
-        width: 20px;
-        height: 20px;
+        width: 26px;
+        height: 26px;
         flex: 0 0 auto;
         object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
       }
       .drag .title-text {
         font-size: 15px;
