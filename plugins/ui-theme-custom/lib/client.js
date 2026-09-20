@@ -1429,13 +1429,21 @@ body[data-ds-custom-theme="sonoma"] {
 
 /* 视窗外框发丝高光倒角（Hairline Specular Rim：模拟精密切削玻璃微反光）
    ⚠️ 实测：AppFrame 的真实类名是 哈希前缀加 _frame（如 V41CyG_frame），源码目录名
-   AppFrame 不在 DOM 里。早前写成 [class*="AppFrame_frame"] 从未命中过，
-   故此高光一直没生效。改用后缀匹配 _frame（对哈希稳定）。 */
-body[data-ds-custom-theme="sequoia"] [class$="_frame"] {
+   AppFrame 不在 DOM 里。改用后缀匹配 _frame，同时必须限定含有直接子级 sidebarCol
+   （即顶层视窗容器），严禁裸写 [class$="_frame"] —— 否则会误伤对话流右侧的
+   轮次导航条（nav.PodZZa_frame），导致导航条四周被误加矩形描边。 */
+body[data-ds-custom-theme="sequoia"] div[class$="_frame"]:has(> [class*="sidebarCol"]) {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
 }
-body[data-ds-custom-theme="sonoma"] [class$="_frame"] {
+body[data-ds-custom-theme="sonoma"] div[class$="_frame"]:has(> [class*="sidebarCol"]) {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 轮次导航条（TurnNavigator，标签为 nav.PodZZa_frame）：
+   浮动在对话流右侧，坚决禁止继承任何外框发丝阴影或误伤边框 */
+nav[class*="frame"],
+[class*="TurnNavigator"] {
+  box-shadow: none !important;
 }
 
 /* 悬浮毛玻璃输入坞 (Floating Glass Dock) */

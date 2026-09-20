@@ -111,6 +111,11 @@ check(
   /\[class\$="_frame"\]/.test(clientSrc),
 )
 check(
+  '边界：发丝高光排除右侧轮次导航条（限定 div 顶层并显式清除 nav.frame 阴影）',
+  /div\[class\$="_frame"\]:has\(>\s*\[class\*="sidebarCol"\]\)/.test(clientSrc)
+    && /nav\[class\*="frame"\][\s\S]{0,60}box-shadow:\s*none\s*!important/.test(clientSrc),
+)
+check(
   '锚点：禁止 [class*="title"] 过宽通配（实测误伤 49 个元素含对话区标题）',
   !/\[class\*="sidebarCol"\]\s*\[class\*="title"\]/.test(clientSrc)
     && !/\[class\*="rightbarCol"\]\s*\[class\*="title"\]/.test(clientSrc),
