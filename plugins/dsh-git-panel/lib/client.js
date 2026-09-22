@@ -290,6 +290,12 @@ var DICTS = {
     "changes.stageAllDone": "\u5DF2\u6682\u5B58 {count} \u4E2A\u6587\u4EF6",
     "changes.unstageAllDone": "\u5DF2\u53D6\u6D88\u6682\u5B58 {count} \u4E2A\u6587\u4EF6",
     "changes.batchFailed": "\u5DF2\u5B8C\u6210 {count} \u4E2A\u6587\u4EF6\u540E\u5931\u8D25\uFF1A{reason}",
+    "changes.mark.untracked": "\u672A\u8DDF\u8E2A\uFF08\u65B0\u6587\u4EF6\uFF0C\u5C1A\u672A\u7EB3\u5165 git\uFF0C\u4E0D\u6682\u5B58\u5C31\u4E0D\u4F1A\u8FDB\u63D0\u4EA4\uFF09",
+    "changes.mark.modified": "\u5DF2\u4FEE\u6539",
+    "changes.mark.added": "\u65B0\u589E\uFF08\u5DF2\u6682\u5B58\uFF09",
+    "changes.mark.deleted": "\u5DF2\u5220\u9664",
+    "changes.mark.renamed": "\u5DF2\u91CD\u547D\u540D",
+    "changes.mark.conflict": "\u51B2\u7A81",
     "changes.discard": "\u653E\u5F03\u66F4\u6539",
     "changes.discardConfirm": "\u786E\u8BA4\u653E\u5F03\u5BF9 {file} \u7684\u6240\u6709\u672A\u6682\u5B58\u66F4\u6539\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u9006\uFF01",
     "changes.conflicts": "\u5B58\u5728 {count} \u4E2A\u51B2\u7A81\u6587\u4EF6\uFF0C\u8BF7\u5148\u89E3\u51B3\u51B2\u7A81",
@@ -469,6 +475,12 @@ var DICTS = {
     "changes.stageAllDone": "Staged {count} file(s)",
     "changes.unstageAllDone": "Unstaged {count} file(s)",
     "changes.batchFailed": "Failed after {count} file(s): {reason}",
+    "changes.mark.untracked": "Untracked (new file, not yet in git \u2014 will not be committed unless staged)",
+    "changes.mark.modified": "Modified",
+    "changes.mark.added": "Added (staged)",
+    "changes.mark.deleted": "Deleted",
+    "changes.mark.renamed": "Renamed",
+    "changes.mark.conflict": "Conflict",
     "changes.discard": "Discard Changes",
     "changes.discardConfirm": "Are you sure you want to discard changes in {file}? This cannot be undone!",
     "changes.conflicts": "{count} conflicting file(s) detected, please resolve conflicts",
@@ -648,6 +660,12 @@ var DICTS = {
     "changes.stageAllDone": "{count} archivo(s) preparado(s)",
     "changes.unstageAllDone": "{count} archivo(s) despreparado(s)",
     "changes.batchFailed": "Fall\xF3 tras {count} archivo(s): {reason}",
+    "changes.mark.untracked": "Sin seguimiento (archivo nuevo, a\xFAn no en git \u2014 no se confirma si no se prepara)",
+    "changes.mark.modified": "Modificado",
+    "changes.mark.added": "A\xF1adido (preparado)",
+    "changes.mark.deleted": "Eliminado",
+    "changes.mark.renamed": "Renombrado",
+    "changes.mark.conflict": "Conflicto",
     "changes.discard": "Descartar cambios",
     "changes.discardConfirm": "\xBFSeguro que desea descartar los cambios en {file}? \xA1No se puede deshacer!",
     "changes.conflicts": "{count} archivo(s) en conflicto detectado(s)",
@@ -781,9 +799,149 @@ async function runBatch(files, apply2) {
   return { done, failure: null };
 }
 
+// src/client/git-status.ts
+var TTL_MS = 3e3;
+function statusLetter(code) {
+  if (code === "??") return "U";
+  if (code === "!!") return "U";
+  const index = code[0] ?? " ";
+  const work = code[1] ?? " ";
+  const pair = `${index}${work}`;
+  if (pair === "DD" || pair === "AU" || pair === "UD" || pair === "UA" || pair === "DU" || pair === "AA" || pair === "UU") return "C";
+  if (index === "D" || work === "D") return "D";
+  if (index === "R" || work === "R") return "R";
+  if (index === "A" || work === "A" || index === "C" || work === "C") return "A";
+  return "M";
+}
+var STATUS_COLORS = {
+  M: "#e2c08d",
+  A: "#73c991",
+  U: "#73c991",
+  D: "#c74e39",
+  R: "#e2c08d",
+  C: "#e06c75",
+  /** 目录聚合标记：只表示「下面有改动」，因此用中性灰。 */
+  "\u2022": "#9198a1"
+};
+var GitStatusCache = class {
+  constructor(api) {
+    this.api = api;
+  }
+  snapshots = /* @__PURE__ */ new Map();
+  inflight = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  /** 每次内容变化递增，装饰层用它判断是否需要重绘。 */
+  generation = 0;
+  /** 内容版本号：快照变化即递增。 */
+  get version() {
+    return this.generation;
+  }
+  /**
+   * 观察清单变化。
+   * @param listener - 同步失效回调。
+   * @returns 退订函数。
+   */
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  /**
+   * 同步读取一个文件的状态字母。
+   * @param root - 工作区根（会话 cwd）。
+   * @param relative - 工作区相对路径。
+   * @returns 状态字母；无缓存或该文件无改动时返回 undefined。
+   */
+  letterOf(root, relative) {
+    const snapshot = this.snapshots.get(root);
+    if (snapshot === void 0) return void 0;
+    const code = snapshot.codes.get(relative);
+    return code === void 0 ? void 0 : statusLetter(code);
+  }
+  /**
+   * 同步判断一个文件此刻是否被认为有 git 改动，供路由门禁使用。
+   * @param root - 工作区根（会话 cwd）。
+   * @param relative - 工作区相对路径。
+   * @returns 有改动为 true；没有缓存时保守地返回 false。
+   */
+  isChanged(root, relative) {
+    return this.letterOf(root, relative) !== void 0;
+  }
+  /**
+   * 读取一个工作区的快照（可能为空）。
+   * @param root - 工作区根。
+   * @returns 最近一次成功拉取的视图。
+   */
+  viewOf(root) {
+    return this.snapshots.get(root)?.view;
+  }
+  /**
+   * 已经建立过快照的工作区根。
+   * @returns 根路径列表。
+   */
+  roots() {
+    return [...this.snapshots.keys()];
+  }
+  /**
+   * 确保某个工作区的清单是新鲜的。
+   * @param root - 工作区根（会话 cwd）。
+   * @param fresh - 忽略 TTL，强制重新拉取。
+   * @returns 拉取完成（成功或失败都静默）后的 promise。
+   */
+  async ensure(root, fresh = false) {
+    if (root === "") return;
+    const held = this.snapshots.get(root);
+    if (!fresh && held !== void 0 && Date.now() - held.at < TTL_MS) return;
+    const running = this.inflight.get(root);
+    if (running !== void 0) return running;
+    const task = this.pull(root).finally(() => {
+      this.inflight.delete(root);
+    });
+    this.inflight.set(root, task);
+    return task;
+  }
+  /** 发一次请求并替换快照。 */
+  async pull(root) {
+    let envelope;
+    try {
+      envelope = await this.api.fileStatus(root);
+    } catch {
+      return;
+    }
+    if (!envelope.ok) return;
+    const view = envelope.value;
+    const codes = /* @__PURE__ */ new Map();
+    for (const entry of view.entries) codes.set(entry.path, entry.code);
+    const changed = this.differs(this.snapshots.get(root), view, codes);
+    this.snapshots.set(root, { view, at: Date.now(), codes });
+    if (changed) {
+      this.generation += 1;
+      for (const listener of [...this.listeners]) {
+        try {
+          listener();
+        } catch (error) {
+          console.warn("dsh-git-panel: status listener failed", error);
+        }
+      }
+    }
+  }
+  /** 快照是否与旧值不同（决定要不要通知）。 */
+  differs(previous, view, codes) {
+    if (previous === void 0) return true;
+    if (previous.view.entries.length !== view.entries.length) return true;
+    if (previous.codes.size !== codes.size) return true;
+    for (const [path, code] of codes) if (previous.codes.get(path) !== code) return true;
+    return false;
+  }
+};
+
 // src/client/change-groups.ts
+function changeBadgeOf(code) {
+  return statusLetter(code);
+}
 function classifyChanges(changes) {
-  const conflicts = changes.filter((c) => c.code === "UU" || c.code === "AA" || c.code === "UD" || c.code === "DU");
+  const conflicts = changes.filter((c) => statusLetter(c.code) === "C");
   return {
     // X 位非空格且非 `?`：index 里有改动（`M ` / `A ` / `D ` / `R ` …）。
     staged: changes.filter((c) => c.code[0] !== " " && c.code[0] !== "?" && !conflicts.includes(c)),
@@ -962,6 +1120,10 @@ var import_jsx_runtime = require("react/jsx-runtime");
 var STYLE = `
 .dsh-gp { --bg:#ffffff; --fg:#24292f; --muted:#6e7781; --border:rgba(128,128,128,0.25);
   --accent:#1976d2; --hover:rgba(0,0,0,0.05); --current:#1a7f37; --danger:#cf222e;
+  /* \u53D8\u66F4\u5B57\u6BCD\u300C\u5DF2\u4FEE\u6539\u300D\u7684\u7425\u73C0\uFF1A\u9009 --dsh-gp-warn \u7684\u6D45\u8272\u503C\uFF0C\u767D\u5E95\u5BF9\u6BD4\u5EA6\u7EA6 5.4:1\u3002
+     \u523B\u610F\u4E0D\u6CBF\u7528\u6587\u4EF6\u6811 STATUS_COLORS \u7684 #e2c08d\u2014\u2014\u90A3\u662F VS Code \u6DF1\u8272\u4E3B\u9898\u8272\uFF0C
+     \u767D\u5E95\u4E0A\u5BF9\u6BD4\u5EA6\u4E0D\u8DB3 1.5:1\uFF0C\u51E0\u4E4E\u770B\u4E0D\u6E05\u3002 */
+  --dsh-gp-modified:#9a6700;
   --panel-bg:#f6f8fa; color:var(--fg); background:var(--bg);
   --dsh-gp-lane-0:#1565c0; --dsh-gp-lane-1:#c62828; --dsh-gp-lane-2:#2e7d32; --dsh-gp-lane-3:#6a1b9a;
   --dsh-gp-lane-4:#00838f; --dsh-gp-lane-5:#e65100; --dsh-gp-lane-6:#4527a0; --dsh-gp-lane-7:#558b2f;
@@ -970,6 +1132,7 @@ var STYLE = `
 [data-ds-dark-theme] .dsh-gp { --bg:#1f2328; --fg:#d1d9e0; --muted:#9198a1;
   --border:rgba(255,255,255,0.14); --accent:#58a6ff; --hover:rgba(255,255,255,0.07);
   --current:#3fb950; --danger:#f85149; --panel-bg:#161b22;
+  --dsh-gp-modified:#e3b341;
   --dsh-gp-lane-0:#58a6ff; --dsh-gp-lane-1:#ff7b72; --dsh-gp-lane-2:#3fb950; --dsh-gp-lane-3:#bc8cff;
   --dsh-gp-lane-4:#39c5cf; --dsh-gp-lane-5:#f0883e; --dsh-gp-lane-6:#a371f7; --dsh-gp-lane-7:#7ee787;
   --dsh-gp-lane-8:#ffa198; --dsh-gp-lane-9:#76e3ea; --dsh-gp-lane-10:#e3b341; --dsh-gp-lane-11:#56d364; }
@@ -1082,9 +1245,16 @@ var STYLE = `
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
+/* \u53D8\u66F4\u884C\u9996\u7684\u72B6\u6001\u5FBD\u7AE0\uFF1A\u5C55\u793A\u5355\u4E2A\u8BED\u4E49\u5B57\u6BCD\uFF08U \u672A\u8DDF\u8E2A / M \u5DF2\u4FEE\u6539 / A \u65B0\u589E /
+   D \u5220\u9664 / R \u91CD\u547D\u540D / C \u51B2\u7A81\uFF09\uFF0C\u4E0D\u518D\u663E\u793A porcelain \u539F\u59CB\u7801\u2014\u2014\u300C M\u300D\u7684\u524D\u5BFC\u7A7A\u683C\u5728
+   \u754C\u9762\u4E0A\u5B8C\u5168\u4E0D\u53EF\u89C1\uFF0C\u300C??\u300D\u4E5F\u4E0D\u8BF4\u660E\u300C\u8FD9\u662F\u65B0\u6587\u4EF6\u4E14\u5C1A\u672A\u7EB3\u5165 git\u300D\u3002
+   \u8BCD\u6C47\u4E0E\u6587\u4EF6\u6811\u88C5\u9970\u4E00\u81F4\uFF08\u540C\u4E00\u4E2A\u6587\u4EF6\u4E24\u5904\u540C\u5B57\u6BCD\uFF09\uFF0C\u914D\u8272\u8D70\u4E3B\u9898\u4EE4\u724C\u4FDD\u8BC1\u6DF1\u6D45\u8272\u53EF\u8BFB\u3002
+   \u6CE8\uFF1A\u672C\u6BB5\u5728\u6A21\u677F\u5B57\u7B26\u4E32\u5185\uFF0C\u6CE8\u91CA\u91CC\u7981\u6B62\u4F7F\u7528\u53CD\u5F15\u53F7\u3002 */
 .dsh-gp-changes-code { flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  color:var(--current); width:20px; font-weight:600; }
-.dsh-gp-changes-code.conflict { color:var(--danger); }
+  width:20px; font-weight:700; text-align:center; color:var(--fg); }
+.dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
+.dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
+.dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
 .dsh-gp-changes-file { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* \u53D8\u66F4\u884C\u5C3E\u64CD\u4F5C\u6309\u94AE\uFF1A\u7EDF\u4E00\u56FE\u6807\u6309\u94AE\uFF0C\u60AC\u505C\u51FA\u73B0 + \u5373\u65F6 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
@@ -1195,6 +1365,21 @@ function tipProps(text) {
     onFocus: (event) => showTip(event.currentTarget, text),
     onBlur: hideTip
   };
+}
+var BADGE_LABEL_KEY = {
+  U: "changes.mark.untracked",
+  M: "changes.mark.modified",
+  A: "changes.mark.added",
+  D: "changes.mark.deleted",
+  R: "changes.mark.renamed",
+  C: "changes.mark.conflict"
+};
+function ChangeBadge(props) {
+  const t2 = useT();
+  const letter = changeBadgeOf(props.code);
+  const label = t2(BADGE_LABEL_KEY[letter] ?? "changes.mark.modified");
+  const tip = letter === "C" ? `${label} (${props.code})` : label;
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-code", "data-letter": letter, ...tipProps(tip), children: letter });
 }
 function RowAction(props) {
   const { icon: name, label, danger, onClick } = props;
@@ -2103,7 +2288,7 @@ function GitPanel(props) {
               ")"
             ] }) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-code conflict", children: c.code }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file })
             ] }, c.file)) })
           ] }) : null,
@@ -2128,7 +2313,7 @@ function GitPanel(props) {
               ) })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-code", children: c.code }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 RowAction,
@@ -2202,7 +2387,7 @@ function GitPanel(props) {
                   void loadDiff(c.file);
                 },
                 children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-code", children: c.code }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                     RowAction,
@@ -2841,143 +3026,6 @@ function basenameOf(path) {
   const at = normalized.lastIndexOf("/");
   return at === -1 ? normalized : normalized.slice(at + 1);
 }
-
-// src/client/git-status.ts
-var TTL_MS = 3e3;
-function statusLetter(code) {
-  if (code === "??") return "U";
-  if (code === "!!") return "U";
-  const index = code[0] ?? " ";
-  const work = code[1] ?? " ";
-  const pair = `${index}${work}`;
-  if (pair === "DD" || pair === "AU" || pair === "UD" || pair === "UA" || pair === "DU" || pair === "AA" || pair === "UU") return "C";
-  if (index === "D" || work === "D") return "D";
-  if (index === "R" || work === "R") return "R";
-  if (index === "A" || work === "A" || index === "C" || work === "C") return "A";
-  return "M";
-}
-var STATUS_COLORS = {
-  M: "#e2c08d",
-  A: "#73c991",
-  U: "#73c991",
-  D: "#c74e39",
-  R: "#e2c08d",
-  C: "#e06c75",
-  /** 目录聚合标记：只表示「下面有改动」，因此用中性灰。 */
-  "\u2022": "#9198a1"
-};
-var GitStatusCache = class {
-  constructor(api) {
-    this.api = api;
-  }
-  snapshots = /* @__PURE__ */ new Map();
-  inflight = /* @__PURE__ */ new Map();
-  listeners = /* @__PURE__ */ new Set();
-  /** 每次内容变化递增，装饰层用它判断是否需要重绘。 */
-  generation = 0;
-  /** 内容版本号：快照变化即递增。 */
-  get version() {
-    return this.generation;
-  }
-  /**
-   * 观察清单变化。
-   * @param listener - 同步失效回调。
-   * @returns 退订函数。
-   */
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-  /**
-   * 同步读取一个文件的状态字母。
-   * @param root - 工作区根（会话 cwd）。
-   * @param relative - 工作区相对路径。
-   * @returns 状态字母；无缓存或该文件无改动时返回 undefined。
-   */
-  letterOf(root, relative) {
-    const snapshot = this.snapshots.get(root);
-    if (snapshot === void 0) return void 0;
-    const code = snapshot.codes.get(relative);
-    return code === void 0 ? void 0 : statusLetter(code);
-  }
-  /**
-   * 同步判断一个文件此刻是否被认为有 git 改动，供路由门禁使用。
-   * @param root - 工作区根（会话 cwd）。
-   * @param relative - 工作区相对路径。
-   * @returns 有改动为 true；没有缓存时保守地返回 false。
-   */
-  isChanged(root, relative) {
-    return this.letterOf(root, relative) !== void 0;
-  }
-  /**
-   * 读取一个工作区的快照（可能为空）。
-   * @param root - 工作区根。
-   * @returns 最近一次成功拉取的视图。
-   */
-  viewOf(root) {
-    return this.snapshots.get(root)?.view;
-  }
-  /**
-   * 已经建立过快照的工作区根。
-   * @returns 根路径列表。
-   */
-  roots() {
-    return [...this.snapshots.keys()];
-  }
-  /**
-   * 确保某个工作区的清单是新鲜的。
-   * @param root - 工作区根（会话 cwd）。
-   * @param fresh - 忽略 TTL，强制重新拉取。
-   * @returns 拉取完成（成功或失败都静默）后的 promise。
-   */
-  async ensure(root, fresh = false) {
-    if (root === "") return;
-    const held = this.snapshots.get(root);
-    if (!fresh && held !== void 0 && Date.now() - held.at < TTL_MS) return;
-    const running = this.inflight.get(root);
-    if (running !== void 0) return running;
-    const task = this.pull(root).finally(() => {
-      this.inflight.delete(root);
-    });
-    this.inflight.set(root, task);
-    return task;
-  }
-  /** 发一次请求并替换快照。 */
-  async pull(root) {
-    let envelope;
-    try {
-      envelope = await this.api.fileStatus(root);
-    } catch {
-      return;
-    }
-    if (!envelope.ok) return;
-    const view = envelope.value;
-    const codes = /* @__PURE__ */ new Map();
-    for (const entry of view.entries) codes.set(entry.path, entry.code);
-    const changed = this.differs(this.snapshots.get(root), view, codes);
-    this.snapshots.set(root, { view, at: Date.now(), codes });
-    if (changed) {
-      this.generation += 1;
-      for (const listener of [...this.listeners]) {
-        try {
-          listener();
-        } catch (error) {
-          console.warn("dsh-git-panel: status listener failed", error);
-        }
-      }
-    }
-  }
-  /** 快照是否与旧值不同（决定要不要通知）。 */
-  differs(previous, view, codes) {
-    if (previous === void 0) return true;
-    if (previous.view.entries.length !== view.entries.length) return true;
-    if (previous.codes.size !== codes.size) return true;
-    for (const [path, code] of codes) if (previous.codes.get(path) !== code) return true;
-    return false;
-  }
-};
 
 // src/client/GitDiffView.tsx
 var CONTEXT_LINES = 3;

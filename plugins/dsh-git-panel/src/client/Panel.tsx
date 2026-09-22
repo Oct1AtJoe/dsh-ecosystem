@@ -8,7 +8,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { BranchesView, BranchRow, GraphView, OpResult } from '../core/types.ts'
 import type { Envelope, GitPanelApi } from './api.ts'
 import { runBatch } from './batch-stage.ts'
-import { classifyChanges } from './change-groups.ts'
+import { changeBadgeOf, classifyChanges } from './change-groups.ts'
 import { layoutGraph, type LayoutCommit } from './graph.ts'
 import { tError, useT } from './i18n.ts'
 import { icon, type IconName } from './icons.tsx'
@@ -17,6 +17,10 @@ import { hideTip, showTip } from './tooltip.ts'
 const STYLE = `
 .dsh-gp { --bg:#ffffff; --fg:#24292f; --muted:#6e7781; --border:rgba(128,128,128,0.25);
   --accent:#1976d2; --hover:rgba(0,0,0,0.05); --current:#1a7f37; --danger:#cf222e;
+  /* 变更字母「已修改」的琥珀：选 --dsh-gp-warn 的浅色值，白底对比度约 5.4:1。
+     刻意不沿用文件树 STATUS_COLORS 的 #e2c08d——那是 VS Code 深色主题色，
+     白底上对比度不足 1.5:1，几乎看不清。 */
+  --dsh-gp-modified:#9a6700;
   --panel-bg:#f6f8fa; color:var(--fg); background:var(--bg);
   --dsh-gp-lane-0:#1565c0; --dsh-gp-lane-1:#c62828; --dsh-gp-lane-2:#2e7d32; --dsh-gp-lane-3:#6a1b9a;
   --dsh-gp-lane-4:#00838f; --dsh-gp-lane-5:#e65100; --dsh-gp-lane-6:#4527a0; --dsh-gp-lane-7:#558b2f;
@@ -25,6 +29,7 @@ const STYLE = `
 [data-ds-dark-theme] .dsh-gp { --bg:#1f2328; --fg:#d1d9e0; --muted:#9198a1;
   --border:rgba(255,255,255,0.14); --accent:#58a6ff; --hover:rgba(255,255,255,0.07);
   --current:#3fb950; --danger:#f85149; --panel-bg:#161b22;
+  --dsh-gp-modified:#e3b341;
   --dsh-gp-lane-0:#58a6ff; --dsh-gp-lane-1:#ff7b72; --dsh-gp-lane-2:#3fb950; --dsh-gp-lane-3:#bc8cff;
   --dsh-gp-lane-4:#39c5cf; --dsh-gp-lane-5:#f0883e; --dsh-gp-lane-6:#a371f7; --dsh-gp-lane-7:#7ee787;
   --dsh-gp-lane-8:#ffa198; --dsh-gp-lane-9:#76e3ea; --dsh-gp-lane-10:#e3b341; --dsh-gp-lane-11:#56d364; }
@@ -137,9 +142,16 @@ const STYLE = `
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
+/* 变更行首的状态徽章：展示单个语义字母（U 未跟踪 / M 已修改 / A 新增 /
+   D 删除 / R 重命名 / C 冲突），不再显示 porcelain 原始码——「 M」的前导空格在
+   界面上完全不可见，「??」也不说明「这是新文件且尚未纳入 git」。
+   词汇与文件树装饰一致（同一个文件两处同字母），配色走主题令牌保证深浅色可读。
+   注：本段在模板字符串内，注释里禁止使用反引号。 */
 .dsh-gp-changes-code { flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  color:var(--current); width:20px; font-weight:600; }
-.dsh-gp-changes-code.conflict { color:var(--danger); }
+  width:20px; font-weight:700; text-align:center; color:var(--fg); }
+.dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
+.dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
+.dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
 .dsh-gp-changes-file { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* 变更行尾操作按钮：统一图标按钮，悬停出现 + 即时 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
@@ -271,6 +283,33 @@ function tipProps(text: string): {
     onFocus: (event) => showTip(event.currentTarget, text),
     onBlur: hideTip,
   }
+}
+
+/** 状态字母 → 本地化词汇键。 */
+const BADGE_LABEL_KEY: Record<string, string> = {
+  U: 'changes.mark.untracked',
+  M: 'changes.mark.modified',
+  A: 'changes.mark.added',
+  D: 'changes.mark.deleted',
+  R: 'changes.mark.renamed',
+  C: 'changes.mark.conflict',
+}
+
+/**
+ * 变更行首的状态徽章：porcelain 原始码 → 单个语义字母。
+ *
+ * 字母来自 `changeBadgeOf()`（即文件树装饰用的 `statusLetter`），因此同一个文件
+ * 在面板与右侧「文件」树里是**同一个字母**。悬停给出本地化解释；冲突类额外附上
+ * 原始码（`UD` / `UA` / `DD` …决定了该先取哪一侧，单靠 `C` 丢失了这层信息）。
+ */
+function ChangeBadge(props: { code: string }): React.ReactElement {
+  const t = useT()
+  const letter = changeBadgeOf(props.code)
+  const label = t(BADGE_LABEL_KEY[letter] ?? 'changes.mark.modified')
+  const tip = letter === 'C' ? `${label} (${props.code})` : label
+  return (
+    <span className="dsh-gp-changes-code" data-letter={letter} {...tipProps(tip)}>{letter}</span>
+  )
 }
 
 /**
@@ -1324,7 +1363,7 @@ export function GitPanel(props: {
                   <div className="dsh-gp-changes-list">
                     {conflicts.map((c) => (
                       <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                        <span className="dsh-gp-changes-code conflict">{c.code}</span>
+                        <ChangeBadge code={c.code} />
                         <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
                       </div>
                     ))}
@@ -1347,7 +1386,7 @@ export function GitPanel(props: {
                   <div className="dsh-gp-changes-list">
                     {staged.map((c) => (
                       <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                        <span className="dsh-gp-changes-code">{c.code}</span>
+                        <ChangeBadge code={c.code} />
                         <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
                         <RowAction icon="copy" label={t('changes.copyPath')}
                           onClick={(e) => {
@@ -1393,7 +1432,7 @@ export function GitPanel(props: {
                           if (onOpenDiff?.(c.file) === true) return
                           void loadDiff(c.file)
                         }}>
-                        <span className="dsh-gp-changes-code">{c.code}</span>
+                        <ChangeBadge code={c.code} />
                         <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
                         <RowAction icon="unified" label={t('changes.inlineDiff')}
                           onClick={(e) => { e.stopPropagation(); void loadDiff(c.file) }} />
