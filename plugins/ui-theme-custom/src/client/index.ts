@@ -103,10 +103,46 @@ const SURFACE_GLASS_CSS = `
    centerCol > [data-slot="main"] > [data-slot="main.conversation"] > root.
    Keep the 0.1.2 direct-child form for older hosts; the slot anchor form
    covers the current nesting (anchors are display:contents). */
+/* ── 无边框融合（方案 C）：顶部同色屏障带 ──────────────────────────────
+   壳顶栏与内容区是两个物理不重叠的 WebView，要做到「看起来无边框」，
+   必须让内容区**最顶端的色值**与壳顶栏逐字节一致。
+
+   做法：在背景层最前面插一条与 bg-base 同色的实心带，高度 = 壳顶栏高度，
+   再向下渐隐过渡到主题原有的极光渐变。由于它位于最上层，故顶部 44px
+   内任何主题都呈现纯净的 bg-base 色 —— 而 bg-base 已与壳顶栏同色。
+
+   ⚠️ --dsh-fusion-top 必须等于 desktop/src-tauri/src/lib.rs 的 TITLEBAR_HEIGHT，
+   改一处必须同步另一处（sequoia-neutral-check.mjs 有门禁锁定）。 */
+body[data-ds-custom-theme]{
+  --dsh-fusion-top:44px;
+
+  /* ── 磨砂颗粒（Frost Grain）──────────────────────────────────────────
+     「玻璃」与「磨砂」是两种不同材质：玻璃是透明，磨砂是表面微观颗粒 + 光线漫射。
+
+     ⚠️ 关键认知：background 是纯色时，backdrop-filter 的 blur() 模糊不出任何东西
+     （模糊纯色仍是纯色），所以单靠 blur 永远只有通透感、没有磨砂感。
+     真磨砂必须叠加一层**噪声纹理** —— 这与 macOS NSVisualEffectView 内部
+     叠一层高斯噪声的做法一致。
+
+     实现：SVG feTurbulence 生成分形噪声，再 feColorMatrix saturate=0 去色，
+     得到中性灰颗粒（避免彩色噪点污染主题色）。opacity 控制颗粒强度。
+     单一来源定义在此，四处面板复用，改一处即全站生效。 */
+  --dsh-frost-noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.10'/%3E%3C/svg%3E");
+}
 [class$="centerCol"] > :first-child > [class$="_root"],
 [class$="centerCol"] [data-slot="main.conversation"] > [class*="_root"]{
-  background:var(--dsw-alias-bg-app-image),var(--dsw-alias-bg-base) !important;
+  background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      transparent var(--dsh-fusion-top, 44px)),
+    var(--dsw-alias-bg-app-image),
+    var(--dsw-alias-bg-base) !important;
 }
+/* 注意：侧边栏顶部**不能**在此加同色屏障带 —— 下方 body[data-ds-dark-theme] /
+   body:not([data-ds-dark-theme]) / body[data-ds-custom-theme="*"] 三条规则对同一
+   选择器的特异性更高，会直接覆盖这里。侧边栏顶部的融合改由其各自的主题规则处理
+   （见 sequoia 等主题块内的 sidebarCol root 定义）。 */
 
 /* Sidebar column: transparent base so the sidebar's own glass backdrop
    shows through the alpha — the column wrapper no longer paints a solid
@@ -398,13 +434,14 @@ body[data-ds-dark-theme] [role="dialog"]{
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode: 玻璃通透化 —— 填充由 --dsw-alias-bg-overlay 驱动，
-   液态主题已将其压到 0.72；此处再加大 blur 半径，让弹窗背后的内容呈现明显磨砂。 */
+/* Dialogs/modals in light mode: 磨砂玻璃 —— 填充由 --dsw-alias-bg-overlay 驱动，
+   blur 提供背后虚化，叠加颗粒层提供真磨砂质感（纯色背景下单靠 blur 出不来磨砂）。 */
 body:not([data-ds-dark-theme]) [role="dialog"]{
   background:
     linear-gradient(145deg,
       rgba(255, 255, 255, 0.15) 0%,
       transparent 100%),
+    var(--dsh-frost-noise, none) repeat,
     var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(238, 232, 220))) !important;
   backdrop-filter: blur(48px) saturate(1.25) !important;
   -webkit-backdrop-filter: blur(48px) saturate(1.25) !important;
@@ -460,11 +497,11 @@ nav[class*="frame"],
 }
 
 /* 悬浮毛玻璃输入坞 (Floating Glass Dock)
-   玻璃强度 = 模糊半径 ÷ 填充不透明度。填充 0.82 会把背后模糊完全盖住，
-   视觉上等于一块实心白板。降到 0.42 + blur 64px，才能透出背景被模糊的层次。 */
+   玻璃强度 = 模糊半径 ÷ 填充不透明度。填充过淡（0.42）会让输入区发虚、
+   文字与底衬对比不足 —— 回调到 0.58：保留磨砂通透，同时让输入坞有明确实体感。 */
 body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"] {
   border-radius: 20px !important;
-  background: rgba(255, 255, 255, 0.42) !important;
+  background: var(--dsh-frost-noise, none) repeat, rgba(255, 255, 255, 0.74) !important;
   border: 1px solid rgba(255, 255, 255, 0.90) !important;
   backdrop-filter: blur(64px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(64px) saturate(200%) !important;
@@ -586,9 +623,9 @@ body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] * {
   color: #ffffff !important;
 }
 
-/* AI 助手回复：半透液态玻璃卡片化（同输入坞，淡填充 + 大 blur 换取强透明感） */
+/* AI 助手回复：半透液态玻璃卡片化（同输入坞，回调填充以保证长文可读性） */
 body[data-ds-custom-theme="sequoia"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
-  background: rgba(255, 255, 255, 0.46) !important;
+  background: var(--dsh-frost-noise, none) repeat, rgba(255, 255, 255, 0.80) !important;
   border: 1px solid rgba(255, 255, 255, 0.78) !important;
   border-radius: 18px 18px 18px 4px !important;
   padding: 16px 20px !important;
@@ -627,11 +664,22 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
   backdrop-filter: blur(56px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(56px) saturate(190%) !important;
 }
-/* 侧边栏内容层：极淡半透明填充（0.34）+ 仅一条发丝高光。
-   无光晕、无色相、无白渐变 —— 通透感来自「淡填充 + 大 blur」。 */
+/* 侧边栏内容层：磨砂颗粒 + 半透明填充 + 顶部与顶栏同色屏障。
+   层次顺序（CSS background 第一项在最上）：
+     ① 融合屏障（顶部 44px 与顶栏逐字节同色，噪声不得侵入否则破坏融合）
+     ② 磨砂颗粒（真磨砂来源；barrier 在顶部已不透明，故颗粒只在下半部显现）
+     ③ 半透明填充
+   ⚠️ 严禁 inset 白色高光：inset 0 1px 1px rgba(255,255,255,·) 会画在内容层
+   顶部（y=0，即壳顶栏正下方 y=44 处），在纯色底上直接表现为一条横贯的白线。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
-  background: rgba(245, 245, 247, 0.34) !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.85) !important;
+  background:
+    linear-gradient(180deg,
+      rgb(245, 245, 247) 0,
+      rgb(245, 245, 247) var(--dsh-fusion-top, 44px),
+      transparent var(--dsh-fusion-top, 44px)) no-repeat,
+    var(--dsh-frost-noise, none) repeat,
+    rgba(245, 245, 247, 0.66) !important;
+  box-shadow: none !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
@@ -651,9 +699,10 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] 
 }
 
 /* 右侧抽屉面板毛玻璃与发丝镜面反射 */
-/* 右侧抽屉面板：与顶栏同色系，不发丝高光（同左侧栏，避免色差被读成分界） */
+/* 右侧抽屉面板：与顶栏同色系，不发丝高光（同左侧栏，避免色差被读成分界）。
+   填充 0.68 + 磨砂颗粒；实测该面板曾是最透的一处。 */
 body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
-  background: rgba(245, 245, 247, 0.48) !important;
+  background: var(--dsh-frost-noise, none) repeat, rgba(245, 245, 247, 0.68) !important;
   box-shadow: none !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
@@ -915,45 +964,50 @@ const TITLEBAR_PRESETS: Record<string, TitlebarConfig> = {
     active: 'rgba(0, 113, 227, 0.16)',
   },
   sonoma: {
+    // 与 sonoma.ts 的 --dsw-alias-bg-base 逐字节同色 → 融合无接缝
     bg: 'rgb(22, 24, 30)',
     accent: 'rgb(41, 151, 255)',
-    line: 'rgba(255, 255, 255, 0.10)',
+    line: 'transparent',
     text: 'rgb(245, 245, 247)',
     muted: 'rgb(161, 161, 166)',
     hover: 'rgba(41, 151, 255, 0.12)',
     active: 'rgba(41, 151, 255, 0.22)',
   },
   solar: {
-    bg: 'rgb(40, 28, 20)',
+    // 与 solar.ts 的 --dsw-alias-bg-base 逐字节同色 → 融合无接缝
+    bg: 'rgb(18, 14, 16)',
     accent: 'rgb(240, 180, 90)',
-    line: 'rgba(240, 180, 90, 0.18)',
+    line: 'transparent',
     text: 'rgb(252, 246, 238)',
     muted: 'rgb(198, 178, 156)',
     hover: 'rgba(240, 180, 90, 0.12)',
     active: 'rgba(240, 180, 90, 0.22)',
   },
   parchment: {
+    // 与 parchment.ts 的 --dsw-alias-bg-base 逐字节同色 → 融合无接缝
     bg: 'rgb(230, 224, 212)',
     accent: 'rgb(156, 48, 28)',
-    line: 'rgba(38, 32, 28, 0.08)',
+    line: 'transparent',
     text: 'rgb(34, 28, 24)',
     muted: 'rgb(120, 106, 96)',
     hover: 'rgba(156, 48, 28, 0.08)',
     active: 'rgba(156, 48, 28, 0.15)',
   },
   jade: {
+    // 与 jade.ts 的 --dsw-alias-bg-base 逐字节同色 → 融合无接缝
     bg: 'rgb(226, 228, 233)',
     accent: 'rgb(20, 22, 28)',
-    line: 'rgba(15, 23, 42, 0.09)',
+    line: 'transparent',
     text: 'rgb(20, 22, 28)',
     muted: 'rgb(90, 98, 110)',
     hover: 'rgba(15, 23, 42, 0.06)',
     active: 'rgba(15, 23, 42, 0.10)',
   },
   void: {
-    bg: 'rgb(24, 26, 30)',
+    // 与 void.ts 的 --dsw-alias-bg-base 逐字节同色 → 融合无接缝
+    bg: 'rgb(13, 13, 16)',
     accent: 'rgb(140, 144, 155)',
-    line: 'rgba(140, 144, 155, 0.18)',
+    line: 'transparent',
     text: 'rgb(235, 237, 240)',
     muted: 'rgb(160, 164, 175)',
     hover: 'rgba(140, 144, 155, 0.08)',

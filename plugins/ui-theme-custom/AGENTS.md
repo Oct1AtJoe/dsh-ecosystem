@@ -114,26 +114,104 @@ node tests\font-size-check.mjs
 | `surface-glass-spot` | `transparent` | 同上，侧边栏/右面板不发漫反射斑 |
 | `AppFrame` 发丝高光 | 液态主题**不发** | 该高光贴在接缝正下方，是横向白线根因 |
 | 左侧栏右缘 | `border-right: 0.5px solid rgba(0,0,0,0.10)` | **用户明确要求保留竖线**；用中性浅灰而非高反差黑白 |
-| 侧边栏填充 | `rgba(245,245,247,0.34)` | 压淡换取通透（底衬同色，不露杂色） |
+| 侧边栏填充 | `rgba(245,245,247,0.66)` | 实而仍透（详见下方「回调教训」） |
 
 **玻璃强度公式**：`观感 ≈ 模糊半径 ÷ 填充不透明度`。填充越淡、半径越大，玻璃越透。
 「玻璃太弱」的典型误判是去加大 `backdrop-filter`，实则真正卡住观感的是**填充不透明度太高**
-（如 0.82 会把背后模糊完全盖住，视觉上等于实心白板）。已落地数值：
+（如 0.82 会把背后模糊完全盖住，视觉上等于实心白板）。
+
+> ⚠️ **回调教训（用户二次反馈「透明度太高」）**：把填充一味压淡（曾到 0.34）会走向另一个极端 ——
+> 面板整体发虚、文字与底衬对比不足、边界感消失。**玻璃要「透而有形」**：
+> 保留大 blur 提供磨砂质感，填充停在能看清面板边界的中庸区间。调整时**只动填充、不动 blur**。
+
+当前落地数值（第二次回调后）：
 
 | 浮层 | 填充 | blur |
 | :--- | :--- | :--- |
-| 输入坞 `InputBar_card` | `rgba(255,255,255,0.42)` | `blur(64px)` |
-| AI 回复卡片 | `rgba(255,255,255,0.46)` | `blur(40px)` |
-| 侧边栏 `::before` | `rgba(245,245,247,0.34)` | `blur(56px)` |
-| 弹窗 `[role="dialog"]` | `--dsw-alias-bg-overlay` = 0.72 | `blur(48px)` |
+| 输入坞 `InputBar_card` | `rgba(255,255,255,0.74)` | `blur(64px)` |
+| AI 回复卡片 | `rgba(255,255,255,0.80)` | `blur(40px)` |
+| 侧边栏内容层 | `rgba(245,245,247,0.66)` | `blur(56px)` |
+| 右侧面板 | `rgba(245,245,247,0.68)` | — |
+| 弹窗 `[role="dialog"]` | `--dsw-alias-bg-overlay` = 0.94 | `blur(48px)` |
+| `bg-layer-1/2/3` | `0.88 / 0.90 / 0.94` | — |
+| `--dsw-specific-sidebar-fill` | `0.66` | — |
+| `selector` / `tip` / `bubble` | `0.94 / 0.92 / 0.93` | — |
 
 > ⚠️ **主窗口不透明**（无 `.transparent(true)`、无 Mica/Acrylic；`.transparent(true)` 只属于桌宠窗口
 > `pet.html`）。因此 CSS 里写 `transparent` **不会透出桌面壁纸**，只会露出 WebView2 默认白底
 > `#ffffff` —— 既让玻璃更弱（模糊纯白仍是纯白），又会让顶栏接缝（`245,245,247` vs `fff`，差 10 阶）重新出现。
 > 若要真·透桌面，必须改 `desktop/` 加窗口材质并重编译，属于另一条路线。
 
+### 1.5.1 磨砂材质：`blur()` 在纯色背景上**永远出不来磨砂**（核心认知）
+
+> 🚨 **用户正确指出「从始至终都没有磨砂的感觉，只有玻璃质感」** —— 这不是透明度问题，是**材质缺失**。
+>
+> - **玻璃质感** = 透明，能看清背后
+> - **磨砂质感** = 表面微观颗粒 + 光线漫射，看不清背后
+>
+> **根因**：`backdrop-filter: blur()` 模糊的是**背后内容**。而我们的背景是均匀纯色
+> `rgb(245,245,247)` —— **模糊纯色仍然是纯色**。所以无论把填充 alpha 或 blur 半径调到什么值，
+> 都只能得到「通透 / 不透」的区别，**永远出不来磨砂颗粒感**。
+>
+> **正解**：叠加一层**噪声纹理**。这与 macOS `NSVisualEffectView` 内部叠一层高斯噪声的做法一致。
+
+**实现**（单一来源，见 `index.ts` 的 `--dsh-frost-noise`）：
+
+```
+SVG feTurbulence(type=fractalNoise, baseFrequency=0.85, numOctaves=4, stitchTiles=stitch)
+  → feColorMatrix(type=saturate, values=0)   ← 必须去色，否则彩色噪点污染主题色
+  → <rect filter=url(#n) opacity=0.10>       ← 强度克制，过高会让面板发灰
+```
+
+**五处消费点**：输入坞 `InputBar_card`、AI 卡片、侧边栏内容层、右侧面板、弹窗 `[role="dialog"]`。
+
+三条硬规则：
+
+1. **必须带兜底 `var(--dsh-frost-noise, none)`** —— 该变量只在 `body[data-ds-custom-theme]` 下定义，
+   而弹窗规则对**所有**浅色主题生效；变量未定义且无兜底时，**整条 `background` 声明会失效**（弹窗变透明）。
+2. **噪声必须排在融合屏障之后**（CSS `background` 第一项在最上层）。侧边栏顶部 44px 是
+   与壳顶栏逐字节同色的屏障，颗粒若叠在其上会污染该区域、破坏无边框融合。
+3. **噪声用 `repeat`，屏障用 `no-repeat`** —— 屏障是整块渐变，平铺会产生接缝。
+
+> **门禁**：`sequoia-neutral-check.mjs` 的 C3 组有 10 条磨砂断言（噪声源/去色/强度/五处消费/兜底/次序）。
+
 > **门禁**：`tests/sequoia-neutral-check.mjs` 锁死三条不变式（彩色清零 / 无光晕且竖线保留 / 玻璃强度），
 > 含负向对照。改液态主题或接缝样式后必须跑。
+
+### 1.6 无边框融合（方案 C：视觉融合）
+
+> **目标**：让顶栏看起来与页面融为一体（macOS 那种「侧边栏直通顶端、交通灯悬浮其上」的观感）。
+
+**架构前提（决定了只能做视觉融合）**：壳顶栏与内容区是**两个物理不重叠的 WebView**
+（`layout_webviews`：壳占 `(0,0,W,44)`，内容占 `(0,44,W,H-44)`），且主窗口**不透明**、
+无 Mica/Acrylic。真正让两窗重叠会撞上 Win32 Airspace / Z-Order 剪裁限制。因此方案 C
+的做法是**让两侧色值逐字节一致**，用「看不出色差」实现「看不出边框」。
+
+**三条硬规则**：
+
+1. **壳体顶栏与该主题页面底色必须逐字节同色**。`TITLEBAR_PRESETS[id].bg` 必须等于
+   对应 `<theme>.ts` 的 `--dsw-alias-bg-base`。历史上 `void`（差 11 阶）、`solar`（差 22 阶）、
+   `sonoma`（半透明 0.74）三个主题不一致，已全部对齐为实色同值。
+2. **6 个主题的 `line` 全部 `transparent`**。顶栏与画布同色后，任何有色的发丝线都会
+   在同色底上重新变成一条可见的分界。
+3. **内容区顶端加同色屏障带**（`--dsh-fusion-top`）。在背景层最前面插一条 `bg-base`
+   实心带，向下渐隐到主题原有渐变；否则带极光渐变的主题顶部仍是彩色，融合不成立。
+
+> ⚠️ `--dsh-fusion-top` **必须等于** `desktop/src-tauri/src/lib.rs` 的 `TITLEBAR_HEIGHT`
+> （当前均为 **44px**）。三处保持一致：`shell.html` 的 `--dsh-titlebar-height`、
+> `lib.rs` 的 `TITLEBAR_HEIGHT`、插件的 `--dsh-fusion-top`。
+
+> 🚨 **实测坑（截图定位到 y≈44 的白线）**：侧边栏内容层 `> * > [class*="root"]` 上的
+> `box-shadow: inset 0 1px 1px rgba(255,255,255,·)` 会画在该层**顶部**，即壳顶栏正下方
+> （y=44）—— 在纯色底上直接表现为一条横贯的白线。融合态下该层必须 `box-shadow: none`。
+
+> 🚨 **另一处隐蔽色偏**：壳 `#titlebar` 曾带 `backdrop-filter: blur(32px) saturate(190%)`。
+> `saturate()` 会改变颜色 —— 液态顶栏 `rgb(245,245,247)` 是近中性灰（RGB 差仅 2），
+> 经 190% 饱和度强化后**明显偏蓝**，这正是「顶栏与页面看得出分家」的隐藏原因。
+> 融合态下 `#titlebar` **严禁 backdrop-filter 与任何内部渐变/内阴影**。
+
+> **部署**：方案 C 同时改了 `shell.html`（壳侧）与插件，因此**必须**
+> `cargo build --release` 重编译 + 重启桌面端；只刷新页面不生效。
 
 ---
 
@@ -205,7 +283,7 @@ node tests\font-size-check.mjs
 
 ## 6. 桌面顶栏（Tauri 壳）联动与三态语义（必读）
 
-主题色要贯通到桌面壳的顶栏（`TITLEBAR_HEIGHT = 52px`），链路是：
+主题色要贯通到桌面壳的顶栏（`TITLEBAR_HEIGHT = 44px`），链路是：
 `src/client/index.ts` 的 `TITLEBAR_PRESETS` + `syncDesktopTitlebar()`
 → 通知桥 `POST /notify {type:'theme-change'}`
 → `desktop/src-tauri/src/lib.rs` 转发整个 payload 给 `shell_webview`
@@ -227,15 +305,17 @@ node tests\font-size-check.mjs
 
 ### 6.2 顶栏必须纯实色，禁止任何渐变/光斑，且深色主题必须有辨识度
 
-- `TITLEBAR_PRESETS` 的 `bg` 采用各主题自身的**标志性实色底**，严禁使用肉眼不可分辨的近死黑色（如 `rgb(10,11,20)` 或 `rgb(18,14,16)` 会导致所有深色主题顶栏变成死黑）：
-  - 液态（sequoia）：浅灰液态透光 `rgb(245, 245, 247)`
-  - 曜黑（sonoma）：深空暗曜黑 `rgb(22, 24, 30)`
-  - 灼日（solar）：落日暗炭金 `rgb(40, 28, 20)`
-  - 冥夜（void）：玄武岩深灰 `rgb(24, 26, 30)`
-  - 缃素（parchment）：温润茶宣纸 `rgb(230, 224, 212)`
-  - 银曜（jade）：冷岩钛灰银 `rgb(226, 228, 233)`
-- `shell.html` 的 `#titlebar` 只允许 `background: var(--bg)`，**不得**再引入 `--titlebar-bg-image` 之类的渐变图层。
-- 底部 `border-bottom` 使用各主题专属的克制分界线（18% 微光），协调耐看。
+- `TITLEBAR_PRESETS` 的 `bg` **必须等于对应 `<theme>.ts` 的 `--dsw-alias-bg-base`**（融合前提，见 §1.6）。
+  同时严禁使用肉眼不可分辨的近死黑色（会让顶栏变成死黑、与画布割裂）：
+  - 液态（sequoia）：`rgb(245, 245, 247)`
+  - 曜黑（sonoma）：`rgb(22, 24, 30)`
+  - 灼日（solar）：`rgb(18, 14, 16)`
+  - 冥夜（void）：`rgb(13, 13, 16)`
+  - 缃素（parchment）：`rgb(230, 224, 212)`
+  - 银曜（jade）：`rgb(226, 228, 233)`
+- `shell.html` 的 `#titlebar` 只允许 `background: var(--bg)`，**不得**再引入 `--titlebar-bg-image` 之类的渐变图层，
+  **也不得使用 `backdrop-filter`**（其 `saturate()` 会让近中性灰产生可辨色偏，见 §1.6）。
+- `border-bottom` 统一为 `0.5px solid var(--line)`，由各主题下发 `line`；融合态下 6 个主题均为 `transparent`。
 
 ### 6.3 CSS 层叠陷阱：内联变量必须 html + body 双写（核心坑点）
 

@@ -24,15 +24,16 @@ export const SEQUOIA_TOKENS: ThemeTokens = Object.freeze({
   '--dsw-alias-surface-glass-spot': 'transparent',
 
   // 3. 原生分层视窗面板
-  //    浮层填充整体压淡：玻璃通透度 = 模糊半径 ÷ 填充不透明度，填充越淡越透。
-  //    底衬是与顶栏同色的实色，故压淡后不会露出杂色，只透出被模糊的同色底。
-  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.62)',
-  '--dsw-alias-bg-layer-2': 'rgba(245, 245, 247, 0.66)',
-  '--dsw-alias-bg-layer-3': 'rgba(235, 235, 238, 0.72)',
-  '--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.34)',
+  //    面板填充统一提高到「实而仍透」区间：上一轮的 0.50~0.86 在真实使用中仍显发虚，
+  //    文字与底衬对比不足。这里整体上调一档并保持层级递进（越靠上的浮层越实）。
+  //    底衬是与顶栏同色的实色，提高不透明度只会更接近 bg-base，不会引入色差。
+  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.88)',
+  '--dsw-alias-bg-layer-2': 'rgba(245, 245, 247, 0.90)',
+  '--dsw-alias-bg-layer-3': 'rgba(235, 235, 238, 0.94)',
+  '--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.66)',
   '--dsw-alias-bg-module-platform': 'rgb(240, 240, 243)',
   '--dsw-alias-bg-multi-select': 'rgb(230, 230, 235)',
-  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.72)',
+  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.94)',
   '--dsw-alias-bg-skeleton': 'rgba(0, 0, 0, 0.05)',
 
   // 4. 遮罩层
@@ -129,16 +130,18 @@ export const SEQUOIA_TOKENS: ThemeTokens = Object.freeze({
   '--dsw-alias-tooltip-bg': 'rgba(30, 30, 35, 0.90)',
 
   // 13. 对话气泡与输入坞
-  '--dsw-specific-bubble-highlight': 'rgba(255, 255, 255, 0.92)',
-  '--dsw-specific-bubble': 'rgba(255, 255, 255, 0.85)',
-  '--dsw-specific-input-major': 'rgba(255, 255, 255, 0.85)',
-  '--dsw-specific-login-input': 'rgba(255, 255, 255, 0.90)',
-  '--dsw-specific-selector': 'rgba(245, 245, 247, 0.85)',
-  '--dsw-specific-tip': 'rgba(245, 245, 247, 0.80)',
+  //     「选择面板」类（selector / tip / bubble）上一轮被漏调，实测 0.80~0.85 仍偏透，
+  //     本次统一提高到 0.90+，让其读起来是实体浮层而非半透明色块。
+  '--dsw-specific-bubble-highlight': 'rgba(255, 255, 255, 0.97)',
+  '--dsw-specific-bubble': 'rgba(255, 255, 255, 0.93)',
+  '--dsw-specific-input-major': 'rgba(255, 255, 255, 0.93)',
+  '--dsw-specific-login-input': 'rgba(255, 255, 255, 0.96)',
+  '--dsw-specific-selector': 'rgba(245, 245, 247, 0.94)',
+  '--dsw-specific-tip': 'rgba(245, 245, 247, 0.92)',
 
   // 14. 侧边栏与激活项 (对比度守门保证 >= 4.5:1)
   '--dsw-specific-sidebar-nav-item-active-accent': 'rgb(234, 238, 246)',
-  '--dsw-specific-sidebar-nav-item-active': 'rgba(255, 255, 255, 0.85)',
+  '--dsw-specific-sidebar-nav-item-active': 'rgba(255, 255, 255, 0.93)',
   '--dsw-specific-sidebar-nav-item-hover': 'rgba(0, 0, 0, 0.04)',
 
   // 15. Xcode 浅色代码终端

@@ -16,7 +16,9 @@ export const SONOMA_TOKENS: ThemeTokens = Object.freeze({
   // 2. 黑曜石暗色高折射毛玻璃
   '--dsw-alias-glass-blur': 'blur(50px) saturate(180%)',
   '--dsw-alias-surface-glass-blur': 'blur(34px) saturate(160%)',
-  '--dsw-alias-bg-base': 'rgba(22, 24, 30, 0.74)',
+  // 不透明实色：与壳顶栏 TITLEBAR_PRESETS.sonoma.bg 逐字节同色，
+  // 实现「无边框融合」观感（半透明会与顶栏产生色阶差）。
+  '--dsw-alias-bg-base': 'rgb(22, 24, 30)',
   '--dsw-alias-surface-glass-spot': 'rgba(140, 70, 240, 0.18)',
 
   // 3. 暗夜极客分层视窗面板
