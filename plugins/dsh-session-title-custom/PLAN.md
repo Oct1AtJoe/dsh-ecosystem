@@ -304,3 +304,57 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\dsh-ecosystem\plugins\lin
 1. 将 `profile/cordis.patch.yml` 中的 `session-title-llm` 去掉 `disabled: true`。
 2. 从 `profile/package.json` 移除 `dsh-session-title-custom` 的 link 依赖及 bundles 条目。
 3. 重启 DSH。
+
+---
+
+## 追加改造：设置页「会话标题」tab（2026-09-22）
+
+### 目标
+
+在 设置 → 插件 页的「桌宠」tab 之后新增「会话标题」tab，把原本硬编码的
+模型、思考档位与生成限额改成可视化配置。
+
+### 结构变化（同包双端，零构建链）
+
+```
+dsh-session-title-custom/
+├── lib/index.js     # host half：+ settings.register('session-title') + generate 读配置
+├── lib/client.js    # client half：手写 __ModuleLoader__ 壳（照 dsh-session-folders-custom 范式）
+└── package.json     # + exports["./client"] + dsh.client 声明
+```
+
+不引入 tsc/tsdown：`dsh-session-folders-custom` 已有同形态手写 client bundle
+先例并在本 profile 运行，构建链的收益不足以抵偿 typeRoots/preset 维护成本。
+
+### 配置项（settings 命名空间 `session-title`）
+
+| 字段 | 默认 | 范围 | 作用 |
+|------|------|------|------|
+| `enabled` | true | — | 关闭后抛错回退内置命名 |
+| `provider` | xiaomi | catalog | 标题请求路由 provider |
+| `model` | mimo-v2.5 | catalog | 标题生成模型 |
+| `reasoningEffort` | off | 模型 efforts + `''` | `''` = 跟随模型默认（不传该字段） |
+| `maxTokens` | 48 | 16–8192 | 输出上限 |
+| `maxInputChars` | 2000 | 200–8000 | 首条消息截断 |
+| `timeoutMs` | 30000 | 3000–120000 | `AbortSignal.timeout` 与调用方信号合并 |
+| `maxTitleLength` | 80 | 20–200 | `normalizeSessionTitle` 上限 |
+
+### 关键实现点
+
+1. **settings 服务可选接入**：`ctx.get('settings')` 条件注册，失败回退 `DEFAULTS`
+   （headless 组合无 settings 时插件照常工作）。
+2. **每次 generate 现读配置**：不缓存，改完设置对下一次命名立即生效。
+3. **tab 顺序**：`settings.plugins.tab` 注册 `id: 'session-title', order: 60`
+   （桌宠 tab 为 `id: 'pet', order: 50`）。
+4. **模型目录复用官方 RPC**：`ctx.remote.session.modelCatalog()`，efforts 随所选模型
+   切换；换模型/换 provider 时若已存 effort 不在新模型档位内，自动清回默认。
+5. **三层同步**：host schema 范围 = client `RANGES` 校验 = locale hint 文案；
+   client `RESET` 常量 = host `DEFAULTS`。
+6. **样式只用令牌**：`--dsw-alias-*`（bg-layer / border-l* / label-* / brand-primary），
+   不硬编码颜色。
+
+### 生效方式
+
+host 半与 client boot graph 都在 DSH 服务启动时扫描（client-modules 对未声明
+`dsh.client` 的包缓存否定判定，重启前不重扫），因此**必须重启 DSH**：
+关闭桌面壳重开，或 `cd E:\vibeCoding\deepseek-harness; pnpm dsh web`。

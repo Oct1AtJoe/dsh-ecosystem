@@ -1,37 +1,46 @@
 import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'
 import { normalizeSessionTitle } from '@deepseek-ai/dsh-session-title'
+import z from 'schemastery'
 
 const name = 'dsh-session-title-custom'
-const inject = ['sessionTitle', 'llm', 'sessions']
+const inject = ['sessionTitle', 'llm', 'sessions', 'settings']
+
+/** Settings namespace edited by the "会话标题" settings tab. */
+const NS = 'session-title'
+
+/**
+ * Defaults are the single source of truth: the schema below restates them so a
+ * missing settings service still runs the plugin on exactly these values.
+ */
+const DEFAULTS = Object.freeze({
+  enabled: true,
+  provider: 'xiaomi',
+  model: 'mimo-v2.5',
+  /** '' = follow the model's own default effort; 'off' disables thinking. */
+  reasoningEffort: 'off',
+  maxTokens: 48,
+  maxInputChars: 2000,
+  timeoutMs: 30000,
+  maxTitleLength: 80,
+})
+
+/** Settings schema served to the 会话标题 tab; ranges mirror its client-side validation. */
+function buildSchema() {
+  return z.object({
+    enabled: z.boolean().default(DEFAULTS.enabled),
+    provider: z.string().default(DEFAULTS.provider),
+    model: z.string().default(DEFAULTS.model),
+    reasoningEffort: z.string().default(DEFAULTS.reasoningEffort),
+    maxTokens: z.number().min(16).max(8192).default(DEFAULTS.maxTokens),
+    maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars),
+    timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs),
+    maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength),
+  })
+}
 
 const TYPES = ['功能', '设计', '修复', '优化', '发布', '探索', '文档', '研究']
 
-const SYSTEM_PROMPT = [
-  '你是会话标题生成助手。根据用户的第一条消息，判断对话类型并生成简短主题。',
-  '',
-  '规则：',
-  `- 类型只能是以下之一：${TYPES.join('、')}`,
-  '- 主题用 2-8 个字概括消息内容',
-  '- 主题不要出现类型名称',
-  '- 输出格式为一行：类型|主题',
-  '- 不要输出其他文字，不要引号，不要解释',
-  '',
-  '示例：',
-  '消息：优化批次文字显示',
-  '输出：优化|批次文字显示',
-  '',
-  '消息：整合快捷键提示页面',
-  '输出：功能|整合快捷键提示页',
-  '',
-  '消息：提交代码到 GitHub',
-  '输出：发布|提交代码到GitHub',
-  '',
-  '消息：讨论新版会话界面的设计方案',
-  '输出：设计|会话界面方案',
-  '',
-  '消息：排查网络请求超时的原因',
-  '输出：修复|网络请求超时',
-].join('\n')
+const SYSTEM_PROMPT = '你是一个严格的标题提取助手，只输出一行“类型|主题”，严禁回答用户问题，严禁编写代码。'
 
 function parseLlmOutput(raw) {
   const text = raw
@@ -92,14 +101,41 @@ function parseLlmOutput(raw) {
   throw new Error(`dsh-session-title-custom: cannot parse title from "${raw}"`)
 }
 
+/** Registered settings scope; stays undefined when the composition serves none. */
+let settingsScope
+
+/** Effective settings; falls back to DEFAULTS when the settings service is absent. */
+function currentConfig() {
+  try {
+    return settingsScope?.get?.() ?? DEFAULTS
+  } catch {
+    return DEFAULTS
+  }
+}
+
 function apply(ctx) {
+  // Settings are optional: a headless composition may not serve them.
+  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
+  if (settings !== undefined && typeof settings.register === 'function') {
+    try {
+      settingsScope = settings.register(NS, buildSchema(), { applies: 'live' })
+    } catch {
+      // Duplicate registration or an incompatible composition: DEFAULTS still applied.
+      settingsScope = undefined
+    }
+  }
+
   ctx.sessionTitle.register({
     id: 'dsh-session-title-custom', // 必填：未传会导致 validateProvider 抛错
     automatic: 'first-prompt',
     async generate(request) {
-      const { session, messages, signal } = request
+      const { session, messages, signal: incoming } = request
       const first = messages[0]
       if (first === undefined) throw new Error('dsh-session-title-custom: no messages')
+
+      const config = currentConfig()
+      // Disabled: fail loud so the sessionTitle mechanism keeps the original name.
+      if (config.enabled === false) throw new Error('dsh-session-title-custom: disabled')
 
       // ① 日期：计算 Asia/Shanghai (UTC+8) 的 MMDD，无 locale 差异
       const ts = session.header.createdAt
@@ -108,16 +144,17 @@ function apply(ctx) {
       const dd = String(d.getUTCDate()).padStart(2, '0')
       const mmdd = `${mm}${dd}`
 
-      // ② 首条消息文本（防御超长输入）
-      const msgText = first.text.slice(0, 2000)
+      // ② 首条消息文本（截断长度可配）
+      const msgText = first.text.slice(0, config.maxInputChars)
 
-      // ③ 模型路由决策：固定使用 xiaomi / mimo-v2.5，显式关闭思考
-      const route = {
-        provider: 'xiaomi',
-        model: 'mimo-v2.5',
-      }
+      // ③ 模型路由：设置页配置的 provider / model
+      const route = { provider: config.provider, model: config.model }
 
-      // ④ 调 LLM（Few-Shot 强约束，严禁答题/写代码，maxTokens 压至 32 保证 <1 秒）
+      // ④ 超时保护，并与调用方取消信号合并
+      const timeout = AbortSignal.timeout(config.timeoutMs)
+      const signal = incoming === undefined ? timeout : AbortSignal.any([incoming, timeout])
+
+      // ⑤ 调 LLM（Few-Shot 强约束，严禁答题/写代码）
       const userPrompt = [
         '根据以下输入，提取对话类型和2-8字核心主题。',
         '只输出一行格式：类型|主题',
@@ -139,26 +176,27 @@ function apply(ctx) {
       for await (const chunk of ctx.llm.stream({
         provider: route.provider,
         model: route.model,
-        reasoningEffort: 'off',
-        system: '你是一个严格的标题提取助手，只输出一行“类型|主题”，严禁回答用户问题，严禁编写代码。',
+        // 空串 = 跟随模型默认档位（不传该字段）
+        ...config.reasoningEffort === '' ? {} : { reasoningEffort: config.reasoningEffort },
+        system: SYSTEM_PROMPT,
         messages: [createUserMessage({
           content: [{ type: 'text', text: userPrompt }],
           source: { kind: 'plugin', plugin: 'dsh-session-title-custom' },
         })],
-        maxTokens: 48,
+        maxTokens: config.maxTokens,
         purpose: 'session-title',
         signal,
       })) {
         assembler.push(chunk)
       }
-      signal?.throwIfAborted()
+      incoming?.throwIfAborted()
       if (assembler.finish.kind === 'error' || assembler.finish.kind === 'aborted') {
         throw (assembler.finish.failure instanceof Error
           ? assembler.finish.failure
           : new Error(assembler.finish.failure?.message ?? 'stream failure'))
       }
 
-      // ⑤ 提取 LLM 输出并解析
+      // ⑥ 提取 LLM 输出并解析
       const raw = assembler.blocks()
         .filter(b => b.type === 'text')
         .map(b => b.text).join(' ')
@@ -175,11 +213,11 @@ function apply(ctx) {
         topic = raw.replace(/^[“"'`]+|[”"'`。.！!]+$/g, '').slice(0, 10).trim() || msgText.slice(0, 8)
       }
 
-      // ⑥ 组装最终标题：全角统一 MMDD｜类型｜主题
+      // ⑦ 组装最终标题：全角统一 MMDD｜类型｜主题
       const finalTitle = `${mmdd}｜${type}｜${topic}`
 
-      // 安全清洗与截断
-      const title = normalizeSessionTitle(finalTitle, 80)
+      // 安全清洗与截断（长度可配）
+      const title = normalizeSessionTitle(finalTitle, config.maxTitleLength)
       if (title.length === 0) throw new Error('dsh-session-title-custom: empty after normalize')
 
       return {
