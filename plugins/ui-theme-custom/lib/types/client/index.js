@@ -405,10 +405,11 @@ body[data-ds-custom-theme="sonoma"] {
    ⚠️ 实测：AppFrame 的真实类名是 哈希前缀加 _frame（如 V41CyG_frame），源码目录名
    AppFrame 不在 DOM 里。改用后缀匹配 _frame，同时必须限定含有直接子级 sidebarCol
    （即顶层视窗容器），严禁裸写 [class$="_frame"] —— 否则会误伤对话流右侧的
-   轮次导航条（nav.PodZZa_frame），导致导航条四周被误加矩形描边。 */
-body[data-ds-custom-theme="sequoia"] div[class$="_frame"]:has(> [class*="sidebarCol"]) {
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
-}
+   轮次导航条（nav.PodZZa_frame），导致导航条四周被误加矩形描边。
+
+   液态主题例外：该高光贴在 AppFrame 顶边，正好横贯「顶栏—内容区」接缝，
+   rgba(255,255,255,0.95) 的 1px 白线 + 全周 0.55 白环在纯色底上会被读成
+   一条明确的分界线。故液态主题整体不发丝高光（视觉统一优先）。 */
 body[data-ds-custom-theme="sonoma"] div[class$="_frame"]:has(> [class*="sidebarCol"]) {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
 }
@@ -570,18 +571,19 @@ body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatVi
    毛玻璃滤镜必须严格挂载在伪元素 ::before 上，该伪元素不是弹窗的祖先节点，完全安全。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
   background: transparent !important;
-  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+  /* 去掉右缘 1px 暗线：它会在「顶栏无色差」之后成为唯一可见的竖向分界 */
+  border-right: none !important;
 }
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
   backdrop-filter: blur(32px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
 }
+/* 侧边栏内容层：只保留半透明填充（玻璃底），
+   摘除白色顶部渐变与右缘白线 —— 它们是侧边栏比顶栏亮 2~3 阶、
+   从而被肉眼读成「分家」的直接原因。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
-  background:
-    radial-gradient(ellipse 85% 65% at 48% 28%, rgba(255, 168, 108, 0.14) 0%, transparent 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
-    rgba(245, 245, 247, 0.48) !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95), inset -1px 0 0 rgba(255, 255, 255, 0.65) !important;
+  background: rgba(245, 245, 247, 0.48) !important;
+  box-shadow: none !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
@@ -601,11 +603,10 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] 
 }
 
 /* 右侧抽屉面板毛玻璃与发丝镜面反射 */
+/* 右侧抽屉面板：与顶栏同色系，不发丝高光（同左侧栏，避免色差被读成分界） */
 body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
-  background:
-    radial-gradient(ellipse 85% 65% at 52% 28%, rgba(130, 108, 255, 0.12) 0%, transparent 100%),
-    rgba(245, 245, 247, 0.48) !important;
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+  background: rgba(245, 245, 247, 0.48) !important;
+  box-shadow: none !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
   background:
@@ -837,7 +838,10 @@ const TITLEBAR_PRESETS = {
     sequoia: {
         bg: 'rgb(245, 245, 247)',
         accent: 'rgb(0, 113, 227)',
-        line: 'rgba(0, 0, 0, 0.08)',
+        // 液态主题：主页面与顶栏同色（rgb(245,245,247)），接缝天然无差，
+        // 故下发 transparent 让壳侧 0.5px 发丝线不渲染，实现完全无缝。
+        // 其余主题底色与主画布不同，保留发丝线以免出现色差断层。
+        line: 'transparent',
         text: 'rgb(29, 29, 31)',
         muted: 'rgb(110, 110, 115)',
         hover: 'rgba(0, 113, 227, 0.08)',

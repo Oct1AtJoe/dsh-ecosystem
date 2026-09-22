@@ -1,14 +1,15 @@
 export const SEQUOIA_TOKENS = Object.freeze({
-    // 1. Sequoia 阳光加州红杉林壁纸流动漫反射层（优雅温润空气感漫反射，通透而不刺眼）
-    '--dsw-alias-bg-app-image': 'radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),'
-        + 'radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),'
-        + 'radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),'
-        + 'linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)',
+    // 1. 液态玻璃柔光层：关闭壁纸光晕。
+    //    接缝可见的真因是「色差」而非线条：任何叠加在 bg-base 之上的白色径向/线光
+    //    都会让该区域比顶栏亮 1~3 阶，大面积纯色相邻时肉眼即读作一条分界。
+    //    液态玻璃感来自 backdrop-filter 与半透明填充（浮层/侧边栏），不依赖壁纸光晕。
+    '--dsw-alias-bg-app-image': 'none',
     // 2. 超采样高斯液态磨砂与透光亚克力
+    //    bg-base 用不透明中性灰白，与顶栏 rgb(245,245,247) 逐字节同色 → 横向接缝消失。
     '--dsw-alias-glass-blur': 'blur(48px) saturate(200%)',
     '--dsw-alias-surface-glass-blur': 'blur(32px) saturate(180%)',
-    '--dsw-alias-bg-base': 'rgba(255, 255, 255, 0.72)',
-    '--dsw-alias-surface-glass-spot': 'rgba(255, 168, 108, 0.16)',
+    '--dsw-alias-bg-base': 'rgb(245, 245, 247)',
+    '--dsw-alias-surface-glass-spot': 'transparent',
     // 3. 原生分层视窗面板
     '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.88)',
     '--dsw-alias-bg-layer-2': 'rgba(245, 245, 247, 0.92)',

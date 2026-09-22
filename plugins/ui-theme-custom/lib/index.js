@@ -1,10 +1,10 @@
 //#region lib/types/client/sequoia.js
 const SEQUOIA_TOKENS = Object.freeze({
-	"--dsw-alias-bg-app-image": "radial-gradient(ellipse 950px 560px at 18% 12%, rgba(255, 168, 108, 0.20) 0%, transparent 68%),radial-gradient(ellipse 880px 620px at 86% 88%, rgba(130, 108, 255, 0.16) 0%, transparent 72%),radial-gradient(circle at 62% 38%, rgba(255, 120, 148, 0.14) 0%, transparent 64%),linear-gradient(140deg, rgba(80, 100, 210, 0.06) 0%, rgba(255, 140, 110, 0.05) 50%, rgba(255, 210, 110, 0.06) 100%)",
+	"--dsw-alias-bg-app-image": "none",
 	"--dsw-alias-glass-blur": "blur(48px) saturate(200%)",
 	"--dsw-alias-surface-glass-blur": "blur(32px) saturate(180%)",
-	"--dsw-alias-bg-base": "rgba(255, 255, 255, 0.72)",
-	"--dsw-alias-surface-glass-spot": "rgba(255, 168, 108, 0.16)",
+	"--dsw-alias-bg-base": "rgb(245, 245, 247)",
+	"--dsw-alias-surface-glass-spot": "transparent",
 	"--dsw-alias-bg-layer-1": "rgba(255, 255, 255, 0.88)",
 	"--dsw-alias-bg-layer-2": "rgba(245, 245, 247, 0.92)",
 	"--dsw-alias-bg-layer-3": "rgba(235, 235, 238, 0.96)",
