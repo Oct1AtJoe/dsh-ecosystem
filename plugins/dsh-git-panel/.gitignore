@@ -1,0 +1,6 @@
+node_modules/
+*.log
+.DS_Store
+
+# Local gh CLI credentials (contains tokens)
+.gh-config/
