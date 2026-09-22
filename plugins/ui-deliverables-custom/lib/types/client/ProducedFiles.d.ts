@@ -17,6 +17,13 @@ export interface ProducedFilesInjected {
     isLoopback: boolean;
     /** Load the opener capability when this row first reaches the page. */
     ensureWorkspacePathOpen(): void;
+    /**
+     * Open the viewed Session's workspace folder in the Host desktop's file
+     * manager. The Sidebar's `openFile` cannot serve this gesture: a folder is
+     * not a `dsh-resource://file/session/<id>/<path>` address any tab type
+     * claims, so the row goes to the native opener the capability gate means.
+     */
+    openWorkspaceFolder(): void;
     hooks: {
         /** Current generation's Session workspace opener capability. */
         workspacePathOpen: HostObservable<boolean | undefined>;
@@ -34,5 +41,5 @@ export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
  * @param props - selector-matched paths, the chat view's file opener, and the locale seat.
  * @returns The produced-files row.
  */
-export declare function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t, }: ProducedFilesProps): import("react").JSX.Element;
+export declare function ProducedFiles({ matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, openWorkspaceFolder, useWorkspacePathOpen, resolveFileLine, sessionId, t, }: ProducedFilesProps): import("react").JSX.Element;
 //# sourceMappingURL=ProducedFiles.d.ts.map

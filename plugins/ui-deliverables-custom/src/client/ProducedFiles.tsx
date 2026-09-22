@@ -55,6 +55,13 @@ export interface ProducedFilesInjected {
   isLoopback: boolean
   /** Load the opener capability when this row first reaches the page. */
   ensureWorkspacePathOpen(): void
+  /**
+   * Open the viewed Session's workspace folder in the Host desktop's file
+   * manager. The Sidebar's `openFile` cannot serve this gesture: a folder is
+   * not a `dsh-resource://file/session/<id>/<path>` address any tab type
+   * claims, so the row goes to the native opener the capability gate means.
+   */
+  openWorkspaceFolder(): void
   hooks: {
     /** Current generation's Session workspace opener capability. */
     workspacePathOpen: HostObservable<boolean | undefined>
@@ -164,7 +171,8 @@ function ChangePanel({
  * @returns The produced-files row.
  */
 export function ProducedFiles({
-  matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, useWorkspacePathOpen, resolveFileLine, sessionId, t,
+  matched: paths, openFile, isLoopback, ensureWorkspacePathOpen, openWorkspaceFolder,
+  useWorkspacePathOpen, resolveFileLine, sessionId, t,
 }: ProducedFilesProps) {
   useEffect(() => { ensureWorkspacePathOpen() }, [ensureWorkspacePathOpen])
   const hostCanOpenPath = useWorkspacePathOpen(available => available === true)
@@ -269,7 +277,7 @@ export function ProducedFiles({
         />
       )}
       {paths.length > 0 && canOpenPath && (
-        <button type="button" className={css.showFolder} onClick={() => { openFile('.') }}>
+        <button type="button" className={css.showFolder} onClick={openWorkspaceFolder}>
           {t('produced.showInFolder')}
         </button>
       )}

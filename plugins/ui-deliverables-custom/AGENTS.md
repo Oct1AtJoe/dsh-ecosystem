@@ -107,5 +107,38 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
 - **影响面**：仅 `src/client/ProducedFiles.tsx` 一处常量（`hasOverflow` / `shown` / `hiddenCount` / 第 4 个之后自动收起 Diff 面板的逻辑全部由它派生），已同步 `tests/produced-files.client.spec.tsx` 中依赖该阈值的 3 条用例。
 - 上文 §9 记录的是当时 `= 4` 的历史决策，保留不改。
 
+### 11. 2026-09-22 「在文件夹中显示」弹「无法打开文件」修复
+
+- **现象**：回合结束后点产物行的**在文件夹中显示**，弹出「无法打开文件」对话框，控制台报
+  `sidebarRight: no registered tab type claims "dsh-resource://file/session/session-e652…/."`。
+- **根因**：0.1.5 起 chat 的 `openFile` 已改为侧栏资源通道
+  （`ctx.sidebarRight.openResource(fileAddressFor(sessionId, cwd, path))`，见 `packages/client/ui-chat/src/client/apply.ts`），
+  不再是 Host 原生打开器。该按钮 `onClick={() => { openFile('.') }}` 于是生成地址
+  `dsh-resource://file/session/<id>/.`；`dsh-resource://file/**` 的 picomatch（含 `dot: true`）**不匹配**以 `/.` 结尾的地址，
+  `tab-registry.claim()` 找不到认领类型即抛错，被 `ChatView.requestOpenFile` 兜成该对话框。
+  按钮的显示门槛是 `isLoopback && canOpenWorkspacePath`——本就是**原生桌面打开器**的能力位，说明原意是把工作区交给 Host 文件管理器。
+- **修复**（不新增服务、不新增 UI）：
+  1. `src/client/index.ts` 注入面新增 `openWorkspaceFolder(sessionId)`：读 `ctx.get('sessions').list` 的 `byId[id].cwd` 作绝对根
+     （取不到时回退 `'.'`），调 `ctx.remote.session.openWorkspacePath({ path })`。同处把 `inject` 改为 `(sessionId) => …` 以拿到当前会话 id（原来是无参闭包），并顺带让 `resolveFileLine` 复用该 id、去掉原先的 `sessions.list` 兜底取当前会话。
+  2. `src/client/ProducedFiles.tsx`：`ProducedFilesInjected` 增加 `openWorkspaceFolder`，按钮 `onClick={openWorkspaceFolder}`，不再走 `openFile`。
+  3. 注意**不要**改回 `openFile('.')`，也不要试图让 `openFile` 兼容 `.`——地址语法里目录本就不是可认领资源。
+- **同日二次修复：「点击无响应」**（浏览器实测定位，2026-09-22 19:28）
+  - **现象**：改成 `{ action: 'reveal' }` 后点击看似毫无反应（请求 200 `{opened:true}`，无任何可见变化）。
+  - **根因**：`revealNativePath` 在 Windows 是 `explorer.exe /select,<fileURL>`；对**目录**它的语义是「打开**父目录**并选中该项」。
+    工作区为 `C:\dsh-ecosystem`，于是打开的是 `C:\`、标题「本地磁盘 (C:)」，与用户已开着的同类窗口无法区分，故观感是「无响应」。
+    而该按钮的原意（旧实现与 README 都写「打开会话 workspace」）是**打开工作区文件夹本身**。
+  - **修法**：改用默认 open 语义（去掉 `action`）。实测对照：
+    `explorer /select,file:///C:/dsh-ecosystem` → 新窗口 `LocationURL=file:///C:/`、`LocationName=本地磁盘 (C:)`；
+    `Invoke-Item C:\dsh-ecosystem` → 新窗口 `LocationURL=file:///C:/dsh-ecosystem`、`LocationName=dsh-ecosystem`。
+  - **同时修掉吞错**：`openWorkspacePath` 返回 `RemoteResult`（**失败不 reject**），原先的 `.catch(() => {})` 兜不住失败、错误被彻底静默；
+    改为 `.then` 检查 `result.ok` 并 `console.warn`。
+  - ⚠️ 注意 `opened: true` **不证明**桌面真的开了窗口：`revealNativePath` 把 explorer 的 exit code 1 也当成功交接。
+- **浏览器终验判据**（可复现）：`Shell.Application.Windows()` 计数前后对比。
+  基线 5 个窗口（全 `file:///C:/`）→ 点击 → 6 个，且新增窗口 `LocationURL=file:///C:/dsh-ecosystem`。请求体应**不含** `action`。
+- **测试**：`tests/produced-files.client.spec.tsx` 的 `capability()` 增加 `openWorkspaceFolder` 座位；产物行用例断言点该按钮只调 `openWorkspaceFolder` 一次、`openFile` 不被追加调用；注册用例断言 `inject('session-1').openWorkspaceFolder()` 以会话 cwd 发 `{ path: 'C:\\work' }`（**无 `action`**，语义锁定）。
+- 构建：`tsc` 仍只有 §4 记录的两条既有环境性报错（101/113）；调用 Remote 处需显式标注 result 形状，否则新增第三条隐式 any。`tsdown` 通过；profile 侧是 junction，重建即生效，硬刷新浏览器后生效。
+
+
+
 
 

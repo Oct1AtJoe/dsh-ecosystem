@@ -90,6 +90,45 @@ export function apply(ctx) {
         if (requestedWorkspacePathOpen)
             loadWorkspacePathOpen();
     });
+    /**
+     * The viewed Session's workspace root, spelled for the Host opener: the
+     * native handoff resolves nothing itself, so the caller supplies the
+     * absolute root and only falls back to the relative marker without one.
+     * Read through `ctx.get` because this file's other live reads are too — the
+     * row's inject list names the Remote faces, not the Session list.
+     */
+    const workspaceRootOf = (sessionId) => {
+        const sessions = ctx.get('sessions');
+        const cwd = sessions?.list.getSnapshot().byId[sessionId]?.cwd;
+        return typeof cwd === 'string' && cwd !== '' ? cwd : '.';
+    };
+    /**
+     * Hand the Session workspace folder to the Host desktop's file manager. The
+     * Sidebar's `openFile` cannot serve this gesture: a folder is not an address
+     * any tab type claims, so the row goes to the native opener its capability
+     * gate is actually about.
+     *
+     * Default open, never `reveal`: on Windows reveal is `explorer /select`, and
+     * selecting a directory opens its PARENT with the directory highlighted — for
+     * a workspace root that means the drive root, a window the user already has
+     * and cannot tell apart from doing nothing. Open reaches the folder itself.
+     */
+    const openWorkspaceFolder = (sessionId) => {
+        // Explicit result shape: this workspace cannot resolve the Remote's generic
+        // overloads (see the api-remotes note in AGENTS.md), so the call types as
+        // `any` and an unannotated callback would add a new implicit-any error.
+        const call = ctx.remote.session.openWorkspacePath({ path: workspaceRootOf(sessionId) });
+        void call
+            .then((result) => {
+            // A Remote failure arrives as a result, never a rejection; reporting it
+            // is the only trace a desktop handoff can leave behind.
+            if (!result.ok)
+                console.warn(`ui-deliverables-custom: open workspace folder failed: ${result.error.message}`);
+        })
+            .catch((error) => {
+            console.warn('ui-deliverables-custom: open workspace folder failed:', error);
+        });
+    };
     ctx.uiConversation.events.register(deliverablesDefinition);
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-deliverables-custom: dictionaries');
     ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
@@ -101,15 +140,12 @@ export function apply(ctx) {
         // round entry keeps precedence on failed turns.
         priority: -5,
         locale: NS,
-        inject: () => ({
+        inject: (sessionId) => ({
             isLoopback: ctx.remote.$host.isLoopback,
             ensureWorkspacePathOpen,
+            openWorkspaceFolder: () => { openWorkspaceFolder(sessionId); },
             hooks: { workspacePathOpen },
-            resolveFileLine: (sessionId, path, snippet) => {
-                const sid = sessionId || ctx.sessions?.list?.getSnapshot()?.current || '';
-                const workspaceFiles = ctx.get('remote.workspaceFiles') ?? ctx.remote?.workspaceFiles;
-                return resolveFileLine(workspaceFiles, sid, path, snippet);
-            },
+            resolveFileLine: (requested, path, snippet) => resolveFileLine(ctx.get('remote.workspaceFiles') ?? ctx.remote?.workspaceFiles, requested || sessionId, path, snippet),
         }),
     }, ProducedFiles));
     ctx.slots.inject('tool.call.toolview', function* () {

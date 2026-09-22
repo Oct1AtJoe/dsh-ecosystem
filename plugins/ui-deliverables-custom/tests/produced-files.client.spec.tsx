@@ -501,9 +501,11 @@ describe('ProducedFiles row', () => {
   const capability = (
     canOpenPath: boolean | undefined,
     isLoopback = true,
-  ): Pick<ProducedFilesProps, 'isLoopback' | 'useWorkspacePathOpen' | 'ensureWorkspacePathOpen'> => ({
+    openWorkspaceFolder: () => void = () => {},
+  ): Pick<ProducedFilesProps, 'isLoopback' | 'useWorkspacePathOpen' | 'ensureWorkspacePathOpen' | 'openWorkspaceFolder'> => ({
     isLoopback,
     ensureWorkspacePathOpen: () => {},
+    openWorkspaceFolder,
     useWorkspacePathOpen: <T,>(selector: (value: boolean | undefined) => T): T => selector(canOpenPath),
   })
 
@@ -524,8 +526,9 @@ describe('ProducedFiles row', () => {
     const paths = ['deep/a.html', 'b.css', 'c.ts']
       .map(path => ({ path, hunks: [], totalHunks: [] }))
     const openFile = vi.fn<(path: string) => void>()
+    const openFolder = vi.fn()
     const view = render(
-      <ProducedFiles matched={paths} openFile={openFile} {...capability(true)} t={t} />,
+      <ProducedFiles matched={paths} openFile={openFile} {...capability(true, true, openFolder)} t={t} />,
     )
     expect(view.getByText('本次产物')).toBeTruthy()
     const row = view.container.querySelector('[data-produced-files-row]')
@@ -540,10 +543,14 @@ describe('ProducedFiles row', () => {
     expect(openFile).toHaveBeenCalledWith('deep/a.html')
 
     // "show in folder" appears when there are produced files and the host
-    // can open paths (no longer gated on overflow).
+    // can open paths (no longer gated on overflow). It goes to the native
+    // file-manager handoff, never through the Sidebar's file opener: a folder
+    // is not an address any tab type claims.
     const showFolder = view.getByRole('button', { name: '在文件夹中显示' })
     fireEvent.click(showFolder)
-    expect(openFile).toHaveBeenLastCalledWith('.')
+    expect(openFolder).toHaveBeenCalledTimes(1)
+    expect(openFile).toHaveBeenCalledTimes(1)
+    expect(openFile).toHaveBeenCalledWith('deep/a.html')
   })
 
   it('folds chips beyond 3 files, expands on click, and collapses on toggle', () => {
@@ -747,12 +754,23 @@ describe('plugin registration', () => {
     // The fork injects the boolean workspace-path opener capability, not the
     // host-description object the official package uses. `remote.session` is a
     // separate injected service name, so it must be provided on its own.
-    const remoteSession = { canOpenWorkspacePath: async () => ({ ok: true, value: true }) }
+    const openedPaths: { path?: string; action?: string }[] = []
+    const remoteSession = {
+      canOpenWorkspacePath: async () => ({ ok: true, value: true }),
+      openWorkspacePath: async (request: { path?: string; action?: string }) => {
+        openedPaths.push(request)
+        return { ok: true, value: { opened: true } }
+      },
+    }
     ctx.provide('remote', {
       ['$host']: { isLoopback: false },
       session: remoteSession,
     } as never)
     ctx.provide('remote.session', remoteSession as never)
+    // The folder handoff resolves the viewed Session's workspace root.
+    ctx.provide('sessions', {
+      list: { getSnapshot: () => ({ byId: { 'session-1': { cwd: 'C:\\work' } } }) },
+    } as never)
     // The plugin's inject list also requires the conversation service face.
     ctx.provide('uiConversation', { events: { register: () => () => {} } } as never)
     // ui-theme's Appearance row binds a durable scope through these two.
@@ -763,7 +781,13 @@ describe('plugin registration', () => {
     await fiber.await()
     const [entry] = ctx.slots.entries('conversation.chat.turnTail')
     expect(entry).toBeDefined()
-    expect(entry?.inject?.()).toMatchObject({ isLoopback: false })
+    const injected = entry?.inject?.('session-1') as { isLoopback: boolean; openWorkspaceFolder(): void }
+    expect(injected).toMatchObject({ isLoopback: false })
+    // The folder gesture asks the Host desktop to OPEN the Session workspace
+    // root — never the Sidebar's file opener, which claims no folder address,
+    // and never `reveal`, whose Windows /select would open the parent instead.
+    injected.openWorkspaceFolder()
+    await vi.waitFor(() => { expect(openedPaths).toEqual([{ path: 'C:\\work' }]) })
 
     const toolEntries = ctx.slots.entries('tool.call.toolview')
     expect(toolEntries.map(e => e.options.key)).toEqual(['edit', 'write'])
