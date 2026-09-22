@@ -13,7 +13,7 @@
 
 ## 2. 关键路径与常量
 
-- `TITLEBAR_HEIGHT = 52.0`（逻辑像素）：壳标题栏高度（对齐 macOS 原生标准大标题栏规格），也是内容子 WebView 的纵向偏移基准。
+- `TITLEBAR_HEIGHT = 44.0`（逻辑像素）：壳标题栏高度（macOS 紧凑型 Toolbar / Safari 标准规格），也是内容子 WebView 的纵向偏移基准。
 - `CONTENT_LABEL = "content"`：内容子 WebView 标签。
 - 窗口几何持久化：`%APPDATA%\ai.deepseek.harness.desktop\window-geometry.json`（关闭/缩放时记录，启动时恢复）。
 
@@ -79,7 +79,7 @@
   > **正解**：UI 留在 content 区（`__dshToggleShellMenu`），动作一律走 `__dshNotifyBridge.shellAction()`（该桥由 `bridge_init_script` 注入，跨源可用、无需 IPC 白名单）回到 `run_shell_action`。面板未挂载时 Rust 侧回退 `native_menu` 动作弹原生菜单，保证 ☰ 永远有反馈。
 - **双击顶栏最大化**：必须在 `mousedown` 里判 `e.detail === 2` 调 `toggleMaximize()`。不能依赖 `dblclick` 事件 —— 第一次单击的 `startDragging()` 会进入系统拖拽模态循环，吞掉后续双击事件。
 - 主题同步：`__dshSetTheme(isDark)` 由 Rust eval 进来切换 `dark`/`light` class。
-- 壳顶栏排版随 `TITLEBAR_HEIGHT` 走：52px 下正中 logo 20px、标题 15px/600、☰ 图标 20px，左右等宽 `74px` 保证绝对居中。
+- 壳顶栏排版随 `TITLEBAR_HEIGHT` 走：44px 下正中 logo 26px、标题 15px/600、☰ 图标 20px，左右等宽 `74px` 保证绝对居中。
 
 ## 8. 内容 WebView 初始化脚本（四条独立注入）
 
@@ -181,13 +181,14 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 - **最大化**：DWM 自动给最大化窗口直角，无需特殊处理，也不会漏出桌面。
 - **阴影**：DWM 对无 caption 窗口只给约 8px 硬边灰带（非柔和投影）；macOS 那种大半径柔和阴影在 Windows 上需自绘 layered window，未实施。
 
-### 12.2 顶栏与内容区必须无缝
+### 12.2 顶栏与内容区发丝接缝
 
-壳顶栏 52px（`TITLEBAR_HEIGHT`），内容子 WebView 从 `y=52` 物理像素起（`layout_webviews`），两者紧贴无间隙。
+壳顶栏 44px（`TITLEBAR_HEIGHT`），内容子 WebView 从 `y=44` 物理像素起（`layout_webviews`），两者紧贴无间隙。
 
-- **`#titlebar` 不得有 `border-bottom`**：曾经那条 1px 分隔线会让顶栏与对话区之间出现一根明显的线。实测像素剖面确认该线只来自壳顶栏（y=35 一行偏暗，y=36 起为纯底色），内容区自身不画线，故删除即可无缝。
-- `--line` 变量与 `titlebar.line` 协议字段**保留**：插件侧 `TITLEBAR_PRESETS` 仍在下发，未来若要恢复分隔线不必改协议。
-- 删除时同步去掉 `transition` 里的 `border-color`，避免留下无效过渡。
+- **0.5px 极淡发丝线（方案 1）**：使用 `border-bottom: 0.5px solid var(--line)`。若完全无边框，当顶栏与下方主画布色相存在微差时（如 Sequoia 加州红杉暖金漫反射），容易产生生硬的色彩切口断层；0.5px 发丝线透明度仅 8%~10%，不抢视觉焦点，又能合理界定系统工具栏与文档画布边界。
+- **严禁强行叠加白色渐变**：`#titlebar` 必须使用纯净 `background: var(--bg)`，禁止在浅色模式叠加 `rgba(255, 255, 255, 0.45)` 蒙层，避免破坏主题底色导致死白漂白。
+- `--line` 变量与 `titlebar.line` 协议字段**保留**：插件侧 `TITLEBAR_PRESETS` 动态下发对应色系的微弱发丝色。
+- `transition` 包含 `background-color 0.2s, border-color 0.2s`，保证换肤时平滑过渡。
 
 ## 13. 主要代码位置（lib.rs）
 

@@ -716,7 +716,7 @@ fn popup_shell_menu(app: &AppHandle) {
 
 /// 「关于 DSH 宿主版本」：用原生消息框展示版本信息。
 ///
-/// 壳顶栏只有 52px，HTML 弹窗放不下，改用系统对话框。
+/// 壳顶栏只有 44px，HTML 弹窗放不下，改用系统对话框。
 fn show_about_dialog(app: &AppHandle) {
     let info = get_dsh_version_info();
     let read = |key: &str, fallback: &str| {
@@ -1371,7 +1371,7 @@ fn capture_window_geometry(window: &tauri::Window) {
 }
 
 /// 标题栏高度（逻辑像素）：壳页面画的标题栏，同时也是内容子 WebView 的纵向偏移。
-pub(crate) const TITLEBAR_HEIGHT: f64 = 52.0;
+pub(crate) const TITLEBAR_HEIGHT: f64 = 44.0;
 
 /// 内容子 WebView 的标签：DSH 页面（含启动页、错误页）都跑在它里面，
 /// 壳标题栏则属于窗口自身的主 webview（`main`）。
