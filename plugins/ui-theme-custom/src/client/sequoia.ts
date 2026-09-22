@@ -6,27 +6,33 @@
 import type { ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 export const SEQUOIA_TOKENS: ThemeTokens = Object.freeze({
-  // 1. 液态玻璃柔光层：关闭壁纸光晕。
-  //    接缝可见的真因是「色差」而非线条：任何叠加在 bg-base 之上的白色径向/线光
-  //    都会让该区域比顶栏亮 1~3 阶，大面积纯色相邻时肉眼即读作一条分界。
-  //    液态玻璃感来自 backdrop-filter 与半透明填充（浮层/侧边栏），不依赖壁纸光晕。
+  // 1. 桌面背景：纯色、无光晕、无色相。
+  //    去光晕是刻意的 —— 用户不要那层白蒙蒙的辉光。
+  //    底仍是与壳顶栏逐字节同色的实色 rgb(245,245,247)，故：
+  //      · 顶栏/主页面/侧边栏之间零色差，接缝不会回来；
+  //      · 所有半透明浮层叠在它上面，alpha 合成后仍是同色 → 可放心把
+  //        浮层填充压得很低来换取强透明感，而不必担心出现色块。
   '--dsw-alias-bg-app-image': 'none',
 
-  // 2. 超采样高斯液态磨砂与透光亚克力
-  //    bg-base 用不透明中性灰白，与顶栏 rgb(245,245,247) 逐字节同色 → 横向接缝消失。
-  '--dsw-alias-glass-blur': 'blur(48px) saturate(200%)',
-  '--dsw-alias-surface-glass-blur': 'blur(32px) saturate(180%)',
+  // 2. 液态磨砂：强度全部集中在浮层。
+  //    backdrop-filter 的观感 = 模糊半径 ÷ 填充不透明度。填充越淡、半径越大，
+  //    玻璃越通透（能看到背后内容被模糊），这正是「太弱」的解法。
+  '--dsw-alias-glass-blur': 'blur(64px) saturate(200%)',
+  '--dsw-alias-surface-glass-blur': 'blur(56px) saturate(190%)',
   '--dsw-alias-bg-base': 'rgb(245, 245, 247)',
+  // 侧边栏/右面板的漫反射光斑：关闭（不要光晕）
   '--dsw-alias-surface-glass-spot': 'transparent',
 
   // 3. 原生分层视窗面板
-  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.88)',
-  '--dsw-alias-bg-layer-2': 'rgba(245, 245, 247, 0.92)',
-  '--dsw-alias-bg-layer-3': 'rgba(235, 235, 238, 0.96)',
-  '--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.45)',
+  //    浮层填充整体压淡：玻璃通透度 = 模糊半径 ÷ 填充不透明度，填充越淡越透。
+  //    底衬是与顶栏同色的实色，故压淡后不会露出杂色，只透出被模糊的同色底。
+  '--dsw-alias-bg-layer-1': 'rgba(255, 255, 255, 0.62)',
+  '--dsw-alias-bg-layer-2': 'rgba(245, 245, 247, 0.66)',
+  '--dsw-alias-bg-layer-3': 'rgba(235, 235, 238, 0.72)',
+  '--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.34)',
   '--dsw-alias-bg-module-platform': 'rgb(240, 240, 243)',
   '--dsw-alias-bg-multi-select': 'rgb(230, 230, 235)',
-  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.95)',
+  '--dsw-alias-bg-overlay': 'rgba(255, 255, 255, 0.72)',
   '--dsw-alias-bg-skeleton': 'rgba(0, 0, 0, 0.05)',
 
   // 4. 遮罩层

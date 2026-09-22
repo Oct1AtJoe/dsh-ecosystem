@@ -49,33 +49,32 @@ for (const [name, needle] of colors) {
   check(`注入 CSS 无 ${name}`, !seqRules.includes(needle))
 }
 
-console.log('\n=== B. 接缝叠加清零（色差根因） ===')
-check('token: bg-app-image 关闭壁纸光晕', /'--dsw-alias-bg-app-image':\s*'none'/.test(themeSrc))
+console.log('\n=== B. 无光晕 / 竖向分界线保留（色差根因） ===')
+check('token: bg-app-image 关闭壁纸光晕（不要光晕）', /'--dsw-alias-bg-app-image':\s*'none'/.test(themeSrc))
 check('token: bg-base 与顶栏同色且不透明', /'--dsw-alias-bg-base':\s*'rgb\(245, 245, 247\)'/.test(themeSrc))
-check('token: surface-glass-spot 归零', /'--dsw-alias-surface-glass-spot':\s*'transparent'/.test(themeSrc))
+check('token: surface-glass-spot 归零（不要光斑）', /'--dsw-alias-surface-glass-spot':\s*'transparent'/.test(themeSrc))
 check(
-  'CSS: 液态主题不再发 AppFrame 发丝高光（顶边白线根因）',
+  'CSS: 液态主题不发 AppFrame 发丝高光（顶边白线根因）',
   !/body\[data-ds-custom-theme="sequoia"\] div\[class\$="_frame"\]/.test(indexSrc),
 )
 check(
-  'CSS: 侧边栏右缘暗线已去除',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="sidebarCol"\]\s*\{[^}]*border-right:\s*none/.test(indexSrc),
+  'CSS: 左侧栏竖向分界线保留（用户明确要求）',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="sidebarCol"\]\s*\{[^}]*border-right:\s*0\.5px solid/.test(indexSrc),
 )
 check(
-  'CSS: 侧边栏内容层仅剩半透明填充（无白渐变/无白线）',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[^}]*background:\s*rgba\(245, 245, 247, 0\.48\)[^}]*box-shadow:\s*none/.test(indexSrc),
-)
-check(
-  'CSS: 右面板同样清理（无左缘白线）',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[^}]*box-shadow:\s*none/.test(indexSrc),
+  'CSS: 侧边栏内容层为极淡填充且无白渐变/无白线',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[^}]*background:\s*rgba\(245, 245, 247, 0\.34\)[^}]*box-shadow:\s*inset 0 1px 1px/.test(indexSrc),
 )
 
-console.log('\n=== C. 玻璃效果必须保留（去的是色差，不是玻璃） ===')
-check('CSS: 侧边栏 ::before 毛玻璃仍在', /sequoia"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*blur\(32px\)/.test(indexSrc))
-check('CSS: 输入坞毛玻璃仍在', /sequoia"\] \[class\*="InputBar_card"\]\s*\{[^}]*backdrop-filter:\s*blur\(36px\)/.test(indexSrc))
-check('CSS: AI 玻璃卡片仍在', /sequoia"\] \[class\*="ChatView_column"\][^}]*backdrop-filter:\s*blur\(20px\)/.test(indexSrc))
-check('token: glass-blur 未被删除', themeSrc.includes("'--dsw-alias-glass-blur': 'blur(48px) saturate(200%)'"))
-check('token: 半透明填充保留（非纯实色）', themeSrc.includes("'--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.45)'"))
+console.log('\n=== C. 玻璃强度（去的是光晕与彩色，不是玻璃） ===')
+check('token: glass-blur 提升到 64px（强化）', themeSrc.includes("'--dsw-alias-glass-blur': 'blur(64px) saturate(200%)'"))
+check('token: surface-glass-blur 提升到 56px', themeSrc.includes("'--dsw-alias-surface-glass-blur': 'blur(56px) saturate(190%)'"))
+check('token: 侧边栏填充压淡到 0.34（更透）', themeSrc.includes("'--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.34)'"))
+check('CSS: 侧边栏 ::before 毛玻璃提升到 56px', /sequoia"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*blur\(56px\)/.test(indexSrc))
+check('CSS: 输入坞毛玻璃 64px + 淡填充 0.42', /sequoia"\] \[class\*="InputBar_card"\]\s*\{[^}]*background:\s*rgba\(255, 255, 255, 0\.42\)[^}]*backdrop-filter:\s*blur\(64px\)/.test(indexSrc))
+check('CSS: AI 玻璃卡片 40px + 淡填充 0.46', /sequoia"\] \[class\*="ChatView_column"\][^}]*backdrop-filter:\s*blur\(40px\)/.test(indexSrc))
+check('CSS: 弹窗毛玻璃提升到 48px', /\[role="dialog"\]\{[^}]*backdrop-filter:\s*blur\(48px\)/.test(indexSrc.replace(/\n/g, '')))
+check('CSS: 侧边栏右缘无白色高光线（只保留一条中性分界）', !/sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[^}]*inset -0?\.?5?px 0 0 rgba\(255, 255, 255/.test(indexSrc))
 
 console.log('\n=== D. 顶栏分割线：仅液态透明 ===')
 check('液态 line=transparent（产物）', /line:\s*"transparent"/.test(bundle))

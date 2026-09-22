@@ -398,15 +398,16 @@ body[data-ds-dark-theme] [role="dialog"]{
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode: surface driven dynamically by theme tokens */
+/* Dialogs/modals in light mode: 玻璃通透化 —— 填充由 --dsw-alias-bg-overlay 驱动，
+   液态主题已将其压到 0.72；此处再加大 blur 半径，让弹窗背后的内容呈现明显磨砂。 */
 body:not([data-ds-dark-theme]) [role="dialog"]{
   background:
     linear-gradient(145deg,
       rgba(255, 255, 255, 0.15) 0%,
       transparent 100%),
     var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(238, 232, 220))) !important;
-  backdrop-filter: blur(28px) saturate(1.10) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.10) !important;
+  backdrop-filter: blur(48px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(48px) saturate(1.25) !important;
   box-shadow:
     0 0 0 1px var(--dsw-alias-border-l2, rgba(15, 23, 42, 0.08)),
     0 12px 32px rgba(15, 23, 42, 0.08),
@@ -458,17 +459,20 @@ nav[class*="frame"],
   box-shadow: none !important;
 }
 
-/* 悬浮毛玻璃输入坞 (Floating Glass Dock) */
+/* 悬浮毛玻璃输入坞 (Floating Glass Dock)
+   玻璃强度 = 模糊半径 ÷ 填充不透明度。填充 0.82 会把背后模糊完全盖住，
+   视觉上等于一块实心白板。降到 0.42 + blur 64px，才能透出背景被模糊的层次。 */
 body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"] {
   border-radius: 20px !important;
-  background: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(36px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(36px) saturate(200%) !important;
+  background: rgba(255, 255, 255, 0.42) !important;
+  border: 1px solid rgba(255, 255, 255, 0.90) !important;
+  backdrop-filter: blur(64px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(64px) saturate(200%) !important;
   box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.12),
-    0 4px 12px rgba(0, 0, 0, 0.05),
-    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+    0 18px 46px rgba(0, 0, 0, 0.13),
+    0 4px 14px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.98),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.40) !important;
   margin-bottom: 8px !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
@@ -582,14 +586,18 @@ body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] * {
   color: #ffffff !important;
 }
 
-/* AI 助手回复：半透液态玻璃卡片化 */
+/* AI 助手回复：半透液态玻璃卡片化（同输入坞，淡填充 + 大 blur 换取强透明感） */
 body[data-ds-custom-theme="sequoia"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(0, 0, 0, 0.07) !important;
+  background: rgba(255, 255, 255, 0.46) !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
   border-radius: 18px 18px 18px 4px !important;
   padding: 16px 20px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
-  backdrop-filter: blur(20px) saturate(160%) !important;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.07),
+    inset 0 1px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(40px) saturate(175%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(175%) !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
@@ -608,19 +616,22 @@ body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatVi
    毛玻璃滤镜必须严格挂载在伪元素 ::before 上，该伪元素不是弹窗的祖先节点，完全安全。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
   background: transparent !important;
-  /* 去掉右缘 1px 暗线：它会在「顶栏无色差」之后成为唯一可见的竖向分界 */
-  border-right: none !important;
+  /* 左栏右缘竖向分界线（用户要求保留）：
+     用「中性浅灰」而非高反差黑/白 —— 在大面积同色底上，
+     0.5px 的克制灰线能清晰界定两栏，又不会像 1px 纯黑那样突兀。 */
+  border-right: 0.5px solid rgba(0, 0, 0, 0.10) !important;
 }
+/* 侧边栏毛玻璃：blur 半径拉大（56px），配合下方 0.34 的极淡填充，
+   玻璃通透度显著提升（观感 = 模糊半径 ÷ 填充不透明度）。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(32px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(190%) !important;
+  backdrop-filter: blur(56px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(56px) saturate(190%) !important;
 }
-/* 侧边栏内容层：只保留半透明填充（玻璃底），
-   摘除白色顶部渐变与右缘白线 —— 它们是侧边栏比顶栏亮 2~3 阶、
-   从而被肉眼读成「分家」的直接原因。 */
+/* 侧边栏内容层：极淡半透明填充（0.34）+ 仅一条发丝高光。
+   无光晕、无色相、无白渐变 —— 通透感来自「淡填充 + 大 blur」。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
-  background: rgba(245, 245, 247, 0.48) !important;
-  box-shadow: none !important;
+  background: rgba(245, 245, 247, 0.34) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.85) !important;
 }
 
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] {
