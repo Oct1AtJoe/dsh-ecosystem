@@ -162,6 +162,7 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 | 顶栏与内容区之间多一条分隔线 | `#titlebar` 的 `border-bottom: 1px solid var(--line)` | 已移除该声明。壳顶栏与内容子 WebView 紧贴（内容从 y=36 起），内容区自身不画线，删掉顶栏这条即无缝 |
 | 最小化后再最大化，页面全黑须按 F5 | 最小化时窗口矩形是哨兵值 `(-32000,-32000) 160x28`。`WM_NCCALCSIZE` 以当前矩形解析显示器，哨兵坐标下 `MONITOR_DEFAULTTONEAREST` 退化到主屏，客户区被算成主屏 `rcWork` 尺寸（实测 2560×1392，而窗口在副屏只有 1920×1032）；`layout_webviews` 读该 client rect 把内容 WebView 摆到主屏坐标 `(0,36)`，整块移出窗口可视区 | 显示器解析改用 `monitor_info_for_window()`（`GetWindowPlacement().rcNormalPosition` + `MonitorFromRect`，含哨兵兜底）；`layout_webviews` 最小化时跳过、`inner_size` < 200 视为瞬态跳过；`capture_window_geometry` 最小化/哨兵几何时不落盘 |
 | 重启后窗口跑到屏幕外 | 最小化瞬间 `capture_window_geometry` 把哨兵几何 `(-32000,-32000) 160x28` 写进 `window-geometry.json` | 同上：最小化与哨兵几何一律跳过持久化。已污染的记录需手动删除该文件 |
+| 重启后窗口没回到设置的屏幕，恢复到主屏（恢复端日志显示 `已恢复几何` 但坐标是旧屏的） | 保存端两条逻辑丢副屏坐标：① `4c97456` 引入的 90%x88% `looks_like_maximized` 过滤对副屏近全屏普通窗口（副屏 1920×1080 下 ≥1728×950）永久 `return`，Moved 坐标永不落盘；② `2010fd9` 引入的 maximized 分支只翻 `maximized` 标志不更新 x/y，最大化换屏（拖顶 snap / Win+Shift+方向键）后坐标冻结在旧屏 | ① 瞬态挡下时挂 300ms `capture_geometry(w, false)` 延迟重捕，瞬态结束放行落盘（重捕二次近全屏即视为真实窗口尺寸）；② 最大化期间改用 `normal_geometry()`（`GetWindowPlacement().rcNormalPosition`）更新还原态几何，与已存记录比对防重复写盘 |
 
 ### 12.1 窗口圆角（DWM 原生，约 5.8px）
 
@@ -197,7 +198,7 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 - 无边框子类化：`window_subclass_proc`（约 L1428）。
 - 边缘缩放：`border_resizing`（约 L1561）。
 - 布局：`layout_webviews`（约 L1954）。
-- 几何持久化：`capture_window_geometry`（约 L1295）。
+- 几何持久化：`capture_window_geometry` → `capture_geometry`（约 L1326，含 300ms 瞬态延迟重捕）、最大化期间还原态几何 `normal_geometry`（约 L1450，`GetWindowPlacement`）。
 - 菜单：`popup_shell_menu` / `build_tray` / `on_menu_event`。
 - 重启：`restart_app` / `restart_backend`。
 - 通知桥：`start_notify_server` / `bridge_init_script`。

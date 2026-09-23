@@ -1325,9 +1325,30 @@ fn apply_saved_geometry(window: &tauri::Window) {
 
 /// 记录主窗口当前几何。最大化时保留上一次的普通几何（与 window-state 插件语义一致）。
 fn capture_window_geometry(window: &tauri::Window) {
+    capture_geometry(window, true);
+}
+
+/// `allow_deferred`：近全屏「疑似最大化瞬态」首见时挂 300ms 延迟重捕；
+/// 重捕时瞬态已结束放行落盘。否则副屏上接近全屏的普通窗口（≥90% 屏宽高）
+/// 会被永久丢弃不写盘，重启后恢复到上一块屏的旧坐标。
+fn capture_geometry(window: &tauri::Window, allow_deferred: bool) {
     let maximized = window.is_maximized().unwrap_or(false);
     if maximized {
-        if let Some(mut geo) = load_geometry() {
+        // 最大化期间也要更新还原态几何：窗口换屏（拖顶 snap / Win+Shift+方向键）后
+        // 旧坐标会冻结在上一块屏。还原矩形只能从 GetWindowPlacement 取——
+        // 此刻 outer_position/outer_size 是最大化矩形，直接存会污染还原位置。
+        if let Some(geo) = normal_geometry(window) {
+            let unchanged = load_geometry().map_or(false, |g| {
+                g.maximized
+                    && g.x == geo.x
+                    && g.y == geo.y
+                    && g.width == geo.width
+                    && g.height == geo.height
+            });
+            if !unchanged {
+                save_geometry(&WindowGeometry { maximized: true, ..geo });
+            }
+        } else if let Some(mut geo) = load_geometry() {
             if !geo.maximized {
                 geo.maximized = true;
                 save_geometry(&geo);
@@ -1350,14 +1371,22 @@ fn capture_window_geometry(window: &tauri::Window) {
         );
         return;
     }
-    // 防御性过滤：如果抓取到的尺寸大于任何显示器工作区的 90%，
-    // 说明正处于最大化/还原的动画或过渡瞬态，绝不覆盖普通尺寸！
+    // 尺寸 ≥ 任一显示器 90%x88% 可能是最大化/还原瞬态（此时 is_maximized 仍 false，
+    // 误存会污染还原尺寸），不立即落盘；挂 300ms 延迟重捕，瞬态结束后放行，
+    // 兼顾：副屏近全屏的普通大窗口最终仍会写盘。
     if let Ok(monitors) = window.available_monitors() {
         let looks_like_maximized = monitors.iter().any(|m| {
             let ms = m.size();
             size.width >= (ms.width as f64 * 0.90) as u32 && size.height >= (ms.height as f64 * 0.88) as u32
         });
         if looks_like_maximized {
+            if allow_deferred {
+                let w = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                    capture_geometry(&w, false);
+                });
+            }
             return;
         }
     }
@@ -1444,6 +1473,37 @@ fn monitor_info_for_window(
         };
         GetMonitorInfoW(monitor, &mut info).as_bool().then_some(info)
     }
+}
+
+/// 最大化期间取「还原态」几何：`GetWindowPlacement().rcNormalPosition`
+/// （工作区坐标系；当前环境主屏工作区原点 (0,0)，与屏幕坐标一致，
+/// 与 `monitor_info_for_window` 的同一锚点假设保持一致）。
+/// 最大化窗口换屏时该矩形随窗口走，而 `outer_position` 此刻是最大化矩形。
+#[cfg(target_os = "windows")]
+fn normal_geometry(window: &tauri::Window) -> Option<WindowGeometry> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowPlacement, WINDOWPLACEMENT};
+    let h = window.hwnd().ok()?;
+    let hwnd = windows::Win32::Foundation::HWND(h.0 as _);
+    let mut placement = WINDOWPLACEMENT {
+        length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
+        ..Default::default()
+    };
+    unsafe {
+        GetWindowPlacement(hwnd, &mut placement).ok()?;
+    }
+    let r = placement.rcNormalPosition;
+    Some(WindowGeometry {
+        x: r.left,
+        y: r.top,
+        width: (r.right - r.left) as u32,
+        height: (r.bottom - r.top) as u32,
+        maximized: false,
+    })
+}
+
+#[cfg(not(target_os = "windows"))]
+fn normal_geometry(_: &tauri::Window) -> Option<WindowGeometry> {
+    None
 }
 
 /// 窗口子类化处理过程：精准拦截 `WM_STYLECHANGING`、`WM_NCACTIVATE`、`WM_NCCALCSIZE`、`WM_NCPAINT` 与 `WM_GETMINMAXINFO`。
