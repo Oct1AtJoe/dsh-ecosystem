@@ -34,6 +34,10 @@ interface PanelClientContext {
   sidebarRightTabs?: {
     register(def: unknown): () => void
   }
+  sidebarRight?: {
+    openResource(address: string, options?: Record<string, unknown>): void
+    openTab(kind: string, options?: Record<string, unknown>): void
+  }
   sessions: {
     list: {
       getSnapshot(): { current?: string; byId: Record<string, { cwd?: string }> }
@@ -242,21 +246,19 @@ export function apply(ctx: PanelClientContext): void {
     }
   })
 
-  // 3. Git 变更对比标签：只接手「此刻确有 git 改动」的文件。
-  ctx.inject(['sidebarRightTabs', 'slots', 'sessions'], (scope: any) => {
+  // 3. Git 变更对比标签：按 kind: 'git-diff' 打开。
+  //    不声明全局匹配模式（patterns: []），避免劫持用户在对话中或文件树中点击普通文件时的默认预览行为；
+  //    仅在 Git 面板明确点击变更文件时（带 { kind: 'git-diff' }）才打开此标签类型。
+  ctx.inject(['sidebarRightTabs', 'slots', 'sessions', 'sidebarRight'], (scope: any) => {
     try {
       if (!scope.sidebarRightTabs) return
       scope.sidebarRightTabs.register({
         id: DIFF_TAB_ID,
         kind: DIFF_KIND,
         priority: 'extension',
-        patterns: ['dsh-resource://file/**'],
         canOpen: (address: string): boolean => {
           const parsed = parseFileAddress(address)
-          if (parsed === undefined) return false
-          const cwd = cwdOf(parsed.sessionId)
-          if (cwd === '') return false
-          return statusCache.isChanged(cwd, parsed.path)
+          return parsed !== undefined && parsed.sessionId !== ''
         },
         title: (address: string) => {
           const parsed = parseFileAddress(address)
@@ -268,7 +270,11 @@ export function apply(ctx: PanelClientContext): void {
         scope.slots.register({
           name: 'sidebar.right.pane.tab',
           key: DIFF_TAB_ID,
-          inject: () => ({ api, sessions: ctx.sessions }),
+          inject: () => ({
+            api,
+            sessions: ctx.sessions,
+            sidebarRight: scope.sidebarRight ?? ctx.sidebarRight,
+          }),
         }, GitDiffView)
       )
       console.log('dsh-git-panel: registered git-diff tab type')
@@ -283,7 +289,7 @@ export function apply(ctx: PanelClientContext): void {
   //    对比一个没改动的文件时，用户仍可在这里手动切换过来。优先级用 extension
   //    （低于 builtin），因此代码 / Markdown 等官方渲染器仍是默认，我们只出现在
   //    备选列表里，不会改变既有默认观感。
-  ctx.inject(['documentPreviews', 'slots', 'sessions'], (scope: any) => {
+  ctx.inject(['documentPreviews', 'slots', 'sessions', 'sidebarRight'], (scope: any) => {
     try {
       if (!scope.documentPreviews) return
       scope.documentPreviews.register({
@@ -303,6 +309,7 @@ export function apply(ctx: PanelClientContext): void {
           resourceAddress: props.resourceAddress,
           api,
           sessions: ctx.sessions,
+          sidebarRight: scope.sidebarRight ?? ctx.sidebarRight,
         }))
       )
       console.log('dsh-git-panel: registered Git diff as a document viewer')

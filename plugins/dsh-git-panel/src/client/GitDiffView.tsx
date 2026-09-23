@@ -48,6 +48,7 @@ type Mode = 'split' | 'unified' | 'conflict' | 'edit'
 export interface GitDiffViewProps {
   api?: GitPanelApi
   sessions?: TabSessions
+  sidebarRight?: any
   /** 作为官方文档预览的替代渲染器时，地址由文档插槽直接给出。 */
   resourceAddress?: string
   useTabInfo?: () => { tab: { id: string; contentId: string; actions: { openResource(address: string, options?: Record<string, unknown>): void } } }
@@ -331,11 +332,20 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
 
   const openSource = useCallback((): void => {
     try {
-      tab?.actions.openResource(address, { kind: 'text' })
+      // 优先调用全局导航控制器 sidebarRight，以官方的 'text' 预览打开该资源；
+      // 若当前为独立 diff 标签（tab?.id 存在），传入 replaceTab 就地替换当前标签并关闭它
+      if (props.sidebarRight && typeof props.sidebarRight.openResource === 'function') {
+        props.sidebarRight.openResource(address, {
+          kind: 'text',
+          ...(tab?.id ? { replaceTab: tab.id } : {}),
+        })
+      } else if (tab?.actions) {
+        tab.actions.openResource(address, { replaceTab: true })
+      }
     } catch (openError) {
       setNote({ text: openError instanceof Error ? openError.message : t('diff.openFailed'), kind: 'err' })
     }
-  }, [address, tab])
+  }, [address, props.sidebarRight, tab])
 
   const color = status === undefined ? undefined : STATUS_COLORS[status]
   const name = basenameOf(file)

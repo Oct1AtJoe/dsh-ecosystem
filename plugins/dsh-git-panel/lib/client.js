@@ -3267,11 +3267,18 @@ function GitDiffView(props) {
   }, [api, busy, cwd, file]);
   const openSource = (0, import_react5.useCallback)(() => {
     try {
-      tab?.actions.openResource(address, { kind: "text" });
+      if (props.sidebarRight && typeof props.sidebarRight.openResource === "function") {
+        props.sidebarRight.openResource(address, {
+          kind: "text",
+          ...tab?.id ? { replaceTab: tab.id } : {}
+        });
+      } else if (tab?.actions) {
+        tab.actions.openResource(address, { replaceTab: true });
+      }
     } catch (openError) {
       setNote({ text: openError instanceof Error ? openError.message : t("diff.openFailed"), kind: "err" });
     }
-  }, [address, tab]);
+  }, [address, props.sidebarRight, tab]);
   const color = status === void 0 ? void 0 : STATUS_COLORS[status];
   const name = basenameOf(file);
   return (0, import_react5.createElement)(
@@ -4094,20 +4101,16 @@ function apply(ctx) {
       console.warn("dsh-git-panel: sidebarRightTabs register error", err);
     }
   });
-  ctx.inject(["sidebarRightTabs", "slots", "sessions"], (scope) => {
+  ctx.inject(["sidebarRightTabs", "slots", "sessions", "sidebarRight"], (scope) => {
     try {
       if (!scope.sidebarRightTabs) return;
       scope.sidebarRightTabs.register({
         id: DIFF_TAB_ID,
         kind: DIFF_KIND,
         priority: "extension",
-        patterns: ["dsh-resource://file/**"],
         canOpen: (address) => {
           const parsed = parseFileAddress(address);
-          if (parsed === void 0) return false;
-          const cwd = cwdOf(parsed.sessionId);
-          if (cwd === "") return false;
-          return statusCache.isChanged(cwd, parsed.path);
+          return parsed !== void 0 && parsed.sessionId !== "";
         },
         title: (address) => {
           const parsed = parseFileAddress(address);
@@ -4119,7 +4122,11 @@ function apply(ctx) {
         () => scope.slots.register({
           name: "sidebar.right.pane.tab",
           key: DIFF_TAB_ID,
-          inject: () => ({ api, sessions: ctx.sessions })
+          inject: () => ({
+            api,
+            sessions: ctx.sessions,
+            sidebarRight: scope.sidebarRight ?? ctx.sidebarRight
+          })
         }, GitDiffView)
       );
       console.log("dsh-git-panel: registered git-diff tab type");
@@ -4127,7 +4134,7 @@ function apply(ctx) {
       console.warn("dsh-git-panel: git-diff register error", error);
     }
   });
-  ctx.inject(["documentPreviews", "slots", "sessions"], (scope) => {
+  ctx.inject(["documentPreviews", "slots", "sessions", "sidebarRight"], (scope) => {
     try {
       if (!scope.documentPreviews) return;
       scope.documentPreviews.register({
@@ -4146,7 +4153,8 @@ function apply(ctx) {
         }, (props) => (0, import_react6.createElement)(GitDiffView, {
           resourceAddress: props.resourceAddress,
           api,
-          sessions: ctx.sessions
+          sessions: ctx.sessions,
+          sidebarRight: scope.sidebarRight ?? ctx.sidebarRight
         }))
       );
       console.log("dsh-git-panel: registered Git diff as a document viewer");
