@@ -3955,57 +3955,7 @@ function GitGuideIcon(props) {
   );
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
-var DIFF_VIEWER_ID = "dsh-git-panel/diff";
 var DIFF_KIND = "git-diff";
-var DIFF_EXTENSIONS = [
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "mjs",
-  "cjs",
-  "json",
-  "py",
-  "rb",
-  "go",
-  "rs",
-  "java",
-  "kt",
-  "swift",
-  "c",
-  "h",
-  "cc",
-  "cpp",
-  "hpp",
-  "cs",
-  "php",
-  "dart",
-  "lua",
-  "pl",
-  "r",
-  "scala",
-  "sh",
-  "bash",
-  "zsh",
-  "yml",
-  "yaml",
-  "toml",
-  "ini",
-  "sql",
-  "graphql",
-  "proto",
-  "css",
-  "scss",
-  "less",
-  "html",
-  "htm",
-  "xml",
-  "svg",
-  "vue",
-  "svelte",
-  "md",
-  "markdown"
-];
 var POLL_MS = 4e3;
 function apply(ctx) {
   try {
@@ -4132,34 +4082,6 @@ function apply(ctx) {
       console.log("dsh-git-panel: registered git-diff tab type");
     } catch (error) {
       console.warn("dsh-git-panel: git-diff register error", error);
-    }
-  });
-  ctx.inject(["documentPreviews", "slots", "sessions", "sidebarRight"], (scope) => {
-    try {
-      if (!scope.documentPreviews) return;
-      scope.documentPreviews.register({
-        id: DIFF_VIEWER_ID,
-        extensions: DIFF_EXTENSIONS,
-        priority: "extension",
-        title: () => "Git \u53D8\u66F4\u5BF9\u6BD4",
-        loading: "text-pages",
-        wrap: true
-      });
-      scope.slots.inject(
-        "sidebar.right.tab.document",
-        () => scope.slots.register({
-          name: "sidebar.right.tab.document",
-          key: DIFF_VIEWER_ID
-        }, (props) => (0, import_react6.createElement)(GitDiffView, {
-          resourceAddress: props.resourceAddress,
-          api,
-          sessions: ctx.sessions,
-          sidebarRight: scope.sidebarRight ?? ctx.sidebarRight
-        }))
-      );
-      console.log("dsh-git-panel: registered Git diff as a document viewer");
-    } catch (error) {
-      console.warn("dsh-git-panel: document viewer register error", error);
     }
   });
 }

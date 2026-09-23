@@ -85,31 +85,7 @@ function GitGuideIcon(props: { size?: number; className?: string }): React.React
     createElement('path', { key: 'd', d: 'M9 9.6v8.8M9 14h7.4' }),
   )
 }const DIFF_TAB_ID = '@deepseek-ai/dsh-git-panel/diff'
-/** 官方文档插槽里的渲染器 id（与标签类型 id 不同名，避免与官方注册表冲突）。 */
-const DIFF_VIEWER_ID = 'dsh-git-panel/diff'
 const DIFF_KIND = 'git-diff'
-
-/**
- * 「Git 变更对比」可作为备选渲染器的文件后缀。
- *
- * 这份名单刻意只列**官方代码渲染器确实支持**的常见后缀（shiki 语言表覆盖的
- * 那些）：我们的优先级是 `extension`（低于 `builtin`），因此在这些类型上官方
- * 渲染器仍是默认，我们只出现在「打开方式」下拉里，不会改变既有观感。
- *
- * 不在这里的后缀并不会失去对比能力——点文件树里带改动标记的文件，仍然由
- * `git-diff` 标签类型直接接管（那条路与后缀无关）。
- */
-const DIFF_EXTENSIONS = [
-  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'json',
-  'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift',
-  'c', 'h', 'cc', 'cpp', 'hpp', 'cs', 'php', 'dart', 'lua', 'pl', 'r', 'scala',
-  'sh', 'bash', 'zsh',
-  'yml', 'yaml', 'toml', 'ini',
-  'sql', 'graphql', 'proto',
-  'css', 'scss', 'less',
-  'html', 'htm', 'xml', 'svg', 'vue', 'svelte',
-  'md', 'markdown',
-]
 
 /** 文件地址前缀（与官方 side-bar 文件树拼出的地址同一约定）。 */
 const FILE_PREFIX = 'dsh-resource://file/session/'
@@ -280,41 +256,6 @@ export function apply(ctx: PanelClientContext): void {
       console.log('dsh-git-panel: registered git-diff tab type')
     } catch (error) {
       console.warn('dsh-git-panel: git-diff register error', error)
-    }
-  })
-
-  // 4. 官方文件预览的可选渲染器：在「打开方式」下拉里多一个「Git 变更对比」。
-  //
-  //    与第 3 条互补：标签类型只在「确有改动」时接手，命中之前（缓存未热）或想
-  //    对比一个没改动的文件时，用户仍可在这里手动切换过来。优先级用 extension
-  //    （低于 builtin），因此代码 / Markdown 等官方渲染器仍是默认，我们只出现在
-  //    备选列表里，不会改变既有默认观感。
-  ctx.inject(['documentPreviews', 'slots', 'sessions', 'sidebarRight'], (scope: any) => {
-    try {
-      if (!scope.documentPreviews) return
-      scope.documentPreviews.register({
-        id: DIFF_VIEWER_ID,
-        extensions: DIFF_EXTENSIONS,
-        priority: 'extension',
-        title: () => 'Git 变更对比',
-        loading: 'text-pages',
-        wrap: true,
-      })
-
-      scope.slots.inject('sidebar.right.tab.document', () =>
-        scope.slots.register({
-          name: 'sidebar.right.tab.document',
-          key: DIFF_VIEWER_ID,
-        }, (props: { resourceAddress?: string }) => createElement(GitDiffView, {
-          resourceAddress: props.resourceAddress,
-          api,
-          sessions: ctx.sessions,
-          sidebarRight: scope.sidebarRight ?? ctx.sidebarRight,
-        }))
-      )
-      console.log('dsh-git-panel: registered Git diff as a document viewer')
-    } catch (error) {
-      console.warn('dsh-git-panel: document viewer register error', error)
     }
   })
 }

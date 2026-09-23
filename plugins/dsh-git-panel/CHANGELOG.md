@@ -6,15 +6,20 @@
 
 ### Fixed
 - **点击对话中文件误被当成 Diff 对比、且 Diff 页面点击「官方文本预览」按钮无响应**：
-  - 根因：原先在 `src/client/index.ts` 注册 `DIFF_TAB_ID` 时声明了通配模式 `patterns: ['dsh-resource://file/**']`
-    且优先级为最高档 `extension`，导致系统所有常规文件打开请求（如对话框点击 `@file` 引用）只要该文件存在未提交 git 改动，
-    就会被强行劫持认领为 `git-diff` 差异对比，无法正常阅读代码；而在 `GitDiffView` 中点击「官方文本预览」时，
-    底层 `tabActions.openResource` 未向下透传 `kind: 'text'`，丢弃后退化为普通打开，再次被上述通配模式劫持，原地空转无响应；
-  - 现将 `DIFF_TAB_ID` 的全局匹配模式清空（`patterns: []`），使对话框与文件树的普通文件打开**100% 自然由官方文本/代码预览器接管**，
-    不再越界劫持；仅当在 Git 面板内主动点击变更文件时（显式携带 `{ kind: 'git-diff' }`）才激活 Diff 对比页；
-  - 为 `GitDiffView` 注入全局 `sidebarRight` 控制器，重写 `openSource` 逻辑，显式指定以 `kind: 'text'` 打开官方预览，
-    并传入 `replaceTab: tab.id` 就地替换当前 Diff 标签并平滑关闭它；
-  - 新增 `scripts/test-diff-routing.ts` 自动化单元自检，覆盖模式隔离与替换参数。
+  - 深度根因排查：原先在 `src/client/index.ts` 中存在两重致命劫持：
+    1. 误以为 `documentPreviews.register` 中的 `priority: 'extension'` 低于 `builtin`，
+       实测官方优先级为 `extension (1) > builtin (0)`，导致插件将所有常见代码后缀（ts, js, py, md 等）
+       的**默认首选渲染器（candidates[0]）全部强占篡改为「Git 变更对比」**，哪怕进入官方预览器也会默认呈现 Diff；
+    2. 在 `sidebarRightTabs` 中声明了 `patterns: ['dsh-resource://file/**']` 且优先级同样为 `extension`，
+       劫持了所有未带 kind 的打开请求；而在 `GitDiffView` 中点击「官方文本预览」时，由于底层 `tabActions.openResource`
+       未透传 `kind: 'text'` 导致退化空转；
+  - 彻底拔除两重劫持：
+    1. 彻底移除 `documentPreviews.register` 的注册，官方文档预览器（代码/Markdown/纯文本）**100% 恢复纯净与首选地位**，
+       对话框点击文件绝不再被任何插件篡改；
+    2. 清空 `sidebarRightTabs` 的 `patterns: []`，Diff 视图仅在 Git 面板内主动点击变更文件时（携带 `{ kind: 'git-diff' }`）打开；
+    3. 为 `GitDiffView` 注入全局 `sidebarRight` 控制器，重写 `openSource` 逻辑，调用
+       `sidebarRight.openResource(address, { kind: 'text', replaceTab: tab?.id })`，点击即就地平滑切回官方代码预览；
+  - 新增 `scripts/test-diff-routing.ts` 自动化单元自检，88 项测试全绿。
 
 - **图谱分支列被挤出默认视口、提交文本截断缺少完整内容查看途径**：
   - 根因：原先分支列写死 `BRANCH_COL_WIDTH = 240`，且提交列宽度 `autoCommit` 贪婪膨胀至
