@@ -655,20 +655,30 @@ export class GitService {
     return { ok: true, output: out || 'Sync successful' }
   }
 
-  /** 提交全部变更（git add -A + git commit -m）。 */
+  /**
+   * 提交已暂存的变更（git commit -m）。
+   * 严格遵循暂存区隔离原则：只提交已暂存（staged）文件，不自动 add -A，
+   * 未暂存（unstaged）文件一律保留在工作区。
+   * 暂存区为空时返回 empty-stage 错误。
+   */
   async commit(path: string, message: string): Promise<OpResult> {
     const canonical = await this.requireWorkspace(path)
     const clean = message.trim()
     if (clean === '') {
       return { ok: false, output: '', error: { code: 'empty-message', message: 'commit message 不能为空' } }
     }
-    const addRun = await this.runner.run(['add', '-A'], canonical)
-    if (addRun.exitCode !== 0) {
-      return { ok: false, output: addRun.stdout, error: { code: 'add-failed', message: addRun.stderr.trim() || 'git add failed' } }
-    }
     const commitRun = await this.runner.run(['commit', '-m', clean], canonical)
     if (commitRun.exitCode !== 0) {
-      return { ok: false, output: commitRun.stdout, error: { code: 'commit-failed', message: commitRun.stderr.trim() || 'git commit failed' } }
+      const msg = commitRun.stderr.trim() || commitRun.stdout.trim() || 'git commit failed'
+      const isNothingStaged = msg.includes('nothing to commit') || msg.includes('no changes added to commit')
+      return {
+        ok: false,
+        output: commitRun.stdout,
+        error: {
+          code: isNothingStaged ? 'empty-stage' : 'commit-failed',
+          message: isNothingStaged ? '暂存区为空，没有要提交的改动' : msg,
+        },
+      }
     }
     return { ok: true, output: commitRun.stdout.trim() }
   }

@@ -881,6 +881,7 @@ export function GitPanel(props: {
   const [stash, setStash] = useState<{ entries: number; files: number } | null>(null)
   // 变更文件列表 + 选中的文件 diff。
   const [changes, setChanges] = useState<Array<{ code: string; file: string }>>([])
+  const { conflicts, staged, unstaged } = useMemo(() => classifyChanges(changes), [changes])
   const [diffState, setDiffState] = useState<{ file: string; content: string; busy: boolean } | null>(null)
   // 分支名快速搜索过滤。
   const [branchSearch, setBranchSearch] = useState('')
@@ -993,6 +994,12 @@ export function GitPanel(props: {
     let result: { ok: boolean; output?: string; error?: { code: string; message: string } }
     try {
       if (action === 'commit') {
+        if (staged.length === 0) {
+          setMessage({ text: t('write.commit.emptyStageNotice'), kind: 'err' })
+          setPendingOp(null)
+          setBusy(false)
+          return
+        }
         result = await api.commit(path, extra ?? commitMsg)
       } else if (action === 'push') {
         result = await api.push(path)
@@ -1033,7 +1040,7 @@ export function GitPanel(props: {
     }
     setPendingOp(null)
     setBusy(false)
-  }, [path, api, busy, commitMsg, t, refreshStatus, refreshStash, load, onRefreshStatus])
+  }, [path, api, busy, commitMsg, t, refreshStatus, refreshStash, load, onRefreshStatus, staged.length])
 
   /**
    * 批量暂存 / 取消暂存一组文件。
@@ -1322,7 +1329,6 @@ export function GitPanel(props: {
         </div>
         {(() => {
           if (changes.length === 0) return null
-          const { conflicts, staged, unstaged } = classifyChanges(changes)
 
           return (
             <div className="dsh-gp-changes">

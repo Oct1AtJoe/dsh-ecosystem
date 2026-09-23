@@ -264,6 +264,7 @@ var DICTS = {
     "write.commit.generating": "\u6B63\u5728\u6839\u636E\u6682\u5B58\u533A\u53D8\u66F4\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u2026",
     "write.commit.generated": "\u5DF2\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\uFF0C\u8BF7\u786E\u8BA4\u540E\u63D0\u4EA4",
     "write.commit.emptyStage": "\u6682\u5B58\u533A\u4E3A\u7A7A\uFF1A\u8BF7\u5148\u6682\u5B58\u8981\u63D0\u4EA4\u7684\u6539\u52A8\uFF0C\u518D\u81EA\u52A8\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u3002",
+    "write.commit.emptyStageNotice": "\u6682\u5B58\u533A\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u63D0\u4EA4\uFF1A\u8BF7\u5148\u6682\u5B58\u8981\u63D0\u4EA4\u7684\u6587\u4EF6\u3002",
     "write.commit.failed": "\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u5931\u8D25\uFF1A{reason}",
     "write.commit.noModel": "\u6CA1\u6709\u53EF\u7528\u7684\u9ED8\u8BA4\u6A21\u578B\uFF0C\u65E0\u6CD5\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u3002\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u9ED8\u8BA4\u6A21\u578B\u3002",
     "write.push": "\u63A8\u9001",
@@ -449,6 +450,7 @@ var DICTS = {
     "write.commit.generating": "Generating a commit message from the staged changes\u2026",
     "write.commit.generated": "Commit message generated \u2014 review it before committing",
     "write.commit.emptyStage": "Nothing is staged: stage the changes you want to commit, then generate.",
+    "write.commit.emptyStageNotice": "Nothing is staged to commit: please stage the files you want to commit first.",
     "write.commit.failed": "Failed to generate a commit message: {reason}",
     "write.commit.noModel": "No default model is available, so a commit message cannot be generated. Pick one in settings.",
     "write.push": "Push",
@@ -634,6 +636,7 @@ var DICTS = {
     "write.commit.generating": "Generando el mensaje a partir de los cambios preparados\u2026",
     "write.commit.generated": "Mensaje generado: rev\xEDsalo antes de confirmar",
     "write.commit.emptyStage": "No hay nada preparado: prepara los cambios que quieras confirmar y vuelve a generar.",
+    "write.commit.emptyStageNotice": "No hay nada preparado para confirmar: prepara primero los archivos que quieras confirmar.",
     "write.commit.failed": "No se pudo generar el mensaje de commit: {reason}",
     "write.commit.noModel": "No hay un modelo predeterminado disponible, as\xED que no se puede generar el mensaje. Elige uno en ajustes.",
     "write.push": "Empujar",
@@ -757,6 +760,7 @@ var HOST_ERRORS = {
   "write-failed": { zh: "\u5199\u5165\u6587\u4EF6\u5931\u8D25", en: "Failed to write the file", es: "Error al escribir el archivo" },
   "empty-sha": { zh: "sha \u4E0D\u80FD\u4E3A\u7A7A", en: "sha must not be empty", es: "sha no puede estar vac\xEDo" },
   "empty-message": { zh: "commit message \u4E0D\u80FD\u4E3A\u7A7A", en: "commit message must not be empty", es: "El mensaje de commit no puede estar vac\xEDo" },
+  "empty-stage": { zh: "\u6682\u5B58\u533A\u4E3A\u7A7A\uFF0C\u6CA1\u6709\u8981\u63D0\u4EA4\u7684\u6539\u52A8", en: "Nothing is staged to commit", es: "No hay nada preparado para confirmar" },
   "credential-failed": { zh: "\u4FDD\u5B58\u51ED\u636E\u5931\u8D25", en: "Failed to save credentials", es: "Error al guardar las credenciales" },
   "not-a-repo": { zh: "\u5F53\u524D\u76EE\u5F55\u4E0D\u662F Git \u4ED3\u5E93", en: "The current directory is not a Git repository", es: "El directorio actual no es un repositorio Git" },
   "bad-branch": { zh: "\u975E\u6CD5\u5206\u652F\u540D", en: "Invalid branch name", es: "Nombre de rama no v\xE1lido" },
@@ -1851,6 +1855,7 @@ function GitPanel(props) {
   const [statusText, setStatusText] = (0, import_react3.useState)("");
   const [stash, setStash] = (0, import_react3.useState)(null);
   const [changes, setChanges] = (0, import_react3.useState)([]);
+  const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(() => classifyChanges(changes), [changes]);
   const [diffState, setDiffState] = (0, import_react3.useState)(null);
   const [branchSearch, setBranchSearch] = (0, import_react3.useState)("");
   ensureStyle();
@@ -1924,6 +1929,12 @@ function GitPanel(props) {
     let result;
     try {
       if (action === "commit") {
+        if (staged.length === 0) {
+          setMessage({ text: t2("write.commit.emptyStageNotice"), kind: "err" });
+          setPendingOp(null);
+          setBusy(false);
+          return;
+        }
         result = await api.commit(path, extra ?? commitMsg);
       } else if (action === "push") {
         result = await api.push(path);
@@ -1962,7 +1973,7 @@ function GitPanel(props) {
     }
     setPendingOp(null);
     setBusy(false);
-  }, [path, api, busy, commitMsg, t2, refreshStatus, refreshStash, load, onRefreshStatus]);
+  }, [path, api, busy, commitMsg, t2, refreshStatus, refreshStash, load, onRefreshStatus, staged.length]);
   const runBatchStage = (0, import_react3.useCallback)(async (files, action) => {
     if (!path || busy || files.length === 0) return;
     setBusy(true);
@@ -2243,7 +2254,6 @@ function GitPanel(props) {
       ] }),
       (() => {
         if (changes.length === 0) return null;
-        const { conflicts, staged, unstaged } = classifyChanges(changes);
         return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-title", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
