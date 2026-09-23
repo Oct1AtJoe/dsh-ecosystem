@@ -20,7 +20,8 @@ export function layoutGraph(commits: GraphCommit[]): LayoutCommit[] {
   const placed = new Map<string, LayoutCommit>()
 
   for (const { commit, index } of order) {
-    const row = commits.length - 1 - index
+    // 时间降序：最新提交在顶部（row: 0），历史祖先提交依次向下（符合 GitLens / 主流 Git 工具习惯）
+    const row = index
     let lane = lanes.findIndex((owner) => owner !== null && commit.parents.includes(owner))
     if (lane === -1) {
       lane = lanes.findIndex((owner) => owner === null)

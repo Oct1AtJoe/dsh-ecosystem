@@ -957,7 +957,7 @@ function layoutGraph(commits) {
   const lanes = [];
   const placed = /* @__PURE__ */ new Map();
   for (const { commit, index } of order) {
-    const row = commits.length - 1 - index;
+    const row = index;
     let lane = lanes.findIndex((owner) => owner !== null && commit.parents.includes(owner));
     if (lane === -1) {
       lane = lanes.findIndex((owner) => owner === null);

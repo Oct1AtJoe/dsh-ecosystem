@@ -14,7 +14,7 @@ A Git panel plugin for the DSH Web GUI: branch management (switch / pull / fetch
   - Right-click menu: **pull updates / fetch all / copy branch name / rename / delete / merge into current branch** (remote branches get delete-remote instead)
   - One-click **pull** of the current branch, **fetch all** (`git fetch --all --prune`)
 - **Branch chip** (above the input box): shows the current branch; click to open a local-branch list for quick switching
-- **Git graph**: commit DAG lanes, three-column header (Lanes / Commit / Branch), the commit column is resizable from both sides (width persisted), click a node for commit details; virtualized rendering — only the visible viewport is drawn, so large repositories scroll smoothly
+- **Git graph**: commit DAG lanes, ordered in descending date order (newest commit on top, ancestors flowing downward), three-column header (Lanes / Commit / Branch), the commit column is resizable from both sides (width persisted), click a node for commit details; virtualized rendering — only the visible viewport is drawn, so large repositories scroll smoothly
 - **Write bar** (top of the panel, under the tabs):
   - **Commit**: type a message and press Enter → `git add -A && git commit -m`
   - **Generate commit message**: the generate button inside the right end of the message field (Lucide "sparkles" semantics, drawn from the plugin's single `icon()` set) reads the **staged** changes, hands them to your current default model together with the repository's recent commit subjects, and writes the generated message back into the field (an existing draft is replaced). With an empty staging area it reports that instead of generating; on failure it reports the failure and **leaves whatever you had typed untouched**
