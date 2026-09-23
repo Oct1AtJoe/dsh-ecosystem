@@ -194,7 +194,7 @@ const STYLE = `
   padding:24px; text-align:center; color:#9a6700; font-size:12px; line-height:1.7; }
 [data-ds-dark-theme] .dsh-gp-warn { color:#d4a72c; }
 .dsh-gp-detail { border-top:1px solid var(--border); padding:6px 10px; font-size:11px;
-  background:var(--panel-bg); max-height:96px; overflow:auto; }
+  background:var(--panel-bg); max-height:120px; overflow:auto; word-break:break-word; line-height:1.45; }
 .dsh-gp-col-resize { position:absolute; top:0; height:28px; cursor:col-resize; touch-action:none; z-index:5; }
 .dsh-gp-col-resize::after { content:''; position:absolute; left:2.5px; top:6px; bottom:6px;
   width:1px; background:var(--border); opacity:0.7; }
@@ -574,7 +574,8 @@ const GraphSvg = memo(function GraphSvg(props: {
     })
     if (!inWindow(commit.row)) return
     nodes.push(
-      <g key={`n-${commit.sha}`} onClick={() => onSelect(commit)}>
+      <g key={`n-${commit.sha}`} onClick={() => onSelect(commit)} style={{ cursor: 'pointer' }}>
+        <title>{`${commit.subject}\n\nSHA: ${commit.sha}\nAuthor: ${commit.author}\nDate: ${commit.date}`}</title>
         <circle cx={x} cy={y} r={NODE_RADIUS + 2} fill="transparent" />
         <circle
           cx={x} cy={y} r={NODE_RADIUS}
@@ -606,7 +607,9 @@ const GraphSvg = memo(function GraphSvg(props: {
               textAnchor="end"
               fontWeight={isCurrent ? 700 : 400}
               fill={isCurrent ? 'var(--current)' : 'var(--muted)'}
+              style={{ cursor: 'default' }}
             >
+              <title>{branch}</title>
               {tipTexts.get(row) ?? branch}
             </text>
           )
@@ -656,16 +659,16 @@ const GraphViewComponent = memo(function GraphViewComponent(props: { graph: Grap
   const gap = gapOverride > 0 ? gapOverride : 14
   const textX = laneRight + gap
 
-  // 分支列有固定且较宽的宽度（不可缩放）；只有提交列是用户可调的。图谱会随
-  // 提交列 GROW——加宽它会让整个图谱变宽，面板随之水平滚动，因此分支列保持
-  // 自己的宽度。
-  const BRANCH_COL_WIDTH = 240
-  const maxSubjectWidth = Math.max(0, ...layout.map((c) => labelWidth(c.subject)))
-  const autoCommit = Math.max(60, maxSubjectWidth + 16)
-  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit
+  // 视口净可用宽度（总宽扣除左右两边各 8px 内边距）
+  const usableWidth = Math.max(260, width - 16)
+  // 分支列默认采用合理的紧凑宽度（96px），避免原先写死 240px 将图谱横向撑大、挤出默认视口
+  const BRANCH_COL_WIDTH = 96
   const labelZone = BRANCH_COL_WIDTH
+  // 默认自适应填满视口剩余空间，使分支列默认贴合在视口右侧；若用户手动拖拽调宽，则遵循用户设定
+  const autoCommit = Math.max(80, usableWidth - textX - labelZone - 8)
+  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit
   const commitRight = textX + commitWidth
-  const graphWidth = Math.max(width - 16, commitRight + labelZone + 8)
+  const graphWidth = Math.max(usableWidth, commitRight + labelZone + 8)
   const labelLeft = graphWidth - labelZone
 
   const startResize = (

@@ -1297,7 +1297,7 @@ var STYLE = `
   padding:24px; text-align:center; color:#9a6700; font-size:12px; line-height:1.7; }
 [data-ds-dark-theme] .dsh-gp-warn { color:#d4a72c; }
 .dsh-gp-detail { border-top:1px solid var(--border); padding:6px 10px; font-size:11px;
-  background:var(--panel-bg); max-height:96px; overflow:auto; }
+  background:var(--panel-bg); max-height:120px; overflow:auto; word-break:break-word; line-height:1.45; }
 .dsh-gp-col-resize { position:absolute; top:0; height:28px; cursor:col-resize; touch-action:none; z-index:5; }
 .dsh-gp-col-resize::after { content:''; position:absolute; left:2.5px; top:6px; bottom:6px;
   width:1px; background:var(--border); opacity:0.7; }
@@ -1465,7 +1465,6 @@ var PAD_TOP = 10;
 var LANE_COLOR_COUNT = 12;
 var GRAPH_BUFFER_ROWS = 10;
 var laneColor = (lane) => `var(--dsh-gp-lane-${lane % LANE_COLOR_COUNT})`;
-var labelWidth = (text) => [...text].reduce((w, ch) => w + (ch.charCodeAt(0) > 255 ? 12 : 6.5), 0);
 var fitByWidth = (text, maxWidth) => {
   let w = 0;
   for (let i = 0; i < text.length; i += 1) {
@@ -1599,7 +1598,12 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
     });
     if (!inWindow(commit.row)) return;
     nodes.push(
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { onClick: () => onSelect(commit), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { onClick: () => onSelect(commit), style: { cursor: "pointer" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: `${commit.subject}
+
+SHA: ${commit.sha}
+Author: ${commit.author}
+Date: ${commit.date}` }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: x, cy: y, r: NODE_RADIUS + 2, fill: "transparent" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "circle",
@@ -1621,7 +1625,7 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
     nodes,
     [...tipLabelByRow.entries()].filter(([row]) => inWindow(row)).map(([row, branch]) => {
       const isCurrent = branch === graph.current;
-      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         "text",
         {
           x: graphWidth - 4,
@@ -1630,7 +1634,11 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
           textAnchor: "end",
           fontWeight: isCurrent ? 700 : 400,
           fill: isCurrent ? "var(--current)" : "var(--muted)",
-          children: tipTexts.get(row) ?? branch
+          style: { cursor: "default" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: branch }),
+            tipTexts.get(row) ?? branch
+          ]
         },
         `tip-${row}`
       );
@@ -1666,13 +1674,13 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   }, [gapOverride]);
   const gap = gapOverride > 0 ? gapOverride : 14;
   const textX = laneRight + gap;
-  const BRANCH_COL_WIDTH = 240;
-  const maxSubjectWidth = Math.max(0, ...layout.map((c) => labelWidth(c.subject)));
-  const autoCommit = Math.max(60, maxSubjectWidth + 16);
-  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit;
+  const usableWidth = Math.max(260, width - 16);
+  const BRANCH_COL_WIDTH = 96;
   const labelZone = BRANCH_COL_WIDTH;
+  const autoCommit = Math.max(80, usableWidth - textX - labelZone - 8);
+  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit;
   const commitRight = textX + commitWidth;
-  const graphWidth = Math.max(width - 16, commitRight + labelZone + 8);
+  const graphWidth = Math.max(usableWidth, commitRight + labelZone + 8);
   const labelLeft = graphWidth - labelZone;
   const startResize = (key, valueRef, set, start, min, max) => (event) => {
     event.preventDefault();
