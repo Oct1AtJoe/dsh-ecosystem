@@ -1,103 +1,275 @@
 # 毛玻璃效果实现参考
 
+> **材质定义（必读）**：本项目做的是**毛玻璃（frosted glass）**，不是**磨砂（grain / 砂纸）**。
+>
+> | | 毛玻璃（本项目） | 磨砂（已否决） |
+> | :--- | :--- | :--- |
+> | 表面 | **光滑无颗粒** | 有微观颗粒 |
+> | 背后内容 | 被 blur 化开，隐约见明暗但读不出字 | 颗粒叠在内容上 |
+> | 实现 | `backdrop-filter: blur()` + 半透填充 + 光学反光 | 额外叠噪声纹理层 |
+>
+> 历史：曾误做成磨砂，叠 SVG 分形噪声（`feTurbulence` + 去色）。
+> 该噪声 rect 带满 alpha，叠加会**同时压暗整体明度** —— 强度 0.20→0.12→0.05→0.03
+> 一路调都只是「糊了一层灰雾」的脏感，方向本身错误，调参无解。已彻底移除。
+
+---
+
 ## 核心原理
 
-DSH Web GUI 的毛玻璃效果**不使用 `backdrop-filter: blur()`**（因为：
-1. blur 会把背景光斑糊没，反而看不出玻璃感
-2. blur 会影响 `position: fixed` 子元素的定位
-3. 灰色调下 blur 后的渐变与纯色无视觉差异）
-
-**正确配方**：`半透明 rgba 背景层` + `柔和亮色光斑(radial-gradient)` = 玻璃透光感
+毛玻璃的观感**全部来自 `blur()` 化开背后真实内容**，不需要任何颗粒。
 
 ```
-视觉效果 = 深色基底 + 亮灰光斑(alpha 0.20~0.40) + 半透明面板(alpha 0.50~0.65)
-          → 光斑从面板下透出 → 毛玻璃质感
+视觉效果 = 半透明填充（透光）+ blur 化开背后内容（磨砂感）+ 顶部光学反光 + 1px 边缘高光
 ```
 
-## 两个光斑层
+### 两条独立的轴（最容易做反的地方）
 
-### 1. 页面背景光斑（`--dsw-alias-bg-app-image`）
+| 轴 | 控制量 | 调高会怎样 | 调低会怎样 |
+| :--- | :--- | :--- | :--- |
+| **透多少** | 填充 alpha | 看不到背后（变白板）❌ | 背后越来越明显 |
+| **糊多狠** | `blur()` 半径 | 文字化得越干净 ✅ | 文字会透出来 |
 
-位于 `AppFrame.frame` 和 `ConversationRoot.root` 的背景，覆盖整个 UI。
+用户确认参数（t3）：**填充 `.38` + `blur(92px) saturate(180%)`**。
 
-**规则**：
-- 最多 **2 个** radial-gradient 光斑（太多则杂乱）
-- 每个光斑的位置**随机化**（不要与其他主题位置相同）
-- 光斑中心 alpha **0.20~0.40**，边缘淡出至 transparent
-- 光斑尺寸 **400~600px**（小而聚，不铺满）
-- 保持中性色相（灰/银），不偏色
+> 🚨 典型错误：为了让背后文字看不清而去**提高填充 alpha** —— 那会变成一块看不到背后的白板。
+> 遮住文字**只能靠 blur 半径**。
+> 验证方法：同样填充 `.48`，`blur` 取 `6px` 与 `84px` 对比，6px 时文字清晰可读。
 
-**模板**：
+### ⚠️ 前提：背后必须有内容
+
+`blur(纯色) = 纯色`。若面板背后是均匀纯色，`backdrop-filter` **数学上不可能生效**。
+
+实测踩坑：`composerSeat` 自刷一层实色压底
+`linear-gradient(transparent 0, rgb(245,245,247) 36px)`，叠加纯色 `bg-base` 后，
+输入框背后恒为纯色 —— 不先清掉这层，毛玻璃 CSS 写了也是白写。
+
 ```css
-'--dsw-alias-bg-app-image':
-  'linear-gradient(180deg, rgba(R,G,B, 0.08), rgba(R,G,B, 0) 24%),'
-  + 'radial-gradient(560px 420px at 右侧%, 顶部%, rgba(R,G,B, 0.20~0.40), transparent 55%),'
-  + 'radial-gradient(540px 420px at 左侧%, 中部%, rgba(R,G,B, 0.30), transparent 52%)',
+/* 结构层前提（必做） */
+[class*="composerSeat"]{ background-image:none !important; }
 ```
 
-**位置随机化策略**：
-- 右侧光斑：`at (75%~92%) (8%~25%)`——覆盖右侧面板区域
-- 左侧光斑：`at (2%~10%) (30%~60%)`——覆盖侧栏区域
-- 不要与 void 的 `88% 18%` 和 `3% 42%` 完全相同
+---
 
-### 2. better-sidebar 面板光斑（`::after` 伪元素）
+## 参数出口（单一来源）
 
-better-sidebar 插件在 `position: fixed` overlay 中，位于 **frame 之外**（页面右侧超出 frame 宽度），因此无法透出页面背景光斑。需要**面板自带光晕层**。
+全部定义在 `src/client/index.ts` 的 `SURFACE_GLASS_CSS`，六主题共用：
 
-**实现**（在 SURFACE_GLASS_CSS 中，所有主题通用）：
 ```css
-[class$="_pane"]{
-  background-color: var(--dsw-specific-sidebar-fill) !important;
-  position: relative; z-index: 0;
+body[data-ds-custom-theme]{
+  --dsh-glass-blur:blur(92px) saturate(180%);
+  --dsh-glass-fill:rgba(255,255,255,0.38);   /* 浅色 */
+  --dsh-glass-sheen:linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.05) 48%, rgba(255,255,255,0) 78%);
+  --dsh-glass-edge:rgba(255,255,255,0.96);
+  --dsh-glass-rim:rgba(255,255,255,0.58);
+  --dsh-glass-bottom:rgba(255,255,255,0.40);
+  --dsh-glass-dialog-fill:rgba(255,255,255,0.78);  /* 弹窗单独一档，更实 */
 }
-[class$="_pane"]::after{
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: -1;
-  background: radial-gradient(440px 320px at 82% 12%, rgba(228,222,238,0.18), transparent 56%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.03);
+/* 深色：填充与高光必须取深色系值 —— 照抄白色会发灰，与暗底割裂 */
+body[data-ds-custom-theme][data-ds-dark-theme]{
+  --dsh-glass-fill:rgba(26,30,38,0.46);
+  --dsh-glass-edge:rgba(255,255,255,0.16);
+  --dsh-glass-rim:rgba(255,255,255,0.10);
+  --dsh-glass-bottom:rgba(255,255,255,0.06);
+  --dsh-glass-dialog-fill:rgba(26,30,38,0.78);
+}
+/* 缃素：用户要求保持「纯色温润、无光晕」路线 —— 参数就地归零，
+   下游所有规则无需主题特判，材质自动关闭。 */
+body[data-ds-custom-theme="parchment"]{
+  --dsh-glass-blur:none;
+  --dsh-glass-fill:var(--dsw-alias-bg-layer-2, rgb(232, 225, 212));
+  --dsh-glass-sheen:linear-gradient(transparent, transparent);
+  --dsh-glass-edge:transparent;
+  --dsh-glass-rim:transparent;
+  --dsh-glass-bottom:transparent;
+  --dsh-glass-dialog-fill:var(--dsw-alias-bg-overlay, rgb(236, 230, 218));
 }
 ```
 
-注：此 CSS 在 `index.ts` 的 `SURFACE_GLASS_CSS` 常量中，**所有主题共享**，不需要重复编写。
+---
 
-## 各主题需调整的参数
+## 分级原则（决定哪些节点该上玻璃）
 
-每个主题定义在 `src/client/<name>.ts`，export 一个 `*_TOKENS` 对象。
+`backdrop-filter` 的收益取决于**背后是什么**：
 
-### 需要修改的 token
+| 级别 | 判据 | 处理 |
+| :--- | :--- | :--- |
+| **A 组** | 背后**有内容滚过** | 完整毛玻璃：填充 + `blur(92px)` + 光学边缘 |
+| **B 组** | 背后是**均匀纯色** | 只给填充 + 光学边缘，**不加 blur**（零收益且耗性能） |
+| **C 组** | Portal 到 body 的瞬态浮层 | 与 A 组同配方，各自处理 z-index |
 
-| Token | 作用 | 推荐值 |
-|-------|------|--------|
-| `--dsw-alias-bg-app-image` | 页面背景光斑 | 2~3 个 radial-gradient，alpha 0.20~0.40 |
-| `--dsw-alias-bg-base` | 基底色 | `rgb(R,G,B)` 深色基底 |
-| `--dsw-alias-bg-layer-1` | 抬高面板背景 | `rgba(R,G,B, 0.55~0.65)` 半透明 |
-| `--dsw-alias-bg-layer-2` | 次层面板 | `rgba(R,G,B, 0.55~0.65)` 半透明 |
-| `--dsw-alias-bg-layer-3` | 三层面板 | `rgba(R,G,B, 0.75~0.85)` 略实 |
-| `--dsw-specific-sidebar-fill` | 侧栏背景 | `rgba(R,G,B, 0.50~0.58)` 半透明 |
-| `--dsw-specific-bubble` | 消息气泡 | `rgba(R,G,B, 0.70~0.78)` 半透明(文字优先) |
-| `--dsw-alias-glass-blur` | 输入栏/面板blur | `blur(20~24px) saturate(1.0~1.2)` |
-| `--dsw-alias-surface-glass-blur` | 兼容 token | `blur(12px)`（未使用，保留） |
+完整节点清单见 [GLASS-NODES.md](GLASS-NODES.md)。
 
-### 不需要改的 token
+### ⚠️ 性能红线：列表项绝不挂 blur
 
-Text/border/scrollbar/state 等 token 按各主题的配色方案正常设即可。
+实测踩坑：曾把侧栏会话行 `dsh-ff__session-row` 放进 A 组，结果
+**40+ 个会话行各挂一个 `blur(92px)`**，页面 `backdrop-filter` 节点数飙到 **49**。
+而这些行背后是侧栏自身的纯色填充，blur 看不出任何差别，纯属白烧 GPU。
+
+**修正后降到 9 个节点。** 列表类元素一律归 B 组。
+
+---
+
+## 各主题表现
+
+> 🚨 **玻璃材质只服务 液态 sequoia 与 曜黑 sonoma 两个主题。**
+> 用户实测确认：「只有给液态以及曜黑这两个主题加好看，其他 4 个主题加了都不好看」。
+> 冥夜 void / 银曜 jade / 灼日 solar / 缃素 parchment **完全不加玻璃**，保持官方原始外观。
+
+| 主题 | 玻璃材质 | 填充 | blur |
+| :--- | :--- | :--- | :--- |
+| **sequoia 液态** | ✅ 有 | `rgba(255,255,255,.38)` | 92px |
+| **sonoma 曜黑** | ✅ 有 | `rgba(26,30,38,.46)` | 92px |
+| void 冥夜 | ❌ 无 | —（官方原样） | — |
+| jade 银曜 | ❌ 无 | —（官方原样） | — |
+| solar 灼日 | ❌ 无 | —（官方原样） | — |
+| parchment 缃素 | ❌ 无 | —（官方原样） | — |
+
+> 注：A 组的 blur **刻意不用各主题的 `--dsw-alias-glass-blur`**。
+> 该 token 六主题差异极大（64/50/24/20/20/`none`），20~24px 达不到
+> 「隐约看到但读不清」的要求，故统一用 92px，主题差异由填充色体现。
+
+> ⚠️ **无玻璃的 4 个主题仍带「顶部融合屏障」**：这不是玻璃材质，而是消除
+> 顶栏与侧栏之间色差断层的通用规则（见下方「融合屏障」一节）。两者互不冲突。
+
+---
+
+## 效果图
+
+| 图 | 说明 |
+| :--- | :--- |
+| ![半透明 vs 毛玻璃](preview/glass-compare.png) | **核心判据**：同一位置同一段代码滚到输入框背后。左「半透明」背后代码能逐行读清；右「毛玻璃」被化开、读不出字。 |
+| ![blur 有效性](preview/probe-blur.png) | **决定性验证**：同填充同位置，仅切换 `backdrop-filter` 有无。证明毛玻璃感来自 blur 化开背后内容，与填充/颗粒无关。 |
+| ![无 blur 对照](preview/probe-noblur.png) | 上图的对照组：去掉 blur 后，背后正文立刻可读。 |
+| ![整页](preview/glass-wide.png) | 整页效果。 |
+| ![推荐档 t3](preview/t3.png) | **用户选定档**：填充 `.38` + `blur(92px)`。 |
+| ![备选档 t2](preview/t2.png) | 备选档：填充 `.48` + `blur(84px)`（若将来觉得 t3 太透可回退到此档）。 |
+
+---
+
+## 两条实测踩坑（用户反馈后修正）
+
+### 踩坑 A：闭合 1px 描边在列表项上变成「外边框」
+
+初版 B 组给每个节点都加了闭合 rim：
+
+```css
+box-shadow: inset 0 1px 0 <高光>, inset 0 0 0 1px <亮边>;   /* ❌ 小控件上出问题 */
+```
+
+在大面积浮层上这是玻璃厚度感，但在**列表项 / 小控件**上，
+每一项都会出现一圈完整矩形白线 —— 用户实测反馈「每个单独 DOM 都有外边框」。
+
+**正解**：列表项与小控件**一律不施加任何 box-shadow**（连顶部高光也不行）。
+
+```css
+/* B 组（侧栏会话行、导航项、下拉、色块…）—— 全部交还官方原始样式 */
+box-shadow: none !important;
+```
+
+> 第二轮踩坑：先改成「只留顶部高光」`inset 0 1px 0`，**仍然出线** ——
+> 会话行高仅 36px，每行顶边一条近乎纯白的 1px 线（浅色 `.96` alpha），
+> 多行堆叠起来就是「每个小 DOM 之间的横向边线」。
+> 顶部高光只适用于有独立圆角、且不与同类紧贴的大面积浮层。
+
+> 第三轮踩坑（成本卡）：官方自带 `border` + `elevation` 外环，叠加我给的
+> 闭合 rim 后成为**三重描边**，用户反馈「外面还有一层包边」。
+> 处理：去掉闭合 rim 与外环，只留顶部高光 + 底部回光两道单向内光。
+
+### 踩坑 B：`blur(纯色) = 纯色` —— 这是物理限制，不是 bug
+
+AI 回复卡片宽 845px，**背后就是对话区根背景本身**。
+能否显出玻璃感，取决于该主题 `--dsw-alias-bg-app-image` 是否有内容：
+
+| 主题 | `bg-app-image` | 卡片表现 |
+| :--- | :--- | :--- |
+| sonoma | 有紫/蓝/粉彩色光斑底 | 透出后玻璃质感明显 ✅ |
+| **sequoia** | **`none`** | **背后恒为纯色，透不出任何东西**，只能呈现顶部反光 + 轻微明度差 |
+
+> **sequoia 的取舍（用户两次明确表态，最终决定）**：
+> 曾试行「方案 B」—— 恢复一层极淡冷调光晕给卡片当底衬，卡片确有玻璃感。
+> 但用户随后明确要求「**液态主题的光晕我不要，去掉就好，其他效果都保留**」，
+> 故已回退为 `bg-app-image: none`。
+> **代价已知并接受**：sequoia 的 AI 卡片不会有 sonoma 那样的通透感。
+> 这是「不要光晕」的必然结果，**不是缺陷，不该当回归去修**。
+
+### 踩坑 C：侧栏顶部与顶栏的色差断层（六主题）
+
+用户反馈「左右侧边栏跟顶部栏反差太大，没有像中间一样自然过渡」。
+根因：中央内容区带「同色屏障 + 渐隐」，而**侧栏与右栏面板没有** ——
+它们顶部直接暴露半透明填充与光斑。逐像素实测（修复前）：
+
+| 主题 | 左栏顶部 | 中央顶部 | 差值 |
+| :--- | :--- | :--- | ---: |
+| void | `RGB(38,38,43)` | `RGB(13,13,16)` | **25 阶** |
+| solar | `RGB(49,39,31)` | `RGB(18,14,16)` | **31 阶** |
+| parchment | `RGB(226,219,206)` | `RGB(230,224,212)` | 4.8 阶 |
+
+**修法**：把屏障提到**通用规则**（不分主题、不分深浅），
+用 `var(--dsw-alias-bg-base)` 让每个主题自动取到自己的底色：
+
+```css
+body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"],
+body:not([data-ds-dark-theme]) [class*="sidebarCol"] > * > [class*="root"] {
+  background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      /* 渐隐过渡，非硬切边 */
+      color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      transparent calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
+    /* …主题原有材质… */;
+}
+```
+
+> ⚠️ **一道屏障覆盖全部 6 个主题**，靠的是 `bg-base` 变量而非写死色值。
+> 若改成写死某个主题色，就会退化成「只对一个主题有效」——
+> 门禁已加断言锁死这一点。
+
+> ⚠️ 屏障必须是 `linear-gradient` 的**第一项**（最上层），否则被光斑盖住。
+> 且**不得是硬切边**（`transparent 44px`）——实测硬切边在 y=44 处
+> ΔL=-10.8，是一条突兀的暗色断崖；渐隐后同一位置 ΔL=-1.0（不可辨）。
+
+---
 
 ## 验证方法
 
-1. 切换到对应主题
-2. 检查三个区域是否都有光晕透出：
-   - **左侧侧栏**：`[class*="sidebarCol"]` 半透明 bg 透出页面光斑
-   - **中间对话区**：`[data-slot="conversation"]` 背景直接显示光斑
-   - **右侧 better-sidebar**：`[class$="_pane"]` 半透明 bg + ::after 光晕层
-3. 文字全部可读（不因玻璃效果变模糊）
-4. 切换到其他主题确认不受影响
+1. **必须先把内容滚到目标节点背后再截图**，否则纯色背景下看不出毛玻璃。
+2. 检查项：
+   - **输入坞**（仅 sequoia/sonoma）：能透出背后正文并被化开，读不出字
+   - **侧栏 / 右面板**：半透 + 顶部同色融合屏障（无 blur、无任何 box-shadow）
+   - **设置弹窗**（仅 sequoia/sonoma）：毛玻璃且文字可读（填充 `.78` 更实）
+   - **AI 回复卡片**（仅 sequoia/sonoma）：sequoia 受「无光晕底」物理限制
+   - **其余 4 主题**：无任何玻璃材质，但**顶部衔接必须与中央一致**
+3. 统计 `backdrop-filter` 节点数，应约 **8~10**；若飙到几十，说明列表项被误挂 blur。
+4. 跑门禁：
+   ```powershell
+   node tests\badge-token-check.mjs
+   node tests\sequoia-neutral-check.mjs
+   node tests\font-size-check.mjs
+   ```
+
+---
+
+## 维护硬规则
+
+1. **禁止写构建哈希前缀**（如 `GwCMNq_chip`、`XvM5kW_frame`）——换版本即失效。
+   只用稳定语义片段：`composerSeat` / `sidebarCol` / `dsh-ff__` / `role="dialog"` 等。
+2. **禁止依赖源码目录名**（如 `InputBar_card`、`ChatView_column`、`AssistantMarkdown_root`）。
+   CSS Modules 产出的是 `<hash>_<localName>`，源码名从不出现在 DOM。
+   曾因此导致 8 条规则实测命中为 0，整个玻璃效果静默失效。
+3. **`backdrop-filter` 严禁挂 `[class*="sidebarCol"]` 主元素** ——
+   设置弹窗 Portal 挂在该子树下，`backdrop-filter` 会为 `position:fixed` 后代
+   创建包含块，把弹窗宽度压成侧栏同宽。只能挂 `::before` 伪元素。
+4. **融合屏障不可破坏**：侧栏顶部 44px 与壳顶栏逐字节同色，侧栏内容层 `box-shadow` 必须为 `none`。
+5. **变量引用一律带兜底**（`var(--x, 默认值)`），否则未定义时整条声明失效。
+
+---
 
 ## 添加新主题的步骤
 
-1. 在 `src/client/` 下创建 `<name>.ts`
-2. 定义 `*_TOKENS` 常量（参考现有主题）
-3. 在 `src/client/index.ts` 中：
-   - 导入 token
-   - 添加 `ThemeDefinition`
-   - 在 `ctx.effect()` 中 register
-4. 在 `src/client/locales.ts` 加中英文标签
-5. 在 `src/client/TechThemeRow.tsx` 加主题方块（`CUBES` 数组）
+1. 在 `src/client/` 下创建 `<name>.ts`，定义 `*_TOKENS`（参考现有主题）。
+2. 在 `src/client/index.ts` 中导入 token、添加 `ThemeDefinition`、在 `ctx.effect()` 中 register。
+3. 添加到 `THEME_TOKEN_MAP` / `THEME_SCHEME_MAP` / `TITLEBAR_PRESETS`。
+4. 新主题**无需**写玻璃 CSS —— 浅/深两套 `--dsh-glass-*` 自动覆盖；
+   若要走纯色路线（如缃素），加一条 `body[data-ds-custom-theme="<id>"]` 参数归零即可。
+5. 在 `src/client/locales.ts` 加中英文标签，在 `TechThemeRow.tsx` 的 `CUBES` 加主题方块。

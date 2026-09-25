@@ -50,9 +50,17 @@ for (const [name, needle] of colors) {
 }
 
 console.log('\n=== B. 无光晕 / 竖向分界线保留（色差根因） ===')
-check('token: bg-app-image 关闭壁纸光晕（不要光晕）', /'--dsw-alias-bg-app-image':\s*'none'/.test(themeSrc))
+// 【策略变更记录】本组断言经历过一次往返：
+//   · 最初锁「bg-app-image 必须为 none」；
+//   · 中间曾因「AI 卡片在浅色主题像实色」而短暂改为「允许有色光晕（方案 B）」；
+//   · 用户随后明确要求「液态主题的光晕我不要，去掉就好，其他效果都保留」，
+//     故回退为「必须 none」。
+// ⚠️ 副作用已知并接受：纯色背景下 `blur(纯色)=纯色`，AI 卡片这类
+//    「背后就是页面背景」的大面板不会有深色主题那样的通透感 —— 这是
+//    「不要光晕」的必然代价，不是缺陷，门禁不应把它当成回归。
+check('token: bg-app-image 关闭壁纸光晕（用户明确不要光晕）', /'--dsw-alias-bg-app-image':\s*'none'/.test(themeSrc))
 check('token: bg-base 与顶栏同色且不透明', /'--dsw-alias-bg-base':\s*'rgb\(245, 245, 247\)'/.test(themeSrc))
-check('token: surface-glass-spot 归零（不要光斑）', /'--dsw-alias-surface-glass-spot':\s*'transparent'/.test(themeSrc))
+check('token: surface-glass-spot 归零（不要侧栏漫反射斑）', /'--dsw-alias-surface-glass-spot':\s*'transparent'/.test(themeSrc))
 check(
   'CSS: 液态主题不发 AppFrame 发丝高光（顶边白线根因）',
   !/body\[data-ds-custom-theme="sequoia"\] div\[class\$="_frame"\]/.test(indexSrc),
@@ -76,45 +84,154 @@ check(
   /--dsh-fusion-top:\s*44px/.test(indexSrc)
     && /var\(--dsh-fusion-top, 44px\)/.test(indexSrc),
 )
+// 【新增·实测修复】融合屏障必须是**渐隐带**，不能是硬切边。
+// 用户反馈「深色主题下顶部栏与页面顶部这条缝看起来不太友好」。
+// 逐像素实测（sonoma）：硬切边在 y=44 处 ΔL=-10.8（一条突兀的暗色断崖）；
+// 改为渐隐后同一位置 ΔL=-1.0，无可见台阶。
+// 判据：屏障带内必须在 --dsh-fusion-top 之后还有中间过渡色标，
+// 且终点晚于 44px（即不能写 `transparent 44px` 这种硬切）。
+check(
+  '融合：屏障带为渐隐过渡而非硬切（不得出现 transparent 44px 硬边）',
+  !/transparent\s+var\(--dsh-fusion-top,\s*44px\)\s*\)/.test(indexSrc),
+)
+check(
+  '融合：屏障带含中间过渡色标（calc(--dsh-fusion-top + 52px) 半透明档）',
+  /calc\(var\(--dsh-fusion-top, 44px\)\s*\+\s*52px\)/.test(indexSrc),
+)
+check(
+  '融合：屏障带终点晚于 fusion-top（calc + 100px 处完全透明）',
+  /transparent\s+calc\(var\(--dsh-fusion-top, 44px\)\s*\+\s*100px\)/.test(indexSrc),
+)
+// 【新增·实测修复】两侧侧栏也必须带同款顶部融合屏障。
+// 用户反馈「深色主题下左右侧边栏跟顶部边栏反差太大，没有像中间一样自然过渡」。
+// 逐像素实测（sonoma）：中央顶部 L=24.1（= bg-base），左栏顶部 L=35.5
+// —— 侧栏半透明填充 + 紫色光斑直接暴露在顶栏下方，形成约 11 阶亮度断层。
+// 补屏障后三处顶部均为 L≈23.9/24.1，色差归零。
+// 判据：左栏内容层与右栏面板的 background 都必须以「同色 -> fusion-top -> 渐隐」开头。
+console.log('\n=== B2. 两侧侧栏顶部融合（与中央一致的色差消隐）===')
+check(
+  '融合：左侧栏内容层带顶部同色融合屏障（sonoma）',
+  /body\[data-ds-custom-theme="sonoma"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(22,\s*24,\s*30\)\s*0,\s*rgb\(22,\s*24,\s*30\)\s*var\(--dsh-fusion-top/.test(indexSrc),
+)
+check(
+  '融合：左侧栏内容层带顶部同色融合屏障（sequoia）',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(245,\s*245,\s*247\)\s*0,\s*rgb\(245,\s*245,\s*247\)\s*var\(--dsh-fusion-top/.test(indexSrc),
+)
+check(
+  '融合：右侧栏面板带顶部同色融合屏障（sonoma）',
+  /body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(22,\s*24,\s*30\)\s*0/.test(indexSrc),
+)
+check(
+  '融合：右侧栏面板带顶部同色融合屏障（sequoia）',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(245,\s*245,\s*247\)\s*0/.test(indexSrc),
+)
+// 反向约束：侧栏与右栏面板严禁带「顶部 inset 白色亮线」——
+// 它画在内容层 y=0（= 壳顶栏正下方），会在顶栏下方形成一条横贯亮线。
+check(
+  '融合：侧栏内容层无顶部 inset 白色亮线（sonoma）',
+  !/body\[data-ds-custom-theme="sonoma"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,500}?inset 0 1px 1px/.test(indexSrc),
+)
+check(
+  '融合：右侧栏面板无顶部 inset 白色亮线（sonoma）',
+  !/body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,500}?inset 0 1px 1px/.test(indexSrc),
+)
+
+// 【新增·实测修复】其余四个主题（void/jade/solar/parchment）走的是**通用**深浅分支，
+// 用户反馈「其他 4 个主题也要一同修复」。
+// 逐像素实测（修复前）：void 左 RGB(38,38,43) vs 中 RGB(13,13,16) → 差 25 阶；
+//                        solar 左 RGB(49,39,31) vs 中 RGB(18,14,16) → 差 31 阶。
+// 修复手法：把屏障提到**通用规则**（不分主题、不分深浅），
+// 用 var(--dsw-alias-bg-base) 让每个主题自动取到自己的底色，无需逐个写死。
+console.log('\n=== B3. 通用侧栏顶部融合（覆盖其余四主题）===')
+check(
+  '融合：深色通用分支的侧栏带 bg-base 融合屏障',
+  /body\[data-ds-dark-theme\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0,\s*var\(--dsw-alias-bg-base\)\s*var\(--dsh-fusion-top/.test(indexSrc),
+)
+check(
+  '融合：浅色通用分支的侧栏带 bg-base 融合屏障',
+  /body:not\(\[data-ds-dark-theme\]\) \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0,\s*var\(--dsw-alias-bg-base\)\s*var\(--dsh-fusion-top/.test(indexSrc),
+)
+check(
+  '融合：深色通用分支的右栏面板带 bg-base 融合屏障',
+  /body\[data-ds-dark-theme\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
+)
+check(
+  '融合：浅色通用分支的右栏面板带 bg-base 融合屏障',
+  /body:not\(\[data-ds-dark-theme\]\) \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
+)
+// 屏障必须用 bg-base 变量而非写死某主题色，否则又退化成「只对一个主题有效」。
+check(
+  '融合：通用屏障使用 bg-base 变量（不得写死单一主题色）',
+  !/body\[data-ds-dark-theme\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(/.test(indexSrc),
+)
 
 console.log('\n=== C. 玻璃强度（去的是光晕与彩色，不是玻璃） ===')
 check('token: glass-blur 提升到 64px（强化）', themeSrc.includes("'--dsw-alias-glass-blur': 'blur(64px) saturate(200%)'"))
 check('token: surface-glass-blur 提升到 56px', themeSrc.includes("'--dsw-alias-surface-glass-blur': 'blur(56px) saturate(190%)'"))
 check('token: 侧边栏填充 0.66（实而仍透，兼顾可读性）', themeSrc.includes("'--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.66)'"))
 check('CSS: 侧边栏 ::before 毛玻璃提升到 56px', /sequoia"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*blur\(56px\)/.test(indexSrc))
-check('CSS: 输入坞毛玻璃 64px + 填充 0.74', /sequoia"\] \[class\*="InputBar_card"\]\s*\{[^}]*background:\s*var\(--dsh-frost-noise[^}]*rgba\(255, 255, 255, 0\.74\)[^}]*backdrop-filter:\s*blur\(64px\)/.test(indexSrc))
-check('CSS: AI 玻璃卡片 40px + 填充 0.80', /sequoia"\] \[class\*="ChatView_column"\][^}]*background:\s*var\(--dsh-frost-noise[^}]*rgba\(255, 255, 255, 0\.80\)[^}]*backdrop-filter:\s*blur\(40px\)/.test(indexSrc))
 
-// ── C3. 磨砂质感（与「玻璃质感」的本质区别）──
-// 「玻璃」= 透明；「磨砂」= 表面微观颗粒 + 光线漫射。
-// ⚠️ 关键认知：背景是纯色时 backdrop-filter 的 blur() 模糊不出任何东西
-// （模糊纯色仍是纯色），单靠 blur 永远只有通透感、没有磨砂感。
-// 真磨砂必须叠加噪声纹理 —— 与 macOS NSVisualEffectView 内部做法一致。
-console.log('\n=== C3. 磨砂颗粒（Frost Grain）===')
-check('磨砂：噪声源已定义（SVG feTurbulence）', /--dsh-frost-noise:url\("data:image\/svg\+xml/.test(indexSrc))
-check('磨砂：噪声已去色（feColorMatrix saturate=0，避免彩色噪点）', /feColorMatrix[^%]*type='saturate'[^%]*values='0'/.test(indexSrc))
-check('磨砂：噪声强度克制（opacity ≤ 0.16，过高会发灰）', (() => {
-  const m = indexSrc.match(/filter='url\(%23n\)'\s+opacity='([\d.]+)'/)
-  return m !== null && Number(m[1]) <= 0.16
-})())
-for (const [name, re] of [
-  ['输入坞', /sequoia"\] \[class\*="InputBar_card"\]\s*\{[^}]*var\(--dsh-frost-noise/],
-  ['AI 卡片', /sequoia"\] \[class\*="ChatView_column"\][^}]*var\(--dsh-frost-noise/],
-  ['侧边栏', /sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[^}]*var\(--dsh-frost-noise/],
-  ['右侧面板', /sequoia"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[^}]*var\(--dsh-frost-noise/],
-  ['弹窗', /\[role="dialog"\]\{[^}]*var\(--dsh-frost-noise/],
-]) {
-  check(`磨砂：${name} 已叠加颗粒层`, re.test(indexSrc.replace(/\n/g, '')))
-}
-check('磨砂：噪声变量带兜底（未定义时不得让整条 background 失效）', /var\(--dsh-frost-noise, none\)/.test(indexSrc))
-// 融合前提：侧边栏噪声层必须排在顶部同色屏障**之后**，否则颗粒会污染
-// 顶部 44px，破坏与壳顶栏的逐字节同色。
+// ── C3. 毛玻璃材质（与「磨砂颗粒」的本质区别）──
+// 【材质定义已变更，本组断言随之改写】
+//   · 毛玻璃 = 表面光滑无颗粒，背后内容被 blur 化开，隐约可见明暗但读不出字。
+//   · 磨砂   = 表面微观颗粒（feTurbulence 噪声层）。
+// 用户明确否决了磨砂路线：噪声 rect 带满 alpha，叠加会同时压暗明度，
+// 强度 0.20→0.12→0.05→0.03 一路调都只是「糊了一层灰雾」的脏感，方向本身错误。
+// 故本组由「断言噪声层存在」翻转为「断言噪声层不存在 + 毛玻璃配方齐备」。
+console.log('\n=== C3. 毛玻璃材质（Frosted Glass）===')
+check('毛玻璃：噪声层已彻底移除（毛玻璃表面光滑，不做磨砂）', !/dsh-frost-noise/.test(indexSrc))
+check('毛玻璃：噪声纹理源已移除（无 feTurbulence 残留）', !/feTurbulence/.test(indexSrc))
+// 两条独立的轴：填充控「透多少」，blur 控「糊多狠」。
+// 用户确认参数：填充 .38 + blur(92px) saturate(180%)。
+check('毛玻璃：虚化半径 92px（遮住背后文字靠它，不能靠加填充）', /--dsh-glass-blur:blur\(92px\) saturate\(180%\)/.test(indexSrc))
+check('毛玻璃：浅色填充 .38（低填充才看得见背后）', /--dsh-glass-fill:rgba\(255,255,255,0\.38\)/.test(indexSrc))
+// 【策略变更】原断言为「深色主题有独立填充」，走的是 [data-ds-dark-theme] 通配分支。
+// 用户实测确认「只有液态与曜黑这两个主题加好看，其他 4 个主题加都不好看」，
+// 故适用范围收窄为两个具名主题：sequoia（浅）.38 / sonoma（深）深色系填充。
 check(
-  '磨砂：侧边栏噪声排在融合屏障之后（不污染顶部 44px）',
-  /\[class\*="root"\]\s*\{[\s\S]{0,220}rgb\(245, 245, 247\) var\(--dsh-fusion-top[\s\S]{0,80}var\(--dsh-frost-noise/.test(indexSrc),
+  '毛玻璃：曜黑 sonoma 有独立深色填充（照抄白色会发灰）',
+  /body\[data-ds-custom-theme="sonoma"\]\{\s*--dsh-glass-fill:rgba\(26,30,38/.test(indexSrc),
 )
+check('毛玻璃：浅/深各有独立高光边缘', /--dsh-glass-edge:rgba\(255,255,255,0\.96\)/.test(indexSrc) && /--dsh-glass-edge:rgba\(255,255,255,0\.16\)/.test(indexSrc))
+// 结构层前提：不去掉输入区实色压底，blur 模糊到的只是纯色，毛玻璃数学上不可能生效。
+check(
+  '毛玻璃：输入区实色压底已清除（结构层前提，否则 A1/A2 全部白做）',
+  /\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\][\s\S]{0,120}?background-image:none\s*!important;/.test(indexSrc),
+)
+// A 组：背后有内容滚过 → 必须带 blur。
+for (const [name, re] of [
+  ['A1 输入坞', /\[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/],
+  ['A3 撤回气泡', /\[class\*="dsh-recall-bubble"\][\s\S]{0,600}?backdrop-filter:var\(--dsh-glass-blur/],
+  ['A4 成本卡', /\[class\*="cm-footer-stack"\][\s\S]{0,600}?backdrop-filter:var\(--dsh-glass-blur/],
+]) {
+  check(`毛玻璃：${name} 已接入统一配方`, re.test(indexSrc.replace(/\n/g, ' ')))
+}
+// ── 适用范围收窄（用户实测确认）──
+// 玻璃材质**只服务 sequoia 与 sonoma**。本组断言防止它重新扩散到其余四主题。
+console.log('\n=== C4. 玻璃适用范围（仅液态 + 曜黑）===')
+check(
+  '范围：材质规则带 sequoia 门控',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[class\$="_card"\]/.test(indexSrc),
+)
+check(
+  '范围：材质规则带 sonoma 门控',
+  /body\[data-ds-custom-theme="sonoma"\] \[class\*="composerSeat"\] \[class\$="_card"\]/.test(indexSrc),
+)
+// 其余四个主题不得出现在任何材质规则的主题门控里。
+for (const id of ['void', 'jade', 'solar', 'parchment']) {
+  const leaked = new RegExp(`body\\[data-ds-custom-theme="${id}"\\][^,{]*\\{[^}]*backdrop-filter:var\\(--dsh-glass-blur`).test(indexSrc)
+  check(`范围：${id} 未被施加玻璃材质（不得回流）`, !leaked)
+}
+// 反面：不得用「参数归零」的方式豁免 —— 那会给其余主题写 background:transparent，
+// 把官方原有底衬一起抹掉，属于破坏而非还原。
+check(
+  '范围：未用「归零」方式豁免其余主题（防抹掉官方底衬）',
+  !/data-ds-custom-theme="(void|jade|solar|parchment)"\]\{[\s\S]{0,200}?--dsh-glass-blur:none/.test(indexSrc),
+)
+// 登记册：曾被否决的材质不应以任何形式回流。
+check('毛玻璃：未使用已否决的颗粒变量名', !/--dsh-glass-noise/.test(indexSrc))
 
-// ── 面板不透明度下限（用户两次反馈「太透」的系统性守卫）──
+// ── 面板不透明度下限（防「太透」回归）──
 // 玻璃要「实而仍透」：alpha 过低会让面板发虚、文字与底衬对比不足、边界感消失。
 // 单点断言容易被逐个改动绕过，这里对整组浮层 token 做统一下限校验。
 console.log('\n=== C2. 面板不透明度下限（防「太透」回归）===')
@@ -134,13 +251,11 @@ for (const [name, re] of opacityTokens) {
   // 下限 0.6：低于此值在实测中被判定为「发虚、可读性不足」
   check(`下限：${name} alpha ≥ 0.6`, val !== null && val >= 0.6, `  实测=${val}`)
 }
-// 关键回归：本次只回调「填充不透明度」，blur 半径必须原封不动 ——
-// 玻璃质感由 blur 承担，误调 blur 会把「调实一点」变成「糊成一片」。
+// 弹窗是内容面板，可读性优先：单独一档更实的填充，不得与输入坞的 .38 共用。
 check(
-  '回归：本次仅调填充，blur 半径保持（64/56/40/48）',
-  ['blur(64px)', 'blur(56px)', 'blur(40px)', 'blur(48px)'].every(k => indexSrc.includes(k)),
+  '毛玻璃：弹窗填充单独一档且更实（内容面板可读性优先）',
+  /--dsh-glass-dialog-fill:rgba\(255,255,255,0\.78\)/.test(indexSrc),
 )
-check('CSS: 弹窗毛玻璃提升到 48px', /\[role="dialog"\]\{[^}]*backdrop-filter:\s*blur\(48px\)/.test(indexSrc.replace(/\n/g, '')))
 check('CSS: 侧边栏右缘无白色高光线（只保留一条中性分界）', !/sequoia"\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[^}]*inset -0?\.?5?px 0 0 rgba\(255, 255, 255/.test(indexSrc))
 
 console.log('\n=== D. 顶栏分割线：融合态全主题透明 ===')

@@ -1105,26 +1105,89 @@ window.__ModuleLoader__.load({
 body[data-ds-custom-theme]{
   --dsh-fusion-top:44px;
 
-  /* ── 磨砂颗粒（Frost Grain）──────────────────────────────────────────
-     「玻璃」与「磨砂」是两种不同材质：玻璃是透明，磨砂是表面微观颗粒 + 光线漫射。
+  /* ── 毛玻璃参数（Frosted Glass）────────────────────────────────────────
+     ⚠️ 材质定义：本插件做的是「毛玻璃」，不是「磨砂/砂纸」。
 
-     ⚠️ 关键认知：background 是纯色时，backdrop-filter 的 blur() 模糊不出任何东西
-     （模糊纯色仍是纯色），所以单靠 blur 永远只有通透感、没有磨砂感。
-     真磨砂必须叠加一层**噪声纹理** —— 这与 macOS NSVisualEffectView 内部
-     叠一层高斯噪声的做法一致。
+        · 毛玻璃 = 表面光滑无颗粒，背后内容被 blur 化开，隐约可见明暗但读不出字。
+        · 磨砂   = 表面有微观颗粒（需叠 SVG 分形噪声纹理层）。
 
-     实现：SVG feTurbulence 生成分形噪声，再 feColorMatrix saturate=0 去色，
-     得到中性灰颗粒（避免彩色噪点污染主题色）。opacity 控制颗粒强度。
-     单一来源定义在此，四处面板复用，改一处即全站生效。 */
-  --dsh-frost-noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.10'/%3E%3C/svg%3E");
+     历史教训：曾误做成磨砂，叠了一层 SVG fractalNoise 去色颗粒。
+     该噪声 rect 带满 alpha，叠加会**同时压暗整体明度** —— 强度 0.20/0.12/0.05/0.03
+     一路调下来始终是「糊了一层灰雾」的脏感，方向本身就是错的，调参无解。已全部移除。
+
+     ⚠️ 两条独立的轴，切勿搞混（这是最容易做反的地方）：
+        · 「透多少」由填充 alpha 控制 —— 调高会看不到背后（变白板）。
+        · 「糊多狠」由 blur 半径控制 —— 遮住背后文字只能靠它，不能靠加填充。
+
+     用户确认参数：填充 .38 + blur(92px) saturate(180%)。
+
+     🚨 适用范围收窄（用户实测反馈）：
+     玻璃材质**只服务 液态 sequoia 与 曜黑 sonoma 两个主题**。
+     用户原话：「只有给液态以及曜黑这两个主题加好看，其他 4 个主题加了都不好看」。
+     故冥夜 void / 银曜 jade / 灼日 solar / 缃素 parchment 一律**不加玻璃**，
+     完全保持官方原始外观（含输入区压底渐变、面板填充、投影、描边等）。
+
+     实现方式：给每条材质规则加主题门控前缀（body[data-ds-custom-theme="sequoia"] /
+     "sonoma"），而不是给 4 个主题逐个写「归零」例外 ——
+     后者会把 background 改成 transparent，连官方原有底衬一起抹掉，属于破坏而非还原。 */
+  --dsh-glass-blur:blur(92px) saturate(180%);
+
+  /* 两个玻璃主题各自的取值（sequoia 浅 / sonoma 深，各自独立、不共用） */
+  --dsh-glass-fill:rgba(255,255,255,0.38);
+  --dsh-glass-sheen:linear-gradient(180deg,
+      rgba(255,255,255,0.30) 0%,
+      rgba(255,255,255,0.05) 48%,
+      rgba(255,255,255,0)    78%);
+  --dsh-glass-edge:rgba(255,255,255,0.96);
+  --dsh-glass-rim:rgba(255,255,255,0.58);
+  --dsh-glass-bottom:rgba(255,255,255,0.40);
+  /* 弹窗单独一档：内容面板可读性优先，填充比输入坞实得多 */
+  --dsh-glass-dialog-fill:rgba(255,255,255,0.78);
 }
+/* 曜黑（深色）：填充与高光必须取深色系值 —— 照抄浅色的 rgba(255,255,255,.38)
+   会让面板发灰发白，与暗色背景割裂。 */
+body[data-ds-custom-theme="sonoma"]{
+  --dsh-glass-fill:rgba(26,30,38,0.46);
+  --dsh-glass-sheen:linear-gradient(180deg,
+      rgba(255,255,255,0.10) 0%,
+      rgba(255,255,255,0.02) 48%,
+      rgba(255,255,255,0)    78%);
+  --dsh-glass-edge:rgba(255,255,255,0.16);
+  --dsh-glass-rim:rgba(255,255,255,0.10);
+  --dsh-glass-bottom:rgba(255,255,255,0.06);
+  --dsh-glass-dialog-fill:rgba(26,30,38,0.78);
+}
+/* ── 无边框融合屏障带（方案 C）──────────────────────────────────────────
+   作用：内容区最顶端与壳顶栏保持逐字节同色，实现「看不出边框」。
+
+   🚨 实测修复（用户反馈「深色主题下顶部栏与页面顶部这条缝看起来不太友好」）：
+   原写法是**硬切边** ——
+     linear-gradient(180deg, bg-base 0, bg-base 44px, transparent 44px)
+   即「44px 内死纯色，44px 处瞬间变透明」。逐像素实测色阶：
+     y=42  RGB(22,24,30)  L=24.1
+     y=44  RGB(12,13,18)  L=13.3   ← ΔL = -10.8，一条突兀的暗色断崖
+   深色主题下尤其刺眼：顶部是一块「死板纯色」，下方突然切到彩色光斑。
+
+   现改为**渐隐带**：44px 内保持纯净同色（融合前提不变），
+   之后用 100px 左右平滑过渡到主题原有背景。实测同一位置：
+     y=44  ΔL = -1.0（无可见台阶）
+
+   ⚠️ 两条硬约束：
+     1. --dsh-fusion-top 必须等于 desktop/src-tauri/src/lib.rs 的 TITLEBAR_HEIGHT（44px）。
+        三处需同步：shell.html 的 --dsh-titlebar-height、lib.rs 的 TITLEBAR_HEIGHT、此处。
+     2. 屏障带必须位于 background **最上层**（CSS 第一项），否则彩色光斑会盖住它，
+        顶部就不再与顶栏同色，融合失效。
+
+   渐隐长度用固定 100px（= 44 + 100 = 144px 处完全过渡完），
+   比 44px 的 2 倍略长，足够柔和又不会把光晕糊掉。 */
 [class$="centerCol"] > :first-child > [class$="_root"],
 [class$="centerCol"] [data-slot="main.conversation"] > [class*="_root"]{
   background:
     linear-gradient(180deg,
       var(--dsw-alias-bg-base) 0,
       var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
-      transparent var(--dsh-fusion-top, 44px)),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      transparent calc(var(--dsh-fusion-top, 44px) + 100px)),
     var(--dsw-alias-bg-app-image),
     var(--dsw-alias-bg-base) !important;
 }
@@ -1132,6 +1195,144 @@ body[data-ds-custom-theme]{
    body:not([data-ds-dark-theme]) / body[data-ds-custom-theme="*"] 三条规则对同一
    选择器的特异性更高，会直接覆盖这里。侧边栏顶部的融合改由其各自的主题规则处理
    （见 sequoia 等主题块内的 sidebarCol root 定义）。 */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   毛玻璃材质（Glassmorphism）· **仅 液态 sequoia 与 曜黑 sonoma**
+   ══════════════════════════════════════════════════════════════════════════
+
+   🚨 适用范围（用户实测确认）：
+   用户反馈「只有给液态以及曜黑这两个主题加好看，其他 4 个主题加了都不好看」。
+   故冥夜 void / 银曜 jade / 灼日 solar / 缃素 parchment **完全不加玻璃**，
+   保持官方原始外观。
+
+   实现方式：所有材质规则统一加主题门控（body[data-ds-custom-theme="sequoia"] /
+   "sonoma" 前缀）。**不要**改用「把参数归零」的写法 —— 那会把 background 改成
+   transparent，连官方原有底衬一起抹掉，属于破坏而非还原。
+
+   分级原则：backdrop-filter 的收益取决于「背后是什么」。
+     · A 组：背后**有内容滚过** → blur 有真实收益，上完整毛玻璃。
+     · B 组：背后是**均匀纯色** → blur(纯色)=纯色，零收益，只做填充。
+     · C 组：Portal 到 body 的瞬态浮层。
+
+   ⚠️ 历史失效记录（务必先读）：0.1.5 版改了 CSS Modules 类名，旧规则
+   [class*="InputBar_card"] / ChatView_column / AssistantMarkdown_root /
+   MessageItem_bubble / codeBlock / _pane / _float / lensBar 实测命中数**全为 0**，
+   一条都没生效 —— 这正是「各主题通用缺少玻璃质感」的直接原因。已在下方改写为真实类名。 */
+
+/* ① 结构层（关键前提）：去掉输入区自刷的实色压底。
+   实测 composerSeat 带 linear-gradient(transparent, rgb(245,245,247) 36px)，
+   叠加纯色 bg-base 后，输入框背后恒为纯色 → blur(纯色)=纯色，
+   毛玻璃**数学上不可能生效**。不去掉这层，下方 A1/A2 全部白做。
+   ⚠️ 仅对两个玻璃主题生效 —— 其余主题保留官方压底，避免内容与输入框打架。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"]{
+  background-image:none !important;
+}
+
+/* ── A 组：完整毛玻璃（背后有内容滚动经过）────────────────────────────── */
+/* A1 输入坞 · A2 任务进度卡 · A3 撤回气泡 · A4 成本卡 · A5 代码块标题条。
+
+   ⚠️ 实测性能修正：会话行 (dsh-ff__session-row) **不纳入 A 组**。
+   侧栏一次性渲染 40+ 个会话行，每个都挂 blur(92px) 会产生 42 个
+   backdrop-filter 合成层 —— 而它们背后是侧栏自身的纯色填充，blur 看不出
+   任何差别，纯粹白烧 GPU。这就是「背景是纯色时 blur 零收益」原则的典型踩坑。
+
+   ⚠️ 成本卡（cm-footer-stack）包边修正（用户实测反馈）：
+   实测该卡片原本有**三重描边叠加** ——
+     ① 官方 border: 1px solid rgba(0,0,0,.06)
+     ② 我加的闭合 rim: inset 0 0 0 1px rgba(255,255,255,.58)
+     ③ --dsw-elevation-prominent 内含的外环: 0 0 0 .5px rgba(0,0,0,.22)
+   三重叠加即用户看到的「外面还有一层包边」。
+
+   实测确认：该卡片**官方原生 box-shadow 为 none**（void/jade/solar 三主题实测均为 none），
+   故 ②③ 全部是本次新增的，不是官方原有设计。
+
+   现只保留「顶部高光 + 底部回光」两道**单向**内光：
+     · 去掉闭合 rim（②）；
+     · 去掉 elevation 外环（③）—— 侧栏内的卡片靠自身填充即可与背景分离，
+       不需要外投影，更不该有那圈 0.5px 深色描边。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sequoia"] [class*="composerStack"] > section,
+body[data-ds-custom-theme="sequoia"] [class*="dsh-recall-bubble"],
+body[data-ds-custom-theme="sequoia"] [class*="cm-footer-stack"],
+body[data-ds-custom-theme="sequoia"] [class*="_bannerWrap"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sonoma"] [class*="composerStack"] > section,
+body[data-ds-custom-theme="sonoma"] [class*="dsh-recall-bubble"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-footer-stack"],
+body[data-ds-custom-theme="sonoma"] [class*="_bannerWrap"]{
+  background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
+  backdrop-filter:var(--dsh-glass-blur,none) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom) !important;
+}
+/* 输入坞是**浮在对话流之上**的 sticky 浮层，需要外投影与内容分离；
+   成本卡在侧栏内、与背景同为侧栏填充，去掉外投影更干净。
+   故只给输入坞/任务卡/标题条补回官方 elevation 的**投影部分**（不含 0.5px 外环）。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sequoia"] [class*="composerStack"] > section,
+body[data-ds-custom-theme="sequoia"] [class*="_bannerWrap"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sonoma"] [class*="composerStack"] > section,
+body[data-ds-custom-theme="sonoma"] [class*="_bannerWrap"]{
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom),
+    0 3px 8px rgba(0,0,0,0.10),
+    0 0 20px rgba(0,0,0,0.05) !important;
+}
+
+/* ── B 组：仅填充（背后纯色，**不加 blur，也不加任何 box-shadow**）──────
+   B1 侧栏内容层 · B2 右栏列 · B3 右侧面板 · B4 侧栏会话行 · B5 新会话按钮
+   B6 成本芯片 · B7 网关开关 · B8~B11 设置弹窗内的步进器/下拉/色块/导航项
+
+   🚨 三处实测踩坑（用户三次反馈「每个单独 DOM 都有外边框/边线」）：
+     · 第一轮给了闭合 rim  inset 0 0 0 1px  → 每项被框出一圈完整矩形白线；
+     · 第二轮改为只给顶部高光 inset 0 1px 0 → **仍然出线**：会话行高仅 36px，
+       每行顶边一条近乎纯白的 1px 线（浅色主题下 rgba(255,255,255,.96)），
+       多行堆叠起来就是「每个小 DOM 之间的横向边线」；
+     · 第三轮：成本卡仍有包边 —— 官方自带 border + elevation 外环，
+       叠加我给的 inset rim，三重描边。
+
+   结论：**列表项/小控件一律不施加任何 box-shadow。**
+   本组只做「填充透明度」，其余全部交还官方原始样式。 */
+body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"],
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] > * > [class*="root"],
+body[data-ds-custom-theme="sequoia"] [data-sidebar-right-panel],
+body[data-ds-custom-theme="sequoia"] [class*="dsh-ff__session-row"],
+body[data-ds-custom-theme="sequoia"] [class*="_newSession"],
+body[data-ds-custom-theme="sequoia"] [class*="cm-chip"],
+body[data-ds-custom-theme="sequoia"] [class*="cm-gw-switcher"],
+body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"],
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] > * > [class*="root"],
+body[data-ds-custom-theme="sonoma"] [data-sidebar-right-panel],
+body[data-ds-custom-theme="sonoma"] [class*="dsh-ff__session-row"],
+body[data-ds-custom-theme="sonoma"] [class*="_newSession"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-chip"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-gw-switcher"]{
+  box-shadow:none !important;
+}
+
+/* ── C 组：瞬态浮层 / Portal（仅两个玻璃主题）────────────────────────────
+   C1 设置弹窗 · C2 菜单（Portal 到 body，z-index 9501 由既有规则锁定，
+   不得取 int32 max）· C3 Tooltip。
+   C4 Toast **刻意排除** —— 官方是深色实底强调提示
+   （--dsw-alias-button-contrast-fill），改半透明会削弱提示力度（用户已确认保持实底）。 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"],
+body[data-ds-custom-theme="sequoia"] [role="menu"],
+body[data-ds-custom-theme="sequoia"] [role="tooltip"],
+body[data-ds-custom-theme="sonoma"] [role="dialog"],
+body[data-ds-custom-theme="sonoma"] [role="menu"],
+body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
+  background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
+  backdrop-filter:var(--dsh-glass-blur,none) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-edge),
+    0 24px 60px rgba(0,0,0,0.18) !important;
+}
 
 /* Sidebar column: transparent base so the sidebar's own glass backdrop
    shows through the alpha — the column wrapper no longer paints a solid
@@ -1162,9 +1363,25 @@ body[data-ds-custom-theme]{
    NOTE: backdrop-filter NOT set here — it lives on sidebarCol::before
    (pseudo-element, safe for position:fixed children). backdrop-filter on
    a DOM element creates a containing block for position:fixed descendants,
-   which would break the settings dialog (portal renders inside sidebar). */
+   which would break the settings dialog (portal renders inside sidebar).
+
+   ⚠️ 顶部融合屏障（**六主题通用，不分深浅**）：
+   中央内容区一直带「同色屏障 + 渐隐」，而侧栏此前没有 —— 导致侧栏顶部直接
+   暴露半透明填充与光斑，与顶栏形成亮度断层。逐像素实测（修复前）：
+     · void  左=33.7  中=13.3  → 差 20.3 阶
+     · solar 左=36.8  中=15.4  → 差 21.3 阶
+     · parchment 左=219.6 中=224.4 → 差 4.8 阶
+   用户反馈「左右侧边栏跟顶部栏反差，其他 4 个主题也要一同修复」。
+   故把屏障提到**通用规则**层：无论深浅主题，顶部 44px 一律等于 bg-base，
+   再向下渐隐到主题原有材质。补齐后三处顶部亮度一致（差 < 1.5 阶）。
+   ⚠️ 屏障必须在 background **最上层**（CSS 第一项），否则会被光斑盖住。 */
 body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
   background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      transparent calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
       transparent 100%),
@@ -1177,6 +1394,11 @@ body[data-ds-dark-theme] [class*="sidebarCol"] > * > [class*="root"]{
 /* Light theme sidebar glass — driven by theme's surface-glass-spot (transparent when spots disabled) */
 body:not([data-ds-dark-theme]) [class*="sidebarCol"] > * > [class*="root"]{
   background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 70%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 30%, transparent) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 30%, transparent) 0%,
       transparent 100%),
@@ -1224,8 +1446,15 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
     radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, transparent), transparent 56%);
   box-shadow:inset -1px 0 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
 }
+/* 右栏面板同样补「顶部同色融合屏障」（六主题通用，与左侧栏一致）。
+   缺失时其顶部会直接暴露半透明填充与光斑，与顶栏形成亮度断层。 */
 body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
   background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      transparent calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 15%, transparent) 0%,
       transparent 100%),
@@ -1234,10 +1463,16 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, rgba(228,222,238,0.28)) 10%, transparent) 40%,
       transparent 60%),
     color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, transparent) !important;
-  box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+  /* 去掉顶部 inset 亮线（会在顶栏正下方形成横贯亮线） */
+  box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04) !important;
 }
 body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]{
   background:
+    linear-gradient(180deg,
+      var(--dsw-alias-bg-base) 0,
+      var(--dsw-alias-bg-base) var(--dsh-fusion-top, 44px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 70%, transparent) calc(var(--dsh-fusion-top, 44px) + 52px),
+      color-mix(in srgb, var(--dsw-alias-bg-base) 30%, transparent) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     radial-gradient(ellipse 80% 60% at 50% 30%,
       color-mix(in srgb, var(--dsw-alias-surface-glass-spot, transparent) 30%, transparent) 0%,
       transparent 100%),
@@ -1247,40 +1482,9 @@ body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]
     var(--dsw-specific-sidebar-fill) !important;
   box-shadow:
     inset -1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.06)),
-    inset 1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.04)),
-    inset 0 1px 1px var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.04)) !important;
+    inset 1px 0 0 var(--dsw-alias-border-l1, rgba(15, 23, 42, 0.04)) !important;
 }
-[class*="rightbarCol"] [data-sidebar-right-panel="fullscreen"]{
-  backdrop-filter:var(--dsw-alias-glass-blur,none);
-  -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
-}
-/* Floating dock panels are position:fixed inside the same column subtree:
-   the frame already carries a translucent layer-2 fill, so add the theme's
-   glass blur and a specular edge so floats read as real frosted glass. */
-[class*="rightbarCol"] [class$="_float"]{
-  backdrop-filter:var(--dsw-alias-glass-blur,none);
-  -webkit-backdrop-filter:var(--dsw-alias-glass-blur,none);
-}
-body[data-ds-dark-theme] [class*="rightbarCol"] [class$="_float"]{
-  box-shadow:var(--dsw-elevation-prominent), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.02) !important;
-}
-body:not([data-ds-dark-theme]) [class*="rightbarCol"] [class$="_float"]{
-  box-shadow:
-    var(--dsw-elevation-prominent),
-    inset 0 1px 1px rgba(255,255,255,0.85),
-    inset 0 0 0 1px rgba(255,255,255,0.45) !important;
-}
-/* The changes tab (better-sidebar's unified "文件变动" pane) paints an opaque
-   --dsw-alias-bg-base ground on its own root, which covers the right panel's
-   glass — it is the one pane that reads as a flat slab while every sibling tab
-   stays translucent. Drop that ground inside the right sidebar only; the tab's
-   rows and diff surfaces still paint their own fills, and the panel glass is
-   the same base-surface colour the root was imitating.
-   Hooked through the pane's own lens bar (unconditional first child of the
-   changes root) so no per-build class hash is baked in. */
-[class*="rightbarCol"] [data-slot="sidebar.right.pane.tab"] [class*="_root"]:has(> [class*="_lensBar"]){
-  background:transparent !important;
-}
+/* 右栏 fullscreen 态的面板 blur 由上方 C 组统一处理，这里不再重复。 */
 
 /* All primary action buttons (Button variant="primary"):
    1. Dark themes: neon fluid-drift glass buttons.
@@ -1410,32 +1614,31 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   width: auto !important;
 }
 
-/* Dialogs/modals: frosted glass surface */
-body[data-ds-dark-theme] [role="dialog"]{
+/* Dialogs/modals：毛玻璃面板（**仅 液态 sequoia 与 曜黑 sonoma**）。
+   ⚠️ 弹窗是**大面积内容面板**（表单、长列表、设置项），可读性优先于通透度，
+   故填充比输入坞更实 —— 单独用 --dsh-glass-dialog-fill，不共用 .38 的输入坞填充。
+   配方（填充 + 虚化 + 光学边缘）与 C 组一致，此处只覆盖填充与投影。
+   ⚠️ 主题门控写死为 sequoia / sonoma 两个 id：
+   不得改到内置 light/dark，也不得扩散到其余四个自定义主题（用户已确认）。 */
+body[data-ds-custom-theme="sonoma"] [role="dialog"]{
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 30%),
-    linear-gradient(0deg, rgba(10,11,16,0.25) 0%, transparent 45%),
-    color-mix(in srgb, var(--dsw-alias-bg-layer-2) 85%, transparent) !important;
-  backdrop-filter:blur(32px) saturate(1.05) !important;
+    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 30%),
+    var(--dsh-glass-dialog-fill) !important;
+  backdrop-filter:var(--dsh-glass-blur) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
   box-shadow:
-    0 0 0 1px rgba(200,198,204,0.22),
-    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 1px 0 var(--dsh-glass-edge),
     0 6px 16px rgba(0,0,0,0.40),
     0 24px 60px rgba(0,0,0,0.50) !important;
 }
-/* Dialogs/modals in light mode: 磨砂玻璃 —— 填充由 --dsw-alias-bg-overlay 驱动，
-   blur 提供背后虚化，叠加颗粒层提供真磨砂质感（纯色背景下单靠 blur 出不来磨砂）。 */
-body:not([data-ds-dark-theme]) [role="dialog"]{
+body[data-ds-custom-theme="sequoia"] [role="dialog"]{
   background:
-    linear-gradient(145deg,
-      rgba(255, 255, 255, 0.15) 0%,
-      transparent 100%),
-    var(--dsh-frost-noise, none) repeat,
-    var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(238, 232, 220))) !important;
-  backdrop-filter: blur(48px) saturate(1.25) !important;
-  -webkit-backdrop-filter: blur(48px) saturate(1.25) !important;
+    linear-gradient(180deg, rgba(255,255,255,0.16) 0%, transparent 34%),
+    var(--dsh-glass-dialog-fill) !important;
+  backdrop-filter:var(--dsh-glass-blur) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
   box-shadow:
-    0 0 0 1px var(--dsw-alias-border-l2, rgba(15, 23, 42, 0.08)),
+    inset 0 1px 0 var(--dsh-glass-edge),
     0 12px 32px rgba(15, 23, 42, 0.08),
     0 24px 64px rgba(15, 23, 42, 0.05) !important;
 }
@@ -1485,50 +1688,33 @@ nav[class*="frame"],
   box-shadow: none !important;
 }
 
-/* 悬浮毛玻璃输入坞 (Floating Glass Dock)
-   玻璃强度 = 模糊半径 ÷ 填充不透明度。填充过淡（0.42）会让输入区发虚、
-   文字与底衬对比不足 —— 回调到 0.58：保留磨砂通透，同时让输入坞有明确实体感。 */
-body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"] {
+/* 输入坞的聚焦态反馈（液态/曜黑各一套主题色）。
+   ⚠️ 旧规则用 [class*="InputBar_card"]，0.1.5 改名后实测命中数为 0，一直没生效。
+   现改用结构稳定的 [class*="composerSeat"] [class$="_card"]（与 A1 组同源）。
+   填充、虚化、颗粒均已由 A 组统一配方与 --dsh-glass-* 令牌接管，
+   此处只保留「聚焦环 + 圆角」这两项纯交互反馈，避免与 A 组 !important 打架。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"] {
   border-radius: 20px !important;
-  background: var(--dsh-frost-noise, none) repeat, rgba(255, 255, 255, 0.74) !important;
-  border: 1px solid rgba(255, 255, 255, 0.90) !important;
-  backdrop-filter: blur(64px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(64px) saturate(200%) !important;
-  box-shadow:
-    0 18px 46px rgba(0, 0, 0, 0.13),
-    0 4px 14px rgba(0, 0, 0, 0.05),
-    inset 0 1px 1px rgba(255, 255, 255, 0.98),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.40) !important;
-  margin-bottom: 8px !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-body[data-ds-custom-theme="sequoia"] [class*="InputBar_card"]:focus-within {
-  border-color: rgba(0, 113, 227, 0.45) !important;
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:focus-within {
   box-shadow:
-    0 20px 48px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom),
     0 0 0 3px rgba(0, 113, 227, 0.18),
-    inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+    var(--dsw-elevation-prominent, none) !important;
 }
 
-body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"] {
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"] {
   border-radius: 20px !important;
-  background: rgba(24, 28, 36, 0.80) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  backdrop-filter: blur(38px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(38px) saturate(180%) !important;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.65),
-    0 6px 16px rgba(0, 0, 0, 0.45),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
-  margin-bottom: 8px !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="InputBar_card"]:focus-within {
-  border-color: rgba(41, 151, 255, 0.45) !important;
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:focus-within {
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom),
     0 0 0 3px rgba(41, 151, 255, 0.22),
-    inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
+    var(--dsw-elevation-prominent, none) !important;
 }
 
 /* 全局 Primary 按钮（涵盖插件市场「全部更新」、「安装」、发送按钮与操作确认键）：
@@ -1591,48 +1777,53 @@ body[data-ds-custom-theme="sonoma"] button[class*="sendButton"]:hover:not(:disab
   transform: translateY(-0.5px);
 }
 
-/* 用户气泡：Apple 官方高光胶囊 */
-body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] {
+/* 用户气泡：Apple 官方高光胶囊。
+   ⚠️ 选择器已修正：旧写法 [class*="MessageItem_bubble"] 依赖「源码目录名」，
+   而 CSS Modules 产出的是 <hash>_bubble —— 源码名从不出现在 DOM，实测命中为 0。
+   改用后缀式 [class$="_bubble"]（不含哈希，跨版本稳定），并以 userStack 限定为用户气泡，
+   避免误伤 tooltip 的 .bubble。 */
+body[data-ds-custom-theme="sequoia"] [class*="userStack"] > [class$="_bubble"] {
   border-radius: 18px 18px 4px 18px !important;
   background: #0071e3 !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28) !important;
 }
-body[data-ds-custom-theme="sequoia"] [class*="MessageItem_bubble"] * {
+body[data-ds-custom-theme="sequoia"] [class*="userStack"] > [class$="_bubble"] * {
   color: #ffffff !important;
 }
 
-body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] {
+body[data-ds-custom-theme="sonoma"] [class*="userStack"] > [class$="_bubble"] {
   border-radius: 18px 18px 4px 18px !important;
   background: #2997ff !important;
   color: #ffffff !important;
   box-shadow: 0 4px 18px rgba(41, 151, 255, 0.40) !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="MessageItem_bubble"] * {
+body[data-ds-custom-theme="sonoma"] [class*="userStack"] > [class$="_bubble"] * {
   color: #ffffff !important;
 }
 
-/* AI 助手回复：半透液态玻璃卡片化（同输入坞，回调填充以保证长文可读性） */
-body[data-ds-custom-theme="sequoia"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
-  background: var(--dsh-frost-noise, none) repeat, rgba(255, 255, 255, 0.80) !important;
-  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+/* AI 助手回复卡片（**仅液态 sequoia 与曜黑 sonoma** 有此卡面化处理，
+   其余四主题保持官方原生段落样式 —— 不做范围外改版）。
+   ⚠️ 旧写法 ChatView_column / AssistantMarkdown_root 均为源码目录名，实测命中为 0。
+   改用稳定的 slot 锚点 + 后缀式 markdown 类（hash-independent）。
+
+   ⚠️ 该卡片的玻璃质感依赖主题的 --dsw-alias-bg-app-image 提供底衬变化：
+     · sonoma：紫/蓝/粉三色光斑底 → 透出后玻璃质感明显 ✅
+     · sequoia：已按「方案 B」恢复极淡冷调光晕，特征点落在内容列内 → 可透出 ✅
+   若某主题把 bg-app-image 设为 none，则卡片背后恒为纯色，模糊纯色仍是纯色，
+   此时只能呈现「顶部光学反光 + 轻微明度差」，不会有明显通透感（物理限制）。
+   ⚠️ 只给顶部高光与底部回光两道单向光，**不给闭合 rim**（避免包边）。 */
+body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:has([class*="_markdown_"]),
+body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:has([class*="_markdown_"]) {
+  background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
+  backdrop-filter:var(--dsh-glass-blur,none) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
   border-radius: 18px 18px 18px 4px !important;
   padding: 16px 20px !important;
   box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.07),
-    inset 0 1px 1px rgba(255, 255, 255, 0.96),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.35) !important;
-  backdrop-filter: blur(40px) saturate(175%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(175%) !important;
-}
-
-body[data-ds-custom-theme="sonoma"] [class*="ChatView_column"] > [class*="ChatView_flowItem"]:has([class*="AssistantMarkdown_root"]) {
-  background: rgba(28, 32, 40, 0.74) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  border-radius: 18px 18px 18px 4px !important;
-  padding: 16px 20px !important;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.40), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(22px) saturate(160%) !important;
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom),
+    0 10px 30px rgba(0, 0, 0, 0.07) !important;
 }
 
 /* 侧边栏毛玻璃材质与透光 (Sidebar Glassmorphism)
@@ -1653,11 +1844,14 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
   backdrop-filter: blur(56px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(56px) saturate(190%) !important;
 }
-/* 侧边栏内容层：磨砂颗粒 + 半透明填充 + 顶部与顶栏同色屏障。
+/* 侧边栏内容层：半透明填充 + 顶部与顶栏同色融合屏障。
    层次顺序（CSS background 第一项在最上）：
-     ① 融合屏障（顶部 44px 与顶栏逐字节同色，噪声不得侵入否则破坏融合）
-     ② 磨砂颗粒（真磨砂来源；barrier 在顶部已不透明，故颗粒只在下半部显现）
-     ③ 半透明填充
+     ① 融合屏障（顶部 44px 与顶栏逐字节同色，任何叠加层不得侵入否则破坏融合）
+     ② 半透明填充
+   ⚠️ 屏障同样采用**渐隐过渡**而非硬切边（与内容区一致）：
+   侧栏底衬虽是不透明填充，硬切边在这里肉眼不可见，但保持全站一致可避免
+   将来调整侧栏填充透明度时这条断崖重新暴露。门禁统一锁「不得出现硬切」。
+   ⚠️ 已移除磨砂颗粒层：本插件做的是毛玻璃（表面光滑），颗粒属被否决的材质。
    ⚠️ 严禁 inset 白色高光：inset 0 1px 1px rgba(255,255,255,·) 会画在内容层
    顶部（y=0，即壳顶栏正下方 y=44 处），在纯色底上直接表现为一条横贯的白线。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"] {
@@ -1665,8 +1859,8 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] > * > [class*="root"]
     linear-gradient(180deg,
       rgb(245, 245, 247) 0,
       rgb(245, 245, 247) var(--dsh-fusion-top, 44px),
-      transparent var(--dsh-fusion-top, 44px)) no-repeat,
-    var(--dsh-frost-noise, none) repeat,
+      rgba(245, 245, 247, 0.88) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(245, 245, 247, 0.72) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     rgba(245, 245, 247, 0.66) !important;
   box-shadow: none !important;
 }
@@ -1681,24 +1875,50 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"]::before {
 }
 body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] {
   background:
+    /* ① 顶部同色融合屏障（**必须在最上层**）—— 逐字节等于 bg-base，
+          向下渐隐过渡到主题原有填充。缺这条则侧栏顶部直接暴露半透明填充
+          + 紫色光斑，与顶栏形成约 11 阶亮度断层（实测 L≈35 vs 24.1），
+          用户反馈「左右侧边栏跟顶部边栏反差太大，没有像中间一样自然过渡」。 */
+    linear-gradient(180deg,
+      rgb(22, 24, 30) 0,
+      rgb(22, 24, 30) var(--dsh-fusion-top, 44px),
+      rgba(22, 24, 30, 0.55) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(22, 24, 30, 0) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
+    /* ② 主题原有材质 */
     radial-gradient(ellipse 85% 65% at 48% 28%, rgba(140, 70, 240, 0.15) 0%, transparent 100%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%),
     rgba(18, 20, 25, 0.55) !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), inset -1px 0 0 rgba(255, 255, 255, 0.09) !important;
+  /* ⚠️ 严禁 inset 白色内高光：inset 0 1px 1px 会画在内容层顶部，
+     即壳顶栏正下方，在深色底上表现为一条横贯亮线（历史踩坑）。 */
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.09) !important;
 }
 
-/* 右侧抽屉面板毛玻璃与发丝镜面反射 */
 /* 右侧抽屉面板：与顶栏同色系，不发丝高光（同左侧栏，避免色差被读成分界）。
-   填充 0.68 + 磨砂颗粒；实测该面板曾是最透的一处。 */
+   ⚠️ 已移除磨砂颗粒层（毛玻璃不要颗粒）。
+   ⚠️ 同样补上**顶部同色融合屏障**：右栏面板是独立绘制的 surface，
+   缺屏障时其顶部会直接暴露半透明填充与光斑，与顶栏形成断层
+   （与左侧栏同一根因，用户反馈「左右侧边栏跟顶部边栏反差太大」）。 */
 body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
-  background: var(--dsh-frost-noise, none) repeat, rgba(245, 245, 247, 0.68) !important;
+  background:
+    linear-gradient(180deg,
+      rgb(245, 245, 247) 0,
+      rgb(245, 245, 247) var(--dsh-fusion-top, 44px),
+      rgba(245, 245, 247, 0.88) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(245, 245, 247, 0.72) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
+    rgba(245, 245, 247, 0.68) !important;
   box-shadow: none !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
   background:
+    linear-gradient(180deg,
+      rgb(22, 24, 30) 0,
+      rgb(22, 24, 30) var(--dsh-fusion-top, 44px),
+      rgba(22, 24, 30, 0.55) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(22, 24, 30, 0) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
     radial-gradient(ellipse 85% 65% at 52% 28%, rgba(41, 151, 255, 0.12) 0%, transparent 100%),
     rgba(18, 20, 25, 0.55) !important;
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.09), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
+  /* 去掉顶部 inset 亮线（会在顶栏正下方形成横贯亮线） */
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.09) !important;
 }
 
 /* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */
@@ -1832,16 +2052,20 @@ body{
   line-height:calc(var(--dsh-sidebar-font-size,13px) + 8px);
 }
 
-/* Xcode 风格代码块 */
+/* Xcode 风格代码块。
+   ⚠️ 代码块**刻意不上毛玻璃**（用户已确认排除 A6）：代码是可读性最高优先级的实体内容，
+   半透明会让底层文字透出来干扰阅读，故保持实色底 + 描边。
+   选择器修正：旧写法 [class*="codeBlock"] 为源码目录名，实测命中为 0；
+   改用真实存在且不含哈希的 [class*="md-code-block"]。 */
 body[data-ds-custom-theme="sequoia"] pre,
-body[data-ds-custom-theme="sequoia"] [class*="codeBlock"] {
+body[data-ds-custom-theme="sequoia"] [class*="md-code-block"] {
   border-radius: 10px !important;
   border: 1px solid #d0d7de !important;
   background: #f6f8fa !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
 }
 body[data-ds-custom-theme="sonoma"] pre,
-body[data-ds-custom-theme="sonoma"] [class*="codeBlock"] {
+body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   border-radius: 10px !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   background: #14161b !important;
