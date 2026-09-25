@@ -87,7 +87,7 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 
 - `bridge_init_script(port, token)`：Notification shim + 通知桥 + 主题 `MutationObserver`（监听 `data-ds-dark-theme`）。
 - `BOOT_FAILURE_SCRIPT`：启动失败提示。
-- `brand_overlay_script()`：品牌文字覆盖。
+- `brand_overlay_script()`：品牌文字覆盖 + 版本徽标瘦身。
 - `shell_ui_script(version, build)`：壳联动 UI —— 顶栏 ☰ 毛玻璃面板 + 「关于 DSH」玻璃弹窗。
 
 > **教训**：曾把多段拼成一段，其中 `observe(document.documentElement)` 在 `document` 创建早期抛错，静默带走后面所有脚本，表现为刷新后明显延迟。必须各自独立注入；WebView2 对每条单独 `AddScriptToExecuteOnDocumentCreated`，单条异常只中断它自己。
@@ -101,11 +101,12 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 - 深浅判定优先级：`html.style.colorScheme` > `body[data-ds-dark-theme]` > 默认深色（与壳首帧兜底一致）；弹窗按判定打 `data-light` 属性切换配色。
 - 面板与弹窗的动作一律经 `__dshNotifyBridge.shellAction(action)` 回到 `run_shell_action`；「关于」走本地 `openAbout()` 自绘弹窗，**不再调 `MessageBoxW`**（原 `show_about_dialog` 只保留为脚本缺失时的最后兜底）。
 - 版本号由 Rust 侧 `get_dsh_host_version()` / `env!("CARGO_PKG_VERSION")` 注入脚本占位符，不在前端硬编码。
+- **版本徽标只留 semver**：官方 `ui-sidebar` 的 `localBuildVersion()` 把徽标渲染成 `version[-<7位commit>][-dirty]`（`SidebarRoot.tsx` 独立文本节点 `buildVersion`）。`brand_overlay_script()` 的同一次 TreeWalker 里按 `^\d+\.\d+\.\d+...$` 严格匹配后剥掉尾部 `-dirty` 与 `-[0-9a-f]{7,40}`，只留 `0.1.5-rc.2`。不硬编码版本号（官方升级自动跟随）；匹配不上则原样显示，安全降级。
 - **品牌 logo 复用应用图标**：`include_bytes!("../../src/icon.png")` 编译期嵌入，运行时由 `base64_encode` 转 data URI 内联。content WebView 是远程 http 源，取不到 Tauri 本地资源，所以必须内联而非引用路径；手写 base64 是为了不为此引入依赖。
 - 回归自检（改壳 UI 后必跑）：
   - `node desktop/scripts/check-shell-ui.mjs`（19 项，含 2 条负向对照）—— 真实模拟点击，断言 5 项动作路由、关于弹窗结构、logo 为内联位图、副标题已移除、深浅适配。
   - `node desktop/scripts/check-base64.mjs`（13 项，含 1 条负向对照）—— 与 Node 权威实现逐一对拍 base64 编码器。
-  - `node desktop/scripts/check-dist-artifact.mjs`（9 项，含 1 条负向对照）—— 校验 dist 产物真的嵌入了鲸鱼图标且旧文案已消失。**产物级验证不可省**：exe 里本就有多张 PNG（Tauri 的 128/32 图标），判据必须是「与源码 icon.png 逐字节一致」，取第一张会误判。
+  - `node desktop/scripts/check-dist-artifact.mjs`（11 项，含 1 条负向对照）—— 校验 dist 产物真的嵌入了鲸鱼图标且旧文案已消失。**产物级验证不可省**：exe 里本就有多张 PNG（Tauri 的 128/32 图标），判据必须是「与源码 icon.png 逐字节一致」，取第一张会误判。
 
 ## 9. 服务与重启语义
 

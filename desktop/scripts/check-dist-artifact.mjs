@@ -75,6 +75,11 @@ check(
 check('产物通知桥 theme-change 通路仍在', utf8.includes('theme-change'))
 check('产物通知桥 shellAction 通路仍在', utf8.includes('shell-action'))
 
+// 8. 版本徽标瘦身逻辑必须在产物里（品牌脚本是明文嵌入 exe 的 JS）。
+//    判据用脚本自身的两个特征串，而不是「-dirty」这类会被其它代码顺带命中的短串。
+check('产物含版本徽标剥离逻辑 stripBuildSuffix', s.includes('stripBuildSuffix'))
+check('产物含徽标 semver 匹配正则', s.includes('^\\d+\\.\\d+\\.\\d+'))
+
 // ── 负向对照 ──
 // 用一张明显不同的 PNG（128 图标）反证「逐字节一致」判据有牙齿：
 // 它一定不等于源图标，因此上面那条 PASS 不可能是随便一张图蒙对的。

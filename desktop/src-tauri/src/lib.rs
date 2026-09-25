@@ -2596,6 +2596,16 @@ fn brand_overlay_script() -> &'static str {
   window.__dshBrandOverlayInjected = true;
   var TARGET = 'DSH@Oct1AtJoe';
   var SOURCES = ['DSH 本地构建', 'DSH Local Build'];
+  // 官方完整构建的代码徽标（SidebarRoot.tsx「buildVersion」独立文本节点）形态为
+  // `version[-<7位commit hex>][-dirty]`，此处只留 version。严格 semver 三段式 + 白名单字符
+  // 才动手，绝不误伤页面其它数字文本。ponytail: 版本号本身以 7+ 位纯 hex 结尾才会被误剥，
+  // 官方版本号不含这种形态；真出现时改为按「已知 hash 长度 7」精确匹配。
+  var BADGE = /^\d+\.\d+\.\d+(?:[-+.][0-9A-Za-z.]+)*$/;
+  function stripBuildSuffix(text) {
+    if (text.length > 60 || !BADGE.test(text)) return null;
+    var out = text.replace(/-dirty$/, '').replace(/-[0-9a-f]{7,40}$/, '');
+    return out === text ? null : out;
+  }
   function replaceBrand() {
     var root = document.body || document.documentElement;
     if (!root) return;
@@ -2607,6 +2617,11 @@ fn brand_overlay_script() -> &'static str {
       var trimmed = text.trim();
       if (SOURCES.indexOf(trimmed) !== -1) {
         node.nodeValue = text.replace(trimmed, TARGET);
+        continue;
+      }
+      var stripped = stripBuildSuffix(trimmed);
+      if (stripped !== null) {
+        node.nodeValue = text.replace(trimmed, stripped);
       }
     }
   }
