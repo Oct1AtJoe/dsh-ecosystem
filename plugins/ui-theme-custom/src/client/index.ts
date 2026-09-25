@@ -154,6 +154,8 @@ body[data-ds-custom-theme]{
   --dsh-glass-bottom:rgba(255,255,255,0.40);
   /* 弹窗单独一档：内容面板可读性优先，填充比输入坞实得多 */
   --dsh-glass-dialog-fill:rgba(255,255,255,0.78);
+  /* 浮层（菜单/提示）也单列一档：承载可读文字，不能沿用输入坞的 .38 */
+  --dsh-glass-popover-fill:rgba(255,255,255,0.72);
 }
 /* 曜黑（深色）：填充与高光必须取深色系值 —— 照抄浅色的 rgba(255,255,255,.38)
    会让面板发灰发白，与暗色背景割裂。 */
@@ -167,6 +169,7 @@ body[data-ds-custom-theme="sonoma"]{
   --dsh-glass-rim:rgba(255,255,255,0.10);
   --dsh-glass-bottom:rgba(255,255,255,0.06);
   --dsh-glass-dialog-fill:rgba(26,30,38,0.78);
+  --dsh-glass-popover-fill:rgba(26,30,38,0.82);
 }
 /* ── 无边框融合屏障带（方案 C）──────────────────────────────────────────
    作用：内容区最顶端与壳顶栏保持逐字节同色，实现「看不出边框」。
@@ -327,22 +330,64 @@ body[data-ds-custom-theme="sonoma"] [class*="cm-gw-switcher"]{
 }
 
 /* ── C 组：瞬态浮层 / Portal（仅两个玻璃主题）────────────────────────────
-   C1 设置弹窗 · C2 菜单（Portal 到 body，z-index 9501 由既有规则锁定，
-   不得取 int32 max）· C3 Tooltip。
+   C1 设置弹窗 · C2 菜单 · C3 Tooltip。
    C4 Toast **刻意排除** —— 官方是深色实底强调提示
-   （--dsw-alias-button-contrast-fill），改半透明会削弱提示力度（用户已确认保持实底）。 */
+   （--dsw-alias-button-contrast-fill），改半透明会削弱提示力度（用户已确认保持实底）。
+
+   🚨 本轮修复（用户反馈「权限展开的选择面板透明度太高、没有背景高斯模糊」）：
+   实测该菜单的 computed backdrop-filter **确实是 blur(92px)**，却看不出模糊。根因有二：
+
+   ① **嵌套 backdrop root 导致 blur 失效**（主因）。
+      实测祖先链：[role="menu"] → _root_1nxmc_1 → QwfZkG_modes → QwfZkG_tools
+      → QwfZkG_row → **QwfZkG_card（输入坞卡片，自带 backdrop-filter）**。
+      即该菜单是**输入坞卡片的 DOM 后代**。CSS 规范：带 backdrop-filter 的元素会建立
+      新的 backdrop root，其后代的 backdrop-filter **只能模糊该 root 内部已合成的内容**。
+      而卡片内部是均匀填充 → 菜单等于「模糊了一个寂寞」。
+      修法沿用本项目对 sidebarCol 已确立的做法：**把卡片的 blur 移到 ::before 伪元素**
+      （伪元素不是菜单的祖先，不会为后代建立 backdrop root）。
+
+   ② **填充沿用了输入坞的 .38 档，太透**。
+      菜单是**承载可读文字**的浮层（选项 + 勾选态），不是大面积背景板。
+      与输入坞共用 .38 会让背后文字直接穿透、选项互相干扰。
+      故为浮层单列一档 --dsh-glass-popover-fill（浅 .72 / 深 .82），
+      与 --dsh-glass-dialog-fill 同理：**内容可读性优先于通透度**。 */
 body[data-ds-custom-theme="sequoia"] [role="dialog"],
 body[data-ds-custom-theme="sequoia"] [role="menu"],
 body[data-ds-custom-theme="sequoia"] [role="tooltip"],
 body[data-ds-custom-theme="sonoma"] [role="dialog"],
 body[data-ds-custom-theme="sonoma"] [role="menu"],
 body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
-  background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
+  background:var(--dsh-glass-sheen),var(--dsh-glass-popover-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
     0 24px 60px rgba(0,0,0,0.18) !important;
+}
+
+/* ① 解除嵌套 backdrop root：输入坞卡片的 blur 移到 ::before 伪元素。
+   ⚠️ 伪元素 z-index:-1 需要卡片自身建立 stacking context（position+z-index:0），
+   否则会掉到卡片背景之下而看不见。
+   ⚠️ 卡片自身**严禁**再带 backdrop-filter —— 那正是菜单模糊失效的根因。
+   注意这里只处理「输入坞卡片」，A 组其它成员（任务卡/标题条/成本卡）内部
+   没有会弹出的浮层，保持原样即可。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]{
+  position:relative;z-index:0;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]::before,
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
+  border-radius:inherit;
+  backdrop-filter:var(--dsh-glass-blur,none) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
+}
+/* 卡片内含浮层时抬层，确保菜单浮在卡片内容之上（用 :has 自适应，无需改 JS） */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]){
+  z-index:9500 !important;
 }
 
 /* Sidebar column: transparent base so the sidebar's own glass backdrop

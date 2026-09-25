@@ -165,6 +165,45 @@ check(
   !/body\[data-ds-dark-theme\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(/.test(indexSrc),
 )
 
+// ── C5. 浮层可读性 + 嵌套 backdrop root 规避（用户实测反馈）──
+// 用户反馈「对话框里权限展开的选择面板透明度太高、没有背景高斯模糊」。
+// 实测该菜单的 computed backdrop-filter 确实是 blur(92px)，却看不出模糊。两个根因：
+//   ① 菜单是**输入坞卡片的 DOM 后代**，而卡片自带 backdrop-filter → 建立 backdrop root，
+//      后代的 blur 只能模糊该 root 内部已合成的内容（均匀填充）= 等于没模糊；
+//   ② 菜单沿用了输入坞的 .38 填充，承载可读文字太透。
+// 修法：卡片 blur 移到 ::before 伪元素（伪元素不是菜单祖先）；浮层单列填充档。
+console.log('\n=== C5. 浮层可读性 + 嵌套 backdrop root 规避 ===')
+check(
+  '浮层：输入坞卡片**自身不得带** backdrop-filter（否则建立 backdrop root，内部浮层 blur 失效）',
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,220}?backdrop-filter:none\s*!important/.test(indexSrc),
+)
+check(
+  '浮层：输入坞卡片 blur 已迁移到 ::before 伪元素',
+  // 注意 ::before 规则是双主题选择器列表（以逗号结尾），故不能要求 ::before 后紧跟 {
+  /\[class\$="_card"\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc),
+)
+check(
+  '浮层：卡片 ::before 有 z-index:-1（需卡片自身建立 stacking context 才可见）',
+  /\[class\*="composerSeat"\] \[class\$="_card"\]::before\s*\{[\s\S]{0,300}?z-index:-1/.test(indexSrc),
+)
+check(
+  '浮层：卡片含菜单时抬层（:has([role="menu"]) → z-index:9500）',
+  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,120}?z-index:9500/.test(indexSrc),
+)
+check(
+  '浮层：菜单/提示使用独立填充档 --dsh-glass-popover-fill（不共用输入坞 .38）',
+  /\[role="menu"\][\s\S]{0,200}?var\(--dsh-glass-popover-fill\)/.test(indexSrc.replace(/\n/g, ' ')),
+)
+// 填充必须实到能压住背后文字：浅色 ≥ .6、深色 ≥ .7。
+for (const [name, re, min] of [
+  ['浅色 popover 填充 ≥ .60', /--dsh-glass-popover-fill:rgba\(255,255,255,([\d.]+)\)/, 0.60],
+  ['深色 popover 填充 ≥ .70', /--dsh-glass-popover-fill:rgba\(26,30,38,([\d.]+)\)/, 0.70],
+]) {
+  const m = indexSrc.match(re)
+  const val = m ? Number(m[1]) : null
+  check(`浮层：${name}`, val !== null && val >= min, `  实测=${val}`)
+}
+
 console.log('\n=== C. 玻璃强度（去的是光晕与彩色，不是玻璃） ===')
 check('token: glass-blur 提升到 64px（强化）', themeSrc.includes("'--dsw-alias-glass-blur': 'blur(64px) saturate(200%)'"))
 check('token: surface-glass-blur 提升到 56px', themeSrc.includes("'--dsw-alias-surface-glass-blur': 'blur(56px) saturate(190%)'"))

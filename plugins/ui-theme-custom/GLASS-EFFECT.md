@@ -107,6 +107,49 @@ body[data-ds-custom-theme="parchment"]{
 
 **修正后降到 9 个节点。** 列表类元素一律归 B 组。
 
+### 🚨 嵌套 backdrop root：父层带 blur 会让子浮层的 blur 静默失效
+
+用户反馈「对话框里权限展开的选择面板透明度太高、没有背景高斯模糊」。
+实测该菜单的 computed `backdrop-filter` **确实是 `blur(92px)`**，却看不出任何模糊。
+
+根因（主因，极易误判）：**该菜单是输入坞卡片的 DOM 后代**。实测祖先链：
+
+```
+[role="menu"]  →  _root_1nxmc_1  →  QwfZkG_modes  →  QwfZkG_tools
+               →  QwfZkG_row  →  QwfZkG_card（输入坞卡片，自带 backdrop-filter）
+```
+
+CSS 规范：带 `backdrop-filter` 的元素会建立新的 **backdrop root**，
+其后代的 `backdrop-filter` **只能模糊该 root 内部已合成的内容**。
+而卡片内部是均匀填充 → 菜单等于「模糊了一个寂寞」。
+
+**正解**：把父层（输入坞卡片）的 blur 移到 `::before` 伪元素 ——
+伪元素不是菜单的祖先，不会为后代建立 backdrop root。
+
+```css
+/* ① 卡片自身去 blur，并建立 stacking context 让 ::before 的 z-index:-1 生效 */
+[class*="composerSeat"] [class$="_card"]{
+  position:relative; z-index:0;
+  backdrop-filter:none !important;
+}
+/* ② blur 迁到伪元素 */
+[class*="composerSeat"] [class$="_card"]::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:-1;
+  border-radius:inherit;
+  backdrop-filter:var(--dsh-glass-blur,none) !important;
+}
+/* ③ 卡片内含菜单时抬层，保证浮层在上 */
+[class*="composerSeat"] [class$="_card"]:has([role="menu"]){ z-index:9500 !important; }
+```
+
+> 这与本项目对 `sidebarCol` 已确立的做法**同源**（伪元素挂 blur，避免为
+> `position:fixed` 后代建立包含块）。**任何"父容器 + 内部弹出浮层"的组合都要这样处理。**
+
+**次要原因**：菜单沿用了输入坞的 `.38` 填充。菜单承载**可读文字**（选项 + 勾选态），
+不是大面积背景板，`.38` 会让背后文字直接穿透、选项互相干扰。
+故为浮层单列一档 `--dsh-glass-popover-fill`（浅 `.72` / 深 `.82`），
+与 `--dsh-glass-dialog-fill` 同理：**内容可读性优先于通透度**。
+
 ---
 
 ## 各主题表现
