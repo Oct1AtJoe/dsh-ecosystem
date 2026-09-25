@@ -369,8 +369,20 @@ body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
    ⚠️ 伪元素 z-index:-1 需要卡片自身建立 stacking context（position+z-index:0），
    否则会掉到卡片背景之下而看不见。
    ⚠️ 卡片自身**严禁**再带 backdrop-filter —— 那正是菜单模糊失效的根因。
-   注意这里只处理「输入坞卡片」，A 组其它成员（任务卡/标题条/成本卡）内部
-   没有会弹出的浮层，保持原样即可。 */
+
+   ── 推广范围已全页实测（不是推测）────────────────────────────────
+   判据：**自身带 backdrop-filter 且内部含绝对/固定定位浮层**的容器才需此修法。
+   实测结果（sequoia 会话页全量扫描）：
+     · QwfZkG_card（输入坞卡片）  内部有权限菜单/模型下拉  → **需修**（即本节）
+     · kdtA_a_flowItem（AI 回复卡）内部浮层数 = 0          → 无需修
+       （其 aria-expanded 是**内联折叠行**，展开的是文档流内容，不脱离文档流、
+         不依赖祖先 blur 透视背景；实测 absoluteLayersInsideCard = []）
+     · cm-footer-stack / dsh-recall-bubble / _bannerWrap  内部浮层数 = 0 → 无需修
+     · sidebarCol / rightbarCol   blur 本就在 ::before 上，主元素无 blur → 本就安全
+       （设置弹窗 Portal 虽挂其子树下，但祖先无 backdrop root，故 blur 正常）
+
+   全页复扫「自身带 blur + 内含定位浮层」的容器数 = **0**，即风险已清零。
+   ⚠️ 若日后 A 组新增成员且其内部会弹出浮层，必须套用本节同一修法。 */
 body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
 body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]{
   position:relative;z-index:0;

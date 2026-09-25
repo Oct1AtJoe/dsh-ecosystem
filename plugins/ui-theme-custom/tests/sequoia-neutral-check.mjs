@@ -245,6 +245,30 @@ for (const [name, re] of [
 ]) {
   check(`毛玻璃：${name} 已接入统一配方`, re.test(indexSrc.replace(/\n/g, ' ')))
 }
+// ── C6. 嵌套 backdrop root 的推广范围（防止只修一处、漏掉同类）──
+// 「父层带真实元素级 backdrop-filter + 内部弹出浮层」= blur 被嵌套 root 吃掉。
+// 全页实测结论（写入源码注释，此处锁住结论不被悄悄改回）：
+//   · 输入坞卡片 QwfZkG_card    → 有浮层，需修（已把 blur 迁到 ::before）
+//   · AI 回复卡 kdtA_a_flowItem → 内部定位浮层数 = 0，无需修
+//   · cm-footer-stack / dsh-recall-bubble / _bannerWrap → 内部浮层数 = 0，无需修
+//   · sidebarCol / rightbarCol  → blur 本就在 ::before，主元素无 blur，本就安全
+console.log('\n=== C6. 嵌套 backdrop root 推广范围 ===')
+check(
+  '推广：源码注释记录了全页实测结论（AI 卡/成本卡/侧栏均无需修）',
+  /kdtA_a_flowItem[\s\S]{0,300}?内部浮层数 = 0/.test(indexSrc)
+  && /sidebarCol \/ rightbarCol[\s\S]{0,200}?本就安全/.test(indexSrc),
+)
+check(
+  '推广：明确要求新增 A 组成员若内含浮层须套用同一修法（防漏修）',
+  /若日后 A 组新增成员[\s\S]{0,120}?必须套用本节同一修法/.test(indexSrc),
+)
+// 反向约束：不得出现「同一元素既带真实 blur 又声明了浮层抬层」之外的漏修形态 ——
+// 即 :has([role="menu"]) 抬层规则必须与 ::before 迁移规则同时存在（成对出现）。
+check(
+  '推广：::before 迁移与 :has 抬层成对存在（缺一即漏修）',
+  /\[class\$="_card"\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc)
+  && /\[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,120}?z-index:9500/.test(indexSrc),
+)
 // ── 适用范围收窄（用户实测确认）──
 // 玻璃材质**只服务 sequoia 与 sonoma**。本组断言防止它重新扩散到其余四主题。
 console.log('\n=== C4. 玻璃适用范围（仅液态 + 曜黑）===')
