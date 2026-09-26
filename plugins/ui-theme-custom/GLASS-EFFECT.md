@@ -95,9 +95,22 @@ body[data-ds-custom-theme="parchment"]{
 | :--- | :--- | :--- |
 | **A 组** | 背后**有内容滚过** | 完整毛玻璃：填充 + `blur(92px)` + 光学边缘 |
 | **B 组** | 背后是**均匀纯色** | 只给填充 + 光学边缘，**不加 blur**（零收益且耗性能） |
-| **C 组** | Portal 到 body 的瞬态浮层 | 与 A 组同配方，各自处理 z-index |
+| **C 组** | 瞬态浮层（设置弹窗、权限菜单、指令面板、模型选择等） | 接入 `--dsh-glass-popover-fill`，统一 20px 圆角与大投影 |
 
 完整节点清单见 [GLASS-NODES.md](GLASS-NODES.md)。
+
+### 🚨 输入坞三大浮层样式统一（权限、模型选择、指令面板）
+
+输入坞（composer）唤起的三个弹出面板因来源和组件不同，曾出现严重割裂：
+- **权限面板**（官方 `[role="menu"]`）：标准毛玻璃，`blur(92px)` + `.72` 填充；
+- **模型选择面板**（第三方插件 `dsh-better-reasoning-effort`）：外层有 blur，但顶部搜索框 `.bre-model-search-box` 写死了实底灰，破坏通透感，且带原生粗滚动条；
+- **指令面板**（官方 `ui-input-trigger`，`<div class="uOspIa_menu">`）：挂在 `[class*="overlayAnchor"]` 下，**无 `role="menu"` 属性**，导致完全漏掉了 C 组规则，无 blur 且底层文字无虚化直接穿透重叠。
+
+**统一方案**：
+1. C 组选择器增加 `[class*="overlayAnchor"] [class$="_menu"]`，赋予完整的毛玻璃背景、92px 模糊、20px 圆角与发丝高光；
+2. 内部项圆角统一为 12px，激活态统一为克制的高光微透明底；
+3. 治理 `bre-model-search-box` 灰底，改为通透背景 + 磨砂胶囊 input 槽；
+4. 浮层内全量滚动条细化为 5px 半透优雅轨道。
 
 ### ⚠️ 性能红线：列表项绝不挂 blur
 

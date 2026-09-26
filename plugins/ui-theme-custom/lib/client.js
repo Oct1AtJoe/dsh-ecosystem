@@ -1340,21 +1340,114 @@ body[data-ds-custom-theme="sonoma"] [class*="cm-gw-switcher"]{
 body[data-ds-custom-theme="sequoia"] [role="dialog"],
 body[data-ds-custom-theme="sequoia"] [role="menu"],
 body[data-ds-custom-theme="sequoia"] [role="tooltip"],
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class$="_menu"],
 body[data-ds-custom-theme="sonoma"] [role="dialog"],
 body[data-ds-custom-theme="sonoma"] [role="menu"],
-body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
+body[data-ds-custom-theme="sonoma"] [role="tooltip"],
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class$="_menu"]{
   background:var(--dsh-glass-sheen),var(--dsh-glass-popover-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
     0 24px 60px rgba(0,0,0,0.18) !important;
+  border-radius:20px !important;
+  border:none !important;
 }
 /* 浮层文字对比度：官方 Tooltip 原生硬绑定纯白字（--dsw-static-neutral-bluish-00），
    在 sequoia 浅色白玻背景下造成白底白字无法辨识；
    必须覆写为深色正文字色（--dsw-alias-label-primary），深色主题（sonoma）保留原生白字。 */
 body[data-ds-custom-theme="sequoia"] [role="tooltip"]{
   color:var(--dsw-alias-label-primary) !important;
+}
+
+/* ── 输入坞三大弹出浮层（权限选择/模型选择/指令面板）内部细节与滚动条统一 ── */
+/* 1. 指令展开面板（overlayAnchor ... _menu）内部项与高亮统一 */
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class$="_menu"],
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class$="_menu"]{
+  padding:8px !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class*="_item"],
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class*="_item"]{
+  border-radius:12px !important;
+  transition:background 0.15s ease !important;
+}
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class*="_item"]:hover,
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class*="_item"][class*="_active"]{
+  background:rgba(0, 0, 0, 0.05) !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class*="_item"]:hover,
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class*="_item"][class*="_active"]{
+  background:rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 2. 模型选择面板（dsh-better-reasoning-effort）去顶部实色灰底，统一搜索框材质 */
+body[data-ds-custom-theme="sequoia"] .bre-model-search-box,
+body[data-ds-custom-theme="sonoma"] .bre-model-search-box{
+  background:transparent !important;
+  border-bottom:1px solid rgba(0, 0, 0, 0.06) !important;
+  padding:8px 10px !important;
+}
+body[data-ds-custom-theme="sonoma"] .bre-model-search-box{
+  border-bottom-color:rgba(255, 255, 255, 0.08) !important;
+}
+body[data-ds-custom-theme="sequoia"] .bre-search-input-wrapper{
+  background:rgba(0, 0, 0, 0.04) !important;
+  border:1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius:10px !important;
+}
+body[data-ds-custom-theme="sonoma"] .bre-search-input-wrapper{
+  background:rgba(255, 255, 255, 0.06) !important;
+  border:1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius:10px !important;
+}
+body[data-ds-custom-theme] .bre-search-input{
+  background:transparent !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="menu"] [class*="groupTitle"],
+body[data-ds-custom-theme="sonoma"] [role="menu"] [class*="groupTitle"]{
+  background:transparent !important;
+  font-weight:600 !important;
+  opacity:0.65 !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="menu"] button[role="menuitemradio"],
+body[data-ds-custom-theme="sequoia"] [role="menu"] button[role="menuitem"],
+body[data-ds-custom-theme="sonoma"] [role="menu"] button[role="menuitemradio"],
+body[data-ds-custom-theme="sonoma"] [role="menu"] button[role="menuitem"]{
+  border-radius:10px !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="menu"] button[role="menuitemradio"]:hover,
+body[data-ds-custom-theme="sequoia"] [role="menu"] button[role="menuitem"]:hover{
+  background:rgba(0, 0, 0, 0.05) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="menu"] button[role="menuitemradio"]:hover,
+body[data-ds-custom-theme="sonoma"] [role="menu"] button[role="menuitem"]:hover{
+  background:rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 3. 浮层内极细半透滚动条（美化粗灰原生条，保持通透） */
+body[data-ds-custom-theme] [role="menu"]::-webkit-scrollbar,
+body[data-ds-custom-theme] [role="menu"] *::-webkit-scrollbar,
+body[data-ds-custom-theme] [class*="overlayAnchor"] *::-webkit-scrollbar{
+  width:5px !important;
+  height:5px !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="menu"]::-webkit-scrollbar-thumb,
+body[data-ds-custom-theme="sequoia"] [role="menu"] *::-webkit-scrollbar-thumb,
+body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] *::-webkit-scrollbar-thumb{
+  background:rgba(0, 0, 0, 0.16) !important;
+  border-radius:10px !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="menu"]::-webkit-scrollbar-thumb,
+body[data-ds-custom-theme="sonoma"] [role="menu"] *::-webkit-scrollbar-thumb,
+body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] *::-webkit-scrollbar-thumb{
+  background:rgba(255, 255, 255, 0.20) !important;
+  border-radius:10px !important;
+}
+body[data-ds-custom-theme] [role="menu"]::-webkit-scrollbar-track,
+body[data-ds-custom-theme] [role="menu"] *::-webkit-scrollbar-track,
+body[data-ds-custom-theme] [class*="overlayAnchor"] *::-webkit-scrollbar-track{
+  background:transparent !important;
 }
 
 /* ① 解除嵌套 backdrop root：输入坞卡片的 blur 移到 ::before 伪元素。
@@ -1391,7 +1484,9 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]::be
 }
 /* 卡片内含浮层时抬层，确保菜单浮在卡片内容之上（用 :has 自适应，无需改 JS） */
 body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]){
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([class*="overlayAnchor"] [class$="_menu"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([class*="overlayAnchor"] [class$="_menu"]){
   z-index:9500 !important;
 }
 

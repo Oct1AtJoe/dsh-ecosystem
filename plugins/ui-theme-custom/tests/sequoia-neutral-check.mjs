@@ -188,7 +188,11 @@ check(
 )
 check(
   '浮层：卡片含菜单时抬层（:has([role="menu"]) → z-index:9500）',
-  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,120}?z-index:9500/.test(indexSrc),
+  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
+)
+check(
+  '浮层：指令面板纳入 C 组统一毛玻璃',
+  /\[class\*="overlayAnchor"\]\s+\[class\$="_menu"\]/.test(indexSrc),
 )
 check(
   '浮层：菜单/提示使用独立填充档 --dsh-glass-popover-fill（不共用输入坞 .38）',
@@ -275,7 +279,7 @@ check(
 check(
   '推广：::before 迁移与 :has 抬层成对存在（缺一即漏修）',
   /\[class\$="_card"\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc)
-  && /\[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,120}?z-index:9500/.test(indexSrc),
+  && /\[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
 )
 // ── 适用范围收窄（用户实测确认）──
 // 玻璃材质**只服务 sequoia 与 sonoma**。本组断言防止它重新扩散到其余四主题。
