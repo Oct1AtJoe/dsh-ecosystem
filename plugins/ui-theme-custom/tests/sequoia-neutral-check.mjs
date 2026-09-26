@@ -202,9 +202,9 @@ check(
   '浮层：浅色主题 Tooltip 文字为深色 label-primary（防白底白字）',
   /body\[data-ds-custom-theme="sequoia"\] \[role="tooltip"\][\s\S]{0,120}?color:var\(--dsw-alias-label-primary\)\s*!important/.test(indexSrc),
 )
-// 填充必须实到能压住背后文字：浅色 ≥ .6、深色 ≥ .7。
+// 填充必须在保证通透（可隐约感知底层内容）的同时不破坏文字可读性：浅色 ≥ .50、深色 ≥ .70。
 for (const [name, re, min] of [
-  ['浅色 popover 填充 ≥ .60', /--dsh-glass-popover-fill:rgba\(255,255,255,([\d.]+)\)/, 0.60],
+  ['浅色 popover 填充 ≥ .50', /--dsh-glass-popover-fill:rgba\(255,255,255,([\d.]+)\)/, 0.50],
   ['深色 popover 填充 ≥ .70', /--dsh-glass-popover-fill:rgba\(26,30,38,([\d.]+)\)/, 0.70],
 ]) {
   const m = indexSrc.match(re)
