@@ -1350,6 +1350,12 @@ body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
     inset 0 1px 0 var(--dsh-glass-edge),
     0 24px 60px rgba(0,0,0,0.18) !important;
 }
+/* 浮层文字对比度：官方 Tooltip 原生硬绑定纯白字（--dsw-static-neutral-bluish-00），
+   在 sequoia 浅色白玻背景下造成白底白字无法辨识；
+   必须覆写为深色正文字色（--dsw-alias-label-primary），深色主题（sonoma）保留原生白字。 */
+body[data-ds-custom-theme="sequoia"] [role="tooltip"]{
+  color:var(--dsw-alias-label-primary) !important;
+}
 
 /* ① 解除嵌套 backdrop root：输入坞卡片的 blur 移到 ::before 伪元素。
    ⚠️ 伪元素 z-index:-1 需要卡片自身建立 stacking context（position+z-index:0），
