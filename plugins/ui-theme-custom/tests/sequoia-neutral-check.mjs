@@ -241,20 +241,24 @@ check(
 for (const [name, re] of [
   ['A1 输入坞', /\[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/],
   ['A3 撤回气泡', /\[class\*="dsh-recall-bubble"\][\s\S]{0,600}?backdrop-filter:var\(--dsh-glass-blur/],
-  ['A4 成本卡', /\[class\*="cm-footer-stack"\][\s\S]{0,600}?backdrop-filter:var\(--dsh-glass-blur/],
 ]) {
   check(`毛玻璃：${name} 已接入统一配方`, re.test(indexSrc.replace(/\n/g, ' ')))
 }
+check(
+  '浮层防劫持：成本卡 cm-footer-stack 显式禁用 backdrop-filter（防 Containing Block 劫持 Tooltip 导致双向滚动条）',
+  /\[class\*="cm-footer-stack"\][\s\S]{0,300}?backdrop-filter:none\s*!important/.test(indexSrc.replace(/\n/g, ' ')),
+)
 // ── C6. 嵌套 backdrop root 的推广范围（防止只修一处、漏掉同类）──
 // 「父层带真实元素级 backdrop-filter + 内部弹出浮层」= blur 被嵌套 root 吃掉。
 // 全页实测结论（写入源码注释，此处锁住结论不被悄悄改回）：
 //   · 输入坞卡片 QwfZkG_card    → 有浮层，需修（已把 blur 迁到 ::before）
 //   · AI 回复卡 kdtA_a_flowItem → 内部定位浮层数 = 0，无需修
-//   · cm-footer-stack / dsh-recall-bubble / _bannerWrap → 内部浮层数 = 0，无需修
+//   · cm-footer-stack 内部含 Tooltip fixed 浮层且自身为滚动容器 → 显式禁用 blur
+//   · dsh-recall-bubble / _bannerWrap → 内部浮层数 = 0，无需修
 //   · sidebarCol / rightbarCol  → blur 本就在 ::before，主元素无 blur，本就安全
 console.log('\n=== C6. 嵌套 backdrop root 推广范围 ===')
 check(
-  '推广：源码注释记录了全页实测结论（AI 卡/成本卡/侧栏均无需修）',
+  '推广：源码注释记录了全页实测结论（AI 卡/侧栏无需修，成本卡禁用 blur）',
   /kdtA_a_flowItem[\s\S]{0,300}?内部浮层数 = 0/.test(indexSrc)
   && /sidebarCol \/ rightbarCol[\s\S]{0,200}?本就安全/.test(indexSrc),
 )

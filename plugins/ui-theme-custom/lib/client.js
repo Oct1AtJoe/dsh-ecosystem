@@ -1233,40 +1233,37 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"]{
 }
 
 /* ── A 组：完整毛玻璃（背后有内容滚动经过）────────────────────────────── */
-/* A1 输入坞 · A2 任务进度卡 · A3 撤回气泡 · A4 成本卡 · A5 代码块标题条。
+/* A1 输入坞 · A2 任务进度卡 · A3 撤回气泡 · A5 代码块标题条。
 
-   ⚠️ 实测性能修正：会话行 (dsh-ff__session-row) **不纳入 A 组**。
-   侧栏一次性渲染 40+ 个会话行，每个都挂 blur(92px) 会产生 42 个
-   backdrop-filter 合成层 —— 而它们背后是侧栏自身的纯色填充，blur 看不出
-   任何差别，纯粹白烧 GPU。这就是「背景是纯色时 blur 零收益」原则的典型踩坑。
-
-   ⚠️ 成本卡（cm-footer-stack）包边修正（用户实测反馈）：
-   实测该卡片原本有**三重描边叠加** ——
-     ① 官方 border: 1px solid rgba(0,0,0,.06)
-     ② 我加的闭合 rim: inset 0 0 0 1px rgba(255,255,255,.58)
-     ③ --dsw-elevation-prominent 内含的外环: 0 0 0 .5px rgba(0,0,0,.22)
-   三重叠加即用户看到的「外面还有一层包边」。
-
-   实测确认：该卡片**官方原生 box-shadow 为 none**（void/jade/solar 三主题实测均为 none），
-   故 ②③ 全部是本次新增的，不是官方原有设计。
-
-   现只保留「顶部高光 + 底部回光」两道**单向**内光：
-     · 去掉闭合 rim（②）；
-     · 去掉 elevation 外环（③）—— 侧栏内的卡片靠自身填充即可与背景分离，
-       不需要外投影，更不该有那圈 0.5px 深色描边。 */
+   ⚠️ 成本卡（cm-footer-stack）：
+   原设于 A 组，但实测该组件在 simple 模式下为 overflow: auto 滚动容器，
+   内部每个用量卡均包裹了官方 primitives Tooltip（Fragment 原地渲染 position:fixed 浮层）。
+   W3C 规范中 backdrop-filter 会将自身提升为固定定位子树的 Containing Block，
+   直接导致：① Tooltip 视口坐标被误作局部偏移甩出视口外；② 巨大浮层撑爆容器产生横竖双向滚动条。
+   且成本卡在侧边栏纯底色上，blur 零漫反射收益。
+   故移出 A 组、显式禁用 blur（backdrop-filter: none !important），
+   独立保留其玻璃高光与内阴影，彻底根治 Containing Block 劫持。 */
 body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
 body[data-ds-custom-theme="sequoia"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sequoia"] [class*="dsh-recall-bubble"],
-body[data-ds-custom-theme="sequoia"] [class*="cm-footer-stack"],
 body[data-ds-custom-theme="sequoia"] [class*="_bannerWrap"],
 body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"],
 body[data-ds-custom-theme="sonoma"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sonoma"] [class*="dsh-recall-bubble"],
-body[data-ds-custom-theme="sonoma"] [class*="cm-footer-stack"],
 body[data-ds-custom-theme="sonoma"] [class*="_bannerWrap"]{
   background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
+  box-shadow:
+    inset 0 1px 0 var(--dsh-glass-edge),
+    inset 0 -1px 1px var(--dsh-glass-bottom) !important;
+}
+/* 成本卡（独立规则：保留高光与边缘，显式禁用 blur 以防劫持固定定位 Tooltip 浮层） */
+body[data-ds-custom-theme="sequoia"] [class*="cm-footer-stack"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-footer-stack"]{
+  background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
     inset 0 -1px 1px var(--dsh-glass-bottom) !important;
@@ -1366,7 +1363,8 @@ body[data-ds-custom-theme="sonoma"] [role="tooltip"]{
      · kdtA_a_flowItem（AI 回复卡）内部浮层数 = 0          → 无需修
        （其 aria-expanded 是**内联折叠行**，展开的是文档流内容，不脱离文档流、
          不依赖祖先 blur 透视背景；实测 absoluteLayersInsideCard = []）
-     · cm-footer-stack / dsh-recall-bubble / _bannerWrap  内部浮层数 = 0 → 无需修
+     · cm-footer-stack 内部含 Tooltip fixed 浮层且自身为滚动容器 → 显式禁用 blur（见前节）
+     · dsh-recall-bubble / _bannerWrap  内部浮层数 = 0 → 无需修
      · sidebarCol / rightbarCol   blur 本就在 ::before 上，主元素无 blur → 本就安全
        （设置弹窗 Portal 虽挂其子树下，但祖先无 backdrop root，故 blur 正常）
 
@@ -1875,7 +1873,7 @@ body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flo
   background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
-  border-radius: 18px 18px 18px 4px !important;
+  border-radius: 18px !important;
   padding: 16px 20px !important;
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
