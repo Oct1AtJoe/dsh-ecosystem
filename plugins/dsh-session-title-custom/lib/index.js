@@ -138,7 +138,11 @@ function apply(ctx) {
       if (config.enabled === false) throw new Error('dsh-session-title-custom: disabled')
 
       // ① 日期：计算 Asia/Shanghai (UTC+8) 的 MMDD，无 locale 差异
-      const ts = session.header.createdAt
+      // 优先取首条消息发送时间，拿不到取当前时间 Date.now()，最后降级 session.header.createdAt
+      const firstEventTime = session.eventAt?.(first.seq)?.time
+      const ts = typeof firstEventTime === 'number' && Number.isFinite(firstEventTime)
+        ? firstEventTime
+        : (Date.now?.() ?? session.header?.createdAt ?? 0)
       const d = new Date(ts + 8 * 3600 * 1000)
       const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
       const dd = String(d.getUTCDate()).padStart(2, '0')

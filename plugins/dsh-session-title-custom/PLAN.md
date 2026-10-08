@@ -7,7 +7,7 @@
 
 ## 规则摘要
 
-- 日期取 `createdAt`，Asia/Shanghai 时区，格式 `MMDD`
+- 日期优先取首条消息时间戳（`session.eventAt(first.seq)?.time`），防空白会话 createdAt 滞后；次选 `Date.now()`；兜底 `session.header.createdAt`。Asia/Shanghai 时区，格式 `MMDD`
 - 最终标题格式：`MMDD｜类型｜主题`（统一使用全角 `｜`）
 - 类型限定：功能、设计、修复、优化、发布、探索、文档、研究
 - 主题根据首条消息提炼（2-8 个字），不包含类型词

@@ -87,4 +87,25 @@ assert.equal(formatTitle(ts, '输出：优化｜批次文字显示'), '0907｜�
 assert.throws(() => formatTitle(ts, '无效类型|测试'), /cannot parse title/)
 assert.throws(() => formatTitle(ts, '没有分隔符'), /cannot parse title/)
 
+function resolveTimestamp(session, first) {
+  const firstEventTime = session.eventAt?.(first.seq)?.time
+  return typeof firstEventTime === 'number' && Number.isFinite(firstEventTime)
+    ? firstEventTime
+    : (Date.now?.() ?? session.header?.createdAt ?? 0)
+}
+
+const mockCreatedAt = Date.UTC(2026, 8, 26, 0, 0, 0)
+const mockFirstTime = Date.UTC(2026, 9, 8, 8, 0, 0)
+
+const sessionWithEvent = {
+  header: { createdAt: mockCreatedAt },
+  eventAt: (seq) => (seq === 10 ? { time: mockFirstTime } : undefined),
+}
+const sessionWithoutEvent = {
+  header: { createdAt: mockCreatedAt },
+}
+
+assert.equal(resolveTimestamp(sessionWithEvent, { seq: 10 }), mockFirstTime)
+assert.equal(formatTitle(resolveTimestamp(sessionWithEvent, { seq: 10 }), '修复|插件导致服务崩溃'), '1008｜修复｜插件导致服务崩溃')
+
 console.log('All tests passed!')
