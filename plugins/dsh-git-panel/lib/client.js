@@ -791,6 +791,7 @@ var import_react4 = require("react");
 
 // src/client/Panel.tsx
 var import_react3 = require("react");
+var import_react_dom = require("react-dom");
 
 // src/client/batch-stage.ts
 async function runBatch(files, apply2) {
@@ -957,24 +958,48 @@ function classifyChanges(changes) {
 
 // src/client/graph.ts
 function layoutGraph(commits) {
-  const order = commits.map((commit, index) => ({ commit, index })).reverse();
-  const lanes = [];
-  const placed = /* @__PURE__ */ new Map();
-  for (const { commit, index } of order) {
-    const row = index;
-    let lane = lanes.findIndex((owner) => owner !== null && commit.parents.includes(owner));
+  const activeLanes = [];
+  const placed = [];
+  for (let row = 0; row < commits.length; row++) {
+    const commit = commits[row];
+    let lane = activeLanes.indexOf(commit.sha);
     if (lane === -1) {
-      lane = lanes.findIndex((owner) => owner === null);
+      lane = activeLanes.indexOf(null);
       if (lane === -1) {
-        lanes.push(null);
-        lane = lanes.length - 1;
+        lane = activeLanes.length;
+        activeLanes.push(null);
       }
     }
-    const layout = { ...commit, row, lane };
-    placed.set(commit.sha, layout);
-    lanes[lane] = commit.sha;
+    placed.push({ ...commit, row, lane });
+    activeLanes[lane] = null;
+    for (let i = 0; i < activeLanes.length; i++) {
+      if (activeLanes[i] === commit.sha) {
+        activeLanes[i] = null;
+      }
+    }
+    const parents = commit.parents ?? [];
+    if (parents.length > 0) {
+      const p0 = parents[0];
+      if (activeLanes.indexOf(p0) === -1) {
+        activeLanes[lane] = p0;
+      }
+      for (let pIdx = 1; pIdx < parents.length; pIdx++) {
+        const p = parents[pIdx];
+        if (activeLanes.indexOf(p) === -1) {
+          let nextFree = activeLanes.indexOf(null);
+          if (nextFree === -1) {
+            nextFree = activeLanes.length;
+            activeLanes.push(null);
+          }
+          activeLanes[nextFree] = p;
+        }
+      }
+    }
+    while (activeLanes.length > 0 && activeLanes[activeLanes.length - 1] === null) {
+      activeLanes.pop();
+    }
   }
-  return commits.map((commit) => placed.get(commit.sha));
+  return placed;
 }
 
 // src/client/icons.tsx
@@ -1201,6 +1226,46 @@ var STYLE = `
 .dsh-gp-menu-input:focus { border-color:var(--accent); }
 .dsh-gp-menu-actions { display:flex; gap:6px; padding:2px 2px 4px; }
 .dsh-gp-menu-actions .dsh-gp-btn { flex:1; }
+/* \u6A21\u6001\u786E\u8BA4\u5F39\u7A97\uFF08\u653E\u5F03\u66F4\u6539\u7B49\uFF09 */
+@keyframes dsh-gp-modal-in { from { opacity:0; transform:scale(0.97) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.dsh-gp-modal-backdrop { position:fixed !important; inset:0 !important; z-index:10000 !important;
+  background:rgba(0,0,0,0.45) !important; display:flex !important; align-items:center !important;
+  justify-content:center !important; padding:16px !important; backdrop-filter:blur(3px) !important;
+  -webkit-backdrop-filter:blur(3px) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-backdrop { background:rgba(0,0,0,0.7) !important; }
+.dsh-gp-modal { position:relative !important; width:100% !important; max-width:350px !important;
+  background:#ffffff !important; color:#1f2328 !important;
+  border:1px solid rgba(0,0,0,0.15) !important; border-radius:12px !important;
+  box-shadow:0 16px 44px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.08) !important;
+  padding:18px 20px !important; display:flex !important; flex-direction:column !important;
+  gap:12px !important; animation:dsh-gp-modal-in .15s ease-out !important;
+  backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+[data-ds-dark-theme] .dsh-gp-modal { background:#21262d !important; color:#f0f6fc !important;
+  border:1px solid rgba(255,255,255,0.18) !important;
+  box-shadow:0 20px 48px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3) !important; }
+.dsh-gp-modal-title { font-weight:600 !important; font-size:14.5px !important; color:inherit !important;
+  display:flex !important; align-items:center !important; gap:8px !important; }
+.dsh-gp-modal-desc { font-size:13px !important; color:#57606a !important; line-height:1.5 !important;
+  word-break:break-all !important; }
+[data-ds-dark-theme] .dsh-gp-modal-desc { color:#8b949e !important; }
+.dsh-gp-modal-file { font-family:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+  font-size:12px !important; background:rgba(128,128,128,0.12) !important; padding:1px 5px !important;
+  border-radius:4px !important; color:inherit !important; word-break:break-all !important; display:inline-block !important; }
+.dsh-gp-modal-actions { display:flex !important; justify-content:flex-end !important; gap:8px !important; margin-top:4px !important; }
+.dsh-gp-modal-btn { border:1px solid rgba(0,0,0,0.15) !important; background:#f6f8fa !important; color:#24292f !important;
+  border-radius:6px !important; padding:5px 14px !important; font-size:12.5px !important; cursor:pointer !important;
+  font-weight:500 !important; box-shadow:0 1px 2px rgba(0,0,0,0.05) !important;
+  transition:background .12s ease, border-color .12s ease !important; }
+.dsh-gp-modal-btn:hover { background:#eaeef2 !important; border-color:rgba(0,0,0,0.25) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn { background:#30363d !important; color:#c9d1d9 !important;
+  border:1px solid rgba(255,255,255,0.18) !important; box-shadow:0 1px 2px rgba(0,0,0,0.2) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn:hover { background:#3c444d !important; border-color:rgba(255,255,255,0.3) !important; }
+.dsh-gp-modal-btn.danger { background:#cf222e !important; color:#ffffff !important; border-color:transparent !important;
+  font-weight:600 !important; box-shadow:0 1px 3px rgba(207,34,46,0.35) !important; }
+.dsh-gp-modal-btn.danger:hover { background:#b61c27 !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn.danger { background:#da3633 !important; color:#ffffff !important;
+  border-color:transparent !important; box-shadow:0 1px 3px rgba(218,54,51,0.35) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn.danger:hover { background:#b62324 !important; }
 .dsh-gp-write { display:flex; flex-direction:column; gap:6px; padding:6px 8px; border-bottom:1px solid var(--border); }
 .dsh-gp-write-row { display:flex; gap:6px; align-items:center; }
 .dsh-gp-write .dsh-gp-btn { flex:none; }
@@ -1464,7 +1529,7 @@ ${commitFull}`,
 var ROW_HEIGHT = 24;
 var LANE_WIDTH = 14;
 var NODE_RADIUS = 4;
-var PAD_LEFT = 10;
+var PAD_LEFT = 16;
 var PAD_TOP = 10;
 var LANE_COLOR_COUNT = 12;
 var GRAPH_BUFFER_ROWS = 10;
@@ -1632,10 +1697,10 @@ Date: ${commit.date}` }),
       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         "text",
         {
-          x: graphWidth - 4,
+          x: graphWidth - labelZone / 2,
           y: yOf(row) + 4,
           fontSize: "11",
-          textAnchor: "end",
+          textAnchor: "middle",
           fontWeight: isCurrent ? 700 : 400,
           fill: isCurrent ? "var(--current)" : "var(--muted)",
           style: { cursor: "default" },
@@ -1656,123 +1721,38 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   const layout = (0, import_react3.useMemo)(() => layoutGraph(graph.commits), [graph]);
   const onSelect = (0, import_react3.useCallback)((commit) => setSelected(commit), []);
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1));
-  const laneRight = PAD_LEFT + lanes * LANE_WIDTH;
+  const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8);
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12;
-  const readSaved = (key) => {
-    try {
-      const saved = Number(localStorage.getItem(key));
-      return Number.isFinite(saved) && saved >= 40 ? saved : 0;
-    } catch {
-      return 0;
-    }
-  };
-  const [commitOverride, setCommitOverride] = (0, import_react3.useState)(() => readSaved("dsh-gp-graph-col-commit"));
-  const commitRef = (0, import_react3.useRef)(commitOverride);
+  const branchWidth = 72;
+  const usableWidth = Math.max(240, width - 16);
+  const textX = lanesWidth + 6;
+  const commitWidth = Math.max(80, usableWidth - textX - branchWidth);
+  const graphWidth = usableWidth;
   (0, import_react3.useEffect)(() => {
-    commitRef.current = commitOverride;
-  }, [commitOverride]);
-  const [gapOverride, setGapOverride] = (0, import_react3.useState)(() => readSaved("dsh-gp-graph-col-gap"));
-  const gapRef = (0, import_react3.useRef)(gapOverride);
-  (0, import_react3.useEffect)(() => {
-    gapRef.current = gapOverride;
-  }, [gapOverride]);
-  const gap = gapOverride > 0 ? gapOverride : 14;
-  const textX = laneRight + gap;
-  const usableWidth = Math.max(260, width - 16);
-  const BRANCH_COL_WIDTH = 96;
-  const labelZone = BRANCH_COL_WIDTH;
-  const autoCommit = Math.max(80, usableWidth - textX - labelZone - 8);
-  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit;
-  const commitRight = textX + commitWidth;
-  const graphWidth = Math.max(usableWidth, commitRight + labelZone + 8);
-  const labelLeft = graphWidth - labelZone;
-  const startResize = (key, valueRef, set, start, min, max) => (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startClientX = event.clientX;
-    const onMove = (ev) => {
-      set(Math.min(max, Math.max(min, start + (ev.clientX - startClientX))));
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      try {
-        localStorage.setItem(key, String(valueRef.current));
-      } catch {
-      }
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  const resetResize = (key, set) => () => {
-    set(0);
     try {
-      localStorage.removeItem(key);
+      localStorage.removeItem("dsh-gp-graph-col-commit");
+      localStorage.removeItem("dsh-gp-graph-col-gap");
     } catch {
     }
-  };
-  const startCommitResize = startResize("dsh-gp-graph-col-commit", commitRef, setCommitOverride, commitWidth, 60, 900);
-  const startLeftResize = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startClientX = event.clientX;
-    const startCommitRight = commitRight;
-    const startGap = gap;
-    const onMove = (ev) => {
-      const maxGap = Math.max(4, startCommitRight - laneRight - 60);
-      const minGap = Math.max(4, startCommitRight - laneRight - 900);
-      const next = Math.min(maxGap, Math.max(minGap, startGap + (ev.clientX - startClientX)));
-      setGapOverride(next);
-      setCommitOverride(startCommitRight - (laneRight + next));
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      try {
-        localStorage.setItem("dsh-gp-graph-col-gap", String(gapRef.current));
-        localStorage.setItem("dsh-gp-graph-col-commit", String(commitRef.current));
-      } catch {
-      }
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "0 8px", position: "relative", width: "max-content" }, children: [
+  }, []);
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "0 8px", position: "relative", width: "100%", boxSizing: "border-box" }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
       "div",
       {
         style: {
-          position: "relative",
+          display: "flex",
+          alignItems: "center",
           width: graphWidth,
           height: 28,
-          fontSize: 13,
+          fontSize: 12,
           color: "var(--muted)",
-          userSelect: "none"
+          userSelect: "none",
+          borderBottom: "1px solid var(--border)"
         },
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { position: "absolute", left: PAD_LEFT, top: 8, fontWeight: 600 }, children: t2("graph.col.lanes") }),
-          lanes >= 2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "div",
-            {
-              className: "dsh-gp-col-resize",
-              title: t2("graph.col.resize"),
-              onPointerDown: startLeftResize,
-              onDoubleClick: resetResize("dsh-gp-graph-col-gap", setGapOverride),
-              style: { left: textX - 10, width: 6 }
-            }
-          ) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { position: "absolute", left: textX, top: 8, fontWeight: 600 }, children: t2("graph.col.commit") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "div",
-            {
-              className: "dsh-gp-col-resize",
-              title: t2("graph.col.resize"),
-              onPointerDown: startCommitResize,
-              onDoubleClick: resetResize("dsh-gp-graph-col-commit", setCommitOverride),
-              style: { left: commitRight - 3, width: 6 }
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { position: "absolute", left: labelLeft, top: 8, fontWeight: 600 }, children: t2("graph.col.branch") })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: lanesWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.lanes") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1, textAlign: "center", fontWeight: 600, minWidth: 0 }, children: t2("graph.col.commit") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: branchWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.branch") })
         ]
       }
     ),
@@ -1783,7 +1763,7 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         graph,
         textX,
         commitWidth,
-        labelZone,
+        labelZone: branchWidth,
         graphWidth,
         height,
         onSelect
@@ -1845,6 +1825,7 @@ function GitPanel(props) {
     }
   }, [path]);
   const [width, setWidth] = (0, import_react3.useState)(300);
+  const rootRef = (0, import_react3.useRef)(null);
   const [menu, setMenu] = (0, import_react3.useState)(null);
   const [menuMode, setMenuMode] = (0, import_react3.useState)("main");
   const [renameValue, setRenameValue] = (0, import_react3.useState)("");
@@ -1858,6 +1839,7 @@ function GitPanel(props) {
   const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(() => classifyChanges(changes), [changes]);
   const [diffState, setDiffState] = (0, import_react3.useState)(null);
   const [branchSearch, setBranchSearch] = (0, import_react3.useState)("");
+  const [discardTarget, setDiscardTarget] = (0, import_react3.useState)(null);
   ensureStyle();
   (0, import_react3.useLayoutEffect)(() => {
     const el = commitRef.current;
@@ -1974,6 +1956,23 @@ function GitPanel(props) {
     setPendingOp(null);
     setBusy(false);
   }, [path, api, busy, commitMsg, t2, refreshStatus, refreshStash, load, onRefreshStatus, staged.length]);
+  const confirmDiscard = (0, import_react3.useCallback)(async () => {
+    if (!discardTarget) return;
+    const { file, untracked } = discardTarget;
+    setDiscardTarget(null);
+    await runWrite("discard", `${file}|${untracked ? "untracked" : ""}`);
+  }, [discardTarget, runWrite]);
+  (0, import_react3.useEffect)(() => {
+    if (!discardTarget) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setDiscardTarget(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [discardTarget]);
   const runBatchStage = (0, import_react3.useCallback)(async (files, action) => {
     if (!path || busy || files.length === 0) return;
     setBusy(true);
@@ -2043,15 +2042,19 @@ function GitPanel(props) {
     return () => window.removeEventListener("dsh-git-panel:switched", onSwitched);
   }, [load]);
   (0, import_react3.useEffect)(() => {
-    const measure = () => setWidth(Math.max(240, (document.querySelector("[data-git-panel-col]")?.clientWidth ?? 300) - 16));
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = (entries) => {
+      const w = entries?.[0]?.contentRect?.width ?? el.clientWidth;
+      if (w > 0) setWidth(Math.floor(w));
+    };
     measure();
     const observer = new ResizeObserver(measure);
-    const col = document.querySelector("[data-git-panel-col]");
-    if (col) observer.observe(col);
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
   if (!path) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp", ref: rootRef, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-head", children: t2("panel.title") }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("panel.empty") })
     ] });
@@ -2135,7 +2138,7 @@ function GitPanel(props) {
     closeMenu();
     await runOp(t2("op.merge", { branch }), () => api.mergeBranch(path, branch));
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp", ref: rootRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("panel.title") }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--muted)", fontWeight: 400, fontSize: 11 }, children: repoName }),
@@ -2466,9 +2469,7 @@ function GitPanel(props) {
                       label: t2("changes.discard"),
                       onClick: (e) => {
                         e.stopPropagation();
-                        if (window.confirm(t2("changes.discardConfirm", { file: c.file }))) {
-                          void runWrite("discard", `${c.file}|${c.code === "??" ? "untracked" : ""}`);
-                        }
+                        setDiscardTarget({ file: c.file, untracked: c.code === "??" });
                       }
                     }
                   )
@@ -2817,7 +2818,59 @@ function GitPanel(props) {
         menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.deleteRemote") }) : null,
         !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => void mergeInto(), children: t2("menu.merge") }) : null
       ] }) })
-    ] }) : null
+    ] }) : null,
+    discardTarget && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "div",
+        {
+          className: "dsh-gp-modal-backdrop",
+          onClick: () => setDiscardTarget(null),
+          onKeyDown: (event) => {
+            if (event.key === "Enter") void confirmDiscard();
+          },
+          children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "div",
+            {
+              className: "dsh-gp-modal",
+              role: "alertdialog",
+              "aria-modal": "true",
+              "aria-labelledby": "dsh-gp-discard-title",
+              "aria-describedby": "dsh-gp-discard-desc",
+              onClick: (event) => event.stopPropagation(),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-title", className: "dsh-gp-modal-title", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discard") })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardConfirm", { file: discardTarget.file }) }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      className: "dsh-gp-modal-btn",
+                      onClick: () => setDiscardTarget(null),
+                      children: t2("menu.cancel")
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      className: "dsh-gp-modal-btn danger",
+                      autoFocus: true,
+                      onClick: () => void confirmDiscard(),
+                      children: t2("changes.discard")
+                    }
+                  )
+                ] })
+              ]
+            }
+          )
+        }
+      ),
+      document.body
+    ) : null
   ] });
 }
 

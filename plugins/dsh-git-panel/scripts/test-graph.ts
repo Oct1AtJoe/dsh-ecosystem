@@ -75,6 +75,22 @@ function main(): void {
   ]
   const singleLayout = layoutGraph(singleCommit)
   check('单个提交 row 为 0，lane 为 0', singleLayout[0]?.row === 0 && singleLayout[0]?.lane === 0)
+
+  // 4. 多历史分支累加紧凑度测试：确保分支结束后泳道及时回收复用，最新提交不出现 lane 膨胀漂移
+  const multiBranchCommits: GraphCommit[] = []
+  for (let i = 0; i < 40; i++) {
+    const parents: string[] = []
+    if (i < 39) parents.push(`c${i + 1}`)
+    if (i % 4 === 0 && i < 36) parents.push(`feat_${i}`)
+    multiBranchCommits.push({ sha: `c${i}`, parents, author: 'Dev', date: '2026-09-20', subject: `c${i}` })
+    if (i % 4 === 0 && i < 36) {
+      multiBranchCommits.push({ sha: `feat_${i}`, parents: [`c${i + 2}`], author: 'Dev', date: '2026-09-20', subject: `feat_${i}` })
+    }
+  }
+  const multiLayout = layoutGraph(multiBranchCommits)
+  const maxLane = Math.max(...multiLayout.map((c) => c.lane))
+  check('多历史分支紧凑回收：最大并发泳道数受控 (<= 3)', maxLane <= 3, `实际 maxLane=${maxLane}`)
+  check('顶部最新提交在主干左侧 (lane: 0)', multiLayout[0].lane === 0)
 }
 
 main()

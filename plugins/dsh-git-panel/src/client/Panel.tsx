@@ -5,6 +5,7 @@
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { BranchesView, BranchRow, GraphView, OpResult } from '../core/types.ts'
 import type { Envelope, GitPanelApi } from './api.ts'
 import { runBatch } from './batch-stage.ts'
@@ -94,6 +95,46 @@ const STYLE = `
 .dsh-gp-menu-input:focus { border-color:var(--accent); }
 .dsh-gp-menu-actions { display:flex; gap:6px; padding:2px 2px 4px; }
 .dsh-gp-menu-actions .dsh-gp-btn { flex:1; }
+/* 模态确认弹窗（放弃更改等） */
+@keyframes dsh-gp-modal-in { from { opacity:0; transform:scale(0.97) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.dsh-gp-modal-backdrop { position:fixed !important; inset:0 !important; z-index:10000 !important;
+  background:rgba(0,0,0,0.45) !important; display:flex !important; align-items:center !important;
+  justify-content:center !important; padding:16px !important; backdrop-filter:blur(3px) !important;
+  -webkit-backdrop-filter:blur(3px) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-backdrop { background:rgba(0,0,0,0.7) !important; }
+.dsh-gp-modal { position:relative !important; width:100% !important; max-width:350px !important;
+  background:#ffffff !important; color:#1f2328 !important;
+  border:1px solid rgba(0,0,0,0.15) !important; border-radius:12px !important;
+  box-shadow:0 16px 44px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.08) !important;
+  padding:18px 20px !important; display:flex !important; flex-direction:column !important;
+  gap:12px !important; animation:dsh-gp-modal-in .15s ease-out !important;
+  backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+[data-ds-dark-theme] .dsh-gp-modal { background:#21262d !important; color:#f0f6fc !important;
+  border:1px solid rgba(255,255,255,0.18) !important;
+  box-shadow:0 20px 48px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3) !important; }
+.dsh-gp-modal-title { font-weight:600 !important; font-size:14.5px !important; color:inherit !important;
+  display:flex !important; align-items:center !important; gap:8px !important; }
+.dsh-gp-modal-desc { font-size:13px !important; color:#57606a !important; line-height:1.5 !important;
+  word-break:break-all !important; }
+[data-ds-dark-theme] .dsh-gp-modal-desc { color:#8b949e !important; }
+.dsh-gp-modal-file { font-family:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+  font-size:12px !important; background:rgba(128,128,128,0.12) !important; padding:1px 5px !important;
+  border-radius:4px !important; color:inherit !important; word-break:break-all !important; display:inline-block !important; }
+.dsh-gp-modal-actions { display:flex !important; justify-content:flex-end !important; gap:8px !important; margin-top:4px !important; }
+.dsh-gp-modal-btn { border:1px solid rgba(0,0,0,0.15) !important; background:#f6f8fa !important; color:#24292f !important;
+  border-radius:6px !important; padding:5px 14px !important; font-size:12.5px !important; cursor:pointer !important;
+  font-weight:500 !important; box-shadow:0 1px 2px rgba(0,0,0,0.05) !important;
+  transition:background .12s ease, border-color .12s ease !important; }
+.dsh-gp-modal-btn:hover { background:#eaeef2 !important; border-color:rgba(0,0,0,0.25) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn { background:#30363d !important; color:#c9d1d9 !important;
+  border:1px solid rgba(255,255,255,0.18) !important; box-shadow:0 1px 2px rgba(0,0,0,0.2) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn:hover { background:#3c444d !important; border-color:rgba(255,255,255,0.3) !important; }
+.dsh-gp-modal-btn.danger { background:#cf222e !important; color:#ffffff !important; border-color:transparent !important;
+  font-weight:600 !important; box-shadow:0 1px 3px rgba(207,34,46,0.35) !important; }
+.dsh-gp-modal-btn.danger:hover { background:#b61c27 !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn.danger { background:#da3633 !important; color:#ffffff !important;
+  border-color:transparent !important; box-shadow:0 1px 3px rgba(218,54,51,0.35) !important; }
+[data-ds-dark-theme] .dsh-gp-modal-btn.danger:hover { background:#b62324 !important; }
 .dsh-gp-write { display:flex; flex-direction:column; gap:6px; padding:6px 8px; border-bottom:1px solid var(--border); }
 .dsh-gp-write-row { display:flex; gap:6px; align-items:center; }
 .dsh-gp-write .dsh-gp-btn { flex:none; }
@@ -410,7 +451,7 @@ const BranchRowView = memo(function BranchRowView(props: {
 const ROW_HEIGHT = 24
 const LANE_WIDTH = 14
 const NODE_RADIUS = 4
-const PAD_LEFT = 10
+const PAD_LEFT = 16
 const PAD_TOP = 10
 const LANE_COLOR_COUNT = 12
 
@@ -601,10 +642,10 @@ const GraphSvg = memo(function GraphSvg(props: {
           return (
             <text
               key={`tip-${row}`}
-              x={graphWidth - 4}
+              x={graphWidth - labelZone / 2}
               y={yOf(row) + 4}
               fontSize="11"
-              textAnchor="end"
+              textAnchor="middle"
               fontWeight={isCurrent ? 700 : 400}
               fill={isCurrent ? 'var(--current)' : 'var(--muted)'}
               style={{ cursor: 'default' }}
@@ -626,156 +667,62 @@ const GraphViewComponent = memo(function GraphViewComponent(props: { graph: Grap
   const layout = useMemo(() => layoutGraph(graph.commits), [graph])
   const onSelect = useCallback((commit: LayoutCommit) => setSelected(commit), [])
 
+  // 1. 泳道几何与线图列宽：由实际 DAG 泳道数紧凑决定，且保证表头“线图”居中展示宽度
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1))
-  // 固定 lane 区域的右边缘；提交列在其后开始（见下方 gapOverride 中用户可调
-  // 的间隔）。
-  const laneRight = PAD_LEFT + lanes * LANE_WIDTH
+  const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8)
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12
 
-  // 三个彼此独立缩放的列：lane（固定宽度）、提交 subject、分支标签。提交列
-  // 与分支列各有自己的整列高可拖拽分隔线，因此缩放其一不会影响另一个。
-  // 宽度写入 localStorage；0 表示"按最宽的文本自动调整大小"。
-  const readSaved = (key: string): number => {
-    try {
-      const saved = Number(localStorage.getItem(key))
-      return Number.isFinite(saved) && saved >= 40 ? saved : 0
-    } catch {
-      return 0
-    }
-  }
-  const [commitOverride, setCommitOverride] = useState<number>(() => readSaved('dsh-gp-graph-col-commit'))
-  const commitRef = useRef(commitOverride)
+  // 2. 分支列宽：紧凑固定 72px，绝不挤占中间主内容
+  const branchWidth = 72
+
+  // 3. 视口净可用宽度与三列自适应：
+  const usableWidth = Math.max(240, width - 16)
+  const textX = lanesWidth + 6
+  // 拉宽侧边栏增加的所有空间，100% 优先灌注给提交列
+  const commitWidth = Math.max(80, usableWidth - textX - branchWidth)
+  const graphWidth = usableWidth
+
+  // 清除历史误存的 localStorage 锁死宽度，确保拉宽侧边栏时永远全响应式自适应
   useEffect(() => {
-    commitRef.current = commitOverride
-  }, [commitOverride])
-
-  // 用户在 lane 区域与提交列之间可调的间隔：左侧的标题分隔线会移动提交列的
-  // 左边缘，因此它的宽度改变而右边缘保持不变。默认 14px。
-  const [gapOverride, setGapOverride] = useState<number>(() => readSaved('dsh-gp-graph-col-gap'))
-  const gapRef = useRef(gapOverride)
-  useEffect(() => {
-    gapRef.current = gapOverride
-  }, [gapOverride])
-  const gap = gapOverride > 0 ? gapOverride : 14
-  const textX = laneRight + gap
-
-  // 视口净可用宽度（总宽扣除左右两边各 8px 内边距）
-  const usableWidth = Math.max(260, width - 16)
-  // 分支列默认采用合理的紧凑宽度（96px），避免原先写死 240px 将图谱横向撑大、挤出默认视口
-  const BRANCH_COL_WIDTH = 96
-  const labelZone = BRANCH_COL_WIDTH
-  // 默认自适应填满视口剩余空间，使分支列默认贴合在视口右侧；若用户手动拖拽调宽，则遵循用户设定
-  const autoCommit = Math.max(80, usableWidth - textX - labelZone - 8)
-  const commitWidth = commitOverride > 0 ? commitOverride : autoCommit
-  const commitRight = textX + commitWidth
-  const graphWidth = Math.max(usableWidth, commitRight + labelZone + 8)
-  const labelLeft = graphWidth - labelZone
-
-  const startResize = (
-    key: string,
-    valueRef: React.MutableRefObject<number>,
-    set: (v: number) => void,
-    start: number,
-    min: number,
-    max: number,
-  ): ((event: React.PointerEvent) => void) => (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const startClientX = event.clientX
-    const onMove = (ev: PointerEvent): void => {
-      set(Math.min(max, Math.max(min, start + (ev.clientX - startClientX))))
-    }
-    const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      try {
-        localStorage.setItem(key, String(valueRef.current))
-      } catch {
-        /* 存储不可用——保留内存中的值 */
-      }
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-  const resetResize = (key: string, set: (v: number) => void): (() => void) => () => {
-    set(0)
     try {
-      localStorage.removeItem(key)
+      localStorage.removeItem('dsh-gp-graph-col-commit')
+      localStorage.removeItem('dsh-gp-graph-col-gap')
     } catch {
       /* 忽略 */
     }
-  }
-  // 拖拽标题栏分隔线只会移动提交列；分支列是固定的。上限很宽松：多余的宽度
-  // 只是让图谱水平滚动而已。
-  const startCommitResize = startResize('dsh-gp-graph-col-commit', commitRef, setCommitOverride, commitWidth, 60, 900)
-  // 左侧分隔线移动提交列的 LEFT 边缘：它的宽度变化而右边缘固定。
-  const startLeftResize = (event: React.PointerEvent): void => {
-    event.preventDefault()
-    event.stopPropagation()
-    const startClientX = event.clientX
-    const startCommitRight = commitRight
-    const startGap = gap
-    const onMove = (ev: PointerEvent): void => {
-      const maxGap = Math.max(4, startCommitRight - laneRight - 60)
-      const minGap = Math.max(4, startCommitRight - laneRight - 900)
-      const next = Math.min(maxGap, Math.max(minGap, startGap + (ev.clientX - startClientX)))
-      setGapOverride(next)
-      setCommitOverride(startCommitRight - (laneRight + next))
-    }
-    const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      try {
-        localStorage.setItem('dsh-gp-graph-col-gap', String(gapRef.current))
-        localStorage.setItem('dsh-gp-graph-col-commit', String(commitRef.current))
-      } catch {
-        /* 存储不可用——保留内存中的值 */
-      }
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
+  }, [])
 
   return (
-    <div style={{ padding: '0 8px', position: 'relative', width: 'max-content' }}>
-      {/* 三列表头，标题在各列起点从左到右排布。两条可拖拽分隔线夹着提交列：
-          左侧的移动它的左边缘，右侧的移动它的右边缘。 */}
+    <div style={{ padding: '0 8px', position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+      {/* 三列表头：每一列列名严格水平居中对应其内容区域 */}
       <div
         style={{
-          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
           width: graphWidth,
           height: 28,
-          fontSize: 13,
+          fontSize: 12,
           color: 'var(--muted)',
           userSelect: 'none',
+          borderBottom: '1px solid var(--border)',
         }}
       >
-        <span style={{ position: 'absolute', left: PAD_LEFT, top: 8, fontWeight: 600 }}>{t('graph.col.lanes')}</span>
-        {lanes >= 2 ? (
-          <div
-            className="dsh-gp-col-resize"
-            title={t('graph.col.resize')}
-            onPointerDown={startLeftResize}
-            onDoubleClick={resetResize('dsh-gp-graph-col-gap', setGapOverride)}
-            style={{ left: textX - 10, width: 6 }}
-          />
-        ) : null}
-        <span style={{ position: 'absolute', left: textX, top: 8, fontWeight: 600 }}>{t('graph.col.commit')}</span>
-        <div
-          className="dsh-gp-col-resize"
-          title={t('graph.col.resize')}
-          onPointerDown={startCommitResize}
-          onDoubleClick={resetResize('dsh-gp-graph-col-commit', setCommitOverride)}
-          style={{ left: commitRight - 3, width: 6 }}
-        />
-        <span style={{ position: 'absolute', left: labelLeft, top: 8, fontWeight: 600 }}>{t('graph.col.branch')}</span>
+        <div style={{ width: lanesWidth, textAlign: 'center', fontWeight: 600, flexShrink: 0 }}>
+          {t('graph.col.lanes')}
+        </div>
+        <div style={{ flex: 1, textAlign: 'center', fontWeight: 600, minWidth: 0 }}>
+          {t('graph.col.commit')}
+        </div>
+        <div style={{ width: branchWidth, textAlign: 'center', fontWeight: 600, flexShrink: 0 }}>
+          {t('graph.col.branch')}
+        </div>
       </div>
       <GraphSvg
         layout={layout}
         graph={graph}
         textX={textX}
         commitWidth={commitWidth}
-        labelZone={labelZone}
+        labelZone={branchWidth}
         graphWidth={graphWidth}
         height={height}
         onSelect={onSelect}
@@ -858,6 +805,7 @@ export function GitPanel(props: {
     }
   }, [path])
   const [width, setWidth] = useState(300)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   // 右键上下文菜单。
   const [menu, setMenu] = useState<{
     x: number
@@ -885,6 +833,8 @@ export function GitPanel(props: {
   const [diffState, setDiffState] = useState<{ file: string; content: string; busy: boolean } | null>(null)
   // 分支名快速搜索过滤。
   const [branchSearch, setBranchSearch] = useState('')
+  // 放弃更改确认弹窗的目标文件。
+  const [discardTarget, setDiscardTarget] = useState<{ file: string; untracked: boolean } | null>(null)
 
   ensureStyle()
 
@@ -1042,6 +992,25 @@ export function GitPanel(props: {
     setBusy(false)
   }, [path, api, busy, commitMsg, t, refreshStatus, refreshStash, load, onRefreshStatus, staged.length])
 
+  const confirmDiscard = useCallback(async (): Promise<void> => {
+    if (!discardTarget) return
+    const { file, untracked } = discardTarget
+    setDiscardTarget(null)
+    await runWrite('discard', `${file}|${untracked ? 'untracked' : ''}`)
+  }, [discardTarget, runWrite])
+
+  useEffect(() => {
+    if (!discardTarget) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setDiscardTarget(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [discardTarget])
+
   /**
    * 批量暂存 / 取消暂存一组文件。
    *
@@ -1135,17 +1104,21 @@ export function GitPanel(props: {
   }, [load])
 
   useEffect(() => {
-    const measure = (): void => setWidth(Math.max(240, (document.querySelector('[data-git-panel-col]')?.clientWidth ?? 300) - 16))
+    const el = rootRef.current
+    if (!el) return
+    const measure = (entries?: ResizeObserverEntry[]): void => {
+      const w = entries?.[0]?.contentRect?.width ?? el.clientWidth
+      if (w > 0) setWidth(Math.floor(w))
+    }
     measure()
     const observer = new ResizeObserver(measure)
-    const col = document.querySelector('[data-git-panel-col]')
-    if (col) observer.observe(col)
+    observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
   if (!path) {
     return (
-      <div className="dsh-gp">
+      <div className="dsh-gp" ref={rootRef}>
         <div className="dsh-gp-head">{t('panel.title')}</div>
         <div className="dsh-gp-empty">{t('panel.empty')}</div>
       </div>
@@ -1263,7 +1236,7 @@ export function GitPanel(props: {
   }
 
   return (
-    <div className="dsh-gp">
+    <div className="dsh-gp" ref={rootRef}>
       <div className="dsh-gp-head">
         <span>{t('panel.title')}</span>
         <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>{repoName}</span>
@@ -1466,9 +1439,7 @@ export function GitPanel(props: {
                         <RowAction icon="undo" danger label={t('changes.discard')}
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (window.confirm(t('changes.discardConfirm', { file: c.file }))) {
-                              void runWrite('discard', `${c.file}|${c.code === '??' ? 'untracked' : ''}`)
-                            }
+                            setDiscardTarget({ file: c.file, untracked: c.code === '??' })
                           }} />
                       </div>
                     ))}
@@ -1790,6 +1761,53 @@ export function GitPanel(props: {
             )}
           </div>
         </>
+      ) : null}
+
+      {discardTarget && typeof document !== 'undefined' ? createPortal(
+        <div
+          className="dsh-gp-modal-backdrop"
+          onClick={() => setDiscardTarget(null)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void confirmDiscard()
+          }}
+        >
+          <div
+            className="dsh-gp-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="dsh-gp-discard-title"
+            aria-describedby="dsh-gp-discard-desc"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div id="dsh-gp-discard-title" className="dsh-gp-modal-title">
+              <span style={{ color: 'var(--danger)', display: 'inline-flex' }}>{icon('undo', 15)}</span>
+              <span>{t('changes.discard')}</span>
+            </div>
+            <div id="dsh-gp-discard-desc" className="dsh-gp-modal-desc">
+              <div>
+                {t('changes.discardConfirm', { file: discardTarget.file })}
+              </div>
+            </div>
+            <div className="dsh-gp-modal-actions">
+              <button
+                type="button"
+                className="dsh-gp-modal-btn"
+                onClick={() => setDiscardTarget(null)}
+              >
+                {t('menu.cancel')}
+              </button>
+              <button
+                type="button"
+                className="dsh-gp-modal-btn danger"
+                autoFocus
+                onClick={() => void confirmDiscard()}
+              >
+                {t('changes.discard')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   )
