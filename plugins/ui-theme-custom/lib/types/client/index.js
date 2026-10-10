@@ -485,19 +485,20 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 }
 
 /* 对话页：站在 composerStack 顶端，因此上方有排队消息、待办或目标卡片时
-   会自动上移到全部元素之上，永不遮挡。 */
+   会自动上移到全部元素之上，永不遮挡。
+   右侧预留 48px 避让宽度为 34px 的回到底部按钮（.toBottom），彻底避免重叠与点击冲突。 */
 [data-dsh-pet-anchor="stack"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 6px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 48px) !important;
   bottom: 100% !important;
 }
 /* 替代面板（授权确认 / 提问面板）接管输入卡片时 */
 [data-dsh-pet-anchor="panel"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 6px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 48px) !important;
   bottom: calc(100% - 7px) !important;
 }
 /* 首页新会话卡片 / 兜底卡片 */
 [data-dsh-pet-anchor="card"] > .dsh-composer-pet {
-  right: 18px !important;
+  right: 48px !important;
   bottom: 100% !important;
 }
 
