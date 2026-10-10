@@ -42,7 +42,7 @@ function NumberField({
           aria-invalid={value.invalid}
           onChange={(event) => { onEdit(event.target.value) }}
         />
-        <button type="button" className={css.button} disabled={disabled} onClick={onReset}>
+        <button type="button" className={css.resetButton} disabled={disabled} onClick={onReset}>
           {t('reset')}
         </button>
       </div>
@@ -84,7 +84,7 @@ export function KanyeCard(props: KanyeCardProps): ReactNode {
           <span className={css.rowHint}>{t('characterHint')}</span>
         </div>
         <select
-          className={css.fieldInput}
+          className={css.selectInput}
           value={state.character}
           disabled={disabled || !state.charactersLoaded || state.characters.length === 0}
           onChange={(event) => { props.edit('character', event.target.value) }}
