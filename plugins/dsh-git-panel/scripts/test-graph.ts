@@ -9,6 +9,7 @@
  */
 import type { GraphCommit } from '../src/core/types.ts'
 import { layoutGraph, type LayoutCommit } from '../src/client/graph.ts'
+import { filterCommitsByBranch, resolveBranchInfoByRow } from '../src/client/Panel.tsx'
 
 function check(name: string, ok: boolean, extra = ''): void {
   console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ` — ${extra}` : ''}`)
@@ -91,6 +92,37 @@ function main(): void {
   const maxLane = Math.max(...multiLayout.map((c) => c.lane))
   check('多历史分支紧凑回收：最大并发泳道数受控 (<= 3)', maxLane <= 3, `实际 maxLane=${maxLane}`)
   check('顶部最新提交在主干左侧 (lane: 0)', multiLayout[0].lane === 0)
+
+  // 5. 分支筛选 DAG 可达性测试
+  const branchCommits: GraphCommit[] = [
+    { sha: 'm2', parents: ['m1'], author: 'Dev', date: '2026-09-24', subject: 'main 2' },
+    { sha: 'f2', parents: ['f1'], author: 'Dev', date: '2026-09-23', subject: 'feature 2' },
+    { sha: 'f1', parents: ['m1'], author: 'Dev', date: '2026-09-22', subject: 'feature 1' },
+    { sha: 'm1', parents: [],     author: 'Dev', date: '2026-09-21', subject: 'main 1' },
+  ]
+  const tips = { main: 'm2', feature: 'f2' }
+  const featureFiltered = filterCommitsByBranch(branchCommits, tips, 'feature')
+  check('分支筛选过滤出正确的祖先链 (feature 包含 f2, f1, m1)', featureFiltered.map(c => c.sha).join(',') === 'f2,f1,m1')
+  const mainFiltered = filterCommitsByBranch(branchCommits, tips, 'main')
+  check('分支筛选过滤出正确的祖先链 (main 包含 m2, m1)', mainFiltered.map(c => c.sha).join(',') === 'm2,m1')
+  const noneFiltered = filterCommitsByBranch(branchCommits, tips, 'non-existent')
+  check('不存在的分支返回空列表', noneFiltered.length === 0)
+
+  // 6. 链路分支继承显示测试（方案 A）
+  const inheritanceLayout: LayoutCommit[] = [
+    { sha: 'f1', row: 0, lane: 0, parents: ['f2'], author: 'Dev', date: '2026-09-24', subject: 'f1' },
+    { sha: 'd1', row: 1, lane: 1, parents: ['d2'], author: 'Dev', date: '2026-09-23', subject: 'd1' },
+    { sha: 'd2', row: 2, lane: 1, parents: ['d3'], author: 'Dev', date: '2026-09-22', subject: 'd2' },
+    { sha: 'f2', row: 3, lane: 0, parents: ['d3'], author: 'Dev', date: '2026-09-21', subject: 'f2' },
+    { sha: 'd3', row: 4, lane: 1, parents: [],     author: 'Dev', date: '2026-09-20', subject: 'd3' },
+  ]
+  const inheritanceTips = { 'dev-f3': 'f1', dev: 'd1' }
+  const branchMap = resolveBranchInfoByRow(inheritanceLayout, inheritanceTips, 'dev')
+  check('行 0 为 dev-f3 分支 Tip', branchMap.get(0)?.branch === 'dev-f3' && branchMap.get(0)?.isTip === true)
+  check('行 1 为当前活跃分支 dev 的 Tip', branchMap.get(1)?.branch === 'dev' && branchMap.get(1)?.isCurrentTip === true)
+  check('行 2 继承父链分支 dev', branchMap.get(2)?.branch === 'dev' && branchMap.get(2)?.isTip === false)
+  check('行 3 继承父链分支 dev-f3', branchMap.get(3)?.branch === 'dev-f3' && branchMap.get(3)?.isTip === false)
+  check('行 4 主干祖先继承当前主分支 dev', branchMap.get(4)?.branch === 'dev' && branchMap.get(4)?.isTip === false)
 }
 
 main()

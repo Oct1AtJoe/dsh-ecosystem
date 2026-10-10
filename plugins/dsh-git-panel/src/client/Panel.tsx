@@ -6,7 +6,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { BranchesView, BranchRow, GraphView, OpResult } from '../core/types.ts'
+import type { BranchesView, BranchRow, GraphCommit, GraphView, OpResult } from '../core/types.ts'
 import type { Envelope, GitPanelApi } from './api.ts'
 import { runBatch } from './batch-stage.ts'
 import { changeBadgeOf, classifyChanges } from './change-groups.ts'
@@ -240,6 +240,17 @@ const STYLE = `
 .dsh-gp-col-resize::after { content:''; position:absolute; left:2.5px; top:6px; bottom:6px;
   width:1px; background:var(--border); opacity:0.7; }
 .dsh-gp-col-resize:hover::after, .dsh-gp-col-resize:active::after { background:var(--accent); opacity:1; }
+.dsh-gp-filter-bar { display:flex; align-items:center; gap:6px; padding:4px 8px; margin:4px 8px;
+  background:var(--panel-bg); border:1px solid var(--border); border-radius:6px; font-size:12px; }
+.dsh-gp-filter-ico { display:inline-flex; align-items:center; color:var(--current); }
+.dsh-gp-filter-label { color:var(--muted); font-size:11.5px; }
+.dsh-gp-filter-tag { font-weight:600; font-size:12px; color:var(--fg); background:var(--bg);
+  border:1px solid var(--border); padding:1px 6px; border-radius:8px; max-width:180px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dsh-gp-filter-clear { margin-left:auto; display:inline-flex; align-items:center; gap:3px;
+  padding:2px 6px; font-size:11px; color:var(--muted); background:transparent;
+  border:1px solid var(--border); border-radius:4px; cursor:pointer; }
+.dsh-gp-filter-clear:hover { color:var(--fg); background:var(--hover); }
 `
 
 let styleInjected = false
@@ -382,17 +393,18 @@ function RowAction(props: {
   )
 }
 
-/** GitLens 风格的分支行（双行信息分层）：双击激活，右键打开菜单。 */
+/** GitLens 风格的分支行（双行信息分层）：单击查看图谱，双击激活，右键打开菜单。 */
 const BranchRowView = memo(function BranchRowView(props: {
   row: BranchRow
   isRemote: boolean
   current?: string
   busy: boolean
+  onSelect?: (branch: string) => void
   onActivate: (branch: string) => void
   onPull?: () => void
   onContextMenu: (event: React.MouseEvent, row: BranchRow, isRemote: boolean) => void
 }): React.ReactElement {
-  const { row, isRemote, current, busy, onActivate, onPull, onContextMenu } = props
+  const { row, isRemote, current, busy, onSelect, onActivate, onPull, onContextMenu } = props
   const t = useT()
   const isCurrent = !isRemote && row.name === current
   const badges = [
@@ -423,7 +435,10 @@ const BranchRowView = memo(function BranchRowView(props: {
   return (
     <div
       className="dsh-gp-row"
-      title={`${row.name}\n${commitFull}`}
+      title={`${row.name}\n${commitFull}${!isRemote ? `\n${t('row.clickToGraph')}` : ''}`}
+      onClick={() => {
+        if (!isRemote && onSelect) onSelect(row.name)
+      }}
       onDoubleClick={() => {
         if (busy) return
         onActivate(row.name)
@@ -471,6 +486,61 @@ const fitByWidth = (text: string, maxWidth: number): string => {
     if (w > maxWidth) return `${text.slice(0, i)}…`
   }
   return text
+}
+
+/**
+ * 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支。
+ */
+export function resolveBranchInfoByRow(
+  layout: LayoutCommit[],
+  tips: Record<string, string>,
+  currentBranch: string,
+): Map<number, { branch: string; isTip: boolean; isCurrentTip: boolean }> {
+  const bySha = new Map<string, LayoutCommit>()
+  for (const c of layout) bySha.set(c.sha, c)
+
+  const tipBranches = Object.entries(tips).filter(([, sha]) => bySha.has(sha))
+  const branchBySha = new Map<string, { branch: string; isTip: boolean }>()
+
+  const sorted = [...tipBranches].sort(([a], [b]) => {
+    const aCur = a === currentBranch ? 0 : 1
+    const bCur = b === currentBranch ? 0 : 1
+    return aCur - bCur || a.localeCompare(b)
+  })
+
+  // 1. 优先记录所有精确 Tip
+  for (const [branch, sha] of sorted) {
+    if (!branchBySha.has(sha)) {
+      branchBySha.set(sha, { branch, isTip: true })
+    }
+  }
+
+  // 2. 从每个 Tip 向下追踪主父链（parents[0]）传递分支名
+  for (const [branch, sha] of sorted) {
+    let curr = bySha.get(sha)
+    while (curr && curr.parents && curr.parents.length > 0) {
+      const pSha = curr.parents[0]
+      const p = bySha.get(pSha)
+      if (!p) break
+      if (!branchBySha.has(pSha)) {
+        branchBySha.set(pSha, { branch, isTip: false })
+      }
+      curr = p
+    }
+  }
+
+  const byRow = new Map<number, { branch: string; isTip: boolean; isCurrentTip: boolean }>()
+  for (const c of layout) {
+    const info = branchBySha.get(c.sha)
+    if (info) {
+      byRow.set(c.row, {
+        branch: info.branch,
+        isTip: info.isTip,
+        isCurrentTip: info.isTip && info.branch === currentBranch,
+      })
+    }
+  }
+  return byRow
 }
 
 /**
@@ -543,32 +613,20 @@ const GraphSvg = memo(function GraphSvg(props: {
     () => Object.entries(graph.tips).filter(([, sha]) => bySha.has(sha)),
     [graph.tips, bySha],
   )
-  // 每行一个标签：优先当前分支，然后按名称取第一个。指向同一提交的本地 +
-  // 远程分支否则都会堆叠在同一个 y 处。
-  const tipLabelByRow = useMemo(() => {
-    const byRow = new Map<number, string>()
-    const sorted = [...tipBranches].sort(([a], [b]) => {
-      const aCur = a === graph.current ? 0 : 1
-      const bCur = b === graph.current ? 0 : 1
-      return aCur - bCur || a.localeCompare(b)
-    })
-    for (const [branch, sha] of sorted) {
-      const commit = bySha.get(sha)
-      if (!commit) continue
-      const key = commit.row
-      if (!byRow.has(key)) byRow.set(key, branch)
-    }
-    return byRow
-  }, [tipBranches, bySha, graph.current])
+  // 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支
+  const branchInfoByRow = useMemo(
+    () => resolveBranchInfoByRow(layout, graph.tips, graph.current),
+    [layout, graph.tips, graph.current],
+  )
 
   // 缓存截断结果：仅在列宽真正变化时重新计算。
   const subjects = useMemo(
     () => new Map(layout.map((c) => [c.sha, fitByWidth(c.subject, commitWidth - 2)])),
     [layout, commitWidth],
   )
-  const tipTexts = useMemo(
-    () => new Map([...tipLabelByRow.entries()].map(([row, b]) => [row, fitByWidth(b, labelZone - 6)])),
-    [tipLabelByRow, labelZone],
+  const branchTexts = useMemo(
+    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, labelZone - 6)])),
+    [branchInfoByRow, labelZone],
   )
 
   const isTipCommit = (commit: LayoutCommit): boolean =>
@@ -635,23 +693,23 @@ const GraphSvg = memo(function GraphSvg(props: {
     <svg ref={rootRef} width={graphWidth} height={height} style={{ display: 'block', cursor: 'default' }}>
       {edges}
       {nodes}
-      {[...tipLabelByRow.entries()]
+      {[...branchInfoByRow.entries()]
         .filter(([row]) => inWindow(row))
-        .map(([row, branch]) => {
-          const isCurrent = branch === graph.current
+        .map(([row, info]) => {
           return (
             <text
-              key={`tip-${row}`}
+              key={`branch-${row}`}
               x={graphWidth - labelZone / 2}
               y={yOf(row) + 4}
-              fontSize="11"
+              fontSize={info.isTip ? '11' : '10.5'}
               textAnchor="middle"
-              fontWeight={isCurrent ? 700 : 400}
-              fill={isCurrent ? 'var(--current)' : 'var(--muted)'}
+              fontWeight={info.isCurrentTip ? 700 : info.isTip ? 600 : 400}
+              fill={info.isCurrentTip ? 'var(--current)' : info.isTip ? 'var(--fg)' : 'var(--muted)'}
+              opacity={info.isTip ? 1 : 0.65}
               style={{ cursor: 'default' }}
             >
-              <title>{branch}</title>
-              {tipTexts.get(row) ?? branch}
+              <title>{info.branch}{info.isTip ? (info.isCurrentTip ? ' (HEAD)' : ' (Tip)') : ''}</title>
+              {branchTexts.get(row) ?? info.branch}
             </text>
           )
         })}
@@ -659,12 +717,59 @@ const GraphSvg = memo(function GraphSvg(props: {
   )
 })
 
+/**
+ * 按指定分支筛选提交（从该分支的 tipCommit 出发逆推可达的父祖先提交）。
+ */
+export function filterCommitsByBranch(
+  commits: GraphCommit[],
+  tips: Record<string, string>,
+  branch: string,
+): GraphCommit[] {
+  let tipSha = tips[branch]
+  if (!tipSha) {
+    const entry = Object.entries(tips).find(([k]) => k === branch || k.endsWith(`/${branch}`))
+    if (entry) tipSha = entry[1]
+  }
+  if (!tipSha) return []
+
+  const bySha = new Map<string, GraphCommit>()
+  for (const c of commits) bySha.set(c.sha, c)
+
+  const reachable = new Set<string>()
+  const queue = [tipSha]
+  while (queue.length > 0) {
+    const sha = queue.shift()!
+    if (reachable.has(sha)) continue
+    reachable.add(sha)
+    const commit = bySha.get(sha)
+    if (commit) {
+      for (const p of commit.parents) {
+        if (!reachable.has(p) && bySha.has(p)) queue.push(p)
+      }
+    }
+  }
+  return commits.filter((c) => reachable.has(c.sha))
+}
+
 /** 提交图谱标签页（memoized：其 props 只在加载/缩放时变化）。 */
-const GraphViewComponent = memo(function GraphViewComponent(props: { graph: GraphView; width: number; onCherryPick?: (sha: string) => void; onRevert?: (sha: string) => void }): React.ReactElement {
-  const { graph, width, onCherryPick, onRevert } = props
+const GraphViewComponent = memo(function GraphViewComponent(props: {
+  graph: GraphView
+  width: number
+  filterBranch?: string | null
+  onClearFilter?: () => void
+  onCherryPick?: (sha: string) => void
+  onRevert?: (sha: string) => void
+}): React.ReactElement {
+  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert } = props
   const t = useT()
   const [selected, setSelected] = useState<LayoutCommit | null>(null)
-  const layout = useMemo(() => layoutGraph(graph.commits), [graph])
+
+  const displayCommits = useMemo(() => {
+    if (!filterBranch) return graph.commits
+    return filterCommitsByBranch(graph.commits, graph.tips, filterBranch)
+  }, [graph.commits, graph.tips, filterBranch])
+
+  const layout = useMemo(() => layoutGraph(displayCommits), [displayCommits])
   const onSelect = useCallback((commit: LayoutCommit) => setSelected(commit), [])
 
   // 1. 泳道几何与线图列宽：由实际 DAG 泳道数紧凑决定，且保证表头“线图”居中展示宽度
@@ -694,6 +799,22 @@ const GraphViewComponent = memo(function GraphViewComponent(props: { graph: Grap
 
   return (
     <div style={{ padding: '0 8px', position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+      {filterBranch ? (
+        <div className="dsh-gp-filter-bar">
+          <span className="dsh-gp-filter-ico">{icon('branch', 12)}</span>
+          <span className="dsh-gp-filter-label">{t('graph.filter.label')}</span>
+          <span className="dsh-gp-filter-tag" title={filterBranch}>{filterBranch}</span>
+          <button
+            type="button"
+            className="dsh-gp-filter-clear"
+            title={t('graph.filter.clear')}
+            onClick={onClearFilter}
+          >
+            {icon('close', 11)}
+            <span>{t('graph.filter.clear')}</span>
+          </button>
+        </div>
+      ) : null}
       {/* 三列表头：每一列列名严格水平居中对应其内容区域 */}
       <div
         style={{
@@ -717,16 +838,22 @@ const GraphViewComponent = memo(function GraphViewComponent(props: { graph: Grap
           {t('graph.col.branch')}
         </div>
       </div>
-      <GraphSvg
-        layout={layout}
-        graph={graph}
-        textX={textX}
-        commitWidth={commitWidth}
-        labelZone={branchWidth}
-        graphWidth={graphWidth}
-        height={height}
-        onSelect={onSelect}
-      />
+      {displayCommits.length === 0 ? (
+        <div className="dsh-gp-empty" style={{ padding: '24px 8px' }}>
+          {t('graph.filter.empty')}
+        </div>
+      ) : (
+        <GraphSvg
+          layout={layout}
+          graph={graph}
+          textX={textX}
+          commitWidth={commitWidth}
+          labelZone={branchWidth}
+          graphWidth={graphWidth}
+          height={height}
+          onSelect={onSelect}
+        />
+      )}
       {selected ? (
         <div className="dsh-gp-detail">
           <div><b>{selected.subject}</b></div>
@@ -797,6 +924,7 @@ export function GitPanel(props: {
     // 会拿旧仓库的 changes 去描述新仓库（比如把有改动的仓库说成「干净」）。
     setChanges([])
     setStash(null)
+    setFilterBranch(null)
     const globalState = GLOBAL_GIT_BUSY_MAP.get(path)
     if (globalState) {
       if (globalState.busy !== undefined) setBusyState(globalState.busy)
@@ -805,6 +933,7 @@ export function GitPanel(props: {
     }
   }, [path])
   const [width, setWidth] = useState(300)
+  const [filterBranch, setFilterBranch] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   // 右键上下文菜单。
   const [menu, setMenu] = useState<{
@@ -1253,7 +1382,18 @@ export function GitPanel(props: {
       {busy ? <div className="dsh-gp-progress" role="progressbar" aria-label={pendingOpLabel ?? t('op.refresh')} /> : null}
       <div className="dsh-gp-tabs">
         <div className={`dsh-gp-tab${tab === 'branches' ? ' active' : ''}`} onClick={() => setTab('branches')}>{t('tab.branches')}</div>
-        <div className={`dsh-gp-tab${tab === 'graph' ? ' active' : ''}`} onClick={() => setTab('graph')}>{t('tab.graph')}</div>
+        <div
+          className={`dsh-gp-tab${tab === 'graph' ? ' active' : ''}`}
+          onClick={() => {
+            if (tab === 'graph' && filterBranch) {
+              setFilterBranch(null)
+            } else {
+              setTab('graph')
+            }
+          }}
+        >
+          {t('tab.graph')}
+        </div>
       </div>
       <div className="dsh-gp-write">
         <div className="dsh-gp-write-row">
@@ -1627,6 +1767,10 @@ export function GitPanel(props: {
                       isRemote={false}
                       current={branches.current}
                       busy={busy}
+                      onSelect={(branch) => {
+                        setFilterBranch(branch)
+                        setTab('graph')
+                      }}
                       onActivate={activateLocal}
                       onPull={() => void runOp(t('op.pull'), () => api.pull(path), 'pull')}
                       onContextMenu={openMenu}
@@ -1660,6 +1804,8 @@ export function GitPanel(props: {
           <GraphViewComponent
             graph={graph}
             width={width}
+            filterBranch={filterBranch}
+            onClearFilter={() => setFilterBranch(null)}
             onCherryPick={(sha) => void runOp(t('op.cherryPick'), () => api.cherryPick(path, sha))}
             onRevert={(sha) => void runOp(t('op.revert'), () => api.revertCommit(path, sha))}
           />

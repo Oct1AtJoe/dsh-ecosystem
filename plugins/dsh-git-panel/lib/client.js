@@ -339,6 +339,10 @@ var DICTS = {
     "graph.col.commit": "\u63D0\u4EA4",
     "graph.col.branch": "\u5206\u652F",
     "graph.col.resize": "\u8C03\u6574\u63D0\u4EA4\u5217\u5BBD \xB7 \u53CC\u51FB\u8FD8\u539F",
+    "graph.filter.label": "\u5F53\u524D\u5206\u652F\uFF1A",
+    "graph.filter.clear": "\u663E\u793A\u5168\u90E8",
+    "graph.filter.empty": "\u8BE5\u5206\u652F\u6682\u65E0\u53EF\u5C55\u793A\u63D0\u4EA4",
+    "row.clickToGraph": "\u5355\u51FB\u67E5\u770B\u56FE\u8C31\u63D0\u4EA4 \xB7 \u53CC\u51FB\u5207\u6362\u5206\u652F",
     "chip.title": "\u5207\u6362\u5206\u652F",
     "chip.head": "\u672C\u5730\u5206\u652F",
     "aria.loading": "\u52A0\u8F7D\u4E2D"
@@ -525,6 +529,10 @@ var DICTS = {
     "graph.col.commit": "Commit",
     "graph.col.branch": "Branch",
     "graph.col.resize": "Drag to resize \xB7 double-click to reset",
+    "graph.filter.label": "Branch:",
+    "graph.filter.clear": "Show all",
+    "graph.filter.empty": "No commits found for this branch",
+    "row.clickToGraph": "Click to filter in Graph \xB7 Double-click to switch",
     "chip.title": "Switch branch",
     "chip.head": "Local branches",
     "aria.loading": "Loading"
@@ -711,6 +719,10 @@ var DICTS = {
     "graph.col.commit": "Commit",
     "graph.col.branch": "Rama",
     "graph.col.resize": "Arrastrar para ajustar \xB7 doble clic para restablecer",
+    "graph.filter.label": "Rama:",
+    "graph.filter.clear": "Mostrar todo",
+    "graph.filter.empty": "No hay commits para esta rama",
+    "row.clickToGraph": "Clic para filtrar en Gr\xE1fico \xB7 Doble clic para cambiar",
     "chip.title": "Cambiar rama",
     "chip.head": "Ramas locales",
     "aria.loading": "Cargando"
@@ -1371,6 +1383,17 @@ var STYLE = `
 .dsh-gp-col-resize::after { content:''; position:absolute; left:2.5px; top:6px; bottom:6px;
   width:1px; background:var(--border); opacity:0.7; }
 .dsh-gp-col-resize:hover::after, .dsh-gp-col-resize:active::after { background:var(--accent); opacity:1; }
+.dsh-gp-filter-bar { display:flex; align-items:center; gap:6px; padding:4px 8px; margin:4px 8px;
+  background:var(--panel-bg); border:1px solid var(--border); border-radius:6px; font-size:12px; }
+.dsh-gp-filter-ico { display:inline-flex; align-items:center; color:var(--current); }
+.dsh-gp-filter-label { color:var(--muted); font-size:11.5px; }
+.dsh-gp-filter-tag { font-weight:600; font-size:12px; color:var(--fg); background:var(--bg);
+  border:1px solid var(--border); padding:1px 6px; border-radius:8px; max-width:180px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dsh-gp-filter-clear { margin-left:auto; display:inline-flex; align-items:center; gap:3px;
+  padding:2px 6px; font-size:11px; color:var(--muted); background:transparent;
+  border:1px solid var(--border); border-radius:4px; cursor:pointer; }
+.dsh-gp-filter-clear:hover { color:var(--fg); background:var(--hover); }
 `;
 var styleInjected = false;
 function ensureStyle() {
@@ -1468,7 +1491,7 @@ function RowAction(props) {
   );
 }
 var BranchRowView = (0, import_react3.memo)(function BranchRowView2(props) {
-  const { row, isRemote, current, busy, onActivate, onPull, onContextMenu } = props;
+  const { row, isRemote, current, busy, onSelect, onActivate, onPull, onContextMenu } = props;
   const t2 = useT();
   const isCurrent = !isRemote && row.name === current;
   const badges = [
@@ -1504,7 +1527,11 @@ var BranchRowView = (0, import_react3.memo)(function BranchRowView2(props) {
     {
       className: "dsh-gp-row",
       title: `${row.name}
-${commitFull}`,
+${commitFull}${!isRemote ? `
+${t2("row.clickToGraph")}` : ""}`,
+      onClick: () => {
+        if (!isRemote && onSelect) onSelect(row.name);
+      },
       onDoubleClick: () => {
         if (busy) return;
         onActivate(row.name);
@@ -1542,6 +1569,46 @@ var fitByWidth = (text, maxWidth) => {
   }
   return text;
 };
+function resolveBranchInfoByRow(layout, tips, currentBranch) {
+  const bySha = /* @__PURE__ */ new Map();
+  for (const c of layout) bySha.set(c.sha, c);
+  const tipBranches = Object.entries(tips).filter(([, sha]) => bySha.has(sha));
+  const branchBySha = /* @__PURE__ */ new Map();
+  const sorted = [...tipBranches].sort(([a], [b]) => {
+    const aCur = a === currentBranch ? 0 : 1;
+    const bCur = b === currentBranch ? 0 : 1;
+    return aCur - bCur || a.localeCompare(b);
+  });
+  for (const [branch, sha] of sorted) {
+    if (!branchBySha.has(sha)) {
+      branchBySha.set(sha, { branch, isTip: true });
+    }
+  }
+  for (const [branch, sha] of sorted) {
+    let curr = bySha.get(sha);
+    while (curr && curr.parents && curr.parents.length > 0) {
+      const pSha = curr.parents[0];
+      const p = bySha.get(pSha);
+      if (!p) break;
+      if (!branchBySha.has(pSha)) {
+        branchBySha.set(pSha, { branch, isTip: false });
+      }
+      curr = p;
+    }
+  }
+  const byRow = /* @__PURE__ */ new Map();
+  for (const c of layout) {
+    const info = branchBySha.get(c.sha);
+    if (info) {
+      byRow.set(c.row, {
+        branch: info.branch,
+        isTip: info.isTip,
+        isCurrentTip: info.isTip && info.branch === currentBranch
+      });
+    }
+  }
+  return byRow;
+}
 var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
   const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect } = props;
   const rootRef = (0, import_react3.useRef)(null);
@@ -1589,28 +1656,17 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
     () => Object.entries(graph.tips).filter(([, sha]) => bySha.has(sha)),
     [graph.tips, bySha]
   );
-  const tipLabelByRow = (0, import_react3.useMemo)(() => {
-    const byRow = /* @__PURE__ */ new Map();
-    const sorted = [...tipBranches].sort(([a], [b]) => {
-      const aCur = a === graph.current ? 0 : 1;
-      const bCur = b === graph.current ? 0 : 1;
-      return aCur - bCur || a.localeCompare(b);
-    });
-    for (const [branch, sha] of sorted) {
-      const commit = bySha.get(sha);
-      if (!commit) continue;
-      const key = commit.row;
-      if (!byRow.has(key)) byRow.set(key, branch);
-    }
-    return byRow;
-  }, [tipBranches, bySha, graph.current]);
+  const branchInfoByRow = (0, import_react3.useMemo)(
+    () => resolveBranchInfoByRow(layout, graph.tips, graph.current),
+    [layout, graph.tips, graph.current]
+  );
   const subjects = (0, import_react3.useMemo)(
     () => new Map(layout.map((c) => [c.sha, fitByWidth(c.subject, commitWidth - 2)])),
     [layout, commitWidth]
   );
-  const tipTexts = (0, import_react3.useMemo)(
-    () => new Map([...tipLabelByRow.entries()].map(([row, b]) => [row, fitByWidth(b, labelZone - 6)])),
-    [tipLabelByRow, labelZone]
+  const branchTexts = (0, import_react3.useMemo)(
+    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, labelZone - 6)])),
+    [branchInfoByRow, labelZone]
   );
   const isTipCommit = (commit) => tipBranches.some(([, sha]) => sha === commit.sha);
   const nodeFill = (commit) => {
@@ -1692,33 +1748,64 @@ Date: ${commit.date}` }),
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", { ref: rootRef, width: graphWidth, height, style: { display: "block", cursor: "default" }, children: [
     edges,
     nodes,
-    [...tipLabelByRow.entries()].filter(([row]) => inWindow(row)).map(([row, branch]) => {
-      const isCurrent = branch === graph.current;
+    [...branchInfoByRow.entries()].filter(([row]) => inWindow(row)).map(([row, info]) => {
       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         "text",
         {
           x: graphWidth - labelZone / 2,
           y: yOf(row) + 4,
-          fontSize: "11",
+          fontSize: info.isTip ? "11" : "10.5",
           textAnchor: "middle",
-          fontWeight: isCurrent ? 700 : 400,
-          fill: isCurrent ? "var(--current)" : "var(--muted)",
+          fontWeight: info.isCurrentTip ? 700 : info.isTip ? 600 : 400,
+          fill: info.isCurrentTip ? "var(--current)" : info.isTip ? "var(--fg)" : "var(--muted)",
+          opacity: info.isTip ? 1 : 0.65,
           style: { cursor: "default" },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: branch }),
-            tipTexts.get(row) ?? branch
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("title", { children: [
+              info.branch,
+              info.isTip ? info.isCurrentTip ? " (HEAD)" : " (Tip)" : ""
+            ] }),
+            branchTexts.get(row) ?? info.branch
           ]
         },
-        `tip-${row}`
+        `branch-${row}`
       );
     })
   ] });
 });
+function filterCommitsByBranch(commits, tips, branch) {
+  let tipSha = tips[branch];
+  if (!tipSha) {
+    const entry = Object.entries(tips).find(([k]) => k === branch || k.endsWith(`/${branch}`));
+    if (entry) tipSha = entry[1];
+  }
+  if (!tipSha) return [];
+  const bySha = /* @__PURE__ */ new Map();
+  for (const c of commits) bySha.set(c.sha, c);
+  const reachable = /* @__PURE__ */ new Set();
+  const queue = [tipSha];
+  while (queue.length > 0) {
+    const sha = queue.shift();
+    if (reachable.has(sha)) continue;
+    reachable.add(sha);
+    const commit = bySha.get(sha);
+    if (commit) {
+      for (const p of commit.parents) {
+        if (!reachable.has(p) && bySha.has(p)) queue.push(p);
+      }
+    }
+  }
+  return commits.filter((c) => reachable.has(c.sha));
+}
 var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(props) {
-  const { graph, width, onCherryPick, onRevert } = props;
+  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert } = props;
   const t2 = useT();
   const [selected, setSelected] = (0, import_react3.useState)(null);
-  const layout = (0, import_react3.useMemo)(() => layoutGraph(graph.commits), [graph]);
+  const displayCommits = (0, import_react3.useMemo)(() => {
+    if (!filterBranch) return graph.commits;
+    return filterCommitsByBranch(graph.commits, graph.tips, filterBranch);
+  }, [graph.commits, graph.tips, filterBranch]);
+  const layout = (0, import_react3.useMemo)(() => layoutGraph(displayCommits), [displayCommits]);
   const onSelect = (0, import_react3.useCallback)((commit) => setSelected(commit), []);
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1));
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8);
@@ -1736,6 +1823,24 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
     }
   }, []);
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "0 8px", position: "relative", width: "100%", boxSizing: "border-box" }, children: [
+    filterBranch ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-filter-bar", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-filter-ico", children: icon("branch", 12) }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-filter-label", children: t2("graph.filter.label") }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-filter-tag", title: filterBranch, children: filterBranch }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "dsh-gp-filter-clear",
+          title: t2("graph.filter.clear"),
+          onClick: onClearFilter,
+          children: [
+            icon("close", 11),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("graph.filter.clear") })
+          ]
+        }
+      )
+    ] }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
       "div",
       {
@@ -1756,7 +1861,7 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         ]
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    displayCommits.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", style: { padding: "24px 8px" }, children: t2("graph.filter.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       GraphSvg,
       {
         layout,
@@ -1817,6 +1922,7 @@ function GitPanel(props) {
     setGenerating(false);
     setChanges([]);
     setStash(null);
+    setFilterBranch(null);
     const globalState = GLOBAL_GIT_BUSY_MAP.get(path);
     if (globalState) {
       if (globalState.busy !== void 0) setBusyState(globalState.busy);
@@ -1825,6 +1931,7 @@ function GitPanel(props) {
     }
   }, [path]);
   const [width, setWidth] = (0, import_react3.useState)(300);
+  const [filterBranch, setFilterBranch] = (0, import_react3.useState)(null);
   const rootRef = (0, import_react3.useRef)(null);
   const [menu, setMenu] = (0, import_react3.useState)(null);
   const [menuMode, setMenuMode] = (0, import_react3.useState)("main");
@@ -2148,7 +2255,20 @@ function GitPanel(props) {
     busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-progress", role: "progressbar", "aria-label": pendingOpLabel ?? t2("op.refresh") }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-tabs", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "branches" ? " active" : ""}`, onClick: () => setTab("branches"), children: t2("tab.branches") }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "graph" ? " active" : ""}`, onClick: () => setTab("graph"), children: t2("tab.graph") })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "div",
+        {
+          className: `dsh-gp-tab${tab === "graph" ? " active" : ""}`,
+          onClick: () => {
+            if (tab === "graph" && filterBranch) {
+              setFilterBranch(null);
+            } else {
+              setTab("graph");
+            }
+          },
+          children: t2("tab.graph")
+        }
+      )
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write-row", children: [
@@ -2681,6 +2801,10 @@ function GitPanel(props) {
                 isRemote: false,
                 current: branches.current,
                 busy,
+                onSelect: (branch) => {
+                  setFilterBranch(branch);
+                  setTab("graph");
+                },
                 onActivate: activateLocal,
                 onPull: () => void runOp(t2("op.pull"), () => api.pull(path), "pull"),
                 onContextMenu: openMenu
@@ -2715,6 +2839,8 @@ function GitPanel(props) {
         {
           graph,
           width,
+          filterBranch,
+          onClearFilter: () => setFilterBranch(null),
           onCherryPick: (sha) => void runOp(t2("op.cherryPick"), () => api.cherryPick(path, sha)),
           onRevert: (sha) => void runOp(t2("op.revert"), () => api.revertCommit(path, sha))
         }
