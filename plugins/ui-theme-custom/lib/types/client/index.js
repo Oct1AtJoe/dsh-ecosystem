@@ -464,74 +464,79 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
   z-index:9500 !important;
 }
 
-/* ── Claude Code 像素小伙伴 Mascot (全主题通用) ── */
-.dsh-claude-crab {
+/* ── 输入框上方像素小伙伴挂件（全主题通用）─────────────────────────────
+   素材为「单行 8 列」条带：每张 584×109px，单元格 73×109px。
+   取景窗只露一格，WAAPI steps 逐帧平移即为动画。
+   素材为手绘动漫立绘（非像素画），不使用 image-rendering: pixelated，
+   满色立绘无需按主题染色。 */
+.dsh-composer-pet {
   position: absolute !important;
   right: 18px !important;
   bottom: 100% !important;
   z-index: 50 !important;
-  width: 104px !important;
-  height: 72px !important;
+  width: 73px !important;
+  height: 109px !important;
   pointer-events: none !important;
   user-select: none !important;
 }
-.dsh-claude-crab:not([data-ready]) {
+/* 首帧就绪前先隐藏，避免空窗口闪一下 */
+.dsh-composer-pet:not([data-ready]) {
   visibility: hidden !important;
 }
 
-/* 对话页：站在 composerStack 顶端，避开排队消息、待办与目标卡片 */
-[data-dsh-mascot-anchor="stack"] > .dsh-claude-crab {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 8px) !important;
+/* 对话页：站在 composerStack 顶端，因此上方有排队消息、待办或目标卡片时
+   会自动上移到全部元素之上，永不遮挡。 */
+[data-dsh-pet-anchor="stack"] > .dsh-composer-pet {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 6px) !important;
   bottom: 100% !important;
 }
-
-/* 替代面板（确认/提问面板） */
-[data-dsh-mascot-anchor="panel"] > .dsh-claude-crab {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 8px) !important;
+/* 替代面板（授权确认 / 提问面板）接管输入卡片时 */
+[data-dsh-pet-anchor="panel"] > .dsh-composer-pet {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 6px) !important;
   bottom: calc(100% - 7px) !important;
 }
-
-/* 首页独立卡片 */
-[data-dsh-mascot-anchor="card"] > .dsh-claude-crab {
+/* 首页新会话卡片 / 兜底卡片 */
+[data-dsh-pet-anchor="card"] > .dsh-composer-pet {
   right: 18px !important;
   bottom: 100% !important;
 }
-.dsh-claude-crab-sprite {
-  position: absolute !important;
-  left: calc(var(--dsh-claude-crab-x, 0) * 2px) !important;
-  top: calc(var(--dsh-claude-crab-y, 0) * 2px) !important;
-  width: calc(var(--dsh-claude-crab-w, 0) * 2px) !important;
-  height: calc(var(--dsh-claude-crab-h, 0) * 2px) !important;
-  overflow: hidden !important;
-}
-.dsh-claude-crab-strip {
-  position: relative !important;
-  display: block !important;
-  width: calc(var(--dsh-claude-crab-cell-w, 0) * 16px) !important;
-  height: calc(var(--dsh-claude-crab-strip-h, 0) * 2px) !important;
-  background-image: var(--dsh-claude-crab-sheet, none) !important;
-  background-repeat: no-repeat !important;
-  background-size: 100% 100% !important;
-  image-rendering: pixelated !important;
-}
-.dsh-claude-crab-strip:after {
-  content: "" !important;
+
+/* 取景窗：只露一格，并裁掉条带多余部分 */
+.dsh-composer-pet-sprite {
   position: absolute !important;
   inset: 0 !important;
-  background: var(--dsw-alias-label-tertiary, #8f8a7e) !important;
-  -webkit-mask: var(--dsh-claude-crab-ink, none) no-repeat 0 0 / 100% 100% !important;
-  mask: var(--dsh-claude-crab-ink, none) no-repeat 0 0 / 100% 100% !important;
-  image-rendering: pixelated !important;
+  overflow: hidden !important;
 }
-.dsh-claude-crab-hit {
+/* 胶片条带：整张 8 列图铺满，靠 transform 平移对帧 */
+.dsh-composer-pet-strip {
   position: absolute !important;
-  left: 48px !important;
-  top: 40px !important;
-  width: 48px !important;
-  height: 32px !important;
+  left: 0 !important;
+  top: 0 !important;
+  display: block !important;
+  width: 584px !important;
+  height: 109px !important;
+  background-image: var(--dsh-pet-image, none) !important;
+  background-repeat: no-repeat !important;
+  background-position: 0 0 !important;
+  background-size: 584px 109px !important;
+  will-change: transform;
+}
+/* 点击热区：覆盖人物躯干。用百分比随单元格自适应，不写死像素。 */
+.dsh-composer-pet-hit {
+  position: absolute !important;
+  left: 8% !important;
+  top: 10% !important;
+  width: 84% !important;
+  height: 82% !important;
   pointer-events: auto !important;
   touch-action: none !important;
   cursor: pointer !important;
+}
+/* 减少动态效果：条带由 JS 停在静止帧，这里不再补任何动画 */
+@media (prefers-reduced-motion: reduce) {
+  .dsh-composer-pet-strip {
+    animation: none !important;
+  }
 }
 
 /* Sidebar column: transparent base so the sidebar's own glass backdrop

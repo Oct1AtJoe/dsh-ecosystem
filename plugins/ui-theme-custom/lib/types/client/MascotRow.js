@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import css from './MascotRow.module.css';
 /**
- * 渲染 Claude 挂件偏好行。
+ * 渲染输入框挂件偏好行。
  * @param props - 槽位组合 props。
  * @returns 该行的元素树。
  */

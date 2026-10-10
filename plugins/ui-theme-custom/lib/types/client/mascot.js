@@ -1,4 +1,4 @@
-import { CRAB_FRAME_MS, CRAB_SHEETS, CRAB_SHEET_URLS } from './mascot-data';
+import { PET_CELL_W, PET_FRAME_MS, PET_IMAGES, PET_SHEETS } from './pet-data';
 export const MASCOT_STORAGE_KEY = 'dsh-claude-mascot-enabled';
 /** 读取挂件启用状态（默认开启）。 */
 export function readMascotEnabled() {
@@ -24,85 +24,139 @@ let onEnabledChangeCallback = null;
 export function notifyMascotChange(enabled) {
     onEnabledChangeCallback?.(enabled);
 }
+/**
+ * 输入框上方的像素小伙伴挂件。
+ *
+ * 素材是一组「单行 8 列」雪碧图（见 pet-data.ts）：每个动作一张条带，
+ * 每帧固定 PET_CELL_W x PET_CELL_H，逐帧平移窗口即为动画。
+ * 播放走 WAAPI steps 关键帧，期间无定时器、无 DOM 变更。
+ *
+ * 站位：首页站在输入卡片上沿；对话页站在 composerStack 顶端，
+ * 因此上方出现排队消息、目标任务或待办卡片时会自动上移到它们之上。
+ * 读屏者要求减少动态效果时停在静止帧。
+ *
+ * @param ctx - 客户端根上下文。
+ * @returns 释放函数。
+ */
 export function initMascot(ctx) {
     let isEnabled = readMascotEnabled();
-    // 构建 DOM 节点
-    const crab = document.createElement('span');
-    crab.className = 'dsh-claude-crab';
-    crab.setAttribute('aria-hidden', 'true');
+    const pet = document.createElement('span');
+    pet.className = 'dsh-composer-pet';
+    pet.setAttribute('aria-hidden', 'true');
     const sprite = document.createElement('span');
-    sprite.className = 'dsh-claude-crab-sprite';
+    sprite.className = 'dsh-composer-pet-sprite';
     const strip = document.createElement('span');
-    strip.className = 'dsh-claude-crab-strip';
+    strip.className = 'dsh-composer-pet-strip';
     sprite.appendChild(strip);
-    crab.appendChild(sprite);
+    pet.appendChild(sprite);
     const hit = document.createElement('span');
-    hit.className = 'dsh-claude-crab-hit';
-    crab.appendChild(hit);
+    hit.className = 'dsh-composer-pet-hit';
+    pet.appendChild(hit);
     let currentAnimation = null;
     let currentKey = 'idle';
     let lockUntil = 0;
     let idleTimer = null;
     let sleepTimer = null;
+    let stillTimer = null;
+    let holdTimer = null;
     let isSleeping = false;
     let clicks = [];
     let pressStart = null;
+    /** 减少动态效果：停在静止帧，只保留点击反应。 */
+    function motionReduced() {
+        try {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }
+        catch {
+            return false;
+        }
+    }
     function playAnimation(key, loop) {
-        const meta = CRAB_SHEETS[key];
-        const sheet = CRAB_SHEET_URLS[key];
-        if (!meta || !sheet)
+        const sheet = PET_SHEETS[key];
+        if (!sheet)
+            return;
+        const image = PET_IMAGES[sheet.image];
+        if (!image)
             return;
         currentKey = key;
-        crab.style.setProperty('--dsh-claude-crab-sheet', `url("${sheet.body}")`);
-        crab.style.setProperty('--dsh-claude-crab-ink', `url("${sheet.ink}")`);
-        crab.style.setProperty('--dsh-claude-crab-x', String(meta.box[0]));
-        crab.style.setProperty('--dsh-claude-crab-y', String(meta.box[1]));
-        crab.style.setProperty('--dsh-claude-crab-w', String(meta.box[2]));
-        crab.style.setProperty('--dsh-claude-crab-h', String(meta.box[3]));
-        crab.style.setProperty('--dsh-claude-crab-cell-w', String(meta.box[2]));
-        crab.style.setProperty('--dsh-claude-crab-strip-h', String(meta.box[3] * Math.ceil(meta.frames / 8)));
-        crab.setAttribute('data-ready', '');
-        crab.setAttribute('data-animation', key);
+        pet.style.setProperty('--dsh-pet-image', `url("${image}")`);
+        pet.setAttribute('data-ready', '');
+        pet.setAttribute('data-animation', key);
+        if (currentAnimation) {
+            currentAnimation.cancel();
+            currentAnimation = null;
+        }
+        if (stillTimer) {
+            clearTimeout(stillTimer);
+            stillTimer = null;
+        }
+        // 减少动态效果：停在该动作的静止帧，不启动动画。
+        // 一次性动作仍按正常时长收尾，之后回到 idle，否则会永远停在反应帧上。
+        if (motionReduced()) {
+            strip.style.transform = `translateX(${-(sheet.still * PET_CELL_W)}px)`;
+            if (!loop) {
+                stillTimer = setTimeout(() => {
+                    stillTimer = null;
+                    if (currentKey === key)
+                        playAnimation('idle', true);
+                }, sheet.frames * PET_FRAME_MS);
+            }
+            return;
+        }
+        strip.style.transform = '';
         const keyframes = [];
-        for (let i = 0; i < meta.frames; i++) {
-            const col = i % 8;
-            const row = Math.floor(i / 8);
+        for (let i = 0; i < sheet.frames; i++) {
             keyframes.push({
-                offset: i / meta.frames,
-                transform: `translate(${-(col * meta.box[2]) * 2}px, ${-(row * meta.box[3]) * 2}px)`,
+                offset: i / sheet.frames,
+                transform: `translateX(${-(i * PET_CELL_W)}px)`,
                 easing: 'steps(1)',
             });
         }
         keyframes.push({
             offset: 1,
-            transform: `translate(${-(meta.box[2] * (loop ? 0 : (meta.frames - 1) % 8)) * 2}px, ${-(meta.box[3] * (loop ? 0 : Math.floor((meta.frames - 1) / 8))) * 2}px)`,
+            transform: `translateX(${-(loop ? 0 : (sheet.frames - 1)) * PET_CELL_W}px)`,
         });
-        if (currentAnimation) {
-            currentAnimation.cancel();
-            currentAnimation = null;
-        }
         currentAnimation = strip.animate(keyframes, {
-            duration: meta.frames * CRAB_FRAME_MS,
+            duration: sheet.frames * PET_FRAME_MS,
             iterations: loop ? Infinity : 1,
             fill: 'forwards',
         });
         if (!loop) {
             currentAnimation.finished
                 .then(() => {
-                if (currentKey === key) {
+                if (currentKey === key)
                     playAnimation('idle', true);
-                }
             })
                 .catch(() => { });
         }
     }
-    function triggerReaction(key, holdMs = 0) {
-        if (Date.now() < lockUntil && key !== 'drag')
+    /**
+     * 播放一次反应动作。
+     * @param key - 语义动作名。
+     * @param holdMs - 锁定其它反应的时长；0 表示不锁。
+     * @param holdLoop - 锁定期间是否循环播放该动作（而非播一遍就回 idle）。
+     *   失败这类需要「持续一段状态」的动作用 true；跳跃这种一次性动作用 false。
+     */
+    function triggerReaction(key, holdMs = 0, holdLoop = false) {
+        // 失败与拖拽穿透反应锁：失败是最高优先级信号，不该被一次点击反应挡掉
+        if (Date.now() < lockUntil && key !== 'drag' && key !== 'failed')
             return;
         if (holdMs > 0)
             lockUntil = Date.now() + holdMs;
         isSleeping = false;
-        playAnimation(key, false);
+        if (holdLoop && holdMs > 0) {
+            playAnimation(key, true);
+            if (holdTimer)
+                clearTimeout(holdTimer);
+            holdTimer = setTimeout(() => {
+                holdTimer = null;
+                if (currentKey === key)
+                    playAnimation('idle', true);
+            }, holdMs);
+        }
+        else {
+            playAnimation(key, false);
+        }
         scheduleIdleExtra();
         resetSleepTimer();
     }
@@ -146,12 +200,13 @@ export function initMascot(ctx) {
         triggerReaction(e.clientX - rect.left < rect.width / 2 ? 'poke-left' : 'poke-right', 1200);
     });
     hit.addEventListener('pointercancel', () => {
-        if (pressStart?.lifted) {
+        if (pressStart?.lifted)
             playAnimation('idle', true);
-        }
         pressStart = null;
     });
-    // 随机闲置小动作 (看一看 / 挥挥手 / 搬出电脑敲代码)
+    // 点击不冒泡到宿主卡片（首页的「选择工作区」卡片本身就是按钮）
+    hit.addEventListener('click', event => { event.stopPropagation(); });
+    // 随机闲置小动作（张望 / 挥手 / 端着放大镜细看）
     function scheduleIdleExtra() {
         if (idleTimer)
             clearTimeout(idleTimer);
@@ -165,7 +220,7 @@ export function initMascot(ctx) {
             scheduleIdleExtra();
         }, 20000 + Math.random() * 20000);
     }
-    // 闲置入睡机制 (1分钟无操作打瞌睡)
+    // 闲置入睡（1 分钟无操作）
     function resetSleepTimer() {
         if (sleepTimer)
             clearTimeout(sleepTimer);
@@ -185,149 +240,248 @@ export function initMascot(ctx) {
     }
     window.addEventListener('mousemove', onActivity, { passive: true });
     window.addEventListener('keydown', onActivity, { passive: true });
-    // 寻找输入框并贴靠挂载：
-    // 首页精准贴靠新会话输入卡片；对话页贴靠 composerStack 顶端，
-    // 确保当上方存在排队队列（Queue）、目标任务（Goal）、待办（Todo）时，小螃蟹自动上移至所有元素上方。
+    /**
+     * 寻找要站的位置：首页站在输入卡片上沿；对话页站在 composerStack 顶端
+     * （它同时包含排队消息、目标任务、待办与输入框，因此挂件永远在所有元素之上）；
+     * 替代面板（授权/提问）接管输入卡片时站在面板上沿。
+     */
     function findAnchor() {
-        // 1. 判断是否处于首页 (Hero 阶段)
         const isHero = document.querySelector('[data-phase="hero"], [data-content-phase="hero"]') !== null
             || document.querySelector('[class*="composerHero"]') !== null;
         if (isHero) {
-            // 首页：小螃蟹必须精准站在输入卡片上，不能挂在包含大标题与问候语的 composerStack 顶部
             const heroCard = document.querySelector('[class*="composerHero"] [class$="_card"], [class*="composerStack"] > section, [data-composer-card]');
-            if (heroCard && heroCard.offsetHeight > 0) {
+            if (heroCard && heroCard.offsetHeight > 0)
                 return { element: heroCard, place: 'card' };
-            }
         }
-        // 2. 对话页 (Active 阶段)
         const seat = document.querySelector('[data-composer-seat], [class*="composerSeat"]');
         if (seat && seat.offsetHeight > 0) {
-            // 检查是否有替代面板（例如授权确认/问题回答面板）
             const fallback = seat.querySelector('[data-chain-overlay-fallback="conversation.composer"]');
             if (fallback && fallback.style.display === 'none') {
                 const panel = fallback.nextElementSibling;
-                if (panel && panel.offsetHeight > 0) {
+                if (panel && panel.offsetHeight > 0)
                     return { element: panel, place: 'panel' };
-                }
             }
-            // 核心：优先挂载到 composerStack！
-            // composerStack 垂直包含 [conversation.input.dock]（队列消息/目标任务/待办任务）和 [inputBar]。
-            // 小螃蟹设置 bottom: 100%，因此当上方有排队消息或目标卡片时，它会自动站在所有元素的最顶上！
             const stack = seat.querySelector('[class*="_composerStack"], [class*="composerStack"]');
-            if (stack && stack.offsetHeight > 0) {
+            if (stack && stack.offsetHeight > 0)
                 return { element: stack, place: 'stack' };
-            }
-            // 如果找不到 stack，兜底到输入卡片
             const card = seat.querySelector('[class$="_card"], [data-composer-card]');
-            if (card && card.offsetHeight > 0) {
+            if (card && card.offsetHeight > 0)
                 return { element: card, place: 'card' };
-            }
         }
-        // 3. 全局兜底：任何可见的输入卡片
         const anyCard = document.querySelector('[data-composer-card]');
-        if (anyCard && anyCard.offsetHeight > 0) {
+        if (anyCard && anyCard.offsetHeight > 0)
             return { element: anyCard, place: 'card' };
-        }
         return null;
+    }
+    function detach() {
+        if (pet.parentElement) {
+            pet.parentElement.removeAttribute('data-dsh-pet-anchor');
+            pet.remove();
+        }
     }
     function syncMount() {
         if (!isEnabled) {
-            if (crab.parentElement) {
-                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
-                crab.remove();
-            }
+            detach();
             return;
         }
         const anchor = findAnchor();
         if (!anchor) {
-            if (crab.parentElement) {
-                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
-                crab.remove();
-            }
+            detach();
             return;
         }
-        const currentAnchor = crab.parentElement;
+        const currentAnchor = pet.parentElement;
         if (currentAnchor !== anchor.element) {
-            if (currentAnchor) {
-                currentAnchor.removeAttribute('data-dsh-mascot-anchor');
-            }
+            if (currentAnchor)
+                currentAnchor.removeAttribute('data-dsh-pet-anchor');
             anchor.element.style.position = 'relative';
-            anchor.element.setAttribute('data-dsh-mascot-anchor', anchor.place);
-            anchor.element.appendChild(crab);
+            anchor.element.setAttribute('data-dsh-pet-anchor', anchor.place);
+            anchor.element.appendChild(pet);
         }
-        else {
-            if (anchor.element.getAttribute('data-dsh-mascot-anchor') !== anchor.place) {
-                anchor.element.setAttribute('data-dsh-mascot-anchor', anchor.place);
-            }
+        else if (anchor.element.getAttribute('data-dsh-pet-anchor') !== anchor.place) {
+            anchor.element.setAttribute('data-dsh-pet-anchor', anchor.place);
         }
     }
-    // 开关变更回调监听
-    onEnabledChangeCallback = (val) => {
-        isEnabled = val;
+    function start() {
+        syncMount();
         if (isEnabled) {
-            syncMount();
             playAnimation('idle', true);
             scheduleIdleExtra();
             resetSleepTimer();
         }
+    }
+    function stopTimers() {
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+        }
+        if (sleepTimer) {
+            clearTimeout(sleepTimer);
+            sleepTimer = null;
+        }
+        if (stillTimer) {
+            clearTimeout(stillTimer);
+            stillTimer = null;
+        }
+        if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+        }
+    }
+    // 开关变更：立即卸载 / 重新挂载
+    onEnabledChangeCallback = (val) => {
+        isEnabled = val;
+        if (isEnabled) {
+            start();
+        }
         else {
-            if (crab.parentElement) {
-                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
-                crab.remove();
-            }
-            if (currentAnimation)
+            detach();
+            if (currentAnimation) {
                 currentAnimation.cancel();
-            if (idleTimer)
-                clearTimeout(idleTimer);
-            if (sleepTimer)
-                clearTimeout(sleepTimer);
+                currentAnimation = null;
+            }
+            stopTimers();
         }
     };
-    // 定时与DOM变更时保持贴靠
     const mountInterval = setInterval(syncMount, 500);
-    syncMount();
-    if (isEnabled) {
-        playAnimation('idle', true);
-        scheduleIdleExtra();
-        resetSleepTimer();
+    start();
+    function readSessions() {
+        try {
+            return ctx.get('sessions');
+        }
+        catch {
+            return undefined;
+        }
     }
-    // 状态监听：跟随 AI 会话活动
-    let prevRunning = false;
-    const stateInterval = setInterval(() => {
+    function readCurrentId() {
+        try {
+            return readSessions()?.list?.getSnapshot?.()?.current;
+        }
+        catch {
+            return undefined;
+        }
+    }
+    function readRunning() {
+        try {
+            const snap = readSessions()?.list?.getSnapshot?.();
+            if (!snap?.byId)
+                return false;
+            const cur = snap.current;
+            if (cur !== undefined)
+                return snap.byId[cur]?.running === true;
+            // 没有当前会话时，任一在跑的会话也算工作
+            return (snap.ids ?? []).some(id => snap.byId?.[id]?.running === true);
+        }
+        catch {
+            return false;
+        }
+    }
+    // ── 失败检测（failed 动作的唯一触发源）────────────────────────────────
+    // 列表快照只有 running 位，失败信息不在里面，必须读会话事件流：
+    //   · turn/end          reason.kind 为 error / blocked
+    //   · tool/result        message.isError 且不是用户主动中断的 AbortError
+    //   · compaction/end    带 error
+    // 只处理订阅之后 **append** 的事件（replace / prepend 是打开历史会话时的回放，
+    // 不能把旧失败当成刚发生）。
+    let lastFailureAt = 0;
+    function entryIsFailure(entry) {
+        if (typeof entry !== 'object' || entry === null)
+            return false;
+        const e = entry;
+        if (e.type !== 'event' || !e.event)
+            return false;
+        const ev = e.event;
+        const data = (ev.data ?? {});
+        if (ev.type === 'turn/end') {
+            const kind = data.reason?.kind;
+            // aborted / interrupted 是用户主动停止或崩溃收尾，不算失败
+            return kind === 'error' || kind === 'blocked';
+        }
+        if (ev.type === 'tool/result') {
+            if (data.message?.isError !== true)
+                return false;
+            const name = data.error?.name;
+            return name !== 'AbortError';
+        }
+        if (ev.type === 'compaction/end')
+            return data.error !== undefined;
+        return false;
+    }
+    function onSessionEvents() {
         if (!isEnabled)
             return;
+        const id = subscribedSession;
+        if (id === undefined)
+            return;
         try {
-            const sessionService = ctx.get('session');
-            const running = sessionService?.running ?? false;
-            if (running && !prevRunning) {
-                prevRunning = true;
-                // 正在思考/打字
-                playAnimation(Math.random() > 0.5 ? 'thinking' : 'typing', true);
-            }
-            else if (!running && prevRunning) {
-                prevRunning = false;
-                // 刚刚完成，开心跳跃
-                triggerReaction('happy', 4000);
+            const snap = readSessions()?.binding?.(id)?.eventSource?.getSnapshot?.();
+            const change = snap?.change;
+            if (change?.kind !== 'append')
+                return;
+            const entries = change.entries ?? [];
+            for (const entry of entries) {
+                if (entryIsFailure(entry)) {
+                    lastFailureAt = Date.now();
+                    // 垂头丧气持续 5 秒（循环播放，期间不被其它反应抢占），结束后回 idle
+                    triggerReaction('failed', 5000, true);
+                    break;
+                }
             }
         }
         catch {
-            // 容错
+            // 事件流不可用时静默
         }
-    }, 400);
+    }
+    // 事件订阅随「当前会话」切换而重建（切会话要换 binding）
+    let subscribedSession;
+    let unsubscribeEvents;
+    function syncEventSubscription() {
+        const id = readCurrentId();
+        if (id === subscribedSession)
+            return;
+        unsubscribeEvents?.();
+        unsubscribeEvents = undefined;
+        subscribedSession = id;
+        if (id === undefined)
+            return;
+        try {
+            unsubscribeEvents = readSessions()?.binding?.(id)?.eventSource?.subscribe?.(onSessionEvents);
+        }
+        catch {
+            unsubscribeEvents = undefined;
+        }
+    }
+    let prevRunning = false;
+    function onSessionTick() {
+        if (!isEnabled)
+            return;
+        syncEventSubscription();
+        const running = readRunning();
+        if (running === prevRunning)
+            return;
+        prevRunning = running;
+        if (running) {
+            // 开始工作：等待/思考
+            playAnimation('thinking', true);
+        }
+        else if (Date.now() - lastFailureAt > 6000) {
+            // 一轮结束：跳跃庆祝。刚失败过就不庆祝（failed 已经演过了）。
+            triggerReaction('happy', 4000);
+        }
+    }
+    const stateInterval = setInterval(onSessionTick, 400);
+    syncEventSubscription();
     return () => {
         onEnabledChangeCallback = null;
         clearInterval(mountInterval);
         clearInterval(stateInterval);
-        if (idleTimer)
-            clearTimeout(idleTimer);
-        if (sleepTimer)
-            clearTimeout(sleepTimer);
+        unsubscribeEvents?.();
+        unsubscribeEvents = undefined;
+        stopTimers();
         window.removeEventListener('mousemove', onActivity);
         window.removeEventListener('keydown', onActivity);
         if (currentAnimation)
             currentAnimation.cancel();
-        if (crab.parentElement)
-            crab.remove();
+        detach();
     };
 }
 //# sourceMappingURL=mascot.js.map

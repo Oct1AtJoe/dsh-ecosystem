@@ -2401,10 +2401,8 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						e("polyline", { key: "d", points: "3,8 7,12 11,8" })
 					]
 				})),
-				wide && e("button", {
-					type: "button",
-					className: "dsh-ff__icon-button" + (treeGuides ? " dsh-ff__icon-button--active" : ""),
-					"aria-label": t("action.treeGuides"),
+				// Hide tree guides button per user request
+				false && wide && e("button", {
 					title: t("action.treeGuides"),
 					"aria-pressed": treeGuides ? true : void 0,
 					onClick: () => actions.setTreeGuides(!treeGuides)
