@@ -348,11 +348,9 @@ body[data-ds-custom-theme="sonoma"] [class*="cm-gw-switcher"]{
       与输入坞共用 .38 会让背后文字直接穿透、选项互相干扰。
       故为浮层单列一档 --dsh-glass-popover-fill（浅 .72 / 深 .82），
       与 --dsh-glass-dialog-fill 同理：**内容可读性优先于通透度**。 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"],
 body[data-ds-custom-theme="sequoia"] [role="menu"],
 body[data-ds-custom-theme="sequoia"] [role="tooltip"],
 body[data-ds-custom-theme="sequoia"] [class*="overlayAnchor"] [class$="_menu"],
-body[data-ds-custom-theme="sonoma"] [role="dialog"],
 body[data-ds-custom-theme="sonoma"] [role="menu"],
 body[data-ds-custom-theme="sonoma"] [role="tooltip"],
 body[data-ds-custom-theme="sonoma"] [class*="overlayAnchor"] [class$="_menu"]{
@@ -781,33 +779,183 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   width: auto !important;
 }
 
-/* Dialogs/modals：毛玻璃面板（**仅 液态 sequoia 与 曜黑 sonoma**）。
-   ⚠️ 弹窗是**大面积内容面板**（表单、长列表、设置项），可读性优先于通透度，
-   故填充比输入坞更实 —— 单独用 --dsh-glass-dialog-fill，不共用 .38 的输入坞填充。
-   配方（填充 + 虚化 + 光学边缘）与 C 组一致，此处只覆盖填充与投影。
-   ⚠️ 主题门控写死为 sequoia / sonoma 两个 id：
-   不得改到内置 light/dark，也不得扩散到其余四个自定义主题（用户已确认）。 */
-body[data-ds-custom-theme="sonoma"] [role="dialog"]{
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 30%),
-    var(--dsh-glass-dialog-fill) !important;
-  backdrop-filter:var(--dsh-glass-blur) !important;
-  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
-  box-shadow:
-    inset 0 1px 0 var(--dsh-glass-edge),
-    0 6px 16px rgba(0,0,0,0.40),
-    0 24px 60px rgba(0,0,0,0.50) !important;
+/* Dialogs/modals：系统级晶体磨砂玻璃面板（**仅 液态 sequoia 与 曜黑 sonoma**）。
+   ⚠️ 参考 Catppuccin / macOS 顶级磨砂玻璃实现机理：
+   ① 弹窗外框采用微光学切边（Specular Edge + Inset Rim + Ambient Drop）与 24px 大圆角；
+   ② 弹窗内部解构重塑实色 Token（--dsw-alias-bg-module-platform 与 layer-1/2/3），消除原生死白/死黑补丁；
+   ③ 左侧导航菜单与选项卡片转换为通透半透明悬浮晶片，光线多层折射；
+   ④ 视口遮罩蒙层（Mask）注入轻透柔焦虚化，烘托前景悬浮深度；
+   ⑤ 配备 dsh-glass-dialog-in 弹性微动效；
+   ⚠️ 主题门控严格限定在 sequoia 与 sonoma 两个 id，其余四个主题保持原生质感不变。 */
+[role="presentation"]:has(> [role="dialog"]){
+  z-index:9500 !important;
+  isolation:isolate !important;
 }
+body[data-ds-custom-theme="sequoia"] [role="presentation"]:has(> [role="dialog"]) [class*="mask"]{
+  background:rgba(15, 23, 42, 0.16) !important;
+  backdrop-filter:blur(8px) saturate(120%) !important;
+  -webkit-backdrop-filter:blur(8px) saturate(120%) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="presentation"]:has(> [role="dialog"]) [class*="mask"]{
+  background:rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter:blur(10px) !important;
+  -webkit-backdrop-filter:blur(10px) !important;
+}
+
 body[data-ds-custom-theme="sequoia"] [role="dialog"]{
+  --dsw-alias-bg-module-platform:rgba(255, 255, 255, 0.46) !important;
+  --dsw-alias-bg-layer-3:rgba(255, 255, 255, 0.36) !important;
+  --dsw-alias-bg-layer-2:rgba(255, 255, 255, 0.48) !important;
+  --dsw-alias-bg-layer-1:rgba(255, 255, 255, 0.36) !important;
+  --dsw-specific-sidebar-nav-item-active:rgba(0, 0, 0, 0.055) !important;
+  --dsw-specific-sidebar-nav-item-hover:rgba(0, 0, 0, 0.028) !important;
+  --dsw-alias-border-l3:rgba(0, 0, 0, 0.06) !important;
+  --dsw-alias-border-l2:rgba(0, 0, 0, 0.08) !important;
+  --dsh-scrollbar-thumb:rgba(0, 0, 0, 0.14) !important;
+  --dsh-scrollbar-thumb-hover:rgba(0, 0, 0, 0.24) !important;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.16) 0%, transparent 34%),
-    var(--dsh-glass-dialog-fill) !important;
-  backdrop-filter:var(--dsh-glass-blur) !important;
-  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
+    linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 30%, transparent 100%),
+    rgba(255, 255, 255, 0.54) !important;
+  backdrop-filter:var(--dsh-glass-blur) saturate(190%) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) saturate(190%) !important;
+  border-radius:24px !important;
+  border:none !important;
   box-shadow:
-    inset 0 1px 0 var(--dsh-glass-edge),
-    0 12px 32px rgba(15, 23, 42, 0.08),
-    0 24px 64px rgba(15, 23, 42, 0.05) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 18px 44px rgba(15, 23, 42, 0.09),
+    0 36px 90px rgba(15, 23, 42, 0.12) !important;
+  animation:dsh-glass-dialog-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [role="dialog"]{
+  --dsw-alias-bg-module-platform:rgba(255, 255, 255, 0.06) !important;
+  --dsw-alias-bg-layer-3:rgba(255, 255, 255, 0.04) !important;
+  --dsw-alias-bg-layer-2:rgba(255, 255, 255, 0.08) !important;
+  --dsw-alias-bg-layer-1:rgba(255, 255, 255, 0.04) !important;
+  --dsw-specific-sidebar-nav-item-active:rgba(255, 255, 255, 0.08) !important;
+  --dsw-specific-sidebar-nav-item-hover:rgba(255, 255, 255, 0.04) !important;
+  --dsw-alias-border-l3:rgba(255, 255, 255, 0.08) !important;
+  --dsw-alias-border-l2:rgba(255, 255, 255, 0.12) !important;
+  --dsh-scrollbar-thumb:rgba(255, 255, 255, 0.14) !important;
+  --dsh-scrollbar-thumb-hover:rgba(255, 255, 255, 0.24) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 32%, transparent 100%),
+    rgba(22, 25, 32, 0.76) !important;
+  backdrop-filter:var(--dsh-glass-blur) saturate(180%) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) saturate(180%) !important;
+  border-radius:24px !important;
+  border:none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 36px rgba(0, 0, 0, 0.45),
+    0 32px 80px rgba(0, 0, 0, 0.60) !important;
+  animation:dsh-glass-dialog-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* 弹窗内部导航与局部部件精细化 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] nav{
+  background:rgba(255, 255, 255, 0.18) !important;
+  border-right:1px solid rgba(0, 0, 0, 0.06) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] nav{
+  background:rgba(255, 255, 255, 0.02) !important;
+  border-right:1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="navCell"],
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="navCell"]{
+  border-radius:12px !important;
+  transition:background 0.15s ease, color 0.15s ease !important;
+}
+/* 主题/外观选项卡片晶体化 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="themeCube"]{
+  background:rgba(255, 255, 255, 0.35) !important;
+  border:1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius:14px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.70) !important;
+  transition:all 0.15s ease !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="themeCube"]:hover:not([class*="selected"]){
+  background:rgba(255, 255, 255, 0.60) !important;
+  border-color:rgba(0, 0, 0, 0.14) !important;
+  box-shadow:0 4px 12px rgba(0, 0, 0, 0.04), inset 0 1px 0 #fff !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="themeCube"]{
+  background:rgba(255, 255, 255, 0.04) !important;
+  border:1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius:14px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  transition:all 0.15s ease !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="themeCube"]:hover:not([class*="selected"]){
+  background:rgba(255, 255, 255, 0.08) !important;
+  border-color:rgba(255, 255, 255, 0.15) !important;
+}
+/* 下拉选择器药丸晶体化 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="selector"]{
+  background:rgba(255, 255, 255, 0.50) !important;
+  border:1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius:12px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="selector"]{
+  background:rgba(255, 255, 255, 0.06) !important;
+  border:1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius:12px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+/* 操作按钮与关闭按钮 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button{
+  background:rgba(255, 255, 255, 0.50) !important;
+  border:1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius:10px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button{
+  background:rgba(255, 255, 255, 0.06) !important;
+  border:1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius:10px !important;
+  box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+body[data-ds-custom-theme="sequoia"] [role="dialog"] select{
+  background:rgba(255, 255, 255, 0.55) !important;
+  border-color:rgba(0, 0, 0, 0.08) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+body[data-ds-custom-theme="sonoma"] [role="dialog"] select{
+  background:rgba(0, 0, 0, 0.25) !important;
+  border-color:rgba(255, 255, 255, 0.10) !important;
+}
+/* 弹窗细滚动条 */
+[role="dialog"] [class*="options"]::-webkit-scrollbar{
+  width:5px !important;
+}
+[role="dialog"] [class*="options"]::-webkit-scrollbar-thumb{
+  background:var(--dsh-scrollbar-thumb, rgba(128,128,128,0.2)) !important;
+  border-radius:999px !important;
+}
+[role="dialog"] [class*="options"]::-webkit-scrollbar-thumb:hover{
+  background:var(--dsh-scrollbar-thumb-hover, rgba(128,128,128,0.4)) !important;
+}
+
+/* 弹窗进场动画 */
+@keyframes dsh-glass-dialog-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-ds-custom-theme="sequoia"] [role="dialog"],
+  body[data-ds-custom-theme="sonoma"] [role="dialog"] {
+    animation: none !important;
+  }
 }
 
 /* Oriental Calligraphic & Inkstone accents:
