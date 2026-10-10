@@ -29,6 +29,7 @@ import { createSidebarFontStore, createTechThemeStore } from './settings-store.t
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
 import { SidebarFontRow, type SidebarFontRowInjected } from './SidebarFontRow.tsx'
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from './sidebar-font.ts'
+import { initMascot } from './mascot.ts'
 
 export type { TechThemeRowInjected } from './TechThemeRow.tsx'
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
@@ -499,6 +500,58 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
   z-index:9500 !important;
 }
 
+/* ── Claude Code 像素小伙伴 Mascot (全主题通用) ── */
+.dsh-claude-crab {
+  position: absolute !important;
+  right: 20px !important;
+  bottom: 100% !important;
+  z-index: 50 !important;
+  width: 104px !important;
+  height: 72px !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+.dsh-claude-crab:not([data-ready]) {
+  visibility: hidden !important;
+}
+.dsh-claude-crab-sprite {
+  position: absolute !important;
+  left: calc(var(--dsh-claude-crab-x, 0) * 2px) !important;
+  top: calc(var(--dsh-claude-crab-y, 0) * 2px) !important;
+  width: calc(var(--dsh-claude-crab-w, 0) * 2px) !important;
+  height: calc(var(--dsh-claude-crab-h, 0) * 2px) !important;
+  overflow: hidden !important;
+}
+.dsh-claude-crab-strip {
+  position: relative !important;
+  display: block !important;
+  width: calc(var(--dsh-claude-crab-cell-w, 0) * 16px) !important;
+  height: calc(var(--dsh-claude-crab-strip-h, 0) * 2px) !important;
+  background-image: var(--dsh-claude-crab-sheet, none) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  image-rendering: pixelated !important;
+}
+.dsh-claude-crab-strip:after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: var(--dsw-alias-label-tertiary, #8f8a7e) !important;
+  -webkit-mask: var(--dsh-claude-crab-ink, none) no-repeat 0 0 / 100% 100% !important;
+  mask: var(--dsh-claude-crab-ink, none) no-repeat 0 0 / 100% 100% !important;
+  image-rendering: pixelated !important;
+}
+.dsh-claude-crab-hit {
+  position: absolute !important;
+  left: 48px !important;
+  top: 40px !important;
+  width: 48px !important;
+  height: 32px !important;
+  pointer-events: auto !important;
+  touch-action: none !important;
+  cursor: pointer !important;
+}
+
 /* Sidebar column: transparent base so the sidebar's own glass backdrop
    shows through the alpha — the column wrapper no longer paints a solid
    fill that would block the frosted-glass effect underneath. */
@@ -845,14 +898,6 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"]{
 }
 
 /* 弹窗内部导航与局部部件精细化 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"] nav{
-  background:rgba(255, 255, 255, 0.18) !important;
-  border-right:1px solid rgba(0, 0, 0, 0.06) !important;
-}
-body[data-ds-custom-theme="sonoma"] [role="dialog"] nav{
-  background:rgba(255, 255, 255, 0.02) !important;
-  border-right:1px solid rgba(255, 255, 255, 0.06) !important;
-}
 body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="navCell"],
 body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="navCell"]{
   border-radius:12px !important;
@@ -1893,6 +1938,11 @@ export function apply(ctx: Context): void {
       clearTokens()
     }
   }, 'ui-theme-custom: tech theme registrations + drift keyframes + surface glass')
+
+  // 全主题通用挂件：输入框右上角 Claude 像素小伙伴 Mascot
+  ctx.effect(() => {
+    return initMascot(ctx)
+  }, 'ui-theme-custom: claude mascot companion')
 
   // Restore the user's saved custom theme preference now that themes are
   // registered. Runs during apply() (before first React render when
