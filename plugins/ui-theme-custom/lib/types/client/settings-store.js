@@ -22,8 +22,7 @@ export function createTechThemeStore() {
         },
     });
 }
-/**
- * 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
+/** 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
  * 唯一写入方是 apply-world 的同步调用，组件经 useStore 只读。
  * @returns store 句柄。
  */
@@ -35,6 +34,23 @@ export function createSidebarFontStore() {
                 if (revision <= d.revision)
                     return;
                 d.size = size;
+                d.revision = revision;
+            },
+        },
+    });
+}
+/**
+ * Mascot 挂件开关行的 store。
+ * @returns store 句柄。
+ */
+export function createMascotStore() {
+    return defineStore({
+        init: () => ({ enabled: true, revision: -1 }),
+        actions: {
+            sync: (d, enabled, revision) => {
+                if (revision <= d.revision)
+                    return;
+                d.enabled = enabled;
                 d.revision = revision;
             },
         },

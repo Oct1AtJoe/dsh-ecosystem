@@ -1,5 +1,31 @@
 import { CRAB_FRAME_MS, CRAB_SHEETS, CRAB_SHEET_URLS } from './mascot-data';
+export const MASCOT_STORAGE_KEY = 'dsh-claude-mascot-enabled';
+/** 读取挂件启用状态（默认开启）。 */
+export function readMascotEnabled() {
+    try {
+        const raw = localStorage.getItem(MASCOT_STORAGE_KEY);
+        return raw === null ? true : raw === 'true';
+    }
+    catch {
+        return true;
+    }
+}
+/** 写入挂件启用状态。 */
+export function writeMascotEnabled(value) {
+    try {
+        localStorage.setItem(MASCOT_STORAGE_KEY, String(value));
+    }
+    catch {
+        // localStorage unavailable
+    }
+}
+let onEnabledChangeCallback = null;
+/** 通知挂件开关变化。 */
+export function notifyMascotChange(enabled) {
+    onEnabledChangeCallback?.(enabled);
+}
 export function initMascot(ctx) {
+    let isEnabled = readMascotEnabled();
     // 构建 DOM 节点
     const crab = document.createElement('span');
     crab.className = 'dsh-claude-crab';
@@ -159,47 +185,117 @@ export function initMascot(ctx) {
     }
     window.addEventListener('mousemove', onActivity, { passive: true });
     window.addEventListener('keydown', onActivity, { passive: true });
-    // 寻找输入框并贴靠挂载
+    // 寻找输入框并贴靠挂载：
+    // 首页精准贴靠新会话输入卡片；对话页贴靠 composerStack 顶端，
+    // 确保当上方存在排队队列（Queue）、目标任务（Goal）、待办（Todo）时，小螃蟹自动上移至所有元素上方。
     function findAnchor() {
-        // 1. 会话页输入坞卡片
-        const inlineCard = document.querySelector('[class*="composerSeat"] [class$="_card"]');
-        if (inlineCard && inlineCard.offsetHeight > 0)
-            return inlineCard;
-        // 2. 首页新会话卡片
-        const heroCard = document.querySelector('[class*="composerStack"] > section');
-        if (heroCard && heroCard.offsetHeight > 0)
-            return heroCard;
-        // 3. 兜底 data-composer-card
+        // 1. 判断是否处于首页 (Hero 阶段)
+        const isHero = document.querySelector('[data-phase="hero"], [data-content-phase="hero"]') !== null
+            || document.querySelector('[class*="composerHero"]') !== null;
+        if (isHero) {
+            // 首页：小螃蟹必须精准站在输入卡片上，不能挂在包含大标题与问候语的 composerStack 顶部
+            const heroCard = document.querySelector('[class*="composerHero"] [class$="_card"], [class*="composerStack"] > section, [data-composer-card]');
+            if (heroCard && heroCard.offsetHeight > 0) {
+                return { element: heroCard, place: 'card' };
+            }
+        }
+        // 2. 对话页 (Active 阶段)
+        const seat = document.querySelector('[data-composer-seat], [class*="composerSeat"]');
+        if (seat && seat.offsetHeight > 0) {
+            // 检查是否有替代面板（例如授权确认/问题回答面板）
+            const fallback = seat.querySelector('[data-chain-overlay-fallback="conversation.composer"]');
+            if (fallback && fallback.style.display === 'none') {
+                const panel = fallback.nextElementSibling;
+                if (panel && panel.offsetHeight > 0) {
+                    return { element: panel, place: 'panel' };
+                }
+            }
+            // 核心：优先挂载到 composerStack！
+            // composerStack 垂直包含 [conversation.input.dock]（队列消息/目标任务/待办任务）和 [inputBar]。
+            // 小螃蟹设置 bottom: 100%，因此当上方有排队消息或目标卡片时，它会自动站在所有元素的最顶上！
+            const stack = seat.querySelector('[class*="_composerStack"], [class*="composerStack"]');
+            if (stack && stack.offsetHeight > 0) {
+                return { element: stack, place: 'stack' };
+            }
+            // 如果找不到 stack，兜底到输入卡片
+            const card = seat.querySelector('[class$="_card"], [data-composer-card]');
+            if (card && card.offsetHeight > 0) {
+                return { element: card, place: 'card' };
+            }
+        }
+        // 3. 全局兜底：任何可见的输入卡片
         const anyCard = document.querySelector('[data-composer-card]');
-        if (anyCard && anyCard.offsetHeight > 0)
-            return anyCard;
-        // 4. composerStack 容器
-        const stack = document.querySelector('[class*="composerStack"]');
-        if (stack && stack.offsetHeight > 0)
-            return stack;
+        if (anyCard && anyCard.offsetHeight > 0) {
+            return { element: anyCard, place: 'card' };
+        }
         return null;
     }
     function syncMount() {
-        const anchor = findAnchor();
-        if (!anchor) {
-            if (crab.parentElement)
+        if (!isEnabled) {
+            if (crab.parentElement) {
+                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
                 crab.remove();
+            }
             return;
         }
-        if (crab.parentElement !== anchor) {
-            anchor.style.position = 'relative';
-            anchor.appendChild(crab);
+        const anchor = findAnchor();
+        if (!anchor) {
+            if (crab.parentElement) {
+                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
+                crab.remove();
+            }
+            return;
+        }
+        const currentAnchor = crab.parentElement;
+        if (currentAnchor !== anchor.element) {
+            if (currentAnchor) {
+                currentAnchor.removeAttribute('data-dsh-mascot-anchor');
+            }
+            anchor.element.style.position = 'relative';
+            anchor.element.setAttribute('data-dsh-mascot-anchor', anchor.place);
+            anchor.element.appendChild(crab);
+        }
+        else {
+            if (anchor.element.getAttribute('data-dsh-mascot-anchor') !== anchor.place) {
+                anchor.element.setAttribute('data-dsh-mascot-anchor', anchor.place);
+            }
         }
     }
+    // 开关变更回调监听
+    onEnabledChangeCallback = (val) => {
+        isEnabled = val;
+        if (isEnabled) {
+            syncMount();
+            playAnimation('idle', true);
+            scheduleIdleExtra();
+            resetSleepTimer();
+        }
+        else {
+            if (crab.parentElement) {
+                crab.parentElement.removeAttribute('data-dsh-mascot-anchor');
+                crab.remove();
+            }
+            if (currentAnimation)
+                currentAnimation.cancel();
+            if (idleTimer)
+                clearTimeout(idleTimer);
+            if (sleepTimer)
+                clearTimeout(sleepTimer);
+        }
+    };
     // 定时与DOM变更时保持贴靠
     const mountInterval = setInterval(syncMount, 500);
     syncMount();
-    playAnimation('idle', true);
-    scheduleIdleExtra();
-    resetSleepTimer();
+    if (isEnabled) {
+        playAnimation('idle', true);
+        scheduleIdleExtra();
+        resetSleepTimer();
+    }
     // 状态监听：跟随 AI 会话活动
     let prevRunning = false;
     const stateInterval = setInterval(() => {
+        if (!isEnabled)
+            return;
         try {
             const sessionService = ctx.get('session');
             const running = sessionService?.running ?? false;
@@ -219,6 +315,7 @@ export function initMascot(ctx) {
         }
     }, 400);
     return () => {
+        onEnabledChangeCallback = null;
         clearInterval(mountInterval);
         clearInterval(stateInterval);
         if (idleTimer)

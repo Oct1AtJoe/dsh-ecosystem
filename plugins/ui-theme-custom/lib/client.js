@@ -644,6 +644,8 @@ window.__ModuleLoader__.load({
 			"tech-theme.jade": "银曜",
 			"tech-theme.solar": "灼日",
 			"tech-theme.parchment": "缃素",
+			"mascot.title": "Claude 挂件",
+			"mascot.description": "在输入框右上角显示灵动像素小伙伴挂件",
 			"sidebar-font.title": "侧边栏字号",
 			"sidebar-font.description": "仅影响两侧边栏。默认比对话区小一档，避免导航与正文抢视觉重量",
 			"sidebar-font.unit": "px",
@@ -659,6 +661,8 @@ window.__ModuleLoader__.load({
 			"tech-theme.jade": "Argent",
 			"tech-theme.solar": "Solar",
 			"tech-theme.parchment": "Parchment",
+			"mascot.title": "Claude Mascot",
+			"mascot.description": "Show pixel mascot companion above the composer",
 			"sidebar-font.title": "Sidebar font size",
 			"sidebar-font.description": "Affects both sidebars only. Sits one step below the chat area so navigation never competes with the content",
 			"sidebar-font.unit": "px",
@@ -746,8 +750,7 @@ window.__ModuleLoader__.load({
 				} }
 			});
 		}
-		/**
-		* 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
+		/** 侧边栏字号行的 store。与主题行同样的「镜像 + revision 守卫」范式：
 		* 唯一写入方是 apply-world 的同步调用，组件经 useStore 只读。
 		* @returns store 句柄。
 		*/
@@ -760,6 +763,23 @@ window.__ModuleLoader__.load({
 				actions: { sync: (d, size, revision) => {
 					if (revision <= d.revision) return;
 					d.size = size;
+					d.revision = revision;
+				} }
+			});
+		}
+		/**
+		* Mascot 挂件开关行的 store。
+		* @returns store 句柄。
+		*/
+		function createMascotStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({
+					enabled: true,
+					revision: -1
+				}),
+				actions: { sync: (d, enabled, revision) => {
+					if (revision <= d.revision) return;
+					d.enabled = enabled;
 					d.revision = revision;
 				} }
 			});
@@ -781,13 +801,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css$1 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+		const css$2 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
@@ -917,13 +937,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);background:0 0;border:none;outline:none;padding:0;font-size:14px;line-height:22px}.LcL5XW_value:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);border-radius:6px}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
-		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);background:0 0;border:none;outline:none;padding:0;font-size:14px;line-height:22px}.LcL5XW_value:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);border-radius:6px}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var SidebarFontRow_module_css_default = {
@@ -1030,6 +1050,62 @@ window.__ModuleLoader__.load({
 						className: SidebarFontRow_module_css_default.unit,
 						children: t("sidebar-font.unit")
 					})]
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
+		const css = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
+		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var MascotRow_module_css_default = {
+			"control": "_6MUgPW_control",
+			"desc": "_6MUgPW_desc",
+			"row": "_6MUgPW_row",
+			"rowText": "_6MUgPW_rowText",
+			"switch": "_6MUgPW_switch",
+			"thumb": "_6MUgPW_thumb",
+			"title": "_6MUgPW_title"
+		};
+		//#endregion
+		//#region src/client/MascotRow.tsx
+		/**
+		* 渲染 Claude 挂件偏好行。
+		* @param props - 槽位组合 props。
+		* @returns 该行的元素树。
+		*/
+		function MascotRow({ t, setMascotEnabled, useStore }) {
+			const enabled = useStore((s) => s.enabled);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: MascotRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: MascotRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: MascotRow_module_css_default.title,
+						children: t("mascot.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: MascotRow_module_css_default.desc,
+						children: t("mascot.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: MascotRow_module_css_default.control,
+					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						role: "switch",
+						"aria-checked": enabled,
+						"aria-label": t("mascot.title"),
+						className: MascotRow_module_css_default.switch,
+						onClick: () => {
+							setMascotEnabled(!enabled);
+						},
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: MascotRow_module_css_default.thumb })
+					})
 				})]
 			});
 		}
@@ -1307,7 +1383,29 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region src/client/mascot.ts
+		const MASCOT_STORAGE_KEY = "dsh-claude-mascot-enabled";
+		/** 读取挂件启用状态（默认开启）。 */
+		function readMascotEnabled() {
+			try {
+				const raw = localStorage.getItem(MASCOT_STORAGE_KEY);
+				return raw === null ? true : raw === "true";
+			} catch {
+				return true;
+			}
+		}
+		/** 写入挂件启用状态。 */
+		function writeMascotEnabled(value) {
+			try {
+				localStorage.setItem(MASCOT_STORAGE_KEY, String(value));
+			} catch {}
+		}
+		let onEnabledChangeCallback = null;
+		/** 通知挂件开关变化。 */
+		function notifyMascotChange(enabled) {
+			onEnabledChangeCallback?.(enabled);
+		}
 		function initMascot(ctx) {
+			let isEnabled = readMascotEnabled();
 			const crab = document.createElement("span");
 			crab.className = "dsh-claude-crab";
 			crab.setAttribute("aria-hidden", "true");
@@ -1455,34 +1553,92 @@ window.__ModuleLoader__.load({
 			window.addEventListener("mousemove", onActivity, { passive: true });
 			window.addEventListener("keydown", onActivity, { passive: true });
 			function findAnchor() {
-				const inlineCard = document.querySelector("[class*=\"composerSeat\"] [class$=\"_card\"]");
-				if (inlineCard && inlineCard.offsetHeight > 0) return inlineCard;
-				const heroCard = document.querySelector("[class*=\"composerStack\"] > section");
-				if (heroCard && heroCard.offsetHeight > 0) return heroCard;
+				if (document.querySelector("[data-phase=\"hero\"], [data-content-phase=\"hero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null) {
+					const heroCard = document.querySelector("[class*=\"composerHero\"] [class$=\"_card\"], [class*=\"composerStack\"] > section, [data-composer-card]");
+					if (heroCard && heroCard.offsetHeight > 0) return {
+						element: heroCard,
+						place: "card"
+					};
+				}
+				const seat = document.querySelector("[data-composer-seat], [class*=\"composerSeat\"]");
+				if (seat && seat.offsetHeight > 0) {
+					const fallback = seat.querySelector("[data-chain-overlay-fallback=\"conversation.composer\"]");
+					if (fallback && fallback.style.display === "none") {
+						const panel = fallback.nextElementSibling;
+						if (panel && panel.offsetHeight > 0) return {
+							element: panel,
+							place: "panel"
+						};
+					}
+					const stack = seat.querySelector("[class*=\"_composerStack\"], [class*=\"composerStack\"]");
+					if (stack && stack.offsetHeight > 0) return {
+						element: stack,
+						place: "stack"
+					};
+					const card = seat.querySelector("[class$=\"_card\"], [data-composer-card]");
+					if (card && card.offsetHeight > 0) return {
+						element: card,
+						place: "card"
+					};
+				}
 				const anyCard = document.querySelector("[data-composer-card]");
-				if (anyCard && anyCard.offsetHeight > 0) return anyCard;
-				const stack = document.querySelector("[class*=\"composerStack\"]");
-				if (stack && stack.offsetHeight > 0) return stack;
+				if (anyCard && anyCard.offsetHeight > 0) return {
+					element: anyCard,
+					place: "card"
+				};
 				return null;
 			}
 			function syncMount() {
-				const anchor = findAnchor();
-				if (!anchor) {
-					if (crab.parentElement) crab.remove();
+				if (!isEnabled) {
+					if (crab.parentElement) {
+						crab.parentElement.removeAttribute("data-dsh-mascot-anchor");
+						crab.remove();
+					}
 					return;
 				}
-				if (crab.parentElement !== anchor) {
-					anchor.style.position = "relative";
-					anchor.appendChild(crab);
+				const anchor = findAnchor();
+				if (!anchor) {
+					if (crab.parentElement) {
+						crab.parentElement.removeAttribute("data-dsh-mascot-anchor");
+						crab.remove();
+					}
+					return;
 				}
+				const currentAnchor = crab.parentElement;
+				if (currentAnchor !== anchor.element) {
+					if (currentAnchor) currentAnchor.removeAttribute("data-dsh-mascot-anchor");
+					anchor.element.style.position = "relative";
+					anchor.element.setAttribute("data-dsh-mascot-anchor", anchor.place);
+					anchor.element.appendChild(crab);
+				} else if (anchor.element.getAttribute("data-dsh-mascot-anchor") !== anchor.place) anchor.element.setAttribute("data-dsh-mascot-anchor", anchor.place);
 			}
+			onEnabledChangeCallback = (val) => {
+				isEnabled = val;
+				if (isEnabled) {
+					syncMount();
+					playAnimation("idle", true);
+					scheduleIdleExtra();
+					resetSleepTimer();
+				} else {
+					if (crab.parentElement) {
+						crab.parentElement.removeAttribute("data-dsh-mascot-anchor");
+						crab.remove();
+					}
+					if (currentAnimation) currentAnimation.cancel();
+					if (idleTimer) clearTimeout(idleTimer);
+					if (sleepTimer) clearTimeout(sleepTimer);
+				}
+			};
 			const mountInterval = setInterval(syncMount, 500);
 			syncMount();
-			playAnimation("idle", true);
-			scheduleIdleExtra();
-			resetSleepTimer();
+			if (isEnabled) {
+				playAnimation("idle", true);
+				scheduleIdleExtra();
+				resetSleepTimer();
+			}
 			let prevRunning = false;
 			const stateInterval = setInterval(() => {
+				if (!isEnabled) return;
 				try {
 					const running = ctx.get("session")?.running ?? false;
 					if (running && !prevRunning) {
@@ -1495,6 +1651,7 @@ window.__ModuleLoader__.load({
 				} catch {}
 			}, 400);
 			return () => {
+				onEnabledChangeCallback = null;
 				clearInterval(mountInterval);
 				clearInterval(stateInterval);
 				if (idleTimer) clearTimeout(idleTimer);
@@ -1963,7 +2120,7 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 /* ── Claude Code 像素小伙伴 Mascot (全主题通用) ── */
 .dsh-claude-crab {
   position: absolute !important;
-  right: 20px !important;
+  right: 18px !important;
   bottom: 100% !important;
   z-index: 50 !important;
   width: 104px !important;
@@ -1973,6 +2130,24 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 }
 .dsh-claude-crab:not([data-ready]) {
   visibility: hidden !important;
+}
+
+/* 对话页：站在 composerStack 顶端，避开排队消息、待办与目标卡片 */
+[data-dsh-mascot-anchor="stack"] > .dsh-claude-crab {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 8px) !important;
+  bottom: 100% !important;
+}
+
+/* 替代面板（确认/提问面板） */
+[data-dsh-mascot-anchor="panel"] > .dsh-claude-crab {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 8px) !important;
+  bottom: calc(100% - 7px) !important;
+}
+
+/* 首页独立卡片 */
+[data-dsh-mascot-anchor="card"] > .dsh-claude-crab {
+  right: 18px !important;
+  bottom: 100% !important;
 }
 .dsh-claude-crab-sprite {
   position: absolute !important;
@@ -3257,6 +3432,29 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				locale: SETTINGS_NS,
 				inject: injected
 			}, TechThemeRow));
+			const mascotStore = createMascotStore();
+			let mascotBound;
+			let mascotRevision = 0;
+			const syncMascotRow = () => {
+				mascotBound?.sync(readMascotEnabled(), ++mascotRevision);
+			};
+			const mascotInjected = (actions) => {
+				mascotBound = actions;
+				syncMascotRow();
+				return { setMascotEnabled: (enabled) => {
+					writeMascotEnabled(enabled);
+					syncMascotRow();
+					notifyMascotChange(enabled);
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "mascot-toggle-custom",
+				order: 10.7,
+				store: mascotStore,
+				locale: SETTINGS_NS,
+				inject: mascotInjected
+			}, MascotRow));
 			const sidebarStore = createSidebarFontStore();
 			let sidebarBound;
 			let sidebarRevision = 0;

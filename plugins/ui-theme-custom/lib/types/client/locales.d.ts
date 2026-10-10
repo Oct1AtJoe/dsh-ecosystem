@@ -10,6 +10,8 @@ export declare const zh: {
     'tech-theme.jade': string;
     'tech-theme.solar': string;
     'tech-theme.parchment': string;
+    'mascot.title': string;
+    'mascot.description': string;
     'sidebar-font.title': string;
     'sidebar-font.description': string;
     'sidebar-font.unit': string;
@@ -25,6 +27,8 @@ export declare const en: {
     'tech-theme.jade': string;
     'tech-theme.solar': string;
     'tech-theme.parchment': string;
+    'mascot.title': string;
+    'mascot.description': string;
     'sidebar-font.title': string;
     'sidebar-font.description': string;
     'sidebar-font.unit': string;

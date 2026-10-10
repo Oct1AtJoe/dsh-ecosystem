@@ -25,14 +25,16 @@ import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
 import { PARCHMENT_TOKENS } from './parchment.ts'
 import { en, zh, type TechThemeKey } from './locales.ts'
-import { createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
+import { createMascotStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
 import { SidebarFontRow, type SidebarFontRowInjected } from './SidebarFontRow.tsx'
+import { MascotRow, type MascotRowInjected } from './MascotRow.tsx'
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from './sidebar-font.ts'
-import { initMascot } from './mascot.ts'
+import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from './mascot.ts'
 
 export type { TechThemeRowInjected } from './TechThemeRow.tsx'
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
+export type { MascotRowInjected } from './MascotRow.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -503,7 +505,7 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 /* ── Claude Code 像素小伙伴 Mascot (全主题通用) ── */
 .dsh-claude-crab {
   position: absolute !important;
-  right: 20px !important;
+  right: 18px !important;
   bottom: 100% !important;
   z-index: 50 !important;
   width: 104px !important;
@@ -513,6 +515,24 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 }
 .dsh-claude-crab:not([data-ready]) {
   visibility: hidden !important;
+}
+
+/* 对话页：站在 composerStack 顶端，避开排队消息、待办与目标卡片 */
+[data-dsh-mascot-anchor="stack"] > .dsh-claude-crab {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 8px) !important;
+  bottom: 100% !important;
+}
+
+/* 替代面板（确认/提问面板） */
+[data-dsh-mascot-anchor="panel"] > .dsh-claude-crab {
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 8px) !important;
+  bottom: calc(100% - 7px) !important;
+}
+
+/* 首页独立卡片 */
+[data-dsh-mascot-anchor="card"] > .dsh-claude-crab {
+  right: 18px !important;
+  bottom: 100% !important;
 }
 .dsh-claude-crab-sprite {
   position: absolute !important;
@@ -1886,6 +1906,34 @@ export function apply(ctx: Context): void {
     locale: SETTINGS_NS,
     inject: injected,
   }, TechThemeRow))
+
+  // ── Claude 挂件开关行 ───────────────────────────────────────────────
+  // order 10.7：紧随科技主题(10.5)之后，在官方字号(11)之前。
+  const mascotStore = createMascotStore()
+  let mascotBound: BoundActions<typeof mascotStore> | undefined
+  let mascotRevision = 0
+  const syncMascotRow = (): void => {
+    mascotBound?.sync(readMascotEnabled(), ++mascotRevision)
+  }
+  const mascotInjected = (actions: BoundActions<typeof mascotStore>): MascotRowInjected => {
+    mascotBound = actions
+    syncMascotRow()
+    return {
+      setMascotEnabled: (enabled) => {
+        writeMascotEnabled(enabled)
+        syncMascotRow()
+        notifyMascotChange(enabled)
+      },
+    }
+  }
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'mascot-toggle-custom',
+    order: 10.7,
+    store: mascotStore,
+    locale: SETTINGS_NS,
+    inject: mascotInjected,
+  }, MascotRow))
 
   // ── 侧边栏字号行 ───────────────────────────────────────────────────
   // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。
