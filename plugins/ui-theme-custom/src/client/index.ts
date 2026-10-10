@@ -791,16 +791,6 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   z-index:9500 !important;
   isolation:isolate !important;
 }
-body[data-ds-custom-theme="sequoia"] [role="presentation"]:has(> [role="dialog"]) [class*="mask"]{
-  background:rgba(15, 23, 42, 0.16) !important;
-  backdrop-filter:blur(8px) saturate(120%) !important;
-  -webkit-backdrop-filter:blur(8px) saturate(120%) !important;
-}
-body[data-ds-custom-theme="sonoma"] [role="presentation"]:has(> [role="dialog"]) [class*="mask"]{
-  background:rgba(0, 0, 0, 0.45) !important;
-  backdrop-filter:blur(10px) !important;
-  -webkit-backdrop-filter:blur(10px) !important;
-}
 
 body[data-ds-custom-theme="sequoia"] [role="dialog"]{
   --dsw-alias-bg-module-platform:rgba(255, 255, 255, 0.46) !important;
