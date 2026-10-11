@@ -494,6 +494,19 @@ const fitByWidth = (text: string, maxWidth: number): string => {
   return text
 }
 
+/** 提交日期的紧凑展示格式（月-日 时:分），方便在侧栏中对齐阅读。 */
+export function formatCommitDate(raw?: string): string {
+  if (!raw) return ''
+  if (raw.length >= 16) {
+    const s = raw.slice(5, 16).replace('T', ' ')
+    if (/^\d{2}-\d{2} \d{2}:\d{2}$/.test(s)) return s
+  }
+  if (raw.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(5, 10)
+  }
+  return raw.slice(0, 11)
+}
+
 /**
  * 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支。
  */
@@ -560,13 +573,14 @@ const GraphSvg = memo(function GraphSvg(props: {
   graph: GraphView
   textX: number
   commitWidth: number
-  labelZone: number
+  branchWidth: number
+  dateWidth: number
   graphWidth: number
   height: number
   onSelect: (commit: LayoutCommit) => void
   onContextMenu?: (event: React.MouseEvent, commit: LayoutCommit) => void
 }): React.ReactElement {
-  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect, onContextMenu } = props
+  const { layout, graph, textX, commitWidth, branchWidth, dateWidth, graphWidth, height, onSelect, onContextMenu } = props
   const rootRef = useRef<SVGSVGElement>(null)  // 可见行的窗口；Infinity = "尚未测量"（渲染全部内容，
   // 直到 layout effect 测量出真实视口）。
   const [viewport, setViewport] = useState({ first: 0, last: Infinity })
@@ -632,8 +646,12 @@ const GraphSvg = memo(function GraphSvg(props: {
     [layout, commitWidth],
   )
   const branchTexts = useMemo(
-    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, labelZone - 6)])),
-    [branchInfoByRow, labelZone],
+    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, branchWidth - 6)])),
+    [branchInfoByRow, branchWidth],
+  )
+  const dates = useMemo(
+    () => new Map(layout.map((c) => [c.sha, formatCommitDate(c.date)])),
+    [layout],
   )
 
   const isTipCommit = (commit: LayoutCommit): boolean =>
@@ -723,7 +741,7 @@ const GraphSvg = memo(function GraphSvg(props: {
           return (
             <text
               key={`branch-${row}`}
-              x={graphWidth - labelZone / 2}
+              x={graphWidth - dateWidth - branchWidth / 2}
               y={yOf(row) + 4}
               fontSize={info.isTip ? '11' : '10.5'}
               textAnchor="middle"
@@ -734,6 +752,25 @@ const GraphSvg = memo(function GraphSvg(props: {
             >
               <title>{info.branch}{info.isTip ? (info.isCurrentTip ? ' (HEAD)' : ' (Tip)') : ''}</title>
               {branchTexts.get(row) ?? info.branch}
+            </text>
+          )
+        })}
+      {layout
+        .filter((commit) => inWindow(commit.row))
+        .map((commit) => {
+          return (
+            <text
+              key={`date-${commit.sha}`}
+              x={graphWidth - dateWidth / 2}
+              y={yOf(commit.row) + 4}
+              fontSize="10.5"
+              textAnchor="middle"
+              fill="var(--muted)"
+              opacity={0.8}
+              style={{ cursor: 'default', pointerEvents: 'none', fontVariantNumeric: 'tabular-nums' }}
+            >
+              <title>{commit.date}</title>
+              {dates.get(commit.sha) ?? formatCommitDate(commit.date)}
             </text>
           )
         })}
@@ -822,14 +859,15 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8)
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12
 
-  // 2. 分支列宽：紧凑固定 72px，绝不挤占中间主内容
-  const branchWidth = 72
+  // 2. 分支列宽与日期列宽：紧凑固定，绝不挤占中间主内容
+  const branchWidth = 64
+  const dateWidth = 72
 
-  // 3. 视口净可用宽度与三列自适应：
+  // 3. 视口净可用宽度与四列自适应：
   const usableWidth = Math.max(240, width - 16)
   const textX = lanesWidth + 6
   // 拉宽侧边栏增加的所有空间，100% 优先灌注给提交列
-  const commitWidth = Math.max(80, usableWidth - textX - branchWidth)
+  const commitWidth = Math.max(60, usableWidth - textX - branchWidth - dateWidth)
   const graphWidth = usableWidth
 
   // 清除历史误存的 localStorage 锁死宽度，确保拉宽侧边栏时永远全响应式自适应
@@ -860,7 +898,7 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
           </button>
         </div>
       ) : null}
-      {/* 三列表头：每一列列名严格水平居中对应其内容区域 */}
+      {/* 四列表头：每一列列名严格水平居中对应其内容区域 */}
       <div
         style={{
           display: 'flex',
@@ -882,6 +920,9 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
         <div style={{ width: branchWidth, textAlign: 'center', fontWeight: 600, flexShrink: 0 }}>
           {t('graph.col.branch')}
         </div>
+        <div style={{ width: dateWidth, textAlign: 'center', fontWeight: 600, flexShrink: 0 }}>
+          {t('graph.col.date')}
+        </div>
       </div>
       {displayCommits.length === 0 ? (
         <div className="dsh-gp-empty" style={{ padding: '24px 8px' }}>
@@ -893,7 +934,8 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
           graph={graph}
           textX={textX}
           commitWidth={commitWidth}
-          labelZone={branchWidth}
+          branchWidth={branchWidth}
+          dateWidth={dateWidth}
           graphWidth={graphWidth}
           height={height}
           onSelect={onSelect}

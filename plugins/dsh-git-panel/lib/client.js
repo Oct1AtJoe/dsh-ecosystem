@@ -340,6 +340,7 @@ var DICTS = {
     "graph.col.lanes": "\u7EBF\u56FE",
     "graph.col.commit": "\u63D0\u4EA4",
     "graph.col.branch": "\u5206\u652F",
+    "graph.col.date": "\u65E5\u671F",
     "graph.col.resize": "\u8C03\u6574\u63D0\u4EA4\u5217\u5BBD \xB7 \u53CC\u51FB\u8FD8\u539F",
     "graph.filter.label": "\u5F53\u524D\u5206\u652F\uFF1A",
     "graph.filter.clear": "\u663E\u793A\u5168\u90E8",
@@ -534,6 +535,7 @@ var DICTS = {
     "graph.col.lanes": "Lanes",
     "graph.col.commit": "Commit",
     "graph.col.branch": "Branch",
+    "graph.col.date": "Date",
     "graph.col.resize": "Drag to resize \xB7 double-click to reset",
     "graph.filter.label": "Branch:",
     "graph.filter.clear": "Show all",
@@ -728,6 +730,7 @@ var DICTS = {
     "graph.col.lanes": "Carriles",
     "graph.col.commit": "Commit",
     "graph.col.branch": "Rama",
+    "graph.col.date": "Fecha",
     "graph.col.resize": "Arrastrar para ajustar \xB7 doble clic para restablecer",
     "graph.filter.label": "Rama:",
     "graph.filter.clear": "Mostrar todo",
@@ -1589,6 +1592,17 @@ var fitByWidth = (text, maxWidth) => {
   }
   return text;
 };
+function formatCommitDate(raw) {
+  if (!raw) return "";
+  if (raw.length >= 16) {
+    const s = raw.slice(5, 16).replace("T", " ");
+    if (/^\d{2}-\d{2} \d{2}:\d{2}$/.test(s)) return s;
+  }
+  if (raw.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(5, 10);
+  }
+  return raw.slice(0, 11);
+}
 function resolveBranchInfoByRow(layout, tips, currentBranch) {
   const bySha = /* @__PURE__ */ new Map();
   for (const c of layout) bySha.set(c.sha, c);
@@ -1630,7 +1644,7 @@ function resolveBranchInfoByRow(layout, tips, currentBranch) {
   return byRow;
 }
 var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
-  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect, onContextMenu } = props;
+  const { layout, graph, textX, commitWidth, branchWidth, dateWidth, graphWidth, height, onSelect, onContextMenu } = props;
   const rootRef = (0, import_react3.useRef)(null);
   const [viewport, setViewport] = (0, import_react3.useState)({ first: 0, last: Infinity });
   (0, import_react3.useLayoutEffect)(() => {
@@ -1685,8 +1699,12 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
     [layout, commitWidth]
   );
   const branchTexts = (0, import_react3.useMemo)(
-    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, labelZone - 6)])),
-    [branchInfoByRow, labelZone]
+    () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, branchWidth - 6)])),
+    [branchInfoByRow, branchWidth]
+  );
+  const dates = (0, import_react3.useMemo)(
+    () => new Map(layout.map((c) => [c.sha, formatCommitDate(c.date)])),
+    [layout]
   );
   const isTipCommit = (commit) => tipBranches.some(([, sha]) => sha === commit.sha);
   const nodeFill = (commit) => {
@@ -1796,7 +1814,7 @@ Date: ${commit.date}` }),
       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         "text",
         {
-          x: graphWidth - labelZone / 2,
+          x: graphWidth - dateWidth - branchWidth / 2,
           y: yOf(row) + 4,
           fontSize: info.isTip ? "11" : "10.5",
           textAnchor: "middle",
@@ -1813,6 +1831,25 @@ Date: ${commit.date}` }),
           ]
         },
         `branch-${row}`
+      );
+    }),
+    layout.filter((commit) => inWindow(commit.row)).map((commit) => {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "text",
+        {
+          x: graphWidth - dateWidth / 2,
+          y: yOf(commit.row) + 4,
+          fontSize: "10.5",
+          textAnchor: "middle",
+          fill: "var(--muted)",
+          opacity: 0.8,
+          style: { cursor: "default", pointerEvents: "none", fontVariantNumeric: "tabular-nums" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: commit.date }),
+            dates.get(commit.sha) ?? formatCommitDate(commit.date)
+          ]
+        },
+        `date-${commit.sha}`
       );
     })
   ] });
@@ -1868,10 +1905,11 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1));
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8);
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12;
-  const branchWidth = 72;
+  const branchWidth = 64;
+  const dateWidth = 72;
   const usableWidth = Math.max(240, width - 16);
   const textX = lanesWidth + 6;
-  const commitWidth = Math.max(80, usableWidth - textX - branchWidth);
+  const commitWidth = Math.max(60, usableWidth - textX - branchWidth - dateWidth);
   const graphWidth = usableWidth;
   (0, import_react3.useEffect)(() => {
     try {
@@ -1915,7 +1953,8 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: lanesWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.lanes") }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { flex: 1, textAlign: "center", fontWeight: 600, minWidth: 0 }, children: t2("graph.col.commit") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: branchWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.branch") })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: branchWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.branch") }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { width: dateWidth, textAlign: "center", fontWeight: 600, flexShrink: 0 }, children: t2("graph.col.date") })
         ]
       }
     ),
@@ -1926,7 +1965,8 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         graph,
         textX,
         commitWidth,
-        labelZone: branchWidth,
+        branchWidth,
+        dateWidth,
         graphWidth,
         height,
         onSelect,

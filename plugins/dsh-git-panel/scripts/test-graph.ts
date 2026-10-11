@@ -9,7 +9,7 @@
  */
 import type { GraphCommit } from '../src/core/types.ts'
 import { layoutGraph, type LayoutCommit } from '../src/client/graph.ts'
-import { filterCommitsByBranch, resolveBranchInfoByRow } from '../src/client/Panel.tsx'
+import { filterCommitsByBranch, resolveBranchInfoByRow, formatCommitDate } from '../src/client/Panel.tsx'
 
 function check(name: string, ok: boolean, extra = ''): void {
   console.log(`${ok ? '✅' : '❌'} ${name}${extra ? ` — ${extra}` : ''}`)
@@ -123,6 +123,12 @@ function main(): void {
   check('行 2 继承父链分支 dev', branchMap.get(2)?.branch === 'dev' && branchMap.get(2)?.isTip === false)
   check('行 3 继承父链分支 dev-f3', branchMap.get(3)?.branch === 'dev-f3' && branchMap.get(3)?.isTip === false)
   check('行 4 主干祖先继承当前主分支 dev', branchMap.get(4)?.branch === 'dev' && branchMap.get(4)?.isTip === false)
+
+  // 7. 日期紧凑展示格式化测试
+  check('formatCommitDate 正常解析标准带时区时间', formatCommitDate('2026-10-11 08:45:12 +0800') === '10-11 08:45')
+  check('formatCommitDate 正常解析 ISO 字符串', formatCommitDate('2026-10-11T08:45:12+08:00') === '10-11 08:45')
+  check('formatCommitDate 兼容仅日期字符串', formatCommitDate('2026-10-11') === '10-11')
+  check('formatCommitDate 兼容空值', formatCommitDate('') === '')
 }
 
 main()
