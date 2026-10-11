@@ -70,10 +70,24 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
 
   useEffect(() => {
     if (!sessions) return undefined
-    const update = (): void => setPath(readPath(sessions))
+    let prevRunning = false
+    const update = (): void => {
+      const snapshot = sessions.list.getSnapshot()
+      const current = snapshot.current
+      const currentSession = current !== undefined ? snapshot.byId[current] : undefined
+      const newPath = typeof currentSession?.cwd === 'string' ? currentSession.cwd : ''
+      setPath(newPath)
+
+      const isRunning = Boolean(currentSession && (currentSession as { running?: boolean }).running)
+      // Agent 运行结束（running: true -> false）：工作区很可能有新建或修改文件，主动强制刷新
+      if (prevRunning && !isRunning && newPath !== '') {
+        if (statusCache !== undefined) void statusCache.ensure(newPath, true)
+      }
+      prevRunning = isRunning
+    }
     update()
     return sessions.list.subscribe(update)
-  }, [sessions])
+  }, [sessions, statusCache])
 
   /** 在右侧栏以 Git 对比视图打开某个变更文件。 */
   const openDiff = useCallback((relative: string): boolean => {
@@ -94,5 +108,5 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
     if (statusCache !== undefined && path !== '') void statusCache.ensure(path, true)
   }, [statusCache, path])
 
-  return createElement(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus })
+  return createElement(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache })
 }

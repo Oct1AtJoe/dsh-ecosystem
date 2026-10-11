@@ -91,7 +91,7 @@ const DIFF_KIND = 'git-diff'
 const FILE_PREFIX = 'dsh-resource://file/session/'
 
 /** 变更清单轮询间隔：既保证装饰新鲜，又不至于在本地反复跑 git。 */
-const POLL_MS = 4000
+const POLL_MS = 3000
 
 /** 由会话身份拼出文件资源地址。 */
 function fileAddressOf(sessionId: string, relative: string): string {
@@ -124,21 +124,30 @@ export function apply(ctx: PanelClientContext): void {
   // 0. 变更清单轮询：装饰与路由门禁共用同一份快照。
   ctx.inject(['sessions'], () => {
     try {
-      const refresh = (): void => {
+      const refresh = (fresh = false): void => {
         const current = ctx.sessions.list.getSnapshot().current
         const cwd = cwdOf(current)
-        if (cwd !== '') void statusCache.ensure(cwd)
+        if (cwd !== '') void statusCache.ensure(cwd, fresh)
         // 文件树可能属于其它会话（多会话并行），它们的工作区同样要保活。
         for (const root of statusCache.roots()) {
-          if (root !== cwd) void statusCache.ensure(root)
+          if (root !== cwd) void statusCache.ensure(root, fresh)
         }
       }
       refresh()
-      ctx.sessions.list.subscribe(refresh)
+      ctx.sessions.list.subscribe(() => refresh(false))
       const timer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') refresh()
+        if (document.visibilityState === 'visible') refresh(false)
       }, POLL_MS)
-      ctx.effect(() => () => window.clearInterval(timer), 'dsh-git-panel: status poll')
+      const onFocusOrVisible = (): void => {
+        if (document.visibilityState === 'visible') refresh(true)
+      }
+      window.addEventListener('focus', onFocusOrVisible)
+      document.addEventListener('visibilitychange', onFocusOrVisible)
+      ctx.effect(() => () => {
+        window.clearInterval(timer)
+        window.removeEventListener('focus', onFocusOrVisible)
+        document.removeEventListener('visibilitychange', onFocusOrVisible)
+      }, 'dsh-git-panel: status poll')
       ctx.effect(() => installFileTreeDecorations(statusCache, (root) => { void statusCache.ensure(root) }), 'dsh-git-panel: file tree decorations')
     } catch (error) {
       console.warn('dsh-git-panel: status polling setup failed', error)

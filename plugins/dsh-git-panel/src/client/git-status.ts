@@ -15,7 +15,7 @@ import type { FileStatusView } from '../core/types.ts'
 import { GitPanelApi } from './api.ts'
 
 /** 缓存寿命：这段时间内的重复询问不再发请求。 */
-const TTL_MS = 3000
+const TTL_MS = 2500
 
 /** 单个工作区的变更快照。 */
 interface Snapshot {

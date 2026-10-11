@@ -10,6 +10,7 @@ import type { BranchesView, BranchRow, GraphCommit, GraphView, OpResult } from '
 import type { Envelope, GitPanelApi } from './api.ts'
 import { runBatch } from './batch-stage.ts'
 import { changeBadgeOf, classifyChanges } from './change-groups.ts'
+import type { GitStatusCache } from './git-status.ts'
 import { layoutGraph, type LayoutCommit } from './graph.ts'
 import { tError, useT } from './i18n.ts'
 import { icon, type IconName } from './icons.tsx'
@@ -189,6 +190,8 @@ const STYLE = `
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
+.dsh-gp-changes-item.active { background:var(--hover); font-weight:600; }
+.dsh-gp-changes-groups { display:flex; flex-direction:column; gap:4px; }
 /* 变更行首的状态徽章：展示单个语义字母（U 未跟踪 / M 已修改 / A 新增 /
    D 删除 / R 重命名 / C 冲突），不再显示 porcelain 原始码——「 M」的前导空格在
    界面上完全不可见，「??」也不说明「这是新文件且尚未纳入 git」。
@@ -236,6 +239,15 @@ const STYLE = `
 .dsh-gp-diff-line.del { background:rgba(248,81,73,0.15); color:var(--danger); }
 .dsh-gp-diff-line.hunk { background:rgba(56,139,253,0.15); color:var(--accent); font-weight:600; }
 .dsh-gp-changes-empty { padding:8px; font-size:11px; color:var(--muted); }
+/* 当内联查看 diff 时，diff 区域与外层容器加大并占满当前侧边栏剩余高度 */
+.dsh-gp.has-diff .dsh-gp-write { flex:1; min-height:0; display:flex; flex-direction:column; }
+.dsh-gp.has-diff .dsh-gp-changes { flex:1; min-height:0; max-height:none; display:flex; flex-direction:column; overflow:hidden; }
+.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:110px; overflow-y:auto; }
+.dsh-gp.has-diff .dsh-gp-changes-diff { flex:1; min-height:0; display:flex; flex-direction:column; margin-top:4px; }
+.dsh-gp.has-diff .dsh-gp-changes-diff .dsh-gp-changes-head { flex:none; }
+.dsh-gp.has-diff .dsh-gp-changes-pre { flex:1; min-height:0; max-height:none; overflow:auto; }
+.dsh-gp.has-diff .dsh-gp-changes-empty { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+.dsh-gp.has-diff .dsh-gp-body { display:none; }
 .dsh-gp-empty { padding:20px 10px; text-align:center; color:var(--muted); }
 .dsh-gp-warn { flex:1; display:flex; align-items:center; justify-content:center;
   padding:24px; text-align:center; color:#9a6700; font-size:12px; line-height:1.7; }
@@ -1000,8 +1012,10 @@ export function GitPanel(props: {
   onOpenDiff?: (file: string) => boolean
   /** 写操作后刷新变更缓存（文件树装饰共用）。 */
   onRefreshStatus?: () => void
+  /** 外部共享的变更缓存，用于事件驱动自动刷新。 */
+  statusCache?: GitStatusCache
 }): React.ReactElement {
-  const { path, api, onOpenDiff, onRefreshStatus } = props
+  const { path, api, onOpenDiff, onRefreshStatus, statusCache } = props
   const t = useT()
   const [tab, setTab] = useState<'branches' | 'graph'>('branches')
   const [branches, setBranches] = useState<BranchesView | null>(null)
@@ -1087,6 +1101,8 @@ export function GitPanel(props: {
   const [changes, setChanges] = useState<Array<{ code: string; file: string }>>([])
   const { conflicts, staged, unstaged } = useMemo(() => classifyChanges(changes), [changes])
   const [diffState, setDiffState] = useState<{ file: string; content: string; busy: boolean } | null>(null)
+  const diffStateRef = useRef(diffState)
+  diffStateRef.current = diffState
   // 分支名快速搜索过滤。
   const [branchSearch, setBranchSearch] = useState('')
   // 各变更分组的折叠状态（默认未折叠）。
@@ -1184,9 +1200,13 @@ export function GitPanel(props: {
     setStash(result.ok ? result.value : null)
   }, [path, api])
 
-  /** 加载某文件的 diff。 */
+  /** 加载某文件的 diff。再次点击同一个文件则收起关闭。 */
   const loadDiff = useCallback(async (file: string): Promise<void> => {
     if (!path) return
+    if (diffStateRef.current?.file === file) {
+      setDiffState(null)
+      return
+    }
     setDiffState({ file, content: '', busy: true })
     const result = await api.diffFile(path, file)
     setDiffState({ file, content: result.ok ? result.value.output : tError(result.error?.code, result.error?.message ?? ''), busy: false })
@@ -1196,6 +1216,50 @@ export function GitPanel(props: {
     void refreshStatus()
     void refreshStash()
   }, [refreshStatus, refreshStash])
+
+  /** 全量刷新：同时拉取分支/提交图、工作区状态、储藏，并同步外部缓存。 */
+  const refreshAll = useCallback(async (): Promise<void> => {
+    if (!path || busy) return
+    onRefreshStatus?.()
+    await Promise.all([load(), refreshStatus(), refreshStash()])
+  }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash])
+
+  // 订阅后台 statusCache 变更通知：一旦有文件变动，自动刷新变更与储藏列表
+  useEffect(() => {
+    if (!statusCache || !path) return undefined
+    const unsubscribe = statusCache.subscribe(() => {
+      if (busy) return
+      void refreshStatus()
+      void refreshStash()
+      const viewingFile = diffStateRef.current?.file
+      if (viewingFile) {
+        void api.diffFile(path, viewingFile).then((res) => {
+          if (res.ok) {
+            setDiffState((prev) => (prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev))
+          }
+        })
+      }
+    })
+    return unsubscribe
+  }, [statusCache, path, busy, refreshStatus, refreshStash, api])
+
+  // 窗口重新获得焦点或切回前台时，强制刷新工作区状态
+  useEffect(() => {
+    if (!path) return undefined
+    const onFocus = (): void => {
+      if (document.visibilityState === 'visible' && !busy) {
+        if (statusCache) void statusCache.ensure(path, true)
+        void refreshStatus()
+        void refreshStash()
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [path, busy, statusCache, refreshStatus, refreshStash])
 
   const runWrite = useCallback(async (action: 'commit' | 'push' | 'stash-push' | 'stash-pop' | 'stage' | 'unstage' | 'discard' | 'sync', extra?: string): Promise<void> => {
     if (!path || busy) return
@@ -1497,12 +1561,12 @@ export function GitPanel(props: {
   }
 
   return (
-    <div className="dsh-gp" ref={rootRef}>
+    <div className={`dsh-gp${diffState !== null ? ' has-diff' : ''}`} ref={rootRef}>
       <div className="dsh-gp-head">
         <span>{t('panel.title')}</span>
         <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>{repoName}</span>
         <span className="spacer" />
-        <button className="dsh-gp-btn" disabled={loading || busy} onClick={() => void load()} title={t('op.refresh')}>
+        <button className="dsh-gp-btn" disabled={loading || busy} onClick={() => void refreshAll()} title={t('op.refresh')}>
           {loading || busy ? (
             <span className="dsh-gp-spinner" role="status" aria-label={busy && pendingOp === 'pull' ? t('op.pulling') : t('op.refresh')} />
           ) : (
@@ -1513,10 +1577,11 @@ export function GitPanel(props: {
       {/* 顶部不确定进度条：任何拉取/推送/同步/提交进行中都会显示 */}
       {busy ? <div className="dsh-gp-progress" role="progressbar" aria-label={pendingOpLabel ?? t('op.refresh')} /> : null}
       <div className="dsh-gp-tabs">
-        <div className={`dsh-gp-tab${tab === 'branches' ? ' active' : ''}`} onClick={() => setTab('branches')}>{t('tab.branches')}</div>
+        <div className={`dsh-gp-tab${tab === 'branches' ? ' active' : ''}`} onClick={() => { setDiffState(null); setTab('branches') }}>{t('tab.branches')}</div>
         <div
           className={`dsh-gp-tab${tab === 'graph' ? ' active' : ''}`}
           onClick={() => {
+            setDiffState(null)
             if (tab === 'graph' && filterBranch) {
               setFilterBranch(null)
             } else {
@@ -1580,152 +1645,148 @@ export function GitPanel(props: {
               <div className="dsh-gp-changes-title">
                 <span>{t('changes.title')} ({changes.length})</span>
               </div>
-              {conflicts.length > 0 ? (
-                <div className="dsh-gp-conflict-banner">
-                  {icon('conflict', 13)} {t('changes.conflicts', { count: String(conflicts.length) })}
-                </div>
-              ) : null}
-
-              {conflicts.length > 0 ? (
-                <div className="dsh-gp-changes-group">
-                  <div
-                    className="dsh-gp-changes-group-head"
-                    style={{ color: 'var(--danger)' }}
-                    onClick={() => toggleGroup('conflicts')}
-                  >
-                    <div className="dsh-gp-group-title">
-                      <span className="dsh-gp-group-chevron">
-                        {icon(collapsedGroups['conflicts'] ? 'chevronRight' : 'chevronDown', 11)}
-                      </span>
-                      <span>{t('changes.conflictsGroup')} ({conflicts.length})</span>
-                    </div>
+              <div className="dsh-gp-changes-groups">
+                {conflicts.length > 0 ? (
+                  <div className="dsh-gp-conflict-banner">
+                    {icon('conflict', 13)} {t('changes.conflicts', { count: String(conflicts.length) })}
                   </div>
-                  {!collapsedGroups['conflicts'] ? (
-                    <div className="dsh-gp-changes-list">
-                      {conflicts.map((c) => (
-                        <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                          <ChangeBadge code={c.code} />
-                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                ) : null}
 
-              {staged.length > 0 ? (
-                <div className="dsh-gp-changes-group">
-                  <div
-                    className="dsh-gp-changes-group-head"
-                    onClick={() => toggleGroup('staged')}
-                  >
-                    <div className="dsh-gp-group-title">
-                      <span className="dsh-gp-group-chevron">
-                        {icon(collapsedGroups['staged'] ? 'chevronRight' : 'chevronDown', 11)}
-                      </span>
-                      <span>{t('changes.staged')} ({staged.length})</span>
+                {conflicts.length > 0 ? (
+                  <div className="dsh-gp-changes-group">
+                    <div
+                      className="dsh-gp-changes-group-head"
+                      style={{ color: 'var(--danger)' }}
+                      onClick={() => toggleGroup('conflicts')}
+                    >
+                      <div className="dsh-gp-group-title">
+                        <span className="dsh-gp-group-chevron">
+                          {icon(collapsedGroups['conflicts'] ? 'chevronRight' : 'chevronDown', 11)}
+                        </span>
+                        <span>{t('changes.conflictsGroup')} ({conflicts.length})</span>
+                      </div>
                     </div>
-                    <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
-                      <RowAction icon="minus" label={t('changes.unstageAll')}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void runBatchStage(staged.map((c) => c.file), 'unstage')
-                        }} />
-                    </div>
+                    {!collapsedGroups['conflicts'] ? (
+                      <div className="dsh-gp-changes-list">
+                        {conflicts.map((c) => (
+                          <div key={c.file} className={`dsh-gp-changes-item${diffState?.file === c.file ? ' active' : ''}`} onClick={() => void loadDiff(c.file)}>
+                            <ChangeBadge code={c.code} />
+                            <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  {!collapsedGroups['staged'] ? (
-                    <div className="dsh-gp-changes-list">
-                      {staged.map((c) => (
-                        <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                          <ChangeBadge code={c.code} />
-                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                          <RowAction icon="copy" label={t('changes.copyPath')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              try {
-                                navigator.clipboard.writeText(c.file)
-                                setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
-                              } catch {}
-                            }} />
-                          <RowAction icon="chat" label={t('changes.fileToChat')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const prompt = t('prompt.stagedFile', { file: c.file })
-                              if (injectTextToChatInput(prompt)) {
-                                setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                              }
-                            }} />
-                          <RowAction icon="minus" label={t('changes.unstage')}
-                            onClick={(e) => { e.stopPropagation(); void runWrite('unstage', c.file) }} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                ) : null}
 
-              {unstaged.length > 0 ? (
-                <div className="dsh-gp-changes-group">
-                  <div
-                    className="dsh-gp-changes-group-head"
-                    onClick={() => toggleGroup('unstaged')}
-                  >
-                    <div className="dsh-gp-group-title">
-                      <span className="dsh-gp-group-chevron">
-                        {icon(collapsedGroups['unstaged'] ? 'chevronRight' : 'chevronDown', 11)}
-                      </span>
-                      <span>{t('changes.unstaged')} ({unstaged.length})</span>
+                {staged.length > 0 ? (
+                  <div className="dsh-gp-changes-group">
+                    <div
+                      className="dsh-gp-changes-group-head"
+                      onClick={() => toggleGroup('staged')}
+                    >
+                      <div className="dsh-gp-group-title">
+                        <span className="dsh-gp-group-chevron">
+                          {icon(collapsedGroups['staged'] ? 'chevronRight' : 'chevronDown', 11)}
+                        </span>
+                        <span>{t('changes.staged')} ({staged.length})</span>
+                      </div>
+                      <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
+                        <RowAction icon="minus" label={t('changes.unstageAll')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void runBatchStage(staged.map((c) => c.file), 'unstage')
+                          }} />
+                      </div>
                     </div>
-                    <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
-                      <RowAction icon="plus" label={t('changes.stageAll')}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void runBatchStage(unstaged.map((c) => c.file), 'stage')
-                        }} />
-                    </div>
+                    {!collapsedGroups['staged'] ? (
+                      <div className="dsh-gp-changes-list">
+                        {staged.map((c) => (
+                          <div key={c.file} className={`dsh-gp-changes-item${diffState?.file === c.file ? ' active' : ''}`} onClick={() => void loadDiff(c.file)}>
+                            <ChangeBadge code={c.code} />
+                            <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                            <RowAction icon="copy" label={t('changes.copyPath')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                try {
+                                  navigator.clipboard.writeText(c.file)
+                                  setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
+                                } catch {}
+                              }} />
+                            <RowAction icon="chat" label={t('changes.fileToChat')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const prompt = t('prompt.stagedFile', { file: c.file })
+                                if (injectTextToChatInput(prompt)) {
+                                  setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
+                                }
+                              }} />
+                            <RowAction icon="minus" label={t('changes.unstage')}
+                              onClick={(e) => { e.stopPropagation(); void runWrite('unstage', c.file) }} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  {!collapsedGroups['unstaged'] ? (
-                    <div className="dsh-gp-changes-list">
-                      {unstaged.map((c) => (
-                        <div key={c.file} className="dsh-gp-changes-item"
-                          title={t('changes.openFullDiff')}
-                          onClick={() => {
-                            if (onOpenDiff?.(c.file) === true) return
-                            void loadDiff(c.file)
-                          }}>
-                          <ChangeBadge code={c.code} />
-                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                          <RowAction icon="unified" label={t('changes.inlineDiff')}
-                            onClick={(e) => { e.stopPropagation(); void loadDiff(c.file) }} />
-                          <RowAction icon="copy" label={t('changes.copyPath')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              try {
-                                navigator.clipboard.writeText(c.file)
-                                setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
-                              } catch {}
-                            }} />
-                          <RowAction icon="chat" label={t('changes.fileToChat')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const prompt = t('prompt.fileChange', { file: c.file })
-                              if (injectTextToChatInput(prompt)) {
-                                setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                              }
-                            }} />
-                          <RowAction icon="plus" label={t('changes.stage')}
-                            onClick={(e) => { e.stopPropagation(); void runWrite('stage', c.file) }} />
-                          <RowAction icon="undo" danger label={t('changes.discard')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDiscardTarget({ file: c.file, untracked: c.code === '??' })
-                            }} />
-                        </div>
-                      ))}
+                ) : null}
+
+                {unstaged.length > 0 ? (
+                  <div className="dsh-gp-changes-group">
+                    <div
+                      className="dsh-gp-changes-group-head"
+                      onClick={() => toggleGroup('unstaged')}
+                    >
+                      <div className="dsh-gp-group-title">
+                        <span className="dsh-gp-group-chevron">
+                          {icon(collapsedGroups['unstaged'] ? 'chevronRight' : 'chevronDown', 11)}
+                        </span>
+                        <span>{t('changes.unstaged')} ({unstaged.length})</span>
+                      </div>
+                      <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
+                        <RowAction icon="plus" label={t('changes.stageAll')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void runBatchStage(unstaged.map((c) => c.file), 'stage')
+                          }} />
+                      </div>
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
+                    {!collapsedGroups['unstaged'] ? (
+                      <div className="dsh-gp-changes-list">
+                        {unstaged.map((c) => (
+                          <div key={c.file} className={`dsh-gp-changes-item${diffState?.file === c.file ? ' active' : ''}`}
+                            onClick={() => void loadDiff(c.file)}>
+                            <ChangeBadge code={c.code} />
+                            <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                            <RowAction icon="copy" label={t('changes.copyPath')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                try {
+                                  navigator.clipboard.writeText(c.file)
+                                  setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
+                                } catch {}
+                              }} />
+                            <RowAction icon="chat" label={t('changes.fileToChat')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const prompt = t('prompt.fileChange', { file: c.file })
+                                if (injectTextToChatInput(prompt)) {
+                                  setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
+                                }
+                              }} />
+                            <RowAction icon="plus" label={t('changes.stage')}
+                              onClick={(e) => { e.stopPropagation(); void runWrite('stage', c.file) }} />
+                            <RowAction icon="undo" danger label={t('changes.discard')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDiscardTarget({ file: c.file, untracked: c.code === '??' })
+                              }} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
 
               {diffState !== null ? (
                 <div className="dsh-gp-changes-diff">

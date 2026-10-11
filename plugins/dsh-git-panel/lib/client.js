@@ -832,7 +832,7 @@ async function runBatch(files, apply2) {
 }
 
 // src/client/git-status.ts
-var TTL_MS = 3e3;
+var TTL_MS = 2500;
 function statusLetter(code) {
   if (code === "??") return "U";
   if (code === "!!") return "U";
@@ -1349,6 +1349,8 @@ var STYLE = `
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
+.dsh-gp-changes-item.active { background:var(--hover); font-weight:600; }
+.dsh-gp-changes-groups { display:flex; flex-direction:column; gap:4px; }
 /* \u53D8\u66F4\u884C\u9996\u7684\u72B6\u6001\u5FBD\u7AE0\uFF1A\u5C55\u793A\u5355\u4E2A\u8BED\u4E49\u5B57\u6BCD\uFF08U \u672A\u8DDF\u8E2A / M \u5DF2\u4FEE\u6539 / A \u65B0\u589E /
    D \u5220\u9664 / R \u91CD\u547D\u540D / C \u51B2\u7A81\uFF09\uFF0C\u4E0D\u518D\u663E\u793A porcelain \u539F\u59CB\u7801\u2014\u2014\u300C M\u300D\u7684\u524D\u5BFC\u7A7A\u683C\u5728
    \u754C\u9762\u4E0A\u5B8C\u5168\u4E0D\u53EF\u89C1\uFF0C\u300C??\u300D\u4E5F\u4E0D\u8BF4\u660E\u300C\u8FD9\u662F\u65B0\u6587\u4EF6\u4E14\u5C1A\u672A\u7EB3\u5165 git\u300D\u3002
@@ -1396,6 +1398,15 @@ var STYLE = `
 .dsh-gp-diff-line.del { background:rgba(248,81,73,0.15); color:var(--danger); }
 .dsh-gp-diff-line.hunk { background:rgba(56,139,253,0.15); color:var(--accent); font-weight:600; }
 .dsh-gp-changes-empty { padding:8px; font-size:11px; color:var(--muted); }
+/* \u5F53\u5185\u8054\u67E5\u770B diff \u65F6\uFF0Cdiff \u533A\u57DF\u4E0E\u5916\u5C42\u5BB9\u5668\u52A0\u5927\u5E76\u5360\u6EE1\u5F53\u524D\u4FA7\u8FB9\u680F\u5269\u4F59\u9AD8\u5EA6 */
+.dsh-gp.has-diff .dsh-gp-write { flex:1; min-height:0; display:flex; flex-direction:column; }
+.dsh-gp.has-diff .dsh-gp-changes { flex:1; min-height:0; max-height:none; display:flex; flex-direction:column; overflow:hidden; }
+.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:110px; overflow-y:auto; }
+.dsh-gp.has-diff .dsh-gp-changes-diff { flex:1; min-height:0; display:flex; flex-direction:column; margin-top:4px; }
+.dsh-gp.has-diff .dsh-gp-changes-diff .dsh-gp-changes-head { flex:none; }
+.dsh-gp.has-diff .dsh-gp-changes-pre { flex:1; min-height:0; max-height:none; overflow:auto; }
+.dsh-gp.has-diff .dsh-gp-changes-empty { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+.dsh-gp.has-diff .dsh-gp-body { display:none; }
 .dsh-gp-empty { padding:20px 10px; text-align:center; color:var(--muted); }
 .dsh-gp-warn { flex:1; display:flex; align-items:center; justify-content:center;
   padding:24px; text-align:center; color:#9a6700; font-size:12px; line-height:1.7; }
@@ -2023,7 +2034,7 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   ] });
 });
 function GitPanel(props) {
-  const { path, api, onOpenDiff, onRefreshStatus } = props;
+  const { path, api, onOpenDiff, onRefreshStatus, statusCache } = props;
   const t2 = useT();
   const [tab, setTab] = (0, import_react3.useState)("branches");
   const [branches, setBranches] = (0, import_react3.useState)(null);
@@ -2084,6 +2095,8 @@ function GitPanel(props) {
   const [changes, setChanges] = (0, import_react3.useState)([]);
   const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(() => classifyChanges(changes), [changes]);
   const [diffState, setDiffState] = (0, import_react3.useState)(null);
+  const diffStateRef = (0, import_react3.useRef)(diffState);
+  diffStateRef.current = diffState;
   const [branchSearch, setBranchSearch] = (0, import_react3.useState)("");
   const [collapsedGroups, setCollapsedGroups] = (0, import_react3.useState)({});
   const toggleGroup = (0, import_react3.useCallback)((group) => {
@@ -2145,6 +2158,10 @@ function GitPanel(props) {
   }, [path, api]);
   const loadDiff = (0, import_react3.useCallback)(async (file) => {
     if (!path) return;
+    if (diffStateRef.current?.file === file) {
+      setDiffState(null);
+      return;
+    }
     setDiffState({ file, content: "", busy: true });
     const result = await api.diffFile(path, file);
     setDiffState({ file, content: result.ok ? result.value.output : tError(result.error?.code, result.error?.message ?? ""), busy: false });
@@ -2153,6 +2170,44 @@ function GitPanel(props) {
     void refreshStatus();
     void refreshStash();
   }, [refreshStatus, refreshStash]);
+  const refreshAll = (0, import_react3.useCallback)(async () => {
+    if (!path || busy) return;
+    onRefreshStatus?.();
+    await Promise.all([load(), refreshStatus(), refreshStash()]);
+  }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash]);
+  (0, import_react3.useEffect)(() => {
+    if (!statusCache || !path) return void 0;
+    const unsubscribe = statusCache.subscribe(() => {
+      if (busy) return;
+      void refreshStatus();
+      void refreshStash();
+      const viewingFile = diffStateRef.current?.file;
+      if (viewingFile) {
+        void api.diffFile(path, viewingFile).then((res) => {
+          if (res.ok) {
+            setDiffState((prev) => prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev);
+          }
+        });
+      }
+    });
+    return unsubscribe;
+  }, [statusCache, path, busy, refreshStatus, refreshStash, api]);
+  (0, import_react3.useEffect)(() => {
+    if (!path) return void 0;
+    const onFocus = () => {
+      if (document.visibilityState === "visible" && !busy) {
+        if (statusCache) void statusCache.ensure(path, true);
+        void refreshStatus();
+        void refreshStash();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [path, busy, statusCache, refreshStatus, refreshStash]);
   const runWrite = (0, import_react3.useCallback)(async (action, extra) => {
     if (!path || busy) return;
     setBusy(true);
@@ -2388,21 +2443,25 @@ function GitPanel(props) {
     closeMenu();
     await runOp(t2("op.merge", { branch }), () => api.mergeBranch(path, branch));
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp", ref: rootRef, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp${diffState !== null ? " has-diff" : ""}`, ref: rootRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("panel.title") }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--muted)", fontWeight: 400, fontSize: 11 }, children: repoName }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "spacer" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: loading || busy, onClick: () => void load(), title: t2("op.refresh"), children: loading || busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": busy && pendingOp === "pull" ? t2("op.pulling") : t2("op.refresh") }) : icon("refresh", 13) })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: loading || busy, onClick: () => void refreshAll(), title: t2("op.refresh"), children: loading || busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": busy && pendingOp === "pull" ? t2("op.pulling") : t2("op.refresh") }) : icon("refresh", 13) })
     ] }),
     busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-progress", role: "progressbar", "aria-label": pendingOpLabel ?? t2("op.refresh") }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-tabs", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "branches" ? " active" : ""}`, onClick: () => setTab("branches"), children: t2("tab.branches") }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "branches" ? " active" : ""}`, onClick: () => {
+        setDiffState(null);
+        setTab("branches");
+      }, children: t2("tab.branches") }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         "div",
         {
           className: `dsh-gp-tab${tab === "graph" ? " active" : ""}`,
           onClick: () => {
+            setDiffState(null);
             if (tab === "graph" && filterBranch) {
               setFilterBranch(null);
             } else {
@@ -2527,219 +2586,206 @@ function GitPanel(props) {
             changes.length,
             ")"
           ] }) }),
-          conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-conflict-banner", children: [
-            icon("conflict", 13),
-            " ",
-            t2("changes.conflicts", { count: String(conflicts.length) })
-          ] }) : null,
-          conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-              "div",
-              {
-                className: "dsh-gp-changes-group-head",
-                style: { color: "var(--danger)" },
-                onClick: () => toggleGroup("conflicts"),
-                children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["conflicts"] ? "chevronRight" : "chevronDown", 11) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                    t2("changes.conflictsGroup"),
-                    " (",
-                    conflicts.length,
-                    ")"
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-groups", children: [
+            conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-conflict-banner", children: [
+              icon("conflict", 13),
+              " ",
+              t2("changes.conflicts", { count: String(conflicts.length) })
+            ] }) : null,
+            conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                "div",
+                {
+                  className: "dsh-gp-changes-group-head",
+                  style: { color: "var(--danger)" },
+                  onClick: () => toggleGroup("conflicts"),
+                  children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["conflicts"] ? "chevronRight" : "chevronDown", 11) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                      t2("changes.conflictsGroup"),
+                      " (",
+                      conflicts.length,
+                      ")"
+                    ] })
                   ] })
-                ] })
-              }
-            ),
-            !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file })
-            ] }, c.file)) }) : null
-          ] }) : null,
-          staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "div",
-              {
-                className: "dsh-gp-changes-group-head",
-                onClick: () => toggleGroup("staged"),
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["staged"] ? "chevronRight" : "chevronDown", 11) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                      t2("changes.staged"),
-                      " (",
-                      staged.length,
-                      ")"
-                    ] })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "minus",
-                      label: t2("changes.unstageAll"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        void runBatchStage(staged.map((c) => c.file), "unstage");
-                      }
-                    }
-                  ) })
-                ]
-              }
-            ),
-            !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                RowAction,
-                {
-                  icon: "copy",
-                  label: t2("changes.copyPath"),
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    try {
-                      navigator.clipboard.writeText(c.file);
-                      setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
-                    } catch {
-                    }
-                  }
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                RowAction,
+              !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file })
+              ] }, c.file)) }) : null
+            ] }) : null,
+            staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "div",
                 {
-                  icon: "chat",
-                  label: t2("changes.fileToChat"),
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    const prompt = t2("prompt.stagedFile", { file: c.file });
-                    if (injectTextToChatInput(prompt)) {
-                      setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
-                    }
-                  }
+                  className: "dsh-gp-changes-group-head",
+                  onClick: () => toggleGroup("staged"),
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["staged"] ? "chevronRight" : "chevronDown", 11) }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                        t2("changes.staged"),
+                        " (",
+                        staged.length,
+                        ")"
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "minus",
+                        label: t2("changes.unstageAll"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          void runBatchStage(staged.map((c) => c.file), "unstage");
+                        }
+                      }
+                    ) })
+                  ]
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                RowAction,
-                {
-                  icon: "minus",
-                  label: t2("changes.unstage"),
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    void runWrite("unstage", c.file);
-                  }
-                }
-              )
-            ] }, c.file)) }) : null
-          ] }) : null,
-          unstaged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "div",
-              {
-                className: "dsh-gp-changes-group-head",
-                onClick: () => toggleGroup("unstaged"),
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["unstaged"] ? "chevronRight" : "chevronDown", 11) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                      t2("changes.unstaged"),
-                      " (",
-                      unstaged.length,
-                      ")"
-                    ] })
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "plus",
-                      label: t2("changes.stageAll"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        void runBatchStage(unstaged.map((c) => c.file), "stage");
+              !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  RowAction,
+                  {
+                    icon: "copy",
+                    label: t2("changes.copyPath"),
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      try {
+                        navigator.clipboard.writeText(c.file);
+                        setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
+                      } catch {
                       }
                     }
-                  ) })
-                ]
-              }
-            ),
-            !collapsedGroups["unstaged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "div",
-              {
-                className: "dsh-gp-changes-item",
-                title: t2("changes.openFullDiff"),
-                onClick: () => {
-                  if (onOpenDiff?.(c.file) === true) return;
-                  void loadDiff(c.file);
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  RowAction,
+                  {
+                    icon: "chat",
+                    label: t2("changes.fileToChat"),
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      const prompt = t2("prompt.stagedFile", { file: c.file });
+                      if (injectTextToChatInput(prompt)) {
+                        setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
+                      }
+                    }
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  RowAction,
+                  {
+                    icon: "minus",
+                    label: t2("changes.unstage"),
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      void runWrite("unstage", c.file);
+                    }
+                  }
+                )
+              ] }, c.file)) }) : null
+            ] }) : null,
+            unstaged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "div",
+                {
+                  className: "dsh-gp-changes-group-head",
+                  onClick: () => toggleGroup("unstaged"),
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["unstaged"] ? "chevronRight" : "chevronDown", 11) }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                        t2("changes.unstaged"),
+                        " (",
+                        unstaged.length,
+                        ")"
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "plus",
+                        label: t2("changes.stageAll"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          void runBatchStage(unstaged.map((c) => c.file), "stage");
+                        }
+                      }
+                    ) })
+                  ]
+                }
+              ),
+              !collapsedGroups["unstaged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "div",
+                {
+                  className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`,
+                  onClick: () => void loadDiff(c.file),
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "copy",
+                        label: t2("changes.copyPath"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          try {
+                            navigator.clipboard.writeText(c.file);
+                            setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
+                          } catch {
+                          }
+                        }
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "chat",
+                        label: t2("changes.fileToChat"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          const prompt = t2("prompt.fileChange", { file: c.file });
+                          if (injectTextToChatInput(prompt)) {
+                            setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
+                          }
+                        }
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "plus",
+                        label: t2("changes.stage"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          void runWrite("stage", c.file);
+                        }
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      RowAction,
+                      {
+                        icon: "undo",
+                        danger: true,
+                        label: t2("changes.discard"),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          setDiscardTarget({ file: c.file, untracked: c.code === "??" });
+                        }
+                      }
+                    )
+                  ]
                 },
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "unified",
-                      label: t2("changes.inlineDiff"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        void loadDiff(c.file);
-                      }
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "copy",
-                      label: t2("changes.copyPath"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        try {
-                          navigator.clipboard.writeText(c.file);
-                          setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
-                        } catch {
-                        }
-                      }
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "chat",
-                      label: t2("changes.fileToChat"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        const prompt = t2("prompt.fileChange", { file: c.file });
-                        if (injectTextToChatInput(prompt)) {
-                          setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
-                        }
-                      }
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "plus",
-                      label: t2("changes.stage"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        void runWrite("stage", c.file);
-                      }
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    RowAction,
-                    {
-                      icon: "undo",
-                      danger: true,
-                      label: t2("changes.discard"),
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        setDiscardTarget({ file: c.file, untracked: c.code === "??" });
-                      }
-                    }
-                  )
-                ]
-              },
-              c.file
-            )) }) : null
-          ] }) : null,
+                c.file
+              )) }) : null
+            ] }) : null
+          ] }),
           diffState !== null ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-diff", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-head", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
@@ -3166,10 +3212,22 @@ function GitTabBody(props) {
   const info = props.useTabInfo?.();
   (0, import_react4.useEffect)(() => {
     if (!sessions) return void 0;
-    const update = () => setPath(readPath(sessions));
+    let prevRunning = false;
+    const update = () => {
+      const snapshot = sessions.list.getSnapshot();
+      const current = snapshot.current;
+      const currentSession = current !== void 0 ? snapshot.byId[current] : void 0;
+      const newPath = typeof currentSession?.cwd === "string" ? currentSession.cwd : "";
+      setPath(newPath);
+      const isRunning = Boolean(currentSession && currentSession.running);
+      if (prevRunning && !isRunning && newPath !== "") {
+        if (statusCache !== void 0) void statusCache.ensure(newPath, true);
+      }
+      prevRunning = isRunning;
+    };
     update();
     return sessions.list.subscribe(update);
-  }, [sessions]);
+  }, [sessions, statusCache]);
   const openDiff = (0, import_react4.useCallback)((relative) => {
     const snapshot = sessions?.list.getSnapshot();
     const sessionId = snapshot?.current;
@@ -3185,7 +3243,7 @@ function GitTabBody(props) {
   const refreshStatus = (0, import_react4.useCallback)(() => {
     if (statusCache !== void 0 && path !== "") void statusCache.ensure(path, true);
   }, [statusCache, path]);
-  return (0, import_react4.createElement)(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus });
+  return (0, import_react4.createElement)(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
 }
 
 // src/client/GitDiffView.tsx
@@ -4292,7 +4350,7 @@ function GitGuideIcon(props) {
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
 var DIFF_KIND = "git-diff";
-var POLL_MS = 4e3;
+var POLL_MS = 3e3;
 function apply(ctx) {
   try {
     initI18n(ctx.locale);
@@ -4313,20 +4371,29 @@ function apply(ctx) {
   };
   ctx.inject(["sessions"], () => {
     try {
-      const refresh = () => {
+      const refresh = (fresh = false) => {
         const current = ctx.sessions.list.getSnapshot().current;
         const cwd = cwdOf(current);
-        if (cwd !== "") void statusCache.ensure(cwd);
+        if (cwd !== "") void statusCache.ensure(cwd, fresh);
         for (const root of statusCache.roots()) {
-          if (root !== cwd) void statusCache.ensure(root);
+          if (root !== cwd) void statusCache.ensure(root, fresh);
         }
       };
       refresh();
-      ctx.sessions.list.subscribe(refresh);
+      ctx.sessions.list.subscribe(() => refresh(false));
       const timer = window.setInterval(() => {
-        if (document.visibilityState === "visible") refresh();
+        if (document.visibilityState === "visible") refresh(false);
       }, POLL_MS);
-      ctx.effect(() => () => window.clearInterval(timer), "dsh-git-panel: status poll");
+      const onFocusOrVisible = () => {
+        if (document.visibilityState === "visible") refresh(true);
+      };
+      window.addEventListener("focus", onFocusOrVisible);
+      document.addEventListener("visibilitychange", onFocusOrVisible);
+      ctx.effect(() => () => {
+        window.clearInterval(timer);
+        window.removeEventListener("focus", onFocusOrVisible);
+        document.removeEventListener("visibilitychange", onFocusOrVisible);
+      }, "dsh-git-panel: status poll");
       ctx.effect(() => installFileTreeDecorations(statusCache, (root) => {
         void statusCache.ensure(root);
       }), "dsh-git-panel: file tree decorations");
