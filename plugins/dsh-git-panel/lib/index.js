@@ -676,6 +676,9 @@ var GitService = class {
 var DIFF_CAP_CHARS = 24e3;
 var MESSAGE_CAP_CHARS = 2e3;
 var TIMEOUT_MS = 6e4;
+var DEFAULT_PROVIDER = "deepseek-official";
+var DEFAULT_MODEL = "deepseek-flash";
+var DEFAULT_REASONING_EFFORT = "off";
 var SYSTEM = [
   "You write one git commit message for a staged change set.",
   "Match the repository: use the same language, the same prefix convention (e.g. feat/fix/docs/refactor) and the same tone as the recent commit subjects you are given.",
@@ -695,11 +698,26 @@ async function generateCommitMessage(ctx, service, root) {
   if (llm === void 0 || typeof llm.stream !== "function") {
     return { ok: false, error: { code: "no-model", message: "LLM service is unavailable" } };
   }
-  const selection = ctx.get("agentDefaultModel")?.currentSelection?.();
-  const provider = typeof selection?.provider === "string" ? selection.provider : "";
-  const model = typeof selection?.model === "string" ? selection.model : "";
+  let provider = DEFAULT_PROVIDER;
+  let model = DEFAULT_MODEL;
+  let reasoningEffort = DEFAULT_REASONING_EFFORT;
+  try {
+    const settings = ctx.get("settings");
+    const cfg = settings?.get?.("git-panel");
+    if (cfg !== void 0) {
+      if (typeof cfg.provider === "string") provider = cfg.provider;
+      if (typeof cfg.model === "string") model = cfg.model;
+      if (typeof cfg.reasoningEffort === "string") reasoningEffort = cfg.reasoningEffort;
+    }
+  } catch {
+  }
   if (provider === "" || model === "") {
-    return { ok: false, error: { code: "no-model", message: "no default model selection" } };
+    const selection = ctx.get("agentDefaultModel")?.currentSelection?.();
+    if (typeof selection?.provider === "string") provider = selection.provider;
+    if (typeof selection?.model === "string") model = selection.model;
+  }
+  if (provider === "" || model === "") {
+    return { ok: false, error: { code: "no-model", message: "no model selection" } };
   }
   const staged = await service.stagedContext(root);
   if (!staged.ok) return { ok: false, error: staged.error };
@@ -721,6 +739,7 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
     const stream = llm.stream({
       provider,
       model,
+      ...reasoningEffort !== void 0 ? { reasoningEffort } : {},
       system: SYSTEM,
       messages: [{
         id: "dsh-git-panel-commit-message",

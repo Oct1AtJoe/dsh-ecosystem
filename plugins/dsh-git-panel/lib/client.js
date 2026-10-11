@@ -2521,44 +2521,12 @@ function GitPanel(props) {
       (() => {
         if (changes.length === 0) return null;
         return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-title", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-              t2("changes.title"),
-              " (",
-              changes.length,
-              ")"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "button",
-              {
-                type: "button",
-                className: "dsh-gp-btn",
-                title: conflicts.length > 0 ? t2("changes.sendConflictsToChat") : t2("changes.sendToChat"),
-                style: { fontSize: 11, padding: "1px 6px" },
-                onClick: () => {
-                  let prompt;
-                  if (conflicts.length > 0) {
-                    const conflictList = conflicts.map((c) => `- \`${c.file}\` (CONFLICT)`).join("\n");
-                    prompt = t2("prompt.conflicts", {
-                      count: String(conflicts.length),
-                      conflictList,
-                      otherCount: String(changes.length - conflicts.length)
-                    });
-                  } else {
-                    const fileLines = changes.map((c) => `- \`${c.code}\` ${c.file}`).join("\n");
-                    prompt = t2("prompt.normal", { count: String(changes.length), fileList: fileLines });
-                  }
-                  if (injectTextToChatInput(prompt)) {
-                    setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
-                  }
-                },
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-btn-ico", children: icon(conflicts.length > 0 ? "conflict" : "chat", 13) }),
-                  conflicts.length > 0 ? t2("changes.sendConflictsToChat") : t2("changes.sendToChat")
-                ]
-              }
-            )
-          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-title", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+            t2("changes.title"),
+            " (",
+            changes.length,
+            ")"
+          ] }) }),
           conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-conflict-banner", children: [
             icon("conflict", 13),
             " ",

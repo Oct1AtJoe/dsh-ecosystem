@@ -1,10 +1,10 @@
 /**
  * 「自动生成提交信息」：读取暂存区（staged）的变更内容，连同仓库最近若干条
- * 提交的主题一起交给当前默认模型，生成一条可直接提交的信息。
+ * 提交的主题一起交给指定模型，生成一条可直接提交的信息。
  *
- * 模型路由走 DSH 自身的 `llm` 与 `agentDefaultModel` 服务，两者都按需获取
- * （`ctx.get`）而非声明为必需依赖：缺少它们的部署仍能加载本插件，只是这个
- * 按钮会给出明确的 `no-model` 失败码。
+ * 默认使用 deepseek 官方的 DeepSeek-V41-Flash（deepseek-official / deepseek-flash），
+ * 并关闭思考程度（reasoningEffort: 'off'），确保秒级生成且不消耗深度推理额度。
+ * 亦可通过 settings.yaml 中的 `git-panel` 字段按需覆盖。
  * @module dsh-git-panel/host/commit-message
  */
 
@@ -21,15 +21,21 @@ const MESSAGE_CAP_CHARS = 2000
 /** 单次生成的整体超时。 */
 const TIMEOUT_MS = 60000
 
+/** 默认模型配置：deepseek 官方 + DeepSeek-V41-Flash + 关闭思考。 */
+const DEFAULT_PROVIDER = 'deepseek-official'
+const DEFAULT_MODEL = 'deepseek-flash'
+const DEFAULT_REASONING_EFFORT = 'off'
+
 /** 本模块需要的 `llm` 服务最小面孔。 */
 interface LlmLike {
   stream(options: Record<string, unknown>): AsyncIterable<unknown>
 }
 
-/** `agentDefaultModel.currentSelection()` 的最小面孔。 */
+/** 模型选择信息最小面孔。 */
 interface ModelSelectionLike {
   provider?: unknown
   model?: unknown
+  reasoningEffort?: unknown
 }
 
 /** 生成结果。 */
@@ -56,7 +62,7 @@ function cleanMessage(raw: string): string {
 
 /**
  * 依据暂存区变更生成一条提交信息。
- * @param ctx - 宿主上下文，用于按需获取 `llm` 与 `agentDefaultModel`。
+ * @param ctx - 宿主上下文，用于按需获取 `llm` 与配置。
  * @param service - git 服务，提供暂存区 diff 与最近提交主题。
  * @param root - 目标工作区路径（由服务层做工作区门禁）。
  * @returns 生成的提交信息，或带稳定错误码的失败。
@@ -70,11 +76,31 @@ export async function generateCommitMessage(
   if (llm === undefined || typeof llm.stream !== 'function') {
     return { ok: false, error: { code: 'no-model', message: 'LLM service is unavailable' } }
   }
-  const selection = ctx.get('agentDefaultModel')?.currentSelection?.() as ModelSelectionLike | undefined
-  const provider = typeof selection?.provider === 'string' ? selection.provider : ''
-  const model = typeof selection?.model === 'string' ? selection.model : ''
+
+  // 优先读取 settings 的 git-panel 节；未指定时默认使用 deepseek 官方 + deepseek-flash + 关闭思考；若显式留空则报 no-model
+  let provider = DEFAULT_PROVIDER
+  let model = DEFAULT_MODEL
+  let reasoningEffort: string | undefined = DEFAULT_REASONING_EFFORT
+
+  try {
+    const settings = ctx.get('settings') as { get?: (ns: string) => unknown } | undefined
+    const cfg = settings?.get?.('git-panel') as ModelSelectionLike | undefined
+    if (cfg !== undefined) {
+      if (typeof cfg.provider === 'string') provider = cfg.provider
+      if (typeof cfg.model === 'string') model = cfg.model
+      if (typeof cfg.reasoningEffort === 'string') reasoningEffort = cfg.reasoningEffort
+    }
+  } catch {}
+
+  // 允许回退检查 agentDefaultModel（如测试环境或未配置 provider）
   if (provider === '' || model === '') {
-    return { ok: false, error: { code: 'no-model', message: 'no default model selection' } }
+    const selection = ctx.get('agentDefaultModel')?.currentSelection?.() as ModelSelectionLike | undefined
+    if (typeof selection?.provider === 'string') provider = selection.provider
+    if (typeof selection?.model === 'string') model = selection.model
+  }
+
+  if (provider === '' || model === '') {
+    return { ok: false, error: { code: 'no-model', message: 'no model selection' } }
   }
 
   const staged = await service.stagedContext(root)
@@ -102,6 +128,7 @@ export async function generateCommitMessage(
     const stream = llm.stream({
       provider,
       model,
+      ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
       system: SYSTEM,
       messages: [{
         id: 'dsh-git-panel-commit-message',

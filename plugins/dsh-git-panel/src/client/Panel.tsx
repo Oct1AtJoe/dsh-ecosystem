@@ -1579,29 +1579,6 @@ export function GitPanel(props: {
             <div className="dsh-gp-changes">
               <div className="dsh-gp-changes-title">
                 <span>{t('changes.title')} ({changes.length})</span>
-                <button type="button" className="dsh-gp-btn"
-                  title={conflicts.length > 0 ? t('changes.sendConflictsToChat') : t('changes.sendToChat')}
-                  style={{ fontSize: 11, padding: '1px 6px' }}
-                  onClick={() => {
-                    let prompt: string
-                    if (conflicts.length > 0) {
-                      const conflictList = conflicts.map(c => `- \`${c.file}\` (CONFLICT)`).join('\n')
-                      prompt = t('prompt.conflicts', {
-                        count: String(conflicts.length),
-                        conflictList,
-                        otherCount: String(changes.length - conflicts.length),
-                      })
-                    } else {
-                      const fileLines = changes.map(c => `- \`${c.code}\` ${c.file}`).join('\n')
-                      prompt = t('prompt.normal', { count: String(changes.length), fileList: fileLines })
-                    }
-                    if (injectTextToChatInput(prompt)) {
-                      setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                    }
-                  }}>
-                  <span className="dsh-gp-btn-ico">{icon(conflicts.length > 0 ? 'conflict' : 'chat', 13)}</span>
-                  {conflicts.length > 0 ? t('changes.sendConflictsToChat') : t('changes.sendToChat')}
-                </button>
               </div>
               {conflicts.length > 0 ? (
                 <div className="dsh-gp-conflict-banner">
