@@ -87,6 +87,7 @@ const STYLE = `
 .dsh-gp-menu-ico { display:inline-flex; align-items:center; margin-right:6px; vertical-align:-2px; }
 .dsh-gp-menu-item { display:flex; align-items:center; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--fg); white-space:nowrap; }
 .dsh-gp-menu-item:hover { background:var(--hover); }
+.dsh-gp-graph-row:hover rect.dsh-gp-graph-row-bg { fill:var(--hover); }
 .dsh-gp-menu-item.danger { color:var(--danger); }
 .dsh-gp-menu-title { padding:4px 10px 8px; color:var(--muted); font-size:11px; }
 .dsh-gp-menu-input { width:100%; box-sizing:border-box; padding:5px 8px; margin-bottom:6px;
@@ -563,8 +564,9 @@ const GraphSvg = memo(function GraphSvg(props: {
   graphWidth: number
   height: number
   onSelect: (commit: LayoutCommit) => void
+  onContextMenu?: (event: React.MouseEvent, commit: LayoutCommit) => void
 }): React.ReactElement {
-  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect } = props
+  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect, onContextMenu } = props
   const rootRef = useRef<SVGSVGElement>(null)  // 可见行的窗口；Infinity = "尚未测量"（渲染全部内容，
   // 直到 layout effect 测量出真实视口）。
   const [viewport, setViewport] = useState({ first: 0, last: Infinity })
@@ -678,8 +680,25 @@ const GraphSvg = memo(function GraphSvg(props: {
     })
     if (!inWindow(commit.row)) return
     nodes.push(
-      <g key={`n-${commit.sha}`} onClick={() => onSelect(commit)} style={{ cursor: 'pointer' }}>
+      <g
+        key={`n-${commit.sha}`}
+        className="dsh-gp-graph-row"
+        onClick={() => onSelect(commit)}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          if (onContextMenu) onContextMenu(event, commit)
+        }}
+        style={{ cursor: 'pointer' }}
+      >
         <title>{`${commit.subject}\n\nSHA: ${commit.sha}\nAuthor: ${commit.author}\nDate: ${commit.date}`}</title>
+        <rect
+          x={0}
+          y={y - ROW_HEIGHT / 2}
+          width={graphWidth}
+          height={ROW_HEIGHT}
+          fill="transparent"
+          className="dsh-gp-graph-row-bg"
+        />
         <circle cx={x} cy={y} r={NODE_RADIUS + 2} fill="transparent" />
         <circle
           cx={x} cy={y} r={NODE_RADIUS}
@@ -711,7 +730,7 @@ const GraphSvg = memo(function GraphSvg(props: {
               fontWeight={info.isCurrentTip ? 700 : info.isTip ? 600 : 400}
               fill={info.isCurrentTip ? 'var(--current)' : info.isTip ? 'var(--fg)' : 'var(--muted)'}
               opacity={info.isTip ? 1 : 0.65}
-              style={{ cursor: 'default' }}
+              style={{ cursor: 'default', pointerEvents: 'none' }}
             >
               <title>{info.branch}{info.isTip ? (info.isCurrentTip ? ' (HEAD)' : ' (Tip)') : ''}</title>
               {branchTexts.get(row) ?? info.branch}
@@ -764,10 +783,31 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
   onClearFilter?: () => void
   onCherryPick?: (sha: string) => void
   onRevert?: (sha: string) => void
+  onCopyHash?: (sha: string) => void
 }): React.ReactElement {
-  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert } = props
+  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props
   const t = useT()
   const [selected, setSelected] = useState<LayoutCommit | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    commit: LayoutCommit
+  } | null>(null)
+
+  const handleContextMenu = useCallback((event: React.MouseEvent, commit: LayoutCommit) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setSelected(commit)
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 180),
+      y: Math.min(event.clientY, window.innerHeight - 80),
+      commit,
+    })
+  }, [])
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
 
   const displayCommits = useMemo(() => {
     if (!filterBranch) return graph.commits
@@ -857,6 +897,7 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
           graphWidth={graphWidth}
           height={height}
           onSelect={onSelect}
+          onContextMenu={handleContextMenu}
         />
       )}
       {selected ? (
@@ -874,6 +915,36 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {contextMenu ? (
+        <>
+          <div
+            className="dsh-gp-menu-backdrop"
+            onClick={closeContextMenu}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              closeContextMenu()
+            }}
+          />
+          <div className="dsh-gp-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+            <div
+              className="dsh-gp-menu-item"
+              onClick={() => {
+                const sha = contextMenu.commit.sha
+                if (navigator?.clipboard?.writeText) {
+                  void navigator.clipboard.writeText(sha)
+                }
+                if (onCopyHash) {
+                  onCopyHash(sha)
+                }
+                closeContextMenu()
+              }}
+            >
+              {menuIcon('copy')}{t('graph.menu.copyHash')}
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   )
@@ -920,6 +991,15 @@ export function GitPanel(props: {
     const cur = GLOBAL_GIT_BUSY_MAP.get(path) || {}
     GLOBAL_GIT_BUSY_MAP.set(path, { ...cur, message: msg })
   }
+
+  // 成功类型（kind: 'ok'）的非阻塞提示，3 秒后自动消失
+  useEffect(() => {
+    if (!message || message.kind !== 'ok' || busy || message.showAuthForm) return
+    const timer = setTimeout(() => {
+      setMessage(null)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [message, busy])
 
   // 会话切换回来时，若全局正在执行后台操作，恢复视图上的状态
   useEffect(() => {
@@ -1316,7 +1396,7 @@ export function GitPanel(props: {
   const openMenu = useCallback((event: React.MouseEvent, row: BranchRow, isRemote: boolean): void => {
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - 190),
-      y: Math.min(event.clientY, window.innerHeight - 180),
+      y: Math.min(event.clientY, window.innerHeight - 240),
       row,
       isRemote,
       isCurrent: !isRemote && row.name === branches?.current,
@@ -1849,6 +1929,9 @@ export function GitPanel(props: {
             onClearFilter={() => setFilterBranch(null)}
             onCherryPick={(sha) => void runOp(t('op.cherryPick'), () => api.cherryPick(path, sha))}
             onRevert={(sha) => void runOp(t('op.revert'), () => api.revertCommit(path, sha))}
+            onCopyHash={(sha) => {
+              setMessage({ text: `${t('graph.menu.copyHash.done')}: ${sha}`, kind: 'ok' })
+            }}
           />
         ) : null}
       </div>
@@ -1891,6 +1974,29 @@ export function GitPanel(props: {
               </>
             ) : (
               <>
+                {!menu.isCurrent ? (
+                  <div
+                    className={`dsh-gp-menu-item ${busy ? 'disabled' : ''}`}
+                    style={busy ? { opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none' } : undefined}
+                    onClick={() => {
+                      if (busy) return
+                      const targetBranch = menu.row.name
+                      const isRemote = menu.isRemote
+                      closeMenu()
+                      if (isRemote) {
+                        void runOp(t('op.checkout'), () => api.switchBranch(path, targetBranch))
+                      } else {
+                        void runOp(t('op.switch'), () => api.switchBranch(path, targetBranch))
+                      }
+                    }}
+                  >
+                    {busy ? (
+                      t('menu.busySyncing')
+                    ) : (
+                      <>{menuIcon('branch')}{menu.isRemote ? t('menu.checkout') : t('menu.switch')}</>
+                    )}
+                  </div>
+                ) : null}
                 <div className="dsh-gp-menu-item" onClick={() => {
                   if (navigator?.clipboard?.writeText) {
                     void navigator.clipboard.writeText(menu.row.name)

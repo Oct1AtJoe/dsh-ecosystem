@@ -318,6 +318,8 @@ var DICTS = {
     "changes.diffToChat": "\u5C06 Diff \u5E26\u5165\u5BF9\u8BDD\u8F93\u5165\u6846",
     "changes.sentSuccess": "\u5DF2\u586B\u5165\u8F93\u5165\u6846",
     "op.failed": "\u64CD\u4F5C\u5931\u8D25",
+    "menu.switch": "\u5207\u6362\u5230\u6B64\u5206\u652F",
+    "menu.checkout": "\u68C0\u51FA\u5E76\u5207\u6362\u5230\u6B64\u5206\u652F",
     "menu.copyName": "\u590D\u5236\u5206\u652F\u540D",
     "menu.copyName.done": "\u5DF2\u590D\u5236\u5206\u652F\u540D",
     "menu.rename": "\u91CD\u547D\u540D\u2026",
@@ -342,7 +344,9 @@ var DICTS = {
     "graph.filter.label": "\u5F53\u524D\u5206\u652F\uFF1A",
     "graph.filter.clear": "\u663E\u793A\u5168\u90E8",
     "graph.filter.empty": "\u8BE5\u5206\u652F\u6682\u65E0\u53EF\u5C55\u793A\u63D0\u4EA4",
-    "row.clickToGraph": "\u5355\u51FB\u67E5\u770B\u56FE\u8C31\u63D0\u4EA4 \xB7 \u53CC\u51FB\u5207\u6362\u5206\u652F",
+    "graph.menu.copyHash": "\u590D\u5236\u63D0\u4EA4\u54C8\u5E0C",
+    "graph.menu.copyHash.done": "\u5DF2\u590D\u5236\u63D0\u4EA4\u54C8\u5E0C",
+    "row.clickToGraph": "\u5355\u51FB\u67E5\u770B\u56FE\u8C31\u63D0\u4EA4 \xB7 \u53F3\u952E\u5207\u6362\u5206\u652F",
     "chip.title": "\u5207\u6362\u5206\u652F",
     "chip.head": "\u672C\u5730\u5206\u652F",
     "aria.loading": "\u52A0\u8F7D\u4E2D"
@@ -508,6 +512,8 @@ var DICTS = {
     "changes.diffToChat": "Send diff to chat input",
     "changes.sentSuccess": "Added to input",
     "op.failed": "Failed",
+    "menu.switch": "Switch to this branch",
+    "menu.checkout": "Checkout this branch",
     "menu.copyName": "Copy branch name",
     "menu.copyName.done": "Branch name copied",
     "menu.rename": "Rename\u2026",
@@ -532,7 +538,9 @@ var DICTS = {
     "graph.filter.label": "Branch:",
     "graph.filter.clear": "Show all",
     "graph.filter.empty": "No commits found for this branch",
-    "row.clickToGraph": "Click to filter in Graph \xB7 Double-click to switch",
+    "graph.menu.copyHash": "Copy commit hash",
+    "graph.menu.copyHash.done": "Commit hash copied",
+    "row.clickToGraph": "Click to filter in Graph \xB7 Right-click to switch branch",
     "chip.title": "Switch branch",
     "chip.head": "Local branches",
     "aria.loading": "Loading"
@@ -698,6 +706,8 @@ var DICTS = {
     "changes.diffToChat": "Enviar diff al chat",
     "changes.sentSuccess": "A\xF1adido al campo de texto",
     "op.failed": "Fall\xF3",
+    "menu.switch": "Cambiar a esta rama",
+    "menu.checkout": "Descargar y cambiar a esta rama",
     "menu.copyName": "Copiar nombre de rama",
     "menu.copyName.done": "Nombre de rama copiado",
     "menu.rename": "Renombrar\u2026",
@@ -722,7 +732,9 @@ var DICTS = {
     "graph.filter.label": "Rama:",
     "graph.filter.clear": "Mostrar todo",
     "graph.filter.empty": "No hay commits para esta rama",
-    "row.clickToGraph": "Clic para filtrar en Gr\xE1fico \xB7 Doble clic para cambiar",
+    "graph.menu.copyHash": "Copiar hash del commit",
+    "graph.menu.copyHash.done": "Hash del commit copiado",
+    "row.clickToGraph": "Clic para filtrar en Gr\xE1fico \xB7 Clic derecho para cambiar rama",
     "chip.title": "Cambiar rama",
     "chip.head": "Ramas locales",
     "aria.loading": "Cargando"
@@ -1232,6 +1244,7 @@ var STYLE = `
 .dsh-gp-menu-ico { display:inline-flex; align-items:center; margin-right:6px; vertical-align:-2px; }
 .dsh-gp-menu-item { display:flex; align-items:center; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--fg); white-space:nowrap; }
 .dsh-gp-menu-item:hover { background:var(--hover); }
+.dsh-gp-graph-row:hover rect.dsh-gp-graph-row-bg { fill:var(--hover); }
 .dsh-gp-menu-item.danger { color:var(--danger); }
 .dsh-gp-menu-title { padding:4px 10px 8px; color:var(--muted); font-size:11px; }
 .dsh-gp-menu-input { width:100%; box-sizing:border-box; padding:5px 8px; margin-bottom:6px;
@@ -1617,7 +1630,7 @@ function resolveBranchInfoByRow(layout, tips, currentBranch) {
   return byRow;
 }
 var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
-  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect } = props;
+  const { layout, graph, textX, commitWidth, labelZone, graphWidth, height, onSelect, onContextMenu } = props;
   const rootRef = (0, import_react3.useRef)(null);
   const [viewport, setViewport] = (0, import_react3.useState)({ first: 0, last: Infinity });
   (0, import_react3.useLayoutEffect)(() => {
@@ -1730,26 +1743,50 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
     });
     if (!inWindow(commit.row)) return;
     nodes.push(
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { onClick: () => onSelect(commit), style: { cursor: "pointer" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: `${commit.subject}
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "g",
+        {
+          className: "dsh-gp-graph-row",
+          onClick: () => onSelect(commit),
+          onContextMenu: (event) => {
+            event.preventDefault();
+            if (onContextMenu) onContextMenu(event, commit);
+          },
+          style: { cursor: "pointer" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("title", { children: `${commit.subject}
 
 SHA: ${commit.sha}
 Author: ${commit.author}
 Date: ${commit.date}` }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: x, cy: y, r: NODE_RADIUS + 2, fill: "transparent" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "circle",
-          {
-            cx: x,
-            cy: y,
-            r: NODE_RADIUS,
-            fill: nodeFill(commit),
-            stroke: isTipCommit(commit) ? "var(--bg)" : "none",
-            strokeWidth: isTipCommit(commit) ? 1.5 : 0
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("text", { x: textX, y: y + 3.5, fontSize: "12", fill: "var(--fg)", style: { pointerEvents: "none" }, children: subjects.get(commit.sha) ?? commit.subject })
-      ] }, `n-${commit.sha}`)
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "rect",
+              {
+                x: 0,
+                y: y - ROW_HEIGHT / 2,
+                width: graphWidth,
+                height: ROW_HEIGHT,
+                fill: "transparent",
+                className: "dsh-gp-graph-row-bg"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", { cx: x, cy: y, r: NODE_RADIUS + 2, fill: "transparent" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "circle",
+              {
+                cx: x,
+                cy: y,
+                r: NODE_RADIUS,
+                fill: nodeFill(commit),
+                stroke: isTipCommit(commit) ? "var(--bg)" : "none",
+                strokeWidth: isTipCommit(commit) ? 1.5 : 0
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("text", { x: textX, y: y + 3.5, fontSize: "12", fill: "var(--fg)", style: { pointerEvents: "none" }, children: subjects.get(commit.sha) ?? commit.subject })
+          ]
+        },
+        `n-${commit.sha}`
+      )
     );
   });
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", { ref: rootRef, width: graphWidth, height, style: { display: "block", cursor: "default" }, children: [
@@ -1766,7 +1803,7 @@ Date: ${commit.date}` }),
           fontWeight: info.isCurrentTip ? 700 : info.isTip ? 600 : 400,
           fill: info.isCurrentTip ? "var(--current)" : info.isTip ? "var(--fg)" : "var(--muted)",
           opacity: info.isTip ? 1 : 0.65,
-          style: { cursor: "default" },
+          style: { cursor: "default", pointerEvents: "none" },
           children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("title", { children: [
               info.branch,
@@ -1805,9 +1842,23 @@ function filterCommitsByBranch(commits, tips, branch) {
   return commits.filter((c) => reachable.has(c.sha));
 }
 var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(props) {
-  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert } = props;
+  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props;
   const t2 = useT();
   const [selected, setSelected] = (0, import_react3.useState)(null);
+  const [contextMenu, setContextMenu] = (0, import_react3.useState)(null);
+  const handleContextMenu = (0, import_react3.useCallback)((event, commit) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelected(commit);
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 180),
+      y: Math.min(event.clientY, window.innerHeight - 80),
+      commit
+    });
+  }, []);
+  const closeContextMenu = (0, import_react3.useCallback)(() => {
+    setContextMenu(null);
+  }, []);
   const displayCommits = (0, import_react3.useMemo)(() => {
     if (!filterBranch) return graph.commits;
     return filterCommitsByBranch(graph.commits, graph.tips, filterBranch);
@@ -1878,7 +1929,8 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         labelZone: branchWidth,
         graphWidth,
         height,
-        onSelect
+        onSelect,
+        onContextMenu: handleContextMenu
       }
     ),
     selected ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-detail", children: [
@@ -1894,6 +1946,39 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
         onCherryPick !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: () => onCherryPick(selected.sha), children: t2("op.cherryPick") }) : null,
         onRevert !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: () => onRevert(selected.sha), children: t2("op.revert") }) : null
       ] }) : null
+    ] }) : null,
+    contextMenu ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "div",
+        {
+          className: "dsh-gp-menu-backdrop",
+          onClick: closeContextMenu,
+          onContextMenu: (event) => {
+            event.preventDefault();
+            closeContextMenu();
+          }
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: contextMenu.x, top: contextMenu.y }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "div",
+        {
+          className: "dsh-gp-menu-item",
+          onClick: () => {
+            const sha = contextMenu.commit.sha;
+            if (navigator?.clipboard?.writeText) {
+              void navigator.clipboard.writeText(sha);
+            }
+            if (onCopyHash) {
+              onCopyHash(sha);
+            }
+            closeContextMenu();
+          },
+          children: [
+            menuIcon("copy"),
+            t2("graph.menu.copyHash")
+          ]
+        }
+      ) })
     ] }) : null
   ] });
 });
@@ -1925,6 +2010,13 @@ function GitPanel(props) {
     const cur = GLOBAL_GIT_BUSY_MAP.get(path) || {};
     GLOBAL_GIT_BUSY_MAP.set(path, { ...cur, message: msg });
   };
+  (0, import_react3.useEffect)(() => {
+    if (!message || message.kind !== "ok" || busy || message.showAuthForm) return;
+    const timer = setTimeout(() => {
+      setMessage(null);
+    }, 3e3);
+    return () => clearTimeout(timer);
+  }, [message, busy]);
   (0, import_react3.useEffect)(() => {
     setGenerating(false);
     setChanges([]);
@@ -2206,7 +2298,7 @@ function GitPanel(props) {
   const openMenu = (0, import_react3.useCallback)((event, row, isRemote) => {
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - 190),
-      y: Math.min(event.clientY, window.innerHeight - 180),
+      y: Math.min(event.clientY, window.innerHeight - 240),
       row,
       isRemote,
       isCurrent: !isRemote && row.name === branches?.current
@@ -2884,7 +2976,10 @@ function GitPanel(props) {
           filterBranch,
           onClearFilter: () => setFilterBranch(null),
           onCherryPick: (sha) => void runOp(t2("op.cherryPick"), () => api.cherryPick(path, sha)),
-          onRevert: (sha) => void runOp(t2("op.revert"), () => api.revertCommit(path, sha))
+          onRevert: (sha) => void runOp(t2("op.revert"), () => api.revertCommit(path, sha)),
+          onCopyHash: (sha) => {
+            setMessage({ text: `${t2("graph.menu.copyHash.done")}: ${sha}`, kind: "ok" });
+          }
         }
       ) : null
     ] }),
@@ -2934,6 +3029,28 @@ function GitPanel(props) {
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
         ] })
       ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+            style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+            onClick: () => {
+              if (busy) return;
+              const targetBranch = menu.row.name;
+              const isRemote = menu.isRemote;
+              closeMenu();
+              if (isRemote) {
+                void runOp(t2("op.checkout"), () => api.switchBranch(path, targetBranch));
+              } else {
+                void runOp(t2("op.switch"), () => api.switchBranch(path, targetBranch));
+              }
+            },
+            children: busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              menuIcon("branch"),
+              menu.isRemote ? t2("menu.checkout") : t2("menu.switch")
+            ] })
+          }
+        ) : null,
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => {
           if (navigator?.clipboard?.writeText) {
             void navigator.clipboard.writeText(menu.row.name);
