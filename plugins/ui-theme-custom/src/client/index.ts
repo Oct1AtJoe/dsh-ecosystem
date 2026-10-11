@@ -1048,22 +1048,55 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:no
   opacity:1 !important;
   cursor:not-allowed !important;
 }
-body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
+/* 弹窗原生独立输入框与下拉选择框：仅对顶层孤立的原生控件生效，严禁污染任何复合输入组件内部字段 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]):not([class*="input"]):not([class*="Input"]):not(span > input):not([class*="wrap"] input):not([class*="Wrap"] input):not([class*="wrapper"] input):not([class*="Wrapper"] input):not([class*="stepper"] input):not([class*="search"] input):not([class*="Search"] input),
 body[data-ds-custom-theme="sequoia"] [role="dialog"] select{
   background:rgba(255, 255, 255, 0.55) !important;
   border-color:rgba(0, 0, 0, 0.08) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
+body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]):not([class*="input"]):not([class*="Input"]):not(span > input):not([class*="wrap"] input):not([class*="Wrap"] input):not([class*="wrapper"] input):not([class*="Wrapper"] input):not([class*="stepper"] input):not([class*="search"] input):not([class*="Search"] input),
 body[data-ds-custom-theme="sonoma"] [role="dialog"] select{
   background:rgba(0, 0, 0, 0.25) !important;
   border-color:rgba(255, 255, 255, 0.10) !important;
 }
-/* 步进器内的数值输入框：强制保持纯净透明无边框，与官方 FontSizeRow 的 span 胶囊视觉绝对一致 */
+/* 全局复合输入容器免疫层：任何由外层容器（span/wrap/stepper/search）托管外框的 input，内层 input 彻底杜绝白框 */
+[class*="wrap"] > input,
+[class*="Wrap"] > input,
+[class*="wrapper"] > input,
+[class*="Wrapper"] > input,
+[class*="stepper"] input,
+[class*="Stepper"] input,
+[class*="search"] input,
+[class*="Search"] input,
+[class*="searchBox"] input,
+[class*="search-box"] input,
+[class*="searchRow"] input,
+[class*="search-row"] input,
+[class*="tabSearch"] input,
+[class*="themeSearch"] input,
+[class*="backupInput"] input,
+[class*="inlineInput"] input,
+[class*="noteInput"] input,
+[class*="pluginSearch"],
+span:has(> input) > input,
+span > input[class*="input"],
+span > input[class*="Input"],
+[role="dialog"] [class*="wrap"] input,
+[role="dialog"] [class*="Wrap"] input,
+[role="dialog"] [class*="wrapper"] input,
+[role="dialog"] [class*="Wrapper"] input,
 [role="dialog"] [class*="stepper"] input,
-[role="dialog"] [class*="stepper"] input:not(:focus-visible){
-  background:transparent !important;
-  border:none !important;
-  box-shadow:none !important;
+[role="dialog"] [class*="Stepper"] input,
+[role="dialog"] [class*="search"] input,
+[role="dialog"] [class*="Search"] input,
+[role="dialog"] [class*="tabSearch"] input,
+[role="dialog"] [class*="themeSearch"] input,
+[role="dialog"] span > input,
+[role="dialog"] span:has(> input) input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 /* 弹窗细滚动条 */
 [role="dialog"] [class*="options"]::-webkit-scrollbar{
