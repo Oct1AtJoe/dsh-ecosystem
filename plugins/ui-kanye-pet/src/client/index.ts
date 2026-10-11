@@ -64,4 +64,49 @@ export function apply(ctx: ClientContext): void {
     window.addEventListener('dsh:open-session', onOpenSession)
     return () => { window.removeEventListener('dsh:open-session', onOpenSession) }
   }, 'ui-kanye-pet: dsh:open-session jump')
+
+  // Desktop notification runtime patch (Plan A):
+  // Ensure notifications are immediately controlled by desktopNotificationEnabled
+  // in the active session without requiring an immediate exe rebuild.
+  ctx.effect(() => {
+    const RawNotification = window.Notification
+    if (typeof RawNotification !== 'function') return () => {}
+
+    function DynamicNotification(this: unknown, title: string, options?: NotificationOptions): unknown {
+      const bridge = (window as unknown as { __dshNotifyBridge?: { fire?: (p: unknown) => void } }).__dshNotifyBridge
+      if (!bridge?.fire) {
+        return new (RawNotification as unknown as { new (t: string, o?: NotificationOptions): unknown })(title, options)
+      }
+      const payload = {
+        type: 'dsh-notification',
+        title,
+        body: options?.body || '',
+        tag: options?.tag || '',
+        sessionId: (options as { sessionId?: string } | undefined)?.sessionId || '',
+        requireInteraction: Boolean(options?.requireInteraction),
+        force: true,
+      }
+      void fetch('http://127.0.0.1:3080/kanye-pet/config', { cache: 'no-store' })
+        .then(async r => r.json())
+        .then((b: unknown) => {
+          const cfg = (b as { config?: { desktopNotificationEnabled?: boolean } })?.config
+            ?? (b as { desktopNotificationEnabled?: boolean })
+            ?? {}
+          if (cfg.desktopNotificationEnabled !== false) {
+            bridge.fire?.(payload)
+          }
+        })
+        .catch(() => {
+          bridge.fire?.(payload)
+        })
+      return this
+    }
+    DynamicNotification.permission = 'granted'
+    DynamicNotification.requestPermission = () => Promise.resolve('granted')
+
+    window.Notification = DynamicNotification as unknown as typeof Notification
+    return () => {
+      window.Notification = RawNotification
+    }
+  }, 'ui-kanye-pet: dynamic notification shim')
 }

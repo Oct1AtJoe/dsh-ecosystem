@@ -5,6 +5,7 @@
  */
 import { defineStore } from '@deepseek-ai/dsh-client-store';
 import { DEFAULT_SIDEBAR_FONT } from "./sidebar-font.js";
+import { DEFAULT_RIGHTBAR_RATIO } from "./rightbar-width.js";
 /**
  * Declares the tech-theme row state and write surface.
  * @returns the store handle.
@@ -51,6 +52,23 @@ export function createMascotStore() {
                 if (revision <= d.revision)
                     return;
                 d.enabled = enabled;
+                d.revision = revision;
+            },
+        },
+    });
+}
+/**
+ * 右侧边栏初始百分比宽度行的 store。
+ * @returns store 句柄。
+ */
+export function createRightbarWidthStore() {
+    return defineStore({
+        init: () => ({ ratio: DEFAULT_RIGHTBAR_RATIO, revision: -1 }),
+        actions: {
+            sync: (d, ratio, revision) => {
+                if (revision <= d.revision)
+                    return;
+                d.ratio = ratio;
                 d.revision = revision;
             },
         },

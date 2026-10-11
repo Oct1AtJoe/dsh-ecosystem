@@ -25,16 +25,19 @@ import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
 import { PARCHMENT_TOKENS } from './parchment.ts'
 import { en, zh, type TechThemeKey } from './locales.ts'
-import { createMascotStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
+import { createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
 import { SidebarFontRow, type SidebarFontRowInjected } from './SidebarFontRow.tsx'
 import { MascotRow, type MascotRowInjected } from './MascotRow.tsx'
+import { RightbarWidthRow, type RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from './sidebar-font.ts'
+import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from './rightbar-width.ts'
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from './mascot.ts'
 
 export type { TechThemeRowInjected } from './TechThemeRow.tsx'
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
 export type { MascotRowInjected } from './MascotRow.tsx'
+export type { RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -977,28 +980,90 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="selector"]{
   border-radius:12px !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-/* 操作按钮与关闭按钮 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button{
-  background:rgba(255, 255, 255, 0.50) !important;
-  border:1px solid rgba(0, 0, 0, 0.08) !important;
-  border-radius:10px !important;
+/* 操作按钮与关闭按钮：规范化弹窗内操作组按键，区分主次状态与禁用对比度 */
+[role="dialog"] [class*="actions"] button{
+  font-weight:500 !important;
+  font-size:13px !important;
+  padding:6px 16px !important;
+  border-radius:8px !important;
+  transition:all 0.15s ease !important;
+}
+/* 主按钮（保存）：激活态 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button[data-tone="primary"]{
+  background:#0071e3 !important;
+  color:#ffffff !important;
+  border:1px solid rgba(0, 113, 227, 0.40) !important;
+  box-shadow:0 1px 2px rgba(0, 113, 227, 0.25) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button[data-tone="primary"]{
+  background:#2997ff !important;
+  color:#ffffff !important;
+  border:1px solid rgba(41, 151, 255, 0.40) !important;
+  box-shadow:0 1px 3px rgba(0, 0, 0, 0.35) !important;
+}
+/* 主按钮（保存）：禁用态保持清晰弱化轮廓与字色，杜绝白底白字 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button[data-tone="primary"]:disabled{
+  background:rgba(0, 113, 227, 0.12) !important;
+  color:rgba(0, 113, 227, 0.55) !important;
+  border:1px solid rgba(0, 113, 227, 0.22) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button[data-tone="primary"]:disabled{
+  background:rgba(41, 151, 255, 0.16) !important;
+  color:rgba(41, 151, 255, 0.55) !important;
+  border:1px solid rgba(41, 151, 255, 0.25) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+/* 次级按钮（放弃）：激活态 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+  background:rgba(255, 255, 255, 0.65) !important;
+  color:var(--dsw-alias-label-primary, #1d1d1f) !important;
+  border:1px solid rgba(0, 0, 0, 0.14) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button{
-  background:rgba(255, 255, 255, 0.06) !important;
-  border:1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius:10px !important;
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+  background:rgba(255, 255, 255, 0.08) !important;
+  color:var(--dsw-alias-label-primary, #f5f5f7) !important;
+  border:1px solid rgba(255, 255, 255, 0.16) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+/* 次级按钮（放弃）：禁用态保持可见细边框与清爽底色，文字不溶解 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+  background:rgba(0, 0, 0, 0.03) !important;
+  color:rgba(0, 0, 0, 0.38) !important;
+  border:1px solid rgba(0, 0, 0, 0.10) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+  background:rgba(255, 255, 255, 0.03) !important;
+  color:rgba(255, 255, 255, 0.38) !important;
+  border:1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
 body[data-ds-custom-theme="sequoia"] [role="dialog"] select{
   background:rgba(255, 255, 255, 0.55) !important;
   border-color:rgba(0, 0, 0, 0.08) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
 body[data-ds-custom-theme="sonoma"] [role="dialog"] select{
   background:rgba(0, 0, 0, 0.25) !important;
   border-color:rgba(255, 255, 255, 0.10) !important;
+}
+/* 步进器内的数值输入框：强制保持纯净透明无边框，与官方 FontSizeRow 的 span 胶囊视觉绝对一致 */
+[role="dialog"] [class*="stepper"] input,
+[role="dialog"] [class*="stepper"] input:not(:focus-visible){
+  background:transparent !important;
+  border:none !important;
+  box-shadow:none !important;
 }
 /* 弹窗细滚动条 */
 [role="dialog"] [class*="options"]::-webkit-scrollbar{
@@ -1951,6 +2016,98 @@ export function apply(ctx: Context): void {
     locale: SETTINGS_NS,
     inject: mascotInjected,
   }, MascotRow))
+
+  // ── 右侧边栏初始百分比宽度 ───────────────────────────────────────────
+  // order 10.8：紧随输入框挂件(10.7)之后，在官方字号(11)之前。
+  let activeLayout: any
+  let layoutHooked = false
+
+  const resolveLayout = (): any => {
+    try {
+      return (ctx as any).layout ?? ctx.get?.('layout')
+    } catch {
+      return undefined
+    }
+  }
+
+  const applyCalculatedRightbar = (targetLayout?: any): void => {
+    const l = targetLayout ?? activeLayout ?? resolveLayout()
+    if (!l?.panels?.setRightbar) return
+    const ratio = readRightbarRatio() / 100
+    const viewport = typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1920
+    const targetPx = Math.round(viewport * ratio)
+    try {
+      l.panels.setRightbar(targetPx)
+    } catch {
+      /* 静默处理 */
+    }
+  }
+
+  const hookLayout = (l: any): void => {
+    if (!l || layoutHooked) return
+    activeLayout = l
+    const originalOpen = l.openRightbar
+    if (typeof originalOpen === 'function') {
+      layoutHooked = true
+      l.openRightbar = function (this: any, track: boolean, fullscreen: boolean) {
+        originalOpen.call(this, track, fullscreen)
+        applyCalculatedRightbar(l)
+      }
+    }
+    applyCalculatedRightbar(l)
+  }
+
+  ctx.effect(() => {
+    const immediate = resolveLayout()
+    if (immediate) {
+      hookLayout(immediate)
+    } else {
+      ctx.inject(['layout'], (scope: any) => {
+        hookLayout(scope.layout ?? resolveLayout())
+      })
+    }
+    let attempts = 0
+    const timer = setInterval(() => {
+      attempts++
+      const l = resolveLayout()
+      if (l) {
+        hookLayout(l)
+        clearInterval(timer)
+      } else if (attempts >= 50) {
+        clearInterval(timer)
+      }
+    }, 100)
+    return () => {
+      clearInterval(timer)
+    }
+  }, 'ui-theme-custom: rightbar initial width ratio')
+
+  const rightbarWidthStore = createRightbarWidthStore()
+  let rightbarWidthBound: BoundActions<typeof rightbarWidthStore> | undefined
+  let rightbarWidthRevision = 0
+  const syncRightbarWidthRow = (): void => {
+    rightbarWidthBound?.sync(readRightbarRatio(), ++rightbarWidthRevision)
+  }
+  const rightbarWidthInjected = (actions: BoundActions<typeof rightbarWidthStore>): RightbarWidthRowInjected => {
+    rightbarWidthBound = actions
+    syncRightbarWidthRow()
+    return {
+      setRightbarRatio: (ratio) => {
+        const next = normalizeRightbarRatio(ratio)
+        writeRightbarRatio(next)
+        applyCalculatedRightbar()
+        syncRightbarWidthRow()
+      },
+    }
+  }
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'rightbar-width-custom',
+    order: 10.8,
+    store: rightbarWidthStore,
+    locale: SETTINGS_NS,
+    inject: rightbarWidthInjected,
+  }, RightbarWidthRow))
 
   // ── 侧边栏字号行 ───────────────────────────────────────────────────
   // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。

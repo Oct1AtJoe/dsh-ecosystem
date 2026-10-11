@@ -6,6 +6,7 @@
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { ThemePreference } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { DEFAULT_SIDEBAR_FONT } from './sidebar-font.ts'
+import { DEFAULT_RIGHTBAR_RATIO } from './rightbar-width.ts'
 
 /** Store state mirrored from the theme snapshot. */
 export interface TechThemeRowState {
@@ -94,3 +95,34 @@ export function createMascotStore(): EngineStoreHandle<MascotRowState, MascotRow
     },
   })
 }
+
+/** 右侧边栏初始百分比宽度行的状态。 */
+export interface RightbarWidthRowState {
+  /** 已持久化的百分比（%）。 */
+  ratio: number
+  /** 递增序号；-1 起，保证首次同步落地。 */
+  revision: number
+}
+
+/** 右侧边栏初始百分比宽度行的写面。 */
+type RightbarWidthRowActions = {
+  sync: (draft: RightbarWidthRowState, ratio: number, revision: number) => void
+}
+
+/**
+ * 右侧边栏初始百分比宽度行的 store。
+ * @returns store 句柄。
+ */
+export function createRightbarWidthStore(): EngineStoreHandle<RightbarWidthRowState, RightbarWidthRowActions> {
+  return defineStore({
+    init: () => ({ ratio: DEFAULT_RIGHTBAR_RATIO, revision: -1 }),
+    actions: {
+      sync: (d, ratio, revision) => {
+        if (revision <= d.revision) return
+        d.ratio = ratio
+        d.revision = revision
+      },
+    },
+  })
+}
+

@@ -80,6 +80,20 @@ export function KanyeCard(props: KanyeCardProps): ReactNode {
       </div>
       <div className={css.row}>
         <div className={css.rowLabel}>
+          <span className={css.rowTitle}>{t('desktopNotification')}</span>
+          <span className={css.rowHint}>{t('desktopNotificationHint')}</span>
+        </div>
+        <button
+          type="button"
+          className={css.switch}
+          data-on={String(state.desktopNotificationEnabled)}
+          aria-pressed={state.desktopNotificationEnabled}
+          disabled={disabled}
+          onClick={props.toggleDesktopNotification}
+        />
+      </div>
+      <div className={css.row}>
+        <div className={css.rowLabel}>
           <span className={css.rowTitle}>{t('character')}</span>
           <span className={css.rowHint}>{t('characterHint')}</span>
         </div>

@@ -311,6 +311,7 @@ function playSynth(name) {
 }
 
 function showBubble(n) {
+  if (currentConfig.desktopPetEnabled === false) return
   if (!n || n.tag === lastNotifTag) { console.log('[pet] showBubble skip: n=', !!n, 'tagRepeat=', n?.tag === lastNotifTag, 'lastTag=', lastNotifTag); return }
   console.log('[pet] showBubble SHOW:', n.title, n.body, 'tag=', n.tag, 'reason=', n.reason)
   playNotifSound(n.reason)
@@ -363,14 +364,16 @@ async function applyConfig(config) {
   const show = config.desktopPetEnabled !== false;
   document.body.style.opacity = show ? String(config.opacity ?? 1) : '0';
   document.body.style.pointerEvents = show ? 'auto' : 'none';
-  // 尺寸变更：按素材比例 122×207 设窗口，不拉伸
+  document.body.style.display = show ? '' : 'none';
+  if (pet) pet.style.display = show ? 'flex' : 'none';
+  // 尺寸变更：按素材比例 122×207 设窗口，不拉伸；关闭时尺寸设为 0，移除桌面占位
   const newSize = Math.min(300, Number(config.size));
   if (Number.isFinite(newSize) && newSize > 0) {
     const FRAME_W = 122, FRAME_H = 207; // 裁剪后每帧尺寸
-    const winW = Math.round(newSize);
-    const winH = Math.round(newSize * FRAME_H / FRAME_W);
+    const winW = show ? Math.round(newSize) : 0;
+    const winH = show ? Math.round(newSize * FRAME_H / FRAME_W) : 0;
     const invoke = window.__TAURI_INTERNALS__?.invoke;
-    if (invoke && winW > 0 && winH > 0) {
+    if (invoke && (show ? (winW > 0 && winH > 0) : true)) {
       try {
         await invoke('plugin:window|set_size', {
           value: { Logical: { width: winW, height: winH } },

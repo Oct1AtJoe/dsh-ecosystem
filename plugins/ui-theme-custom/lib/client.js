@@ -646,6 +646,11 @@ window.__ModuleLoader__.load({
 			"tech-theme.parchment": "缃素",
 			"mascot.title": "输入框挂件",
 			"mascot.description": "在输入框上方显示灵动像素小伙伴挂件",
+			"rightbar-width.title": "右侧边栏初始百分比宽度",
+			"rightbar-width.description": "右侧栏首次展开时的默认宽度占窗口宽度的百分比",
+			"rightbar-width.unit": "%",
+			"rightbar-width.increase": "增大右侧边栏宽度百分比",
+			"rightbar-width.decrease": "减小右侧边栏宽度百分比",
 			"sidebar-font.title": "侧边栏字号",
 			"sidebar-font.description": "仅影响两侧边栏。默认比对话区小一档，避免导航与正文抢视觉重量",
 			"sidebar-font.unit": "px",
@@ -663,6 +668,11 @@ window.__ModuleLoader__.load({
 			"tech-theme.parchment": "Parchment",
 			"mascot.title": "Composer Pet",
 			"mascot.description": "Show a pixel companion above the composer",
+			"rightbar-width.title": "Right sidebar initial width",
+			"rightbar-width.description": "Initial width of the right sidebar as a percentage of window width",
+			"rightbar-width.unit": "%",
+			"rightbar-width.increase": "Increase right sidebar width ratio",
+			"rightbar-width.decrease": "Decrease right sidebar width ratio",
 			"sidebar-font.title": "Sidebar font size",
 			"sidebar-font.description": "Affects both sidebars only. Sits one step below the chat area so navigation never competes with the content",
 			"sidebar-font.unit": "px",
@@ -685,7 +695,7 @@ window.__ModuleLoader__.load({
 		* AGENTS.md 6.3 的层叠陷阱），由 SURFACE_GLASS_CSS 的规则消费。
 		*/
 		/** localStorage key。 */
-		const KEY = "dsh-sidebar-font-size";
+		const KEY$1 = "dsh-sidebar-font-size";
 		/** 驱动侧边栏字号的内联 CSS 变量名。 */
 		const SIDEBAR_FONT_VARIABLE = "--dsh-sidebar-font-size";
 		/** 校验并夹取到合法区间；非整数/非数字回退默认。 */
@@ -700,7 +710,7 @@ window.__ModuleLoader__.load({
 		function readSidebarFont() {
 			if (typeof localStorage === "undefined") return 13;
 			try {
-				const raw = localStorage.getItem(KEY);
+				const raw = localStorage.getItem(KEY$1);
 				if (raw === null || raw === "") return 13;
 				return normalizeSidebarFont(raw);
 			} catch {
@@ -711,7 +721,7 @@ window.__ModuleLoader__.load({
 		function writeSidebarFont(px) {
 			if (typeof localStorage === "undefined") return;
 			try {
-				localStorage.setItem(KEY, String(normalizeSidebarFont(px)));
+				localStorage.setItem(KEY$1, String(normalizeSidebarFont(px)));
 			} catch {}
 		}
 		/**
@@ -725,6 +735,42 @@ window.__ModuleLoader__.load({
 			const value = `${normalizeSidebarFont(px)}px`;
 			document.documentElement.style.setProperty(SIDEBAR_FONT_VARIABLE, value);
 			if (document.body) document.body.style.setProperty(SIDEBAR_FONT_VARIABLE, value);
+		}
+		//#endregion
+		//#region src/client/rightbar-width.ts
+		/**
+		* 右侧边栏初始百分比宽度偏好：独立于官方硬编码的 24% 比例。
+		*
+		* 持久化至 localStorage，在右侧边栏展开时计算视口比例宽度。
+		*/
+		const KEY = "dsh-rightbar-width-ratio";
+		/**
+		* 夹取百分比数值到合法区间 [15, 60]。
+		* @param value - 原始输入值。
+		* @returns 夹取后的整数百分比。
+		*/
+		function normalizeRightbarRatio(value) {
+			const num = typeof value === "number" ? value : Number.parseInt(String(value), 10);
+			if (Number.isNaN(num)) return 24;
+			return Math.min(60, Math.max(15, Math.round(num)));
+		}
+		/** 读取已保存的右侧边栏初始百分比宽度（无记录或不可用时回退默认）。 */
+		function readRightbarRatio() {
+			if (typeof localStorage === "undefined") return 24;
+			try {
+				const raw = localStorage.getItem(KEY);
+				if (raw === null || raw === "") return 24;
+				return normalizeRightbarRatio(raw);
+			} catch {
+				return 24;
+			}
+		}
+		/** 持久化右侧边栏初始百分比宽度。 */
+		function writeRightbarRatio(ratio) {
+			if (typeof localStorage === "undefined") return;
+			try {
+				localStorage.setItem(KEY, String(normalizeRightbarRatio(ratio)));
+			} catch {}
 		}
 		//#endregion
 		//#region src/client/settings-store.ts
@@ -784,6 +830,23 @@ window.__ModuleLoader__.load({
 				} }
 			});
 		}
+		/**
+		* 右侧边栏初始百分比宽度行的 store。
+		* @returns store 句柄。
+		*/
+		function createRightbarWidthStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({
+					ratio: 24,
+					revision: -1
+				}),
+				actions: { sync: (d, ratio, revision) => {
+					if (revision <= d.revision) return;
+					d.ratio = ratio;
+					d.revision = revision;
+				} }
+			});
+		}
 		//#endregion
 		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
@@ -801,13 +864,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css$2 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+		const css$3 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
+			tag.dataset.pluginCss = tagId$3;
+			tag.textContent = css$3;
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
@@ -937,13 +1000,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css$1 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);background:0 0;border:none;outline:none;padding:0;font-size:14px;line-height:22px}.LcL5XW_value:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent);border-radius:6px}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+		const css$2 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
 		var SidebarFontRow_module_css_default = {
@@ -1055,13 +1118,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
-		const css = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
-		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var MascotRow_module_css_default = {
@@ -1106,6 +1169,124 @@ window.__ModuleLoader__.load({
 						},
 						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: MascotRow_module_css_default.thumb })
 					})
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\RightbarWidthRow.module.css.mjs
+		const css = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
+		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var RightbarWidthRow_module_css_default = {
+			"arrow": "cxaz6q_arrow",
+			"arrows": "cxaz6q_arrows",
+			"control": "cxaz6q_control",
+			"desc": "cxaz6q_desc",
+			"row": "cxaz6q_row",
+			"rowText": "cxaz6q_rowText",
+			"stepper": "cxaz6q_stepper",
+			"title": "cxaz6q_title",
+			"unit": "cxaz6q_unit",
+			"value": "cxaz6q_value"
+		};
+		//#endregion
+		//#region src/client/RightbarWidthRow.tsx
+		/**
+		* 右侧边栏初始百分比宽度偏好行：注册进 General 区的 item 槽，紧随「输入框挂件」行之后。
+		*
+		* 交互：数字输入框（直接键入）+ 上下步进微调（±1%）。键入非法值在 blur 时夹取回合法值。
+		*/
+		/**
+		* 渲染右侧边栏初始百分比宽度行。
+		* @param props - 槽位组合 props。
+		* @returns 该行的元素树。
+		*/
+		function RightbarWidthRow({ t, setRightbarRatio, useStore }) {
+			const ratio = useStore((s) => s.ratio);
+			const [draft, setDraft] = (0, react.useState)(null);
+			const commit = (next) => {
+				setRightbarRatio(normalizeRightbarRatio(next));
+				setDraft(null);
+			};
+			const onInput = (e) => {
+				const v = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+				setDraft(v);
+				if (v.length === 2) {
+					const num = Number.parseInt(v, 10);
+					if (!Number.isNaN(num) && num >= 15 && num <= 60) setRightbarRatio(num);
+				}
+			};
+			const onBlur = () => {
+				if (draft === null) return;
+				if (draft === "") {
+					setDraft(null);
+					return;
+				}
+				commit(Number.parseInt(draft, 10));
+			};
+			const onKeyDown = (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					const v = draft ?? String(ratio);
+					commit(v === "" ? ratio : Number.parseInt(v, 10));
+				}
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: RightbarWidthRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: RightbarWidthRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: RightbarWidthRow_module_css_default.title,
+						children: t("rightbar-width.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: RightbarWidthRow_module_css_default.desc,
+						children: t("rightbar-width.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: RightbarWidthRow_module_css_default.control,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: RightbarWidthRow_module_css_default.stepper,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: RightbarWidthRow_module_css_default.value,
+							type: "text",
+							inputMode: "numeric",
+							"aria-label": t("rightbar-width.title"),
+							value: draft ?? String(ratio),
+							onChange: onInput,
+							onBlur,
+							onKeyDown
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+							className: RightbarWidthRow_module_css_default.arrows,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: RightbarWidthRow_module_css_default.arrow,
+								"aria-label": t("rightbar-width.increase"),
+								disabled: ratio >= 60,
+								onClick: () => {
+									commit(ratio + 1);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 9 })
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: RightbarWidthRow_module_css_default.arrow,
+								"aria-label": t("rightbar-width.decrease"),
+								disabled: ratio <= 15,
+								onClick: () => {
+									commit(ratio - 1);
+								},
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 9 })
+							})]
+						})]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: RightbarWidthRow_module_css_default.unit,
+						children: t("rightbar-width.unit")
+					})]
 				})]
 			});
 		}
@@ -2553,28 +2734,90 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="selector"]{
   border-radius:12px !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-/* 操作按钮与关闭按钮 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button{
-  background:rgba(255, 255, 255, 0.50) !important;
-  border:1px solid rgba(0, 0, 0, 0.08) !important;
-  border-radius:10px !important;
+/* 操作按钮与关闭按钮：规范化弹窗内操作组按键，区分主次状态与禁用对比度 */
+[role="dialog"] [class*="actions"] button{
+  font-weight:500 !important;
+  font-size:13px !important;
+  padding:6px 16px !important;
+  border-radius:8px !important;
+  transition:all 0.15s ease !important;
+}
+/* 主按钮（保存）：激活态 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button[data-tone="primary"]{
+  background:#0071e3 !important;
+  color:#ffffff !important;
+  border:1px solid rgba(0, 113, 227, 0.40) !important;
+  box-shadow:0 1px 2px rgba(0, 113, 227, 0.25) !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button[data-tone="primary"]{
+  background:#2997ff !important;
+  color:#ffffff !important;
+  border:1px solid rgba(41, 151, 255, 0.40) !important;
+  box-shadow:0 1px 3px rgba(0, 0, 0, 0.35) !important;
+}
+/* 主按钮（保存）：禁用态保持清晰弱化轮廓与字色，杜绝白底白字 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button[data-tone="primary"]:disabled{
+  background:rgba(0, 113, 227, 0.12) !important;
+  color:rgba(0, 113, 227, 0.55) !important;
+  border:1px solid rgba(0, 113, 227, 0.22) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button[data-tone="primary"]:disabled{
+  background:rgba(41, 151, 255, 0.16) !important;
+  color:rgba(41, 151, 255, 0.55) !important;
+  border:1px solid rgba(41, 151, 255, 0.25) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+/* 次级按钮（放弃）：激活态 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+  background:rgba(255, 255, 255, 0.65) !important;
+  color:var(--dsw-alias-label-primary, #1d1d1f) !important;
+  border:1px solid rgba(0, 0, 0, 0.14) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button{
-  background:rgba(255, 255, 255, 0.06) !important;
-  border:1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius:10px !important;
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+  background:rgba(255, 255, 255, 0.08) !important;
+  color:var(--dsw-alias-label-primary, #f5f5f7) !important;
+  border:1px solid rgba(255, 255, 255, 0.16) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+/* 次级按钮（放弃）：禁用态保持可见细边框与清爽底色，文字不溶解 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+  background:rgba(0, 0, 0, 0.03) !important;
+  color:rgba(0, 0, 0, 0.38) !important;
+  border:1px solid rgba(0, 0, 0, 0.10) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+  background:rgba(255, 255, 255, 0.03) !important;
+  color:rgba(255, 255, 255, 0.38) !important;
+  border:1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  cursor:not-allowed !important;
+}
+body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
 body[data-ds-custom-theme="sequoia"] [role="dialog"] select{
   background:rgba(255, 255, 255, 0.55) !important;
   border-color:rgba(0, 0, 0, 0.08) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+body[data-ds-custom-theme="sonoma"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]),
 body[data-ds-custom-theme="sonoma"] [role="dialog"] select{
   background:rgba(0, 0, 0, 0.25) !important;
   border-color:rgba(255, 255, 255, 0.10) !important;
+}
+/* 步进器内的数值输入框：强制保持纯净透明无边框，与官方 FontSizeRow 的 span 胶囊视觉绝对一致 */
+[role="dialog"] [class*="stepper"] input,
+[role="dialog"] [class*="stepper"] input:not(:focus-visible){
+  background:transparent !important;
+  border:none !important;
+  box-shadow:none !important;
 }
 /* 弹窗细滚动条 */
 [role="dialog"] [class*="options"]::-webkit-scrollbar{
@@ -3433,6 +3676,80 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				locale: SETTINGS_NS,
 				inject: mascotInjected
 			}, MascotRow));
+			let activeLayout;
+			let layoutHooked = false;
+			const resolveLayout = () => {
+				try {
+					return ctx.layout ?? ctx.get?.("layout");
+				} catch {
+					return;
+				}
+			};
+			const applyCalculatedRightbar = (targetLayout) => {
+				const l = targetLayout ?? activeLayout ?? resolveLayout();
+				if (!l?.panels?.setRightbar) return;
+				const ratio = readRightbarRatio() / 100;
+				const viewport = typeof window !== "undefined" && window.innerWidth > 0 ? window.innerWidth : 1920;
+				const targetPx = Math.round(viewport * ratio);
+				try {
+					l.panels.setRightbar(targetPx);
+				} catch {}
+			};
+			const hookLayout = (l) => {
+				if (!l || layoutHooked) return;
+				activeLayout = l;
+				const originalOpen = l.openRightbar;
+				if (typeof originalOpen === "function") {
+					layoutHooked = true;
+					l.openRightbar = function(track, fullscreen) {
+						originalOpen.call(this, track, fullscreen);
+						applyCalculatedRightbar(l);
+					};
+				}
+				applyCalculatedRightbar(l);
+			};
+			ctx.effect(() => {
+				const immediate = resolveLayout();
+				if (immediate) hookLayout(immediate);
+				else ctx.inject(["layout"], (scope) => {
+					hookLayout(scope.layout ?? resolveLayout());
+				});
+				let attempts = 0;
+				const timer = setInterval(() => {
+					attempts++;
+					const l = resolveLayout();
+					if (l) {
+						hookLayout(l);
+						clearInterval(timer);
+					} else if (attempts >= 50) clearInterval(timer);
+				}, 100);
+				return () => {
+					clearInterval(timer);
+				};
+			}, "ui-theme-custom: rightbar initial width ratio");
+			const rightbarWidthStore = createRightbarWidthStore();
+			let rightbarWidthBound;
+			let rightbarWidthRevision = 0;
+			const syncRightbarWidthRow = () => {
+				rightbarWidthBound?.sync(readRightbarRatio(), ++rightbarWidthRevision);
+			};
+			const rightbarWidthInjected = (actions) => {
+				rightbarWidthBound = actions;
+				syncRightbarWidthRow();
+				return { setRightbarRatio: (ratio) => {
+					writeRightbarRatio(normalizeRightbarRatio(ratio));
+					applyCalculatedRightbar();
+					syncRightbarWidthRow();
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "rightbar-width-custom",
+				order: 10.8,
+				store: rightbarWidthStore,
+				locale: SETTINGS_NS,
+				inject: rightbarWidthInjected
+			}, RightbarWidthRow));
 			const sidebarStore = createSidebarFontStore();
 			let sidebarBound;
 			let sidebarRevision = 0;

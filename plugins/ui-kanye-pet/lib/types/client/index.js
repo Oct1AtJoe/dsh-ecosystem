@@ -44,5 +44,48 @@ export function apply(ctx) {
         window.addEventListener('dsh:open-session', onOpenSession);
         return () => { window.removeEventListener('dsh:open-session', onOpenSession); };
     }, 'ui-kanye-pet: dsh:open-session jump');
+    // Desktop notification runtime patch (Plan A):
+    // Ensure notifications are immediately controlled by desktopNotificationEnabled
+    // in the active session without requiring an immediate exe rebuild.
+    ctx.effect(() => {
+        const RawNotification = window.Notification;
+        if (typeof RawNotification !== 'function')
+            return () => { };
+        function DynamicNotification(title, options) {
+            const bridge = window.__dshNotifyBridge;
+            if (!bridge?.fire) {
+                return new RawNotification(title, options);
+            }
+            const payload = {
+                type: 'dsh-notification',
+                title,
+                body: options?.body || '',
+                tag: options?.tag || '',
+                sessionId: options?.sessionId || '',
+                requireInteraction: Boolean(options?.requireInteraction),
+                force: true,
+            };
+            void fetch('http://127.0.0.1:3080/kanye-pet/config', { cache: 'no-store' })
+                .then(async (r) => r.json())
+                .then((b) => {
+                const cfg = b?.config
+                    ?? b
+                    ?? {};
+                if (cfg.desktopNotificationEnabled !== false) {
+                    bridge.fire?.(payload);
+                }
+            })
+                .catch(() => {
+                bridge.fire?.(payload);
+            });
+            return this;
+        }
+        DynamicNotification.permission = 'granted';
+        DynamicNotification.requestPermission = () => Promise.resolve('granted');
+        window.Notification = DynamicNotification;
+        return () => {
+            window.Notification = RawNotification;
+        };
+    }, 'ui-kanye-pet: dynamic notification shim');
 }
 //# sourceMappingURL=index.js.map

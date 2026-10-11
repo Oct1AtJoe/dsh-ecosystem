@@ -12,6 +12,7 @@ export interface KanyeCharacterOption {
 export interface KanyeSettings {
     enabled?: boolean;
     desktopPetEnabled?: boolean;
+    desktopNotificationEnabled?: boolean;
     size?: number;
     opacity?: number;
     character?: string;
@@ -27,6 +28,7 @@ export interface KanyeCardState {
     writable: boolean;
     enabled: boolean;
     desktopPetEnabled: boolean;
+    desktopNotificationEnabled: boolean;
     size: KanyeFieldState;
     opacity: KanyeFieldState;
     /** Current character id (from staged draft or stored value). */
@@ -43,6 +45,7 @@ export interface KanyeCardState {
 export interface KanyeCardFace {
     toggleEnabled: () => void;
     toggleDesktopPet: () => void;
+    toggleDesktopNotification: () => void;
     edit: (field: 'size' | 'opacity' | 'character', value: string) => void;
     save: () => void;
     discard: () => void;

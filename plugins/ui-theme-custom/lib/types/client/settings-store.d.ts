@@ -51,5 +51,21 @@ type MascotRowActions = {
  * @returns store 句柄。
  */
 export declare function createMascotStore(): EngineStoreHandle<MascotRowState, MascotRowActions>;
+/** 右侧边栏初始百分比宽度行的状态。 */
+export interface RightbarWidthRowState {
+    /** 已持久化的百分比（%）。 */
+    ratio: number;
+    /** 递增序号；-1 起，保证首次同步落地。 */
+    revision: number;
+}
+/** 右侧边栏初始百分比宽度行的写面。 */
+type RightbarWidthRowActions = {
+    sync: (draft: RightbarWidthRowState, ratio: number, revision: number) => void;
+};
+/**
+ * 右侧边栏初始百分比宽度行的 store。
+ * @returns store 句柄。
+ */
+export declare function createRightbarWidthStore(): EngineStoreHandle<RightbarWidthRowState, RightbarWidthRowActions>;
 export {};
 //# sourceMappingURL=settings-store.d.ts.map

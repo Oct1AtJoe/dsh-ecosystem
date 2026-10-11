@@ -5,6 +5,8 @@ export declare const zh: {
     cardDescription: string;
     desktopPet: string;
     desktopPetHint: string;
+    desktopNotification: string;
+    desktopNotificationHint: string;
     character: string;
     characterHint: string;
     size: string;
@@ -26,6 +28,8 @@ export declare const en: {
     cardDescription: string;
     desktopPet: string;
     desktopPetHint: string;
+    desktopNotification: string;
+    desktopNotificationHint: string;
     character: string;
     characterHint: string;
     size: string;

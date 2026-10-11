@@ -21,7 +21,7 @@ const MANIFEST_URL = `${ASSETS_URL}/manifest.json`
 // 消费端不写第二份默认值，见 verify-config-sync 门禁）。/state 的 configRevision
 // 变化时拉取新值（applyClientConfig），未配置时用默认值。
 const CFG_DEFAULTS = {
-  enabled: true, size: 110, opacity: 1,
+  enabled: true, desktopPetEnabled: true, size: 110, opacity: 1,
   walk: { enabled: true, minWaitMs: 18000, maxWaitMs: 40000, minMs: 3000, maxMs: 6000, speedPxPerSec: 45 },
   sleepAfterMs: 60000, pollMs: 3000, bubbleMs: 2500,
 }
@@ -942,6 +942,12 @@ export function apply(ctx = {}) {
     }
     const prevPollMs = cfg.pollMs
     cfg = { ...CFG_DEFAULTS, ...config }
+    const show = config.desktopPetEnabled !== false
+    if (!show) {
+      host.style.display = 'none'
+    } else if (!pageHidden) {
+      host.style.display = ''
+    }
     if (typeof config.size === 'number') {
       host.style.setProperty('--pet-size', `${config.size}px`)
       // 布局尺寸变化后重新 clamp 位置（防止变大后被推出边缘）。
@@ -1281,7 +1287,8 @@ export function apply(ctx = {}) {
       return
     }
     if (config !== null) applyClientConfig(config)
-    host.style.display = ''
+    const show = config === null || config.desktopPetEnabled !== false
+    host.style.display = show ? '' : 'none'
     loadAssets()
     refresh()
     pollTimer = setInterval(refresh, cfg.pollMs)
@@ -1361,7 +1368,8 @@ export function apply(ctx = {}) {
       } else {
         host.removeAttribute('data-whale-girl-inert')
         host.removeAttribute('data-whale-girl-hidden')
-        host.style.display = ''
+        const show = cfg.desktopPetEnabled !== false
+        host.style.display = show ? '' : 'none'
         host.style.opacity = ''
       }
     }

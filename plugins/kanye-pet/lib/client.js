@@ -189,6 +189,7 @@ var ASSETS_URL = ASSETS_PATH;
 var MANIFEST_URL = `${ASSETS_URL}/manifest.json`;
 var CFG_DEFAULTS = {
   enabled: true,
+  desktopPetEnabled: true,
   size: 110,
   opacity: 1,
   walk: { enabled: true, minWaitMs: 18e3, maxWaitMs: 4e4, minMs: 3e3, maxMs: 6e3, speedPxPerSec: 45 },
@@ -936,6 +937,12 @@ function apply(ctx = {}) {
     }
     const prevPollMs = cfg.pollMs;
     cfg = { ...CFG_DEFAULTS, ...config };
+    const show = config.desktopPetEnabled !== false;
+    if (!show) {
+      host.style.display = "none";
+    } else if (!pageHidden) {
+      host.style.display = "";
+    }
     if (typeof config.size === "number") {
       host.style.setProperty("--pet-size", `${config.size}px`);
       if (host.style.left) {
@@ -1215,7 +1222,8 @@ function apply(ctx = {}) {
       return;
     }
     if (config !== null) applyClientConfig(config);
-    host.style.display = "";
+    const show = config === null || config.desktopPetEnabled !== false;
+    host.style.display = show ? "" : "none";
     loadAssets();
     refresh();
     pollTimer = setInterval(refresh, cfg.pollMs);
@@ -1277,7 +1285,8 @@ function apply(ctx = {}) {
       } else {
         host.removeAttribute("data-whale-girl-inert");
         host.removeAttribute("data-whale-girl-hidden");
-        host.style.display = "";
+        const show = cfg.desktopPetEnabled !== false;
+        host.style.display = show ? "" : "none";
         host.style.opacity = "";
       }
     }

@@ -12,6 +12,11 @@ export declare const zh: {
     'tech-theme.parchment': string;
     'mascot.title': string;
     'mascot.description': string;
+    'rightbar-width.title': string;
+    'rightbar-width.description': string;
+    'rightbar-width.unit': string;
+    'rightbar-width.increase': string;
+    'rightbar-width.decrease': string;
     'sidebar-font.title': string;
     'sidebar-font.description': string;
     'sidebar-font.unit': string;
@@ -29,6 +34,11 @@ export declare const en: {
     'tech-theme.parchment': string;
     'mascot.title': string;
     'mascot.description': string;
+    'rightbar-width.title': string;
+    'rightbar-width.description': string;
+    'rightbar-width.unit': string;
+    'rightbar-width.increase': string;
+    'rightbar-width.decrease': string;
     'sidebar-font.title': string;
     'sidebar-font.description': string;
     'sidebar-font.unit': string;

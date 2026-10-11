@@ -2474,8 +2474,8 @@ fn bridge_init_script(port: u16, token: &str) -> String {
       requireInteraction: !!(options && options.requireInteraction),
       force: true
     };
-    // 所有通知（含 pending 审批/提问）都查桌宠开关：
-    // 启用时由 kanye-pet 气泡接管（抑制 Windows Toast），关闭时走 Windows。
+    // 方案 A（独立解绑）：所有通知统一由桌面端通知开关 desktopNotificationEnabled 控制
+    // 开启时触发 Windows Toast（不因是否显示桌宠而互斥）；关闭时抑制。
     // 查询失败（DSH 未就绪）兜底走 Windows。
     var fire = function() { bridge.fire(payload); };
     try {
@@ -2483,9 +2483,8 @@ fn bridge_init_script(port: u16, token: &str) -> String {
         .then(function(r) { return r.json(); })
         .then(function(b) {
           var cfg = (b && b.config) || b || {};
-          // desktopPetEnabled 缺省视为启用（与 config.mjs default(true) 一致）
-          if (cfg.desktopPetEnabled === false) fire();
-          // pet 启用：直接抑制，由 kanye-pet turn 检测 + 轮询驱动气泡
+          // desktopNotificationEnabled 缺省视为启用（与 config.mjs default(true) 一致）
+          if (cfg.desktopNotificationEnabled !== false) fire();
         })
         .catch(function() { fire(); });  // 查询失败兜底走 Windows
     } catch (e) { fire(); }

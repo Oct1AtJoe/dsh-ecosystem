@@ -242,9 +242,16 @@ async function applyConfig(config) {
   const show = config.desktopPetEnabled !== false
   document.body.style.opacity = show ? String(config.opacity ?? 1) : '0'
   document.body.style.pointerEvents = show ? 'auto' : 'none'
-  const newSize = Math.min(600, Number(config.size))
+  document.body.style.display = show ? '' : 'none'
+  if (pet) pet.style.display = show ? 'flex' : 'none'
+  const newSize = Math.min(300, Number(config.size))
   if (Number.isFinite(newSize) && newSize > 0) {
-    await invoke('plugin:window|set_size', { value: { Logical: { width: winSize, height: winSize } } })
+    const FRAME_W = 122, FRAME_H = 207
+    const winW = show ? Math.round(newSize) : 0
+    const winH = show ? Math.round(newSize * FRAME_H / FRAME_W) : 0
+    if (invoke && (show ? (winW > 0 && winH > 0) : true)) {
+      await invoke('plugin:window|set_size', { value: { Logical: { width: winW, height: winH } } })
+    }
   }
 }
 ```

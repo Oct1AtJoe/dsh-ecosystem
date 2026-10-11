@@ -65,6 +65,7 @@ export class KanyeCardController {
             writable: snapshot.writable,
             enabled: value?.enabled !== false,
             desktopPetEnabled: value?.desktopPetEnabled !== false,
+            desktopNotificationEnabled: value?.desktopNotificationEnabled !== false,
             size,
             opacity,
             character: value?.character ?? 'kanye',
@@ -88,6 +89,10 @@ export class KanyeCardController {
             toggleDesktopPet: () => {
                 const next = this.value()?.desktopPetEnabled !== false ? false : true;
                 void this.scope.set('desktopPetEnabled', next);
+            },
+            toggleDesktopNotification: () => {
+                const next = this.value()?.desktopNotificationEnabled !== false ? false : true;
+                void this.scope.set('desktopNotificationEnabled', next);
             },
             edit: (field, text) => {
                 if (field === 'character') {
