@@ -829,6 +829,17 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   z-index:50 !important;
 }
 
+/* Views with composer overlay (trajectory, review, etc.): hide resident composer seat & pet, reset bottom clearance */
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) {
+  --dsh-composer-height: 0px !important;
+}
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) > :is([data-composer-seat], [class*="composerSeat"]) {
+  display: none !important;
+}
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) .dsh-composer-pet {
+  display: none !important;
+}
+
 /* Sidebar footer actions: vertical layout so card (e.g. cost-meter) and action buttons stack top-to-bottom */
 [class*="footArea"] [class*="footerActions"]{
   display: flex !important;
