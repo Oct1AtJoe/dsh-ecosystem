@@ -1732,18 +1732,7 @@ export function GitPanel(props: {
                   <div className="dsh-gp-changes-head" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('changes.diff')}: {diffState.file}</span>
                     <button type="button" className="dsh-gp-btn"
-                      title={t('changes.diffToChat')}
-                      style={{ marginLeft: 'auto', fontSize: 11, padding: '0 6px', whiteSpace: 'nowrap' }}
-                      onClick={() => {
-                        const prompt = t('prompt.reviewDiff', { file: diffState.file, diff: diffState.content.slice(0, 8000) })
-                        if (injectTextToChatInput(prompt)) {
-                          setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                        }
-                      }}>
-                      {icon('chat', 13)} {t('changes.diffToChat')}
-                    </button>
-                    <button type="button" className="dsh-gp-btn"
-                      onClick={() => setDiffState(null)} style={{ fontSize: 11, padding: '0 6px' }}>
+                      onClick={() => setDiffState(null)} style={{ marginLeft: 'auto', fontSize: 11, padding: '0 6px' }}>
                       {icon('close', 13)}
                     </button>
                   </div>

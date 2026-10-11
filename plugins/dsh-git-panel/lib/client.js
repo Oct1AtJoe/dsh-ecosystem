@@ -2747,33 +2747,13 @@ function GitPanel(props) {
                 ": ",
                 diffState.file
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                "button",
-                {
-                  type: "button",
-                  className: "dsh-gp-btn",
-                  title: t2("changes.diffToChat"),
-                  style: { marginLeft: "auto", fontSize: 11, padding: "0 6px", whiteSpace: "nowrap" },
-                  onClick: () => {
-                    const prompt = t2("prompt.reviewDiff", { file: diffState.file, diff: diffState.content.slice(0, 8e3) });
-                    if (injectTextToChatInput(prompt)) {
-                      setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
-                    }
-                  },
-                  children: [
-                    icon("chat", 13),
-                    " ",
-                    t2("changes.diffToChat")
-                  ]
-                }
-              ),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "button",
                 {
                   type: "button",
                   className: "dsh-gp-btn",
                   onClick: () => setDiffState(null),
-                  style: { fontSize: 11, padding: "0 6px" },
+                  style: { marginLeft: "auto", fontSize: 11, padding: "0 6px" },
                   children: icon("close", 13)
                 }
               )
