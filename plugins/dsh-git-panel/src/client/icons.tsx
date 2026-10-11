@@ -43,6 +43,8 @@ export type IconName =
   | 'list'
   | 'external'
   | 'sparkles'
+  | 'chevronDown'
+  | 'chevronRight'
 
 /** 每个图标由若干 SVG 子元素描述（与绘制顺序一致）。 */
 const SHAPES: Record<IconName, Array<Record<string, unknown>>> = {
@@ -134,6 +136,8 @@ const SHAPES: Record<IconName, Array<Record<string, unknown>>> = {
     { d: 'M13.1 2.5v2.3M11.95 3.65h2.3' },
     { d: 'M2.9 11.2v2.3M1.75 12.35h2.3' },
   ],
+  chevronDown: [{ d: 'M4.5 6.5L8 10l3.5-3.5' }],
+  chevronRight: [{ d: 'M6.5 4.5L10 8l-3.5 3.5' }],
 }
 
 /**

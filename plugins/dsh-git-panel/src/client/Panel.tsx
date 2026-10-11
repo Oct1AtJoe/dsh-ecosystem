@@ -168,18 +168,23 @@ const STYLE = `
 .dsh-gp-write-status { flex:1; min-width:0; font-size:11px; color:var(--muted); line-height:1.45; }
 .dsh-gp-detail-actions { display:flex; gap:6px; margin-top:6px; }
 .dsh-gp-detail-actions .dsh-gp-btn { font-size:11px; padding:2px 8px; }
-.dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px; }
+.dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px;
+  max-height:min(280px, 38vh); overflow-y:auto; }
 .dsh-gp-conflict-banner { background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
   color:#d29922; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; }
 [data-ds-dark-theme] .dsh-gp-conflict-banner { color:#e3b341; border-color:rgba(227,179,65,0.4); }
 .dsh-gp-changes-group { display:flex; flex-direction:column; gap:2px; }
-.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
+  display:flex; align-items:center; justify-content:space-between; gap:6px; cursor:pointer; user-select:none; border-radius:4px; }
+.dsh-gp-changes-group-head:hover { background:var(--hover); color:var(--fg); }
+.dsh-gp-group-title { display:inline-flex; align-items:center; gap:4px; }
+.dsh-gp-group-chevron { display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px; color:var(--muted); opacity:0.8; }
 /* 分组头右侧的批量操作：与分组标题同一行、紧贴右缘，用比行内动作更轻的
    图标按钮（复用 .dsh-gp-act 的视觉语言），不额外增加一行的高度。 */
 .dsh-gp-group-actions { display:flex; align-items:center; gap:2px; flex:none; }
 .dsh-gp-changes-group-head .dsh-gp-act { opacity:1; }
 .dsh-gp-changes-title { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 0 4px; font-size:11px; color:var(--muted); }
-.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:140px; overflow-y:auto; }
+.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
@@ -962,6 +967,11 @@ export function GitPanel(props: {
   const [diffState, setDiffState] = useState<{ file: string; content: string; busy: boolean } | null>(null)
   // 分支名快速搜索过滤。
   const [branchSearch, setBranchSearch] = useState('')
+  // 各变更分组的折叠状态（默认未折叠）。
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const toggleGroup = useCallback((group: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [group]: !prev[group] }))
+  }, [])
   // 放弃更改确认弹窗的目标文件。
   const [discardTarget, setDiscardTarget] = useState<{ file: string; untracked: boolean } | null>(null)
 
@@ -1479,25 +1489,44 @@ export function GitPanel(props: {
 
               {conflicts.length > 0 ? (
                 <div className="dsh-gp-changes-group">
-                  <div className="dsh-gp-changes-group-head" style={{ color: 'var(--danger)' }}>
-                    <span>{t('changes.conflictsGroup')} ({conflicts.length})</span>
+                  <div
+                    className="dsh-gp-changes-group-head"
+                    style={{ color: 'var(--danger)' }}
+                    onClick={() => toggleGroup('conflicts')}
+                  >
+                    <div className="dsh-gp-group-title">
+                      <span className="dsh-gp-group-chevron">
+                        {icon(collapsedGroups['conflicts'] ? 'chevronRight' : 'chevronDown', 11)}
+                      </span>
+                      <span>{t('changes.conflictsGroup')} ({conflicts.length})</span>
+                    </div>
                   </div>
-                  <div className="dsh-gp-changes-list">
-                    {conflicts.map((c) => (
-                      <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                        <ChangeBadge code={c.code} />
-                        <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {!collapsedGroups['conflicts'] ? (
+                    <div className="dsh-gp-changes-list">
+                      {conflicts.map((c) => (
+                        <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
+                          <ChangeBadge code={c.code} />
+                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               {staged.length > 0 ? (
                 <div className="dsh-gp-changes-group">
-                  <div className="dsh-gp-changes-group-head">
-                    <span>{t('changes.staged')} ({staged.length})</span>
-                    <div className="dsh-gp-group-actions">
+                  <div
+                    className="dsh-gp-changes-group-head"
+                    onClick={() => toggleGroup('staged')}
+                  >
+                    <div className="dsh-gp-group-title">
+                      <span className="dsh-gp-group-chevron">
+                        {icon(collapsedGroups['staged'] ? 'chevronRight' : 'chevronDown', 11)}
+                      </span>
+                      <span>{t('changes.staged')} ({staged.length})</span>
+                    </div>
+                    <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
                       <RowAction icon="minus" label={t('changes.unstageAll')}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -1505,40 +1534,50 @@ export function GitPanel(props: {
                         }} />
                     </div>
                   </div>
-                  <div className="dsh-gp-changes-list">
-                    {staged.map((c) => (
-                      <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
-                        <ChangeBadge code={c.code} />
-                        <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                        <RowAction icon="copy" label={t('changes.copyPath')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            try {
-                              navigator.clipboard.writeText(c.file)
-                              setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
-                            } catch {}
-                          }} />
-                        <RowAction icon="chat" label={t('changes.fileToChat')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const prompt = t('prompt.stagedFile', { file: c.file })
-                            if (injectTextToChatInput(prompt)) {
-                              setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                            }
-                          }} />
-                        <RowAction icon="minus" label={t('changes.unstage')}
-                          onClick={(e) => { e.stopPropagation(); void runWrite('unstage', c.file) }} />
-                      </div>
-                    ))}
-                  </div>
+                  {!collapsedGroups['staged'] ? (
+                    <div className="dsh-gp-changes-list">
+                      {staged.map((c) => (
+                        <div key={c.file} className="dsh-gp-changes-item" onClick={() => void loadDiff(c.file)}>
+                          <ChangeBadge code={c.code} />
+                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                          <RowAction icon="copy" label={t('changes.copyPath')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              try {
+                                navigator.clipboard.writeText(c.file)
+                                setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
+                              } catch {}
+                            }} />
+                          <RowAction icon="chat" label={t('changes.fileToChat')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const prompt = t('prompt.stagedFile', { file: c.file })
+                              if (injectTextToChatInput(prompt)) {
+                                setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
+                              }
+                            }} />
+                          <RowAction icon="minus" label={t('changes.unstage')}
+                            onClick={(e) => { e.stopPropagation(); void runWrite('unstage', c.file) }} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               {unstaged.length > 0 ? (
                 <div className="dsh-gp-changes-group">
-                  <div className="dsh-gp-changes-group-head">
-                    <span>{t('changes.unstaged')} ({unstaged.length})</span>
-                    <div className="dsh-gp-group-actions">
+                  <div
+                    className="dsh-gp-changes-group-head"
+                    onClick={() => toggleGroup('unstaged')}
+                  >
+                    <div className="dsh-gp-group-title">
+                      <span className="dsh-gp-group-chevron">
+                        {icon(collapsedGroups['unstaged'] ? 'chevronRight' : 'chevronDown', 11)}
+                      </span>
+                      <span>{t('changes.unstaged')} ({unstaged.length})</span>
+                    </div>
+                    <div className="dsh-gp-group-actions" onClick={(e) => e.stopPropagation()}>
                       <RowAction icon="plus" label={t('changes.stageAll')}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -1546,44 +1585,46 @@ export function GitPanel(props: {
                         }} />
                     </div>
                   </div>
-                  <div className="dsh-gp-changes-list">
-                    {unstaged.map((c) => (
-                      <div key={c.file} className="dsh-gp-changes-item"
-                        title={t('changes.openFullDiff')}
-                        onClick={() => {
-                          if (onOpenDiff?.(c.file) === true) return
-                          void loadDiff(c.file)
-                        }}>
-                        <ChangeBadge code={c.code} />
-                        <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
-                        <RowAction icon="unified" label={t('changes.inlineDiff')}
-                          onClick={(e) => { e.stopPropagation(); void loadDiff(c.file) }} />
-                        <RowAction icon="copy" label={t('changes.copyPath')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            try {
-                              navigator.clipboard.writeText(c.file)
-                              setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
-                            } catch {}
-                          }} />
-                        <RowAction icon="chat" label={t('changes.fileToChat')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const prompt = t('prompt.fileChange', { file: c.file })
-                            if (injectTextToChatInput(prompt)) {
-                              setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
-                            }
-                          }} />
-                        <RowAction icon="plus" label={t('changes.stage')}
-                          onClick={(e) => { e.stopPropagation(); void runWrite('stage', c.file) }} />
-                        <RowAction icon="undo" danger label={t('changes.discard')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDiscardTarget({ file: c.file, untracked: c.code === '??' })
-                          }} />
-                      </div>
-                    ))}
-                  </div>
+                  {!collapsedGroups['unstaged'] ? (
+                    <div className="dsh-gp-changes-list">
+                      {unstaged.map((c) => (
+                        <div key={c.file} className="dsh-gp-changes-item"
+                          title={t('changes.openFullDiff')}
+                          onClick={() => {
+                            if (onOpenDiff?.(c.file) === true) return
+                            void loadDiff(c.file)
+                          }}>
+                          <ChangeBadge code={c.code} />
+                          <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                          <RowAction icon="unified" label={t('changes.inlineDiff')}
+                            onClick={(e) => { e.stopPropagation(); void loadDiff(c.file) }} />
+                          <RowAction icon="copy" label={t('changes.copyPath')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              try {
+                                navigator.clipboard.writeText(c.file)
+                                setMessage({ kind: 'ok', text: t('changes.copyPathDone') })
+                              } catch {}
+                            }} />
+                          <RowAction icon="chat" label={t('changes.fileToChat')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const prompt = t('prompt.fileChange', { file: c.file })
+                              if (injectTextToChatInput(prompt)) {
+                                setMessage({ kind: 'ok', text: t('changes.sentSuccess') })
+                              }
+                            }} />
+                          <RowAction icon="plus" label={t('changes.stage')}
+                            onClick={(e) => { e.stopPropagation(); void runWrite('stage', c.file) }} />
+                          <RowAction icon="undo" danger label={t('changes.discard')}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDiscardTarget({ file: c.file, untracked: c.code === '??' })
+                            }} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

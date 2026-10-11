@@ -1104,7 +1104,9 @@ var SHAPES = {
     { d: "M8 2.4Q8.5 7.5 13.6 8Q8.5 8.5 8 13.6Q7.5 8.5 2.4 8Q7.5 7.5 8 2.4Z" },
     { d: "M13.1 2.5v2.3M11.95 3.65h2.3" },
     { d: "M2.9 11.2v2.3M1.75 12.35h2.3" }
-  ]
+  ],
+  chevronDown: [{ d: "M4.5 6.5L8 10l3.5-3.5" }],
+  chevronRight: [{ d: "M6.5 4.5L10 8l-3.5 3.5" }]
 };
 function icon(name, size = 14) {
   const children = (SHAPES[name] ?? []).map((shape, i) => {
@@ -1311,18 +1313,23 @@ var STYLE = `
 .dsh-gp-write-status { flex:1; min-width:0; font-size:11px; color:var(--muted); line-height:1.45; }
 .dsh-gp-detail-actions { display:flex; gap:6px; margin-top:6px; }
 .dsh-gp-detail-actions .dsh-gp-btn { font-size:11px; padding:2px 8px; }
-.dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px; }
+.dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px;
+  max-height:min(280px, 38vh); overflow-y:auto; }
 .dsh-gp-conflict-banner { background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
   color:#d29922; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; }
 [data-ds-dark-theme] .dsh-gp-conflict-banner { color:#e3b341; border-color:rgba(227,179,65,0.4); }
 .dsh-gp-changes-group { display:flex; flex-direction:column; gap:2px; }
-.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
+  display:flex; align-items:center; justify-content:space-between; gap:6px; cursor:pointer; user-select:none; border-radius:4px; }
+.dsh-gp-changes-group-head:hover { background:var(--hover); color:var(--fg); }
+.dsh-gp-group-title { display:inline-flex; align-items:center; gap:4px; }
+.dsh-gp-group-chevron { display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px; color:var(--muted); opacity:0.8; }
 /* \u5206\u7EC4\u5934\u53F3\u4FA7\u7684\u6279\u91CF\u64CD\u4F5C\uFF1A\u4E0E\u5206\u7EC4\u6807\u9898\u540C\u4E00\u884C\u3001\u7D27\u8D34\u53F3\u7F18\uFF0C\u7528\u6BD4\u884C\u5185\u52A8\u4F5C\u66F4\u8F7B\u7684
    \u56FE\u6807\u6309\u94AE\uFF08\u590D\u7528 .dsh-gp-act \u7684\u89C6\u89C9\u8BED\u8A00\uFF09\uFF0C\u4E0D\u989D\u5916\u589E\u52A0\u4E00\u884C\u7684\u9AD8\u5EA6\u3002 */
 .dsh-gp-group-actions { display:flex; align-items:center; gap:2px; flex:none; }
 .dsh-gp-changes-group-head .dsh-gp-act { opacity:1; }
 .dsh-gp-changes-title { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 0 4px; font-size:11px; color:var(--muted); }
-.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:140px; overflow-y:auto; }
+.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
@@ -1946,6 +1953,10 @@ function GitPanel(props) {
   const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(() => classifyChanges(changes), [changes]);
   const [diffState, setDiffState] = (0, import_react3.useState)(null);
   const [branchSearch, setBranchSearch] = (0, import_react3.useState)("");
+  const [collapsedGroups, setCollapsedGroups] = (0, import_react3.useState)({});
+  const toggleGroup = (0, import_react3.useCallback)((group) => {
+    setCollapsedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  }, []);
   const [discardTarget, setDiscardTarget] = (0, import_react3.useState)(null);
   ensureStyle();
   (0, import_react3.useLayoutEffect)(() => {
@@ -2422,38 +2433,59 @@ function GitPanel(props) {
             t2("changes.conflicts", { count: String(conflicts.length) })
           ] }) : null,
           conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-group-head", style: { color: "var(--danger)" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-              t2("changes.conflictsGroup"),
-              " (",
-              conflicts.length,
-              ")"
-            ] }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                className: "dsh-gp-changes-group-head",
+                style: { color: "var(--danger)" },
+                onClick: () => toggleGroup("conflicts"),
+                children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["conflicts"] ? "chevronRight" : "chevronDown", 11) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                    t2("changes.conflictsGroup"),
+                    " (",
+                    conflicts.length,
+                    ")"
+                  ] })
+                ] })
+              }
+            ),
+            !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file })
-            ] }, c.file)) })
+            ] }, c.file)) }) : null
           ] }) : null,
           staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group-head", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                t2("changes.staged"),
-                " (",
-                staged.length,
-                ")"
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                RowAction,
-                {
-                  icon: "minus",
-                  label: t2("changes.unstageAll"),
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    void runBatchStage(staged.map((c) => c.file), "unstage");
-                  }
-                }
-              ) })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "div",
+              {
+                className: "dsh-gp-changes-group-head",
+                onClick: () => toggleGroup("staged"),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["staged"] ? "chevronRight" : "chevronDown", 11) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                      t2("changes.staged"),
+                      " (",
+                      staged.length,
+                      ")"
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    RowAction,
+                    {
+                      icon: "minus",
+                      label: t2("changes.unstageAll"),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        void runBatchStage(staged.map((c) => c.file), "unstage");
+                      }
+                    }
+                  ) })
+                ]
+              }
+            ),
+            !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-item", onClick: () => void loadDiff(c.file), children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -2496,29 +2528,39 @@ function GitPanel(props) {
                   }
                 }
               )
-            ] }, c.file)) })
+            ] }, c.file)) }) : null
           ] }) : null,
           unstaged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group-head", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                t2("changes.unstaged"),
-                " (",
-                unstaged.length,
-                ")"
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                RowAction,
-                {
-                  icon: "plus",
-                  label: t2("changes.stageAll"),
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    void runBatchStage(unstaged.map((c) => c.file), "stage");
-                  }
-                }
-              ) })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "div",
+              {
+                className: "dsh-gp-changes-group-head",
+                onClick: () => toggleGroup("unstaged"),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["unstaged"] ? "chevronRight" : "chevronDown", 11) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                      t2("changes.unstaged"),
+                      " (",
+                      unstaged.length,
+                      ")"
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    RowAction,
+                    {
+                      icon: "plus",
+                      label: t2("changes.stageAll"),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        void runBatchStage(unstaged.map((c) => c.file), "stage");
+                      }
+                    }
+                  ) })
+                ]
+              }
+            ),
+            !collapsedGroups["unstaged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "div",
               {
                 className: "dsh-gp-changes-item",
@@ -2596,7 +2638,7 @@ function GitPanel(props) {
                 ]
               },
               c.file
-            )) })
+            )) }) : null
           ] }) : null,
           diffState !== null ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-diff", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-head", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
