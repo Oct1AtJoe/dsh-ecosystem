@@ -167,7 +167,7 @@ var GitService = class {
       this.currentBranch(canonical)
     ]);
     const run = await this.runner.run(
-      ["for-each-ref", `--format=%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, "refs/heads", "refs/remotes"],
+      ["for-each-ref", "--sort=-committerdate", `--format=%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, "refs/heads", "refs/remotes"],
       canonical
     );
     if (run.exitCode !== 0) {
@@ -206,7 +206,14 @@ var GitService = class {
       row.behind = Number.isFinite(b) ? b : 0;
     }));
     const sortRows = (rows) => {
-      rows.sort((x, y) => x.name === current ? -1 : y.name === current ? 1 : x.name.localeCompare(y.name));
+      rows.sort((x, y) => {
+        if (x.name === current) return -1;
+        if (y.name === current) return 1;
+        const tx = Date.parse(x.date) || 0;
+        const ty = Date.parse(y.date) || 0;
+        if (ty !== tx) return ty - tx;
+        return x.name.localeCompare(y.name);
+      });
       return rows;
     };
     return { repo, current, local: sortRows(local), remote: sortRows(remote) };

@@ -253,7 +253,7 @@ export class GitService {
     // 一趟遍历本地 + 远程引用。下面会剥离完整引用名
     // （refname:short 会抹掉 heads/remotes 的区别）。
     const run = await this.runner.run(
-      ['for-each-ref', '--format=' + `%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, 'refs/heads', 'refs/remotes'],
+      ['for-each-ref', '--sort=-committerdate', '--format=' + `%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, 'refs/heads', 'refs/remotes'],
       canonical,
     )
     if (run.exitCode !== 0) {
@@ -296,7 +296,14 @@ export class GitService {
     }))
 
     const sortRows = (rows: BranchRow[]): BranchRow[] => {
-      rows.sort((x, y) => (x.name === current ? -1 : y.name === current ? 1 : x.name.localeCompare(y.name)))
+      rows.sort((x, y) => {
+        if (x.name === current) return -1
+        if (y.name === current) return 1
+        const tx = Date.parse(x.date) || 0
+        const ty = Date.parse(y.date) || 0
+        if (ty !== tx) return ty - tx
+        return x.name.localeCompare(y.name)
+      })
       return rows
     }
 
