@@ -32,7 +32,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react11 = require("react");
+var import_react12 = require("react");
 
 // src/client/api.ts
 async function post(path, payload) {
@@ -362,6 +362,7 @@ var DICTS = {
     "aria.loading": "\u52A0\u8F7D\u4E2D",
     "tab.review": "\u5BA1\u67E5",
     "review.title": "\u63D0\u4EA4\u5BA1\u67E5",
+    "review.backToGraph": "\u8FD4\u56DE\u56FE\u8C31",
     "review.noCommit": "\u8BF7\u5728\u53F3\u4FA7\u680F\u300C\u56FE\u8C31\u300D\u4E2D\u9009\u62E9\u4E00\u6B21\u63D0\u4EA4\u4EE5\u67E5\u770B\u5BA1\u67E5",
     "review.filesCount": "{count} \u4E2A\u6587\u4EF6\u66F4\u6539",
     "review.filterFiles": "\u7B5B\u9009\u6587\u4EF6\u2026",
@@ -582,6 +583,7 @@ var DICTS = {
     "aria.loading": "Loading",
     "tab.review": "Review",
     "review.title": "Commit Review",
+    "review.backToGraph": "Back to Graph",
     "review.noCommit": "Select a commit in the right sidebar Graph to review",
     "review.filesCount": "{count} changed file(s)",
     "review.filterFiles": "Filter files\u2026",
@@ -802,6 +804,7 @@ var DICTS = {
     "aria.loading": "Cargando",
     "tab.review": "Revisi\xF3n",
     "review.title": "Revisi\xF3n de commit",
+    "review.backToGraph": "Volver al gr\xE1fico",
     "review.noCommit": "Selecciona un commit en el Gr\xE1fico para revisarlo",
     "review.filesCount": "{count} archivo(s) modificado(s)",
     "review.filterFiles": "Filtrar archivos\u2026",
@@ -2125,6 +2128,7 @@ function filterCommitsByBranch(commits, tips, branch) {
 }
 var GraphViewComponent = (0, import_react4.memo)(function GraphViewComponent2(props) {
   const { graph, width, branches, path, sessionId, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props;
+  ensureStyle();
   const t2 = useT();
   const [selected, setSelected] = (0, import_react4.useState)(null);
   const [contextMenu, setContextMenu] = (0, import_react4.useState)(null);
@@ -4788,7 +4792,7 @@ var STYLE3 = `
 `;
 
 // src/client/review/ReviewView.tsx
-var import_react10 = require("react");
+var import_react11 = require("react");
 
 // src/client/review/CommitDiffPanel.tsx
 var import_react7 = require("react");
@@ -4831,8 +4835,26 @@ function buildDisplay2(rows, expanded, expandAll) {
   }
   return items;
 }
+var fileDiffCache = /* @__PURE__ */ new Map();
+var FILE_DIFF_CACHE_LIMIT = 120;
+var PREFETCH_CONCURRENCY = 4;
+var PREFETCH_MAX_FILES = 12;
+function fileDiffKey(cwd, sha, file) {
+  return `${cwd}\0${sha}\0${file}`;
+}
+function fetchFileDiff(api, cwd, sha, file) {
+  const key = fileDiffKey(cwd, sha, file.path);
+  const hit = fileDiffCache.get(key);
+  if (hit !== void 0) return Promise.resolve(hit);
+  return api.commitFileDiff(cwd, sha, file.path, file.oldPath).then((res) => {
+    if (!res.ok) throw new Error(res.error.message || "\u52A0\u8F7D diff \u5931\u8D25");
+    if (fileDiffCache.size >= FILE_DIFF_CACHE_LIMIT) fileDiffCache.clear();
+    fileDiffCache.set(key, res.value);
+    return res.value;
+  });
+}
 var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
-  const { api, cwd, sha, file } = props;
+  const { api, cwd, sha, file, siblings } = props;
   const t2 = useT();
   const [loading, setLoading] = (0, import_react7.useState)(false);
   const [diffData, setDiffData] = (0, import_react7.useState)(null);
@@ -4846,27 +4868,53 @@ var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
       setDiffData(null);
       return;
     }
+    const hit = fileDiffCache.get(fileDiffKey(cwd, sha, file.path));
+    if (hit !== void 0) {
+      setDiffData(hit);
+      setLoading(false);
+      setError(null);
+      setExpandedGaps(/* @__PURE__ */ new Set());
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setDiffData(null);
     setExpandedGaps(/* @__PURE__ */ new Set());
-    api.commitFileDiff(cwd, sha, file.path, file.oldPath).then((res) => {
+    fetchFileDiff(api, cwd, sha, file).then((value) => {
       if (cancelled) return;
       setLoading(false);
-      if (res.ok) {
-        setDiffData(res.value);
-      } else {
-        setError(res.error.message || "\u52A0\u8F7D diff \u5931\u8D25");
-      }
+      setDiffData(value);
     }).catch((err) => {
       if (cancelled) return;
       setLoading(false);
-      setError(String(err));
+      setError(String(err instanceof Error ? err.message : err));
     });
     return () => {
       cancelled = true;
     };
   }, [api, cwd, sha, file]);
+  (0, import_react7.useEffect)(() => {
+    if (!cwd || !sha || !siblings || siblings.length === 0) return void 0;
+    const pending = siblings.filter((f) => f.path !== file?.path).filter((f) => !fileDiffCache.has(fileDiffKey(cwd, sha, f.path))).slice(0, PREFETCH_MAX_FILES);
+    if (pending.length === 0) return void 0;
+    let cancelled = false;
+    const queue = [...pending];
+    const workers = Array.from({ length: Math.min(PREFETCH_CONCURRENCY, queue.length) }, async () => {
+      while (!cancelled) {
+        const next = queue.shift();
+        if (next === void 0) return;
+        try {
+          await fetchFileDiff(api, cwd, sha, next);
+        } catch {
+        }
+      }
+    });
+    void Promise.all(workers);
+    return () => {
+      cancelled = true;
+    };
+  }, [api, cwd, sha, siblings, file?.path]);
   const rows = (0, import_react7.useMemo)(() => {
     if (!diffData || diffData.binary) return [];
     let oldText = diffData.oldContent;
@@ -5243,7 +5291,7 @@ var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
 var import_react9 = require("react");
 var import_jsx_runtime4 = require("react/jsx-runtime");
 var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
-  const { detail } = props;
+  const { detail, onBack } = props;
   const t2 = useT();
   const [expanded, setExpanded] = (0, import_react9.useState)(false);
   const [copied, setCopied] = (0, import_react9.useState)(false);
@@ -5256,6 +5304,29 @@ var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
   };
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header", children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header-top", children: [
+      onBack && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          onClick: onBack,
+          className: "dsh-review-diff-btn",
+          style: {
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "2px 8px",
+            fontSize: 12,
+            fontWeight: 500,
+            cursor: "pointer",
+            flexShrink: 0
+          },
+          title: t2("review.backToGraph"),
+          children: [
+            "\u2190 ",
+            t2("review.backToGraph")
+          ]
+        }
+      ),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         "button",
         {
@@ -5340,6 +5411,9 @@ var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
     ] })
   ] });
 });
+
+// src/client/review/ReviewGraphView.tsx
+var import_react10 = require("react");
 
 // src/client/review/review.css.ts
 var REVIEW_STYLE = `
@@ -5772,24 +5846,185 @@ function ensureReviewStyle() {
   document.head.appendChild(tag);
 }
 
-// src/client/review/ReviewView.tsx
+// src/client/review/ReviewGraphView.tsx
 var import_jsx_runtime5 = require("react/jsx-runtime");
+var graphDataCache = /* @__PURE__ */ new Map();
+var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) {
+  const { cwd, sessionId, api } = props;
+  ensureStyle();
+  ensureReviewStyle();
+  const t2 = useT();
+  const cached = cwd ? graphDataCache.get(cwd) : void 0;
+  const [graph, setGraph] = (0, import_react10.useState)(() => cached?.graph ?? null);
+  const [branches, setBranches] = (0, import_react10.useState)(() => cached?.branches ?? null);
+  const [loading, setLoading] = (0, import_react10.useState)(() => !cached);
+  const [error, setError] = (0, import_react10.useState)(null);
+  const containerRef = (0, import_react10.useRef)(null);
+  const [width, setWidth] = (0, import_react10.useState)(() => typeof window !== "undefined" ? window.innerWidth - 300 : 800);
+  (0, import_react10.useEffect)(() => {
+    if (!containerRef.current || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setWidth(Math.floor(entry.contentRect.width));
+        }
+      }
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+  (0, import_react10.useEffect)(() => {
+    if (!cwd) return;
+    const c = graphDataCache.get(cwd);
+    if (c) {
+      setGraph(c.graph);
+      setBranches(c.branches);
+      setLoading(false);
+    }
+  }, [cwd]);
+  const loadData = (0, import_react10.useCallback)(() => {
+    if (!cwd) {
+      setGraph(null);
+      setBranches(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const hasCache = graphDataCache.has(cwd);
+    if (!hasCache) {
+      setLoading(true);
+    }
+    setError(null);
+    Promise.all([api.graph(cwd), api.branches(cwd)]).then(([gRes, bRes]) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (gRes.ok && bRes.ok) {
+        setGraph(gRes.value);
+        setBranches(bRes.value);
+        graphDataCache.set(cwd, { graph: gRes.value, branches: bRes.value });
+      } else {
+        const err = (!gRes.ok ? gRes.error.message : "") || (!bRes.ok ? bRes.error.message : "") || "\u52A0\u8F7D\u56FE\u8C31\u5931\u8D25";
+        if (!hasCache) setError(err);
+      }
+    }).catch((err) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (!hasCache) setError(String(err));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, cwd]);
+  (0, import_react10.useEffect)(() => {
+    const cleanup = loadData();
+    return () => {
+      cleanup?.();
+    };
+  }, [loadData]);
+  if (!cwd) {
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      "div",
+      {
+        className: "dsh-review-root",
+        "data-conversation-composer-overlay": "",
+        style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          color: "var(--muted)",
+          padding: 24,
+          fontSize: 13
+        },
+        children: t2("panel.empty")
+      }
+    );
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+    "div",
+    {
+      ref: containerRef,
+      className: "dsh-review-root dsh-gp",
+      "data-conversation-composer-overlay": "",
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        overflowY: "auto",
+        overflowX: "hidden",
+        background: "var(--bg)",
+        boxSizing: "border-box",
+        padding: "6px 14px 20px"
+      },
+      children: loading && !graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "var(--muted)",
+            gap: 8,
+            fontSize: 13
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-gp-spinner lg" }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: t2("loading") })
+          ]
+        }
+      ) : error && !graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "var(--danger)",
+            gap: 8,
+            padding: 24,
+            fontSize: 13
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: error }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: loadData, children: t2("op.refresh") })
+          ]
+        }
+      ) : graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        GraphViewComponent,
+        {
+          graph,
+          width,
+          branches,
+          path: cwd,
+          sessionId
+        }
+      ) : null
+    }
+  );
+});
+
+// src/client/review/ReviewView.tsx
+var import_jsx_runtime6 = require("react/jsx-runtime");
 var STORAGE_TREE_WIDTH_KEY = "dsh-git-panel.review.treeWidth";
 var DEFAULT_TREE_WIDTH = 220;
 var MIN_TREE_WIDTH = 160;
 var MAX_TREE_WIDTH = 420;
-var ReviewView = (0, import_react10.memo)(function ReviewView2(props) {
+var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
   ensureReviewStyle();
   const t2 = useT();
   const target = useReviewTarget(props.sessionId);
-  const [api] = (0, import_react10.useState)(() => props.api ?? new GitPanelApi());
+  const [api] = (0, import_react11.useState)(() => props.api ?? new GitPanelApi());
   const effectiveCwd = props.cwd || target?.cwd || "";
   const effectiveSha = target?.sha || "";
-  const [detail, setDetail] = (0, import_react10.useState)(null);
-  const [loading, setLoading] = (0, import_react10.useState)(false);
-  const [error, setError] = (0, import_react10.useState)(null);
-  const [selectedFile, setSelectedFile] = (0, import_react10.useState)(null);
-  const [treeWidth, setTreeWidth] = (0, import_react10.useState)(() => {
+  const [detail, setDetail] = (0, import_react11.useState)(null);
+  const [loading, setLoading] = (0, import_react11.useState)(false);
+  const [error, setError] = (0, import_react11.useState)(null);
+  const [selectedFile, setSelectedFile] = (0, import_react11.useState)(null);
+  const [treeWidth, setTreeWidth] = (0, import_react11.useState)(() => {
     try {
       const stored = Number(localStorage.getItem(STORAGE_TREE_WIDTH_KEY));
       if (Number.isFinite(stored) && stored >= MIN_TREE_WIDTH && stored <= MAX_TREE_WIDTH) {
@@ -5799,9 +6034,9 @@ var ReviewView = (0, import_react10.memo)(function ReviewView2(props) {
     }
     return DEFAULT_TREE_WIDTH;
   });
-  const isDraggingRef = (0, import_react10.useRef)(false);
-  const dragStartRef = (0, import_react10.useRef)(null);
-  const handleMouseDown = (0, import_react10.useCallback)((e) => {
+  const isDraggingRef = (0, import_react11.useRef)(false);
+  const dragStartRef = (0, import_react11.useRef)(null);
+  const handleMouseDown = (0, import_react11.useCallback)((e) => {
     e.preventDefault();
     isDraggingRef.current = true;
     dragStartRef.current = { startX: e.clientX, startW: treeWidth };
@@ -5824,7 +6059,7 @@ var ReviewView = (0, import_react10.memo)(function ReviewView2(props) {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   }, [treeWidth]);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (!props.sessionId || !effectiveCwd || !effectiveSha) {
       setDetail(null);
       setSelectedFile(null);
@@ -5857,121 +6092,151 @@ var ReviewView = (0, import_react10.memo)(function ReviewView2(props) {
       cancelled = true;
     };
   }, [api, props.sessionId, effectiveCwd, effectiveSha]);
-  if (!effectiveSha) {
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-      "div",
-      {
-        className: "dsh-review-root",
-        "data-conversation-composer-overlay": "",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 12,
-          padding: 32,
-          textAlign: "center"
-        },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--review-biz-color, #e3b341)", opacity: 0.85 }, children: icon("branch", 36) }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--dsw-alias-label-primary, inherit)" }, children: t2("review.title") }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5, maxWidth: 360, lineHeight: 1.5, color: "var(--review-muted)" }, children: t2("review.noCommit") })
-        ]
-      }
-    );
-  }
-  if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-      "div",
-      {
-        className: "dsh-review-root",
-        "data-conversation-composer-overlay": "",
-        style: {
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          fontSize: 13,
-          color: "var(--review-muted)"
-        },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-gp-spinner lg" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: t2("review.loading") })
-        ]
-      }
-    );
-  }
-  if (error || !detail) {
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-      "div",
-      {
-        className: "dsh-review-root",
-        "data-conversation-composer-overlay": "",
-        style: {
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          padding: 24,
-          color: "var(--review-del-color)"
-        },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.opFailed") }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5 }, children: error })
-        ]
-      }
-    );
-  }
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
     "div",
     {
       className: "dsh-review-root",
       "data-conversation-composer-overlay": "",
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CommitHeader, { detail }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-            "div",
-            {
-              className: "dsh-review-tree",
-              style: { width: treeWidth },
-              children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                CommitFileTree,
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+          "div",
+          {
+            style: {
+              display: effectiveSha ? "none" : "flex",
+              flex: 1,
+              height: "100%",
+              minHeight: 0,
+              flexDirection: "column",
+              width: "100%",
+              overflow: "hidden"
+            },
+            children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              ReviewGraphView,
+              {
+                cwd: effectiveCwd,
+                sessionId: props.sessionId,
+                api
+              }
+            )
+          }
+        ),
+        effectiveSha ? loading ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: 1,
+              height: "100%",
+              color: "var(--review-muted)",
+              gap: 8,
+              fontSize: 13
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-gp-spinner lg" }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: t2("review.loading") })
+            ]
+          }
+        ) : error || !detail ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "div",
+          {
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: 1,
+              height: "100%",
+              color: "var(--review-del-color)",
+              gap: 12,
+              padding: 24
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.opFailed") }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: error }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+                "button",
                 {
-                  files: detail.files,
-                  selectedPath: selectedFile?.path ?? null,
-                  onSelectFile: setSelectedFile
+                  type: "button",
+                  className: "dsh-review-diff-btn",
+                  onClick: () => reviewStore.clearTarget(props.sessionId),
+                  children: [
+                    "\u2190 ",
+                    t2("review.backToGraph")
+                  ]
                 }
               )
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-            "div",
-            {
-              onMouseDown: handleMouseDown,
-              style: {
-                width: 4,
-                cursor: "col-resize",
-                background: "transparent",
-                position: "relative",
-                zIndex: 10,
-                marginLeft: -2,
-                marginRight: -2
-              },
-              title: "\u62D6\u62FD\u8C03\u8282\u5BBD\u5EA6"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-            CommitDiffPanel,
-            {
-              api,
-              cwd: effectiveCwd,
-              sha: detail.sha,
-              file: selectedFile
-            }
-          ) })
-        ] })
+            ]
+          }
+        ) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "div",
+          {
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              height: "100%",
+              minHeight: 0,
+              width: "100%",
+              overflow: "hidden"
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                CommitHeader,
+                {
+                  detail,
+                  onBack: () => {
+                    reviewStore.clearTarget(props.sessionId);
+                  }
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  "div",
+                  {
+                    className: "dsh-review-tree",
+                    style: { width: treeWidth },
+                    children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                      CommitFileTree,
+                      {
+                        files: detail.files,
+                        selectedPath: selectedFile?.path ?? null,
+                        onSelectFile: setSelectedFile
+                      }
+                    )
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  "div",
+                  {
+                    onMouseDown: handleMouseDown,
+                    style: {
+                      width: 4,
+                      cursor: "col-resize",
+                      background: "transparent",
+                      position: "relative",
+                      zIndex: 10,
+                      marginLeft: -2,
+                      marginRight: -2
+                    },
+                    title: "\u62D6\u62FD\u8C03\u8282\u5BBD\u5EA6"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  CommitDiffPanel,
+                  {
+                    api,
+                    cwd: effectiveCwd,
+                    sha: detail.sha,
+                    file: selectedFile,
+                    siblings: detail.files
+                  }
+                ) })
+              ] })
+            ]
+          }
+        ) : null
       ]
     }
   );
@@ -5982,7 +6247,7 @@ var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {
   const size = props.size ?? 26;
-  return (0, import_react11.createElement)(
+  return (0, import_react12.createElement)(
     "svg",
     {
       width: size,
@@ -5996,10 +6261,10 @@ function GitGuideIcon(props) {
       strokeLinejoin: "round",
       "aria-hidden": "true"
     },
-    (0, import_react11.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
-    (0, import_react11.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
-    (0, import_react11.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
-    (0, import_react11.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
+    (0, import_react12.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
+    (0, import_react12.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
+    (0, import_react12.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
+    (0, import_react12.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
   );
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
@@ -6088,18 +6353,18 @@ function apply(ctx) {
           () => scope.slots.register({
             name: "sidebar.right.pane.tab.title",
             key: TAB_ID
-          }, () => (0, import_react11.createElement)(
+          }, () => (0, import_react12.createElement)(
             "span",
             { style: { display: "flex", alignItems: "center", gap: 5 } },
-            (0, import_react11.createElement)(
+            (0, import_react12.createElement)(
               "svg",
               { viewBox: "0 0 16 16", width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
-              (0, import_react11.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
-              (0, import_react11.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
-              (0, import_react11.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
-              (0, import_react11.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
+              (0, import_react12.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
+              (0, import_react12.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
+              (0, import_react12.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
+              (0, import_react12.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
             ),
-            (0, import_react11.createElement)("span", null, "Git")
+            (0, import_react12.createElement)("span", null, "Git")
           ))
         );
         console.log("dsh-git-panel: registered into native sidebarRightTabs");

@@ -10,10 +10,11 @@ import { icon } from '../icons.tsx'
 
 interface CommitHeaderProps {
   detail: CommitDetail
+  onBack?: () => void
 }
 
 export const CommitHeader = memo(function CommitHeader(props: CommitHeaderProps) {
-  const { detail } = props
+  const { detail, onBack } = props
   const t = useT()
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -28,8 +29,28 @@ export const CommitHeader = memo(function CommitHeader(props: CommitHeaderProps)
 
   return (
     <div className="dsh-review-header">
-      {/* 顶栏：展开箭头 + 描述标签 + 主题 + 右侧统计 */}
+      {/* 顶栏：返回图谱 + 展开箭头 + 描述标签 + 主题 + 右侧统计 */}
       <div className="dsh-review-header-top">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="dsh-review-diff-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '2px 8px',
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            title={t('review.backToGraph')}
+          >
+            ← {t('review.backToGraph')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}

@@ -64,10 +64,48 @@ interface CommitDiffPanelProps {
   cwd: string
   sha: string
   file: CommitFileItem | null
+  /** 同提交的其余改动文件：用于后台预取，点下一个文件时秒开。 */
+  siblings?: CommitFileItem[]
+}
+
+/**
+ * 提交级 diff 缓存：提交内容不可变，同一 (提交, 文件) 永远得到同一结果。
+ * 模块级（跨组件实例共享），因此切文件、返回图谱再进来都是瞬时命中。
+ */
+const fileDiffCache = new Map<string, CommitFileDiffResult>()
+const FILE_DIFF_CACHE_LIMIT = 120
+const PREFETCH_CONCURRENCY = 4
+/**
+ * 预取文件数上限：每个文件在宿主侧要 fork 两个 git 进程，
+ * 大提交（几十个文件）全量预取会把进程表打满，得不偿失。
+ * ponytail: 只热前 12 个，真需要更多时把上限提到 cache 容量即可。
+ */
+const PREFETCH_MAX_FILES = 12
+
+function fileDiffKey(cwd: string, sha: string, file: string): string {
+  return `${cwd}\u0000${sha}\u0000${file}`
+}
+
+/** 带缓存的取 diff：命中直接返回，未命中才走网络并写入缓存。 */
+function fetchFileDiff(
+  api: GitPanelApi,
+  cwd: string,
+  sha: string,
+  file: CommitFileItem,
+): Promise<CommitFileDiffResult> {
+  const key = fileDiffKey(cwd, sha, file.path)
+  const hit = fileDiffCache.get(key)
+  if (hit !== undefined) return Promise.resolve(hit)
+  return api.commitFileDiff(cwd, sha, file.path, file.oldPath).then((res) => {
+    if (!res.ok) throw new Error(res.error.message || '加载 diff 失败')
+    if (fileDiffCache.size >= FILE_DIFF_CACHE_LIMIT) fileDiffCache.clear()
+    fileDiffCache.set(key, res.value)
+    return res.value
+  })
 }
 
 export const CommitDiffPanel = memo(function CommitDiffPanel(props: CommitDiffPanelProps) {
-  const { api, cwd, sha, file } = props
+  const { api, cwd, sha, file, siblings } = props
   const t = useT()
 
   const [loading, setLoading] = useState(false)
@@ -79,35 +117,69 @@ export const CommitDiffPanel = memo(function CommitDiffPanel(props: CommitDiffPa
   const [expandAll, setExpandAll] = useState(false)
   const [expandedGaps, setExpandedGaps] = useState<ReadonlySet<number>>(() => new Set())
 
-  // 加载单文件 diff
+  // 加载单文件 diff：缓存命中时同步渲染，不闪 loading。
   useEffect(() => {
     if (!file || !cwd || !sha) {
       setDiffData(null)
       return
     }
+    const hit = fileDiffCache.get(fileDiffKey(cwd, sha, file.path))
+    if (hit !== undefined) {
+      setDiffData(hit)
+      setLoading(false)
+      setError(null)
+      setExpandedGaps(new Set())
+      return
+    }
+
     let cancelled = false
     setLoading(true)
     setError(null)
+    setDiffData(null)
     setExpandedGaps(new Set())
 
-    api.commitFileDiff(cwd, sha, file.path, file.oldPath).then((res) => {
+    fetchFileDiff(api, cwd, sha, file).then((value) => {
       if (cancelled) return
       setLoading(false)
-      if (res.ok) {
-        setDiffData(res.value)
-      } else {
-        setError(res.error.message || '加载 diff 失败')
-      }
+      setDiffData(value)
     }).catch((err) => {
       if (cancelled) return
       setLoading(false)
-      setError(String(err))
+      setError(String(err instanceof Error ? err.message : err))
     })
 
     return () => {
       cancelled = true
     }
   }, [api, cwd, sha, file])
+
+  // 后台预取同提交其余文件（限并发），点下一个文件时直接命中缓存。
+  useEffect(() => {
+    if (!cwd || !sha || !siblings || siblings.length === 0) return undefined
+    const pending = siblings
+      .filter((f) => f.path !== file?.path)
+      .filter((f) => !fileDiffCache.has(fileDiffKey(cwd, sha, f.path)))
+      .slice(0, PREFETCH_MAX_FILES)
+    if (pending.length === 0) return undefined
+
+    let cancelled = false
+    const queue = [...pending]
+    const workers = Array.from({ length: Math.min(PREFETCH_CONCURRENCY, queue.length) }, async () => {
+      while (!cancelled) {
+        const next = queue.shift()
+        if (next === undefined) return
+        try {
+          await fetchFileDiff(api, cwd, sha, next)
+        } catch {
+          /* 预取失败静默：用户真正点开时会再走一次并给出错误 */
+        }
+      }
+    })
+    void Promise.all(workers)
+    return () => {
+      cancelled = true
+    }
+  }, [api, cwd, sha, siblings, file?.path])
 
   // 计算行级 diff
   const rows = useMemo(() => {

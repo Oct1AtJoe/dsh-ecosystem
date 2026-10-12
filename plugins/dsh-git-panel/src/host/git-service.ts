@@ -35,6 +35,12 @@ const OUTPUT_CAP_BYTES = 1 << 20
 /** 送入浏览器做差异对比的文本上限（超出部分截断，避免把大文件塞进 JSON）。 */
 const DIFF_TEXT_CAP_BYTES = 1 << 21
 
+/** git 的空树对象 id：根提交没有父时用它作为 diff 基线。 */
+const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+/** 提交内容不可变，缓存条目数上限（超出后整体清空，简单且够用）。 */
+const COMMIT_CACHE_LIMIT = 400
+
 /**
  * 工作区相对路径的安全判定：拒绝绝对路径与任何向上穿越。
  * @param name - 调用方给出的文件路径。
@@ -269,10 +275,23 @@ function splitRecords(text: string): string[] {
 
 /** 以工作区为边界约束的 git 服务。 */
 export class GitService {
+  /**
+   * 提交级缓存：提交内容（含父提交 id 与文件内容）一经产生永不改变，
+   * 因此可以安全地按 commit sha 长期缓存，避免重复 fork git 进程。
+   */
+  private readonly commitParentCache = new Map<string, string>()
+  private readonly commitFileDiffCache = new Map<string, CommitFileDiffResult>()
+
   constructor(
     public readonly runner: GitRunner,
     private readonly gate: WorkspaceGate,
   ) {}
+
+  /** 缓存写入：超限时整体清空（提交级缓存无失效语义，粗暴清空即可）。 */
+  private cacheSet<T>(map: Map<string, T>, key: string, value: T): void {
+    if (map.size >= COMMIT_CACHE_LIMIT) map.clear()
+    map.set(key, value)
+  }
 
   private async requireWorkspace(path: string): Promise<string> {
     const verdict = await this.gate(path)
@@ -922,7 +941,9 @@ export class GitService {
 
     const [fullSha, subject, body, authorName, authorEmail, date, parentsRaw] = logRun.stdout.trim().split('\x1f')
     const parents = (parentsRaw ?? '').split(' ').filter(Boolean)
-    const parentRef = parents.length > 0 ? parents[0] : '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+    const parentRef = parents.length > 0 ? parents[0]! : EMPTY_TREE_SHA
+    // 回填父提交缓存：随后逐个文件取 diff 时无需再跑 rev-list。
+    this.cacheSet(this.commitParentCache, `${canonical}\u0000${fullSha}`, parentRef)
 
     const [nameRun, numRun] = await Promise.all([
       this.runner.run(
@@ -990,7 +1011,7 @@ export class GitService {
     }
   }
 
-  /** 获取提交中单个文件的 diff 文本及新旧完整内容。 */
+  /** 获取提交中单个文件的新旧完整内容（前端本地算 LCS，服务端不预生成 diff）。 */
   async commitFileDiff(path: string, sha: string, file: string, oldPath?: string): Promise<CommitFileDiffResult> {
     const canonical = await this.requireWorkspace(path)
     const commitSha = sha.trim()
@@ -999,14 +1020,18 @@ export class GitService {
       throw Object.assign(new Error('invalid params'), { gitError: { code: 'invalid-params', message: '参数非法' } })
     }
 
-    const parentRun = await this.runner.run(['rev-list', '--parents', '-n', '1', commitSha], canonical)
-    const parts = parentRun.stdout.trim().split(' ')
-    const parentRef = parts.length > 1 ? parts[1] : '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+    const cacheKey = `${canonical}\u0000${commitSha}\u0000${filePath}\u0000${oldPath ?? ''}`
+    const cached = this.commitFileDiffCache.get(cacheKey)
+    if (cached !== undefined) return cached
 
-    const diffRun = await this.runner.run(
-      ['-c', 'core.quotepath=false', 'diff', '-M', parentRef, commitSha, '--', filePath],
-      canonical,
-    )
+    // 父提交优先取 commitDetail 已解析过的结果，省掉一次 rev-list 进程（约 70ms）。
+    let parentRef = this.commitParentCache.get(`${canonical}\u0000${commitSha}`)
+    if (parentRef === undefined) {
+      const parentRun = await this.runner.run(['rev-list', '--parents', '-n', '1', commitSha], canonical)
+      const parts = parentRun.stdout.trim().split(' ')
+      parentRef = parts.length > 1 && parts[1] !== '' ? parts[1]! : EMPTY_TREE_SHA
+      this.cacheSet(this.commitParentCache, `${canonical}\u0000${commitSha}`, parentRef)
+    }
 
     const oldTarget = oldPath?.trim() || filePath
     const [oldContentRun, newContentRun] = await Promise.all([
@@ -1016,15 +1041,17 @@ export class GitService {
 
     const oldText = oldContentRun.exitCode === 0 ? oldContentRun.stdout : ''
     const newText = newContentRun.exitCode === 0 ? newContentRun.stdout : ''
-    const binary = oldText.includes('\0') || newText.includes('\0') || diffRun.stdout.includes('Binary files')
+    const binary = oldText.includes('\0') || newText.includes('\0')
 
-    return {
+    const result: CommitFileDiffResult = {
       path: filePath,
       oldPath: oldPath?.trim(),
-      diff: diffRun.stdout,
       oldContent: binary ? '' : oldText,
       newContent: binary ? '' : newText,
       binary,
     }
+    // 提交内容不可变：缓存结果，来回切文件/切回图谱再进均瞬时命中。
+    this.cacheSet(this.commitFileDiffCache, cacheKey, result)
+    return result
   }
 }

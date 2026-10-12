@@ -126,9 +126,9 @@ export interface CommitDetail {
 export interface CommitFileDiffResult {
   path: string
   oldPath?: string
-  diff: string
   oldContent: string
   newContent: string
+  /** 二进制文件（无文本 diff）。 */
   binary?: boolean
 }
 

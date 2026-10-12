@@ -9,6 +9,8 @@ import { join, relative as relativePath, resolve as resolvePath, sep } from "nod
 import { existsSync, readFileSync } from "node:fs";
 var OUTPUT_CAP_BYTES = 1 << 20;
 var DIFF_TEXT_CAP_BYTES = 1 << 21;
+var EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+var COMMIT_CACHE_LIMIT = 400;
 function safeRelative(name) {
   if (name === "" || name.startsWith("/") || name.startsWith("\\")) return false;
   if (/^[a-zA-Z]:/u.test(name)) return false;
@@ -185,6 +187,17 @@ var GitService = class {
   constructor(runner, gate) {
     this.runner = runner;
     this.gate = gate;
+  }
+  /**
+   * 提交级缓存：提交内容（含父提交 id 与文件内容）一经产生永不改变，
+   * 因此可以安全地按 commit sha 长期缓存，避免重复 fork git 进程。
+   */
+  commitParentCache = /* @__PURE__ */ new Map();
+  commitFileDiffCache = /* @__PURE__ */ new Map();
+  /** 缓存写入：超限时整体清空（提交级缓存无失效语义，粗暴清空即可）。 */
+  cacheSet(map, key, value) {
+    if (map.size >= COMMIT_CACHE_LIMIT) map.clear();
+    map.set(key, value);
   }
   async requireWorkspace(path) {
     const verdict = await this.gate(path);
@@ -769,7 +782,8 @@ var GitService = class {
     }
     const [fullSha, subject, body, authorName, authorEmail, date, parentsRaw] = logRun.stdout.trim().split("");
     const parents = (parentsRaw ?? "").split(" ").filter(Boolean);
-    const parentRef = parents.length > 0 ? parents[0] : "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+    const parentRef = parents.length > 0 ? parents[0] : EMPTY_TREE_SHA;
+    this.cacheSet(this.commitParentCache, `${canonical}\0${fullSha}`, parentRef);
     const [nameRun, numRun] = await Promise.all([
       this.runner.run(
         ["-c", "core.quotepath=false", "diff", "--name-status", "-M", parentRef, fullSha],
@@ -828,7 +842,7 @@ var GitService = class {
       }
     };
   }
-  /** 获取提交中单个文件的 diff 文本及新旧完整内容。 */
+  /** 获取提交中单个文件的新旧完整内容（前端本地算 LCS，服务端不预生成 diff）。 */
   async commitFileDiff(path, sha, file, oldPath) {
     const canonical = await this.requireWorkspace(path);
     const commitSha = sha.trim();
@@ -836,13 +850,16 @@ var GitService = class {
     if (!/^[0-9a-fA-F]{4,40}$/.test(commitSha) || !filePath) {
       throw Object.assign(new Error("invalid params"), { gitError: { code: "invalid-params", message: "\u53C2\u6570\u975E\u6CD5" } });
     }
-    const parentRun = await this.runner.run(["rev-list", "--parents", "-n", "1", commitSha], canonical);
-    const parts = parentRun.stdout.trim().split(" ");
-    const parentRef = parts.length > 1 ? parts[1] : "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-    const diffRun = await this.runner.run(
-      ["-c", "core.quotepath=false", "diff", "-M", parentRef, commitSha, "--", filePath],
-      canonical
-    );
+    const cacheKey = `${canonical}\0${commitSha}\0${filePath}\0${oldPath ?? ""}`;
+    const cached = this.commitFileDiffCache.get(cacheKey);
+    if (cached !== void 0) return cached;
+    let parentRef = this.commitParentCache.get(`${canonical}\0${commitSha}`);
+    if (parentRef === void 0) {
+      const parentRun = await this.runner.run(["rev-list", "--parents", "-n", "1", commitSha], canonical);
+      const parts = parentRun.stdout.trim().split(" ");
+      parentRef = parts.length > 1 && parts[1] !== "" ? parts[1] : EMPTY_TREE_SHA;
+      this.cacheSet(this.commitParentCache, `${canonical}\0${commitSha}`, parentRef);
+    }
     const oldTarget = oldPath?.trim() || filePath;
     const [oldContentRun, newContentRun] = await Promise.all([
       this.runner.run(["show", `${parentRef}:${oldTarget}`], canonical),
@@ -850,15 +867,16 @@ var GitService = class {
     ]);
     const oldText = oldContentRun.exitCode === 0 ? oldContentRun.stdout : "";
     const newText = newContentRun.exitCode === 0 ? newContentRun.stdout : "";
-    const binary = oldText.includes("\0") || newText.includes("\0") || diffRun.stdout.includes("Binary files");
-    return {
+    const binary = oldText.includes("\0") || newText.includes("\0");
+    const result = {
       path: filePath,
       oldPath: oldPath?.trim(),
-      diff: diffRun.stdout,
       oldContent: binary ? "" : oldText,
       newContent: binary ? "" : newText,
       binary
     };
+    this.cacheSet(this.commitFileDiffCache, cacheKey, result);
+    return result;
   }
 };
 

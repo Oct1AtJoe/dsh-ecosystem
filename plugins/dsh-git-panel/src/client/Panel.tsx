@@ -294,7 +294,7 @@ const STYLE = `
 `
 
 let styleInjected = false
-function ensureStyle(): void {
+export function ensureStyle(): void {
   if (styleInjected) return
   styleInjected = true
   const tag = document.createElement('style')
@@ -916,7 +916,7 @@ export function filterCommitsByBranch(
 }
 
 /** 提交图谱标签页（memoized：其 props 只在加载/缩放时变化）。 */
-const GraphViewComponent = memo(function GraphViewComponent(props: {
+export const GraphViewComponent = memo(function GraphViewComponent(props: {
   graph: GraphView
   width: number
   branches?: BranchesView | null
@@ -929,6 +929,7 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
   onCopyHash?: (sha: string) => void
 }): React.ReactElement {
   const { graph, width, branches, path, sessionId, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props
+  ensureStyle()
   const t = useT()
   const [selected, setSelected] = useState<LayoutCommit | null>(null)
   const [contextMenu, setContextMenu] = useState<{

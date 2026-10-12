@@ -11,8 +11,9 @@ import { icon } from '../icons.tsx'
 import { CommitDiffPanel } from './CommitDiffPanel.tsx'
 import { CommitFileTree } from './CommitFileTree.tsx'
 import { CommitHeader } from './CommitHeader.tsx'
+import { ReviewGraphView } from './ReviewGraphView.tsx'
 import { ensureReviewStyle } from './review.css.ts'
-import { useReviewTarget } from './review-store.ts'
+import { reviewStore, useReviewTarget } from './review-store.ts'
 
 export interface ReviewViewProps {
   sessionId?: string
@@ -124,123 +125,135 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
     }
   }, [api, props.sessionId, effectiveCwd, effectiveSha])
 
-  // 无选中提交时的空状态（同样带有 data-conversation-composer-overlay 确保输入框不弹出）
-  if (!effectiveSha) {
-    return (
-      <div
-        className="dsh-review-root"
-        data-conversation-composer-overlay=""
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          padding: 32,
-          textAlign: 'center',
-        }}
-      >
-        <span style={{ color: 'var(--review-biz-color, #e3b341)', opacity: 0.85 }}>
-          {icon('branch', 36)}
-        </span>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dsw-alias-label-primary, inherit)' }}>
-          {t('review.title')}
-        </div>
-        <div style={{ fontSize: 12.5, maxWidth: 360, lineHeight: 1.5, color: 'var(--review-muted)' }}>
-          {t('review.noCommit')}
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div
-        className="dsh-review-root"
-        data-conversation-composer-overlay=""
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          fontSize: 13,
-          color: 'var(--review-muted)',
-        }}
-      >
-        <span className="dsh-gp-spinner lg" />
-        <span>{t('review.loading')}</span>
-      </div>
-    )
-  }
-
-  if (error || !detail) {
-    return (
-      <div
-        className="dsh-review-root"
-        data-conversation-composer-overlay=""
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: 24,
-          color: 'var(--review-del-color)',
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t('panel.opFailed')}</div>
-        <div style={{ fontSize: 12.5 }}>{error}</div>
-      </div>
-    )
-  }
-
   return (
     <div
       className="dsh-review-root"
       data-conversation-composer-overlay=""
     >
-      {/* 顶部提交信息条 */}
-      <CommitHeader detail={detail} />
-
-      {/* 左右分栏主体 */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
-        {/* 左栏：文件树 */}
-        <div
-          className="dsh-review-tree"
-          style={{ width: treeWidth }}
-        >
-          <CommitFileTree
-            files={detail.files}
-            selectedPath={selectedFile?.path ?? null}
-            onSelectFile={setSelectedFile}
-          />
-        </div>
-
-        {/* 拖拽把手 Splitter */}
-        <div
-          onMouseDown={handleMouseDown}
-          style={{
-            width: 4,
-            cursor: 'col-resize',
-            background: 'transparent',
-            position: 'relative',
-            zIndex: 10,
-            marginLeft: -2,
-            marginRight: -2,
-          }}
-          title="拖拽调节宽度"
+      {/* 1. 图谱视图容器：未选中具体提交时展示；选中时通过 display: none 保活 DOM，保留滚动条位置与筛选输入 */}
+      <div
+        style={{
+          display: effectiveSha ? 'none' : 'flex',
+          flex: 1,
+          height: '100%',
+          minHeight: 0,
+          flexDirection: 'column',
+          width: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        <ReviewGraphView
+          cwd={effectiveCwd}
+          sessionId={props.sessionId}
+          api={api}
         />
-
-        {/* 右栏：Diff 视图 */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <CommitDiffPanel
-            api={api}
-            cwd={effectiveCwd}
-            sha={detail.sha}
-            file={selectedFile}
-          />
-        </div>
       </div>
+
+      {/* 2. 提交代码审查视图：选中具体提交时才展示 */}
+      {effectiveSha ? (
+        loading ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              height: '100%',
+              color: 'var(--review-muted)',
+              gap: 8,
+              fontSize: 13,
+            }}
+          >
+            <span className="dsh-gp-spinner lg" />
+            <span>{t('review.loading')}</span>
+          </div>
+        ) : error || !detail ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              height: '100%',
+              color: 'var(--review-del-color)',
+              gap: 12,
+              padding: 24,
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t('panel.opFailed')}</div>
+            <div style={{ fontSize: 12.5 }}>{error}</div>
+            <button
+              type="button"
+              className="dsh-review-diff-btn"
+              onClick={() => reviewStore.clearTarget(props.sessionId)}
+            >
+              ← {t('review.backToGraph')}
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              height: '100%',
+              minHeight: 0,
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            {/* 顶部提交信息条 */}
+            <CommitHeader
+              detail={detail}
+              onBack={() => {
+                reviewStore.clearTarget(props.sessionId)
+              }}
+            />
+
+            {/* 左右分栏主体 */}
+            <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+              {/* 左栏：文件树 */}
+              <div
+                className="dsh-review-tree"
+                style={{ width: treeWidth }}
+              >
+                <CommitFileTree
+                  files={detail.files}
+                  selectedPath={selectedFile?.path ?? null}
+                  onSelectFile={setSelectedFile}
+                />
+              </div>
+
+              {/* 拖拽把手 Splitter */}
+              <div
+                onMouseDown={handleMouseDown}
+                style={{
+                  width: 4,
+                  cursor: 'col-resize',
+                  background: 'transparent',
+                  position: 'relative',
+                  zIndex: 10,
+                  marginLeft: -2,
+                  marginRight: -2,
+                }}
+                title="拖拽调节宽度"
+              />
+
+              {/* 右栏：Diff 视图 */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <CommitDiffPanel
+                  api={api}
+                  cwd={effectiveCwd}
+                  sha={detail.sha}
+                  file={selectedFile}
+                  siblings={detail.files}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      ) : null}
     </div>
   )
 })
