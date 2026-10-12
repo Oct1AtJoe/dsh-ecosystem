@@ -114,11 +114,89 @@ function installTpsPatch(ctx: ClientContext): void {
   }
 }
 
+/**
+ * Filter pseudo-queue control items produced by host inbox-first dispatch
+ * while the session is idle. This keeps optimistic submission echoes rendered
+ * uninterrupted in the transcript until durable user/messages arrive, and prevents
+ * QueueDock from flickering or displacing the message for 2 seconds.
+ */
+function installQueuePatch(ctx: ClientContext): void {
+  const sessions = (ctx as any).sessions
+  if (!sessions || sessions._queuePatchInstalled) return
+  sessions._queuePatchInstalled = true
+
+  const origHandleControlFrame = sessions.handleControlFrame?.bind(sessions)
+  if (!origHandleControlFrame) return
+
+  sessions.handleControlFrame = (frame: any) => {
+    if (frame?.type === 'queue' && Array.isArray(frame.items) && frame.items.length > 0) {
+      const sessionId = frame.sessionId
+      const session = sessions.binding?.(sessionId)?.session
+        ?? sessions.manager?.sessions?.get(sessionId)
+      const pending = session?.getSnapshot?.()?.pendingSubmissions
+      if (Array.isArray(pending) && pending.length > 0) {
+        const transcriptRpcIds = new Set(
+          pending
+            .filter((s: any) => s.placement === 'transcript')
+            .map((s: any) => s.requestId),
+        )
+        if (transcriptRpcIds.size > 0) {
+          const filteredItems = frame.items.filter((item: any) => {
+            return !item.rpcId || !transcriptRpcIds.has(item.rpcId)
+          })
+          if (filteredItems.length !== frame.items.length) {
+            return origHandleControlFrame({
+              ...frame,
+              items: filteredItems,
+            })
+          }
+        }
+      }
+    } else if (frame?.type === 'baseline' && frame.value?.queues) {
+      let changed = false
+      const queues = { ...frame.value.queues }
+      for (const [sessionId, items] of Object.entries(queues)) {
+        if (!Array.isArray(items) || items.length === 0) continue
+        const session = sessions.binding?.(sessionId as any)?.session
+          ?? sessions.manager?.sessions?.get(sessionId as any)
+        const pending = session?.getSnapshot?.()?.pendingSubmissions
+        if (Array.isArray(pending) && pending.length > 0) {
+          const transcriptRpcIds = new Set(
+            pending
+              .filter((s: any) => s.placement === 'transcript')
+              .map((s: any) => s.requestId),
+          )
+          if (transcriptRpcIds.size > 0) {
+            const filtered = items.filter((item: any) => !item.rpcId || !transcriptRpcIds.has(item.rpcId))
+            if (filtered.length !== items.length) {
+              queues[sessionId as any] = filtered
+              changed = true
+            }
+          }
+        }
+      }
+      if (changed) {
+        return origHandleControlFrame({
+          ...frame,
+          value: {
+            ...frame.value,
+            queues,
+          },
+        })
+      }
+    }
+    return origHandleControlFrame(frame)
+  }
+}
+
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-queue-recall: dictionaries')
 
   // Patch assistant-step to restore turn timing (TPS and TTFT) omitted in 0.1.5-rc.2+
   installTpsPatch(ctx)
+
+  // Prevent pseudo-queue flickers and 2-second message disappearances during idle submissions
+  installQueuePatch(ctx)
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
     name: 'conversation.input.dock',

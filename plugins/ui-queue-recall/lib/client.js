@@ -132,28 +132,11 @@ window.__ModuleLoader__.load({
 			const draft = useInput((s) => s.draft);
 			const [busy, setBusy] = (0, react.useState)(null);
 			const [collapsed, setCollapsed] = (0, react.useState)(true);
-			const [debouncedCount, setDebouncedCount] = (0, react.useState)(0);
 			const listId = (0, react.useId)();
 			(0, react.useEffect)(() => {
-				if (rowCount === 0) {
-					setDebouncedCount(0);
-					if (!collapsed) setCollapsed(true);
-					return;
-				}
-				if (debouncedCount > 0) {
-					setDebouncedCount(rowCount);
-					return;
-				}
-				const timer = setTimeout(() => {
-					setDebouncedCount(rowCount);
-				}, 250);
-				return () => clearTimeout(timer);
-			}, [
-				collapsed,
-				debouncedCount,
-				rowCount
-			]);
-			if (debouncedCount === 0) return null;
+				if (rowCount === 0 && !collapsed) setCollapsed(true);
+			}, [collapsed, rowCount]);
+			if (rowCount === 0) return null;
 			const interactionActive = queueMutable && busy !== null;
 			const expanded = !collapsed || interactionActive;
 			const listVisible = rowCount === 1 || expanded;
@@ -474,12 +457,69 @@ window.__ModuleLoader__.load({
 				};
 			}
 		}
+		/**
+		* Filter pseudo-queue control items produced by host inbox-first dispatch
+		* while the session is idle. This keeps optimistic submission echoes rendered
+		* uninterrupted in the transcript until durable user/messages arrive, and prevents
+		* QueueDock from flickering or displacing the message for 2 seconds.
+		*/
+		function installQueuePatch(ctx) {
+			const sessions = ctx.sessions;
+			if (!sessions || sessions._queuePatchInstalled) return;
+			sessions._queuePatchInstalled = true;
+			const origHandleControlFrame = sessions.handleControlFrame?.bind(sessions);
+			if (!origHandleControlFrame) return;
+			sessions.handleControlFrame = (frame) => {
+				if (frame?.type === "queue" && Array.isArray(frame.items) && frame.items.length > 0) {
+					const sessionId = frame.sessionId;
+					const pending = (sessions.binding?.(sessionId)?.session ?? sessions.manager?.sessions?.get(sessionId))?.getSnapshot?.()?.pendingSubmissions;
+					if (Array.isArray(pending) && pending.length > 0) {
+						const transcriptRpcIds = new Set(pending.filter((s) => s.placement === "transcript").map((s) => s.requestId));
+						if (transcriptRpcIds.size > 0) {
+							const filteredItems = frame.items.filter((item) => {
+								return !item.rpcId || !transcriptRpcIds.has(item.rpcId);
+							});
+							if (filteredItems.length !== frame.items.length) return origHandleControlFrame({
+								...frame,
+								items: filteredItems
+							});
+						}
+					}
+				} else if (frame?.type === "baseline" && frame.value?.queues) {
+					let changed = false;
+					const queues = { ...frame.value.queues };
+					for (const [sessionId, items] of Object.entries(queues)) {
+						if (!Array.isArray(items) || items.length === 0) continue;
+						const pending = (sessions.binding?.(sessionId)?.session ?? sessions.manager?.sessions?.get(sessionId))?.getSnapshot?.()?.pendingSubmissions;
+						if (Array.isArray(pending) && pending.length > 0) {
+							const transcriptRpcIds = new Set(pending.filter((s) => s.placement === "transcript").map((s) => s.requestId));
+							if (transcriptRpcIds.size > 0) {
+								const filtered = items.filter((item) => !item.rpcId || !transcriptRpcIds.has(item.rpcId));
+								if (filtered.length !== items.length) {
+									queues[sessionId] = filtered;
+									changed = true;
+								}
+							}
+						}
+					}
+					if (changed) return origHandleControlFrame({
+						...frame,
+						value: {
+							...frame.value,
+							queues
+						}
+					});
+				}
+				return origHandleControlFrame(frame);
+			};
+		}
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
 			}), "ui-queue-recall: dictionaries");
 			installTpsPatch(ctx);
+			installQueuePatch(ctx);
 			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
 				name: "conversation.input.dock",
 				id: "queue",
