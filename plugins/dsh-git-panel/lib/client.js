@@ -32,7 +32,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react6 = require("react");
+var import_react11 = require("react");
 
 // src/client/api.ts
 async function post(path, payload) {
@@ -151,6 +151,12 @@ var GitPanelApi = class {
   }
   stashPop(path) {
     return post("/git-panel/stash-pop", { path });
+  }
+  commitDetail(path, sha) {
+    return post("/git-panel/commit-detail", { path, sha });
+  }
+  commitFileDiff(path, sha, file, oldPath) {
+    return post("/git-panel/commit-file-diff", { path, sha, file, oldPath });
   }
 };
 
@@ -353,7 +359,29 @@ var DICTS = {
     "row.clickToGraph": "\u5355\u51FB\u67E5\u770B\u56FE\u8C31\u63D0\u4EA4 \xB7 \u53F3\u952E\u5207\u6362\u5206\u652F",
     "chip.title": "\u5207\u6362\u5206\u652F",
     "chip.head": "\u672C\u5730\u5206\u652F",
-    "aria.loading": "\u52A0\u8F7D\u4E2D"
+    "aria.loading": "\u52A0\u8F7D\u4E2D",
+    "tab.review": "\u5BA1\u67E5",
+    "review.title": "\u63D0\u4EA4\u5BA1\u67E5",
+    "review.noCommit": "\u8BF7\u5728\u53F3\u4FA7\u680F\u300C\u56FE\u8C31\u300D\u4E2D\u9009\u62E9\u4E00\u6B21\u63D0\u4EA4\u4EE5\u67E5\u770B\u5BA1\u67E5",
+    "review.filesCount": "{count} \u4E2A\u6587\u4EF6\u66F4\u6539",
+    "review.filterFiles": "\u7B5B\u9009\u6587\u4EF6\u2026",
+    "review.description": "\u63CF\u8FF0",
+    "review.splitDiff": "\u53CC\u5217",
+    "review.unifiedDiff": "\u5355\u5217",
+    "review.ignoreWhitespace": "\u5FFD\u7565\u7A7A\u767D",
+    "review.expandAll": "\u5C55\u5F00\u5168\u90E8\u4E0A\u4E0B\u6587",
+    "review.collapseAll": "\u6298\u53E0\u672A\u6539\u52A8\u533A\u57DF",
+    "review.loading": "\u6B63\u5728\u8BFB\u53D6\u63D0\u4EA4\u8BE6\u60C5\u2026",
+    "review.diffLoading": "\u6B63\u5728\u52A0\u8F7D\u6587\u4EF6\u5DEE\u5F02\u2026",
+    "review.binary": "\u4E8C\u8FDB\u5236\u6587\u4EF6\uFF0C\u65E0\u6587\u672C\u5DEE\u5F02",
+    "review.author": "\u4F5C\u8005",
+    "review.date": "\u65E5\u671F",
+    "review.commit": "\u63D0\u4EA4",
+    "review.parents": "\u7236\u63D0\u4EA4",
+    "graph.search.placeholder": "\u641C\u7D22\u63D0\u4EA4\uFF08\u6D88\u606F/\u54C8\u5E0C\uFF09\u2026",
+    "graph.filter.allBranches": "\u5168\u90E8\u5206\u652F",
+    "graph.filter.localBranches": "\u672C\u5730\u5206\u652F",
+    "graph.filter.remoteBranches": "\u8FDC\u7A0B\u5206\u652F"
   },
   en: {
     "guide.gitDescription": "Manage branches, commits and conflicts",
@@ -551,7 +579,29 @@ var DICTS = {
     "row.clickToGraph": "Click to filter in Graph \xB7 Right-click to switch branch",
     "chip.title": "Switch branch",
     "chip.head": "Local branches",
-    "aria.loading": "Loading"
+    "aria.loading": "Loading",
+    "tab.review": "Review",
+    "review.title": "Commit Review",
+    "review.noCommit": "Select a commit in the right sidebar Graph to review",
+    "review.filesCount": "{count} changed file(s)",
+    "review.filterFiles": "Filter files\u2026",
+    "review.description": "Description",
+    "review.splitDiff": "Side-by-side",
+    "review.unifiedDiff": "Unified",
+    "review.ignoreWhitespace": "Ignore whitespace",
+    "review.expandAll": "Expand all context",
+    "review.collapseAll": "Collapse unchanged",
+    "review.loading": "Loading commit details\u2026",
+    "review.diffLoading": "Loading file diff\u2026",
+    "review.binary": "Binary file \u2014 no text diff",
+    "review.author": "Author",
+    "review.date": "Date",
+    "review.commit": "Commit",
+    "review.parents": "Parents",
+    "graph.search.placeholder": "Search commits (message/hash)\u2026",
+    "graph.filter.allBranches": "All branches",
+    "graph.filter.localBranches": "Local branches",
+    "graph.filter.remoteBranches": "Remote branches"
   },
   es: {
     "guide.gitDescription": "Gestiona ramas, commits y conflictos",
@@ -749,7 +799,29 @@ var DICTS = {
     "row.clickToGraph": "Clic para filtrar en Gr\xE1fico \xB7 Clic derecho para cambiar rama",
     "chip.title": "Cambiar rama",
     "chip.head": "Ramas locales",
-    "aria.loading": "Cargando"
+    "aria.loading": "Cargando",
+    "tab.review": "Revisi\xF3n",
+    "review.title": "Revisi\xF3n de commit",
+    "review.noCommit": "Selecciona un commit en el Gr\xE1fico para revisarlo",
+    "review.filesCount": "{count} archivo(s) modificado(s)",
+    "review.filterFiles": "Filtrar archivos\u2026",
+    "review.description": "Descripci\xF3n",
+    "review.splitDiff": "Dos columnas",
+    "review.unifiedDiff": "Unificado",
+    "review.ignoreWhitespace": "Ignorar espacios",
+    "review.expandAll": "Expandir todo el contexto",
+    "review.collapseAll": "Contraer sin cambios",
+    "review.loading": "Cargando detalles del commit\u2026",
+    "review.diffLoading": "Cargando diff del archivo\u2026",
+    "review.binary": "Archivo binario \u2014 sin diff de texto",
+    "review.author": "Autor",
+    "review.date": "Fecha",
+    "review.commit": "Commit",
+    "review.parents": "Padres",
+    "graph.search.placeholder": "Buscar commits (mensaje/hash)\u2026",
+    "graph.filter.allBranches": "Todas las ramas",
+    "graph.filter.localBranches": "Ramas locales",
+    "graph.filter.remoteBranches": "Ramas remotas"
   }
 };
 var locale = null;
@@ -823,10 +895,10 @@ function useT() {
 }
 
 // src/client/GitTab.tsx
-var import_react4 = require("react");
+var import_react5 = require("react");
 
 // src/client/Panel.tsx
-var import_react3 = require("react");
+var import_react4 = require("react");
 var import_react_dom = require("react-dom");
 
 // src/client/batch-stage.ts
@@ -1094,6 +1166,11 @@ var SHAPES = {
   ],
   arrowUp: [{ d: "M8 12.8V3.2M4.6 6.6L8 3.2l3.4 3.4" }],
   arrowDown: [{ d: "M8 3.2v9.6M4.6 9.4L8 12.8l3.4-3.4" }],
+  arrowRight: [{ d: "M3.2 8h9.6M9.4 4.6L12.8 8l-3.4 3.4" }],
+  search: [
+    { circle: { cx: 7, cy: 7, r: 4.2 } },
+    { d: "M10.2 10.2l3.4 3.4" }
+  ],
   sync: [
     { d: "M3.4 6.6a4.6 4.6 0 0 1 7.6-2.2M12.6 9.4a4.6 4.6 0 0 1-7.6 2.2" },
     { d: "M11 2.4v2.2H8.8M5 13.6v-2.2h2.2" }
@@ -1190,6 +1267,70 @@ function showTip(target, text) {
 function hideTip() {
   node?.remove();
   node = null;
+}
+
+// src/client/review/review-store.ts
+var import_react3 = require("react");
+var ReviewStore = class {
+  /** 纯内存存储：按会话隔离目标提交，不写入 localStorage/sessionStorage */
+  targetsBySession = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  getTarget(sessionId) {
+    if (!sessionId) return null;
+    return this.targetsBySession.get(sessionId) ?? null;
+  }
+  setTarget(target) {
+    if (!target.sessionId) return;
+    this.targetsBySession.set(target.sessionId, target);
+    this.notify();
+  }
+  clearTarget(sessionId) {
+    if (!sessionId) return;
+    if (this.targetsBySession.has(sessionId)) {
+      this.targetsBySession.delete(sessionId);
+      this.notify();
+    }
+  }
+  /** 点击提交时：将提交记录绑定至当前会话，并切到中间主区域「审查」Tab。 */
+  selectCommitAndActivate(target) {
+    this.setTarget(target);
+    this.activateReviewTab();
+  }
+  /** 模拟点击当前会话顶部的「审查」Tab 按钮（不写入任何持久存储）。 */
+  activateReviewTab() {
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      const reviewLabels = [t("tab.review"), "\u5BA1\u67E5", "Review", "Revisi\xF3n"];
+      const buttons = Array.from(document.querySelectorAll('button[role="tab"]'));
+      for (const btn of buttons) {
+        const text = btn.textContent?.trim() || "";
+        if (reviewLabels.includes(text)) {
+          if (btn.getAttribute("aria-selected") !== "true") {
+            btn.click();
+          }
+          break;
+        }
+      }
+    });
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  notify() {
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+};
+var reviewStore = new ReviewStore();
+function useReviewTarget(sessionId) {
+  return (0, import_react3.useSyncExternalStore)(
+    (cb) => reviewStore.subscribe(cb),
+    () => reviewStore.getTarget(sessionId)
+  );
 }
 
 // src/client/Panel.tsx
@@ -1453,6 +1594,21 @@ var STYLE = `
   padding:2px 6px; font-size:11px; color:var(--muted); background:transparent;
   border:1px solid var(--border); border-radius:4px; cursor:pointer; }
 .dsh-gp-filter-clear:hover { color:var(--fg); background:var(--hover); }
+.dsh-gp-graph-toolbar { display:flex; align-items:center; gap:6px; padding:6px 0 4px; width:100%; box-sizing:border-box; }
+.dsh-gp-graph-search-wrap { position:relative; flex:1; min-width:0; display:flex; align-items:center; }
+.dsh-gp-graph-search-icon { position:absolute; left:7px; color:var(--muted); pointer-events:none; display:flex; align-items:center; }
+.dsh-gp-graph-search-input { width:100%; height:26px; box-sizing:border-box; padding:0 22px 0 24px;
+  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--border);
+  border-radius:6px; outline:none; transition:border-color .15s ease; }
+.dsh-gp-graph-search-input:focus { border-color:var(--accent); }
+.dsh-gp-graph-search-clear { position:absolute; right:4px; border:none; background:transparent;
+  cursor:pointer; color:var(--muted); padding:2px; display:flex; align-items:center; }
+.dsh-gp-graph-search-clear:hover { color:var(--fg); }
+.dsh-gp-graph-branch-select-wrap { flex:none; max-width:45%; }
+.dsh-gp-graph-branch-select { height:26px; box-sizing:border-box; padding:0 6px; font-size:11.5px;
+  color:var(--fg); background:var(--panel-bg); border:1px solid var(--border); border-radius:6px;
+  outline:none; cursor:pointer; max-width:130px; text-overflow:ellipsis; white-space:nowrap; }
+.dsh-gp-graph-branch-select:focus { border-color:var(--accent); }
 `;
 var styleInjected = false;
 function ensureStyle() {
@@ -1602,7 +1758,7 @@ function areGraphsEqual(a, b) {
   }
   return true;
 }
-var BranchRowView = (0, import_react3.memo)(function BranchRowView2(props) {
+var BranchRowView = (0, import_react4.memo)(function BranchRowView2(props) {
   const { row, isRemote, current, busy, onSelect, onActivate, onPull, onContextMenu } = props;
   const t2 = useT();
   const isCurrent = !isRemote && row.name === current;
@@ -1732,11 +1888,11 @@ function resolveBranchInfoByRow(layout, tips, currentBranch) {
   }
   return byRow;
 }
-var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
+var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
   const { layout, graph, textX, commitWidth, branchWidth, dateWidth, graphWidth, height, onSelect, onContextMenu } = props;
-  const rootRef = (0, import_react3.useRef)(null);
-  const [viewport, setViewport] = (0, import_react3.useState)({ first: 0, last: Infinity });
-  (0, import_react3.useLayoutEffect)(() => {
+  const rootRef = (0, import_react4.useRef)(null);
+  const [viewport, setViewport] = (0, import_react4.useState)({ first: 0, last: Infinity });
+  (0, import_react4.useLayoutEffect)(() => {
     const root = rootRef.current;
     if (!root) return;
     const scroller = root.closest(".dsh-gp-body");
@@ -1768,30 +1924,30 @@ var GraphSvg = (0, import_react3.memo)(function GraphSvg2(props) {
       if (raf !== 0) cancelAnimationFrame(raf);
     };
   }, [layout]);
-  const bySha = (0, import_react3.useMemo)(() => {
+  const bySha = (0, import_react4.useMemo)(() => {
     const map = /* @__PURE__ */ new Map();
     for (const c of layout) map.set(c.sha, c);
     return map;
   }, [layout]);
   const xOf = (lane) => PAD_LEFT + lane * LANE_WIDTH;
   const yOf = (row) => PAD_TOP + row * ROW_HEIGHT;
-  const tipBranches = (0, import_react3.useMemo)(
+  const tipBranches = (0, import_react4.useMemo)(
     () => Object.entries(graph.tips).filter(([, sha]) => bySha.has(sha)),
     [graph.tips, bySha]
   );
-  const branchInfoByRow = (0, import_react3.useMemo)(
+  const branchInfoByRow = (0, import_react4.useMemo)(
     () => resolveBranchInfoByRow(layout, graph.tips, graph.current),
     [layout, graph.tips, graph.current]
   );
-  const subjects = (0, import_react3.useMemo)(
+  const subjects = (0, import_react4.useMemo)(
     () => new Map(layout.map((c) => [c.sha, fitByWidth(c.subject, commitWidth - 2)])),
     [layout, commitWidth]
   );
-  const branchTexts = (0, import_react3.useMemo)(
+  const branchTexts = (0, import_react4.useMemo)(
     () => new Map([...branchInfoByRow.entries()].map(([row, info]) => [row, fitByWidth(info.branch, branchWidth - 6)])),
     [branchInfoByRow, branchWidth]
   );
-  const dates = (0, import_react3.useMemo)(
+  const dates = (0, import_react4.useMemo)(
     () => new Map(layout.map((c) => [c.sha, formatCommitDate(c.date)])),
     [layout]
   );
@@ -1967,12 +2123,17 @@ function filterCommitsByBranch(commits, tips, branch) {
   }
   return commits.filter((c) => reachable.has(c.sha));
 }
-var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(props) {
-  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props;
+var GraphViewComponent = (0, import_react4.memo)(function GraphViewComponent2(props) {
+  const { graph, width, branches, path, sessionId, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props;
   const t2 = useT();
-  const [selected, setSelected] = (0, import_react3.useState)(null);
-  const [contextMenu, setContextMenu] = (0, import_react3.useState)(null);
-  const handleContextMenu = (0, import_react3.useCallback)((event, commit) => {
+  const [selected, setSelected] = (0, import_react4.useState)(null);
+  const [contextMenu, setContextMenu] = (0, import_react4.useState)(null);
+  const [searchQuery, setSearchQuery] = (0, import_react4.useState)("");
+  const [selectedBranch, setSelectedBranch] = (0, import_react4.useState)(filterBranch ?? "");
+  (0, import_react4.useEffect)(() => {
+    setSelectedBranch(filterBranch ?? "");
+  }, [filterBranch]);
+  const handleContextMenu = (0, import_react4.useCallback)((event, commit) => {
     event.preventDefault();
     event.stopPropagation();
     setSelected(commit);
@@ -1982,15 +2143,40 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
       commit
     });
   }, []);
-  const closeContextMenu = (0, import_react3.useCallback)(() => {
+  const closeContextMenu = (0, import_react4.useCallback)(() => {
     setContextMenu(null);
   }, []);
-  const displayCommits = (0, import_react3.useMemo)(() => {
-    if (!filterBranch) return graph.commits;
-    return filterCommitsByBranch(graph.commits, graph.tips, filterBranch);
-  }, [graph.commits, graph.tips, filterBranch]);
-  const layout = (0, import_react3.useMemo)(() => layoutGraph(displayCommits), [displayCommits]);
-  const onSelect = (0, import_react3.useCallback)((commit) => setSelected(commit), []);
+  const displayCommits = (0, import_react4.useMemo)(() => {
+    let list = graph.commits;
+    const branchToFilter = selectedBranch || filterBranch;
+    if (branchToFilter) {
+      list = filterCommitsByBranch(list, graph.tips, branchToFilter);
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter((c) => {
+        const sub = c.subject.toLowerCase();
+        const sha = c.sha.toLowerCase();
+        const author = c.author.toLowerCase();
+        return sub.includes(q) || sha.includes(q) || author.includes(q);
+      });
+    }
+    return list;
+  }, [graph.commits, graph.tips, selectedBranch, filterBranch, searchQuery]);
+  const layout = (0, import_react4.useMemo)(() => layoutGraph(displayCommits), [displayCommits]);
+  const onSelect = (0, import_react4.useCallback)((commit) => {
+    setSelected(commit);
+    if (path && sessionId) {
+      reviewStore.selectCommitAndActivate({
+        sessionId,
+        cwd: path,
+        sha: commit.sha,
+        subject: commit.subject,
+        author: commit.author,
+        date: commit.date
+      });
+    }
+  }, [path, sessionId]);
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1));
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8);
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12;
@@ -2000,7 +2186,7 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   const textX = lanesWidth + 6;
   const commitWidth = Math.max(60, usableWidth - textX - branchWidth - dateWidth);
   const graphWidth = usableWidth;
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     try {
       localStorage.removeItem("dsh-gp-graph-col-commit");
       localStorage.removeItem("dsh-gp-graph-col-gap");
@@ -2008,6 +2194,51 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
     }
   }, []);
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "0 8px", position: "relative", width: "100%", boxSizing: "border-box" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-graph-toolbar", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-graph-search-wrap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-graph-search-icon", children: icon("search", 12) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "input",
+          {
+            type: "text",
+            className: "dsh-gp-graph-search-input",
+            placeholder: t2("graph.search.placeholder"),
+            value: searchQuery,
+            onChange: (e) => setSearchQuery(e.target.value)
+          }
+        ),
+        searchQuery ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "dsh-gp-graph-search-clear",
+            title: t2("menu.cancel"),
+            onClick: () => setSearchQuery(""),
+            children: icon("close", 10)
+          }
+        ) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-graph-branch-select-wrap", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "select",
+        {
+          className: "dsh-gp-graph-branch-select",
+          value: selectedBranch,
+          onChange: (e) => {
+            const val = e.target.value;
+            setSelectedBranch(val);
+            if (!val && onClearFilter) onClearFilter();
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: t2("graph.filter.allBranches") }),
+            branches?.local && branches.local.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: t2("graph.filter.localBranches"), children: branches.local.map((b) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: b.name, children: [
+              b.name,
+              b.current ? ` (${t2("badge.current")})` : ""
+            ] }, b.name)) }),
+            branches?.remote && branches.remote.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("optgroup", { label: t2("graph.filter.remoteBranches"), children: branches.remote.map((b) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: b.name, children: b.name }, b.name)) })
+          ]
+        }
+      ) })
+    ] }),
     filterBranch ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-filter-bar", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-filter-ico", children: icon("branch", 12) }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-filter-label", children: t2("graph.filter.label") }),
@@ -2112,22 +2343,22 @@ var GraphViewComponent = (0, import_react3.memo)(function GraphViewComponent2(pr
   ] });
 });
 function GitPanel(props) {
-  const { path, api, onOpenDiff, onRefreshStatus, statusCache } = props;
+  const { path, api, sessionId, onOpenDiff, onRefreshStatus, statusCache } = props;
   const t2 = useT();
-  const [tab, setTab] = (0, import_react3.useState)("branches");
-  const [branches, setBranches] = (0, import_react3.useState)(null);
-  const [graph, setGraph] = (0, import_react3.useState)(null);
-  const branchesRef = (0, import_react3.useRef)(null);
+  const [tab, setTab] = (0, import_react4.useState)("branches");
+  const [branches, setBranches] = (0, import_react4.useState)(null);
+  const [graph, setGraph] = (0, import_react4.useState)(null);
+  const branchesRef = (0, import_react4.useRef)(null);
   branchesRef.current = branches;
-  const graphRef = (0, import_react3.useRef)(null);
+  const graphRef = (0, import_react4.useRef)(null);
   graphRef.current = graph;
-  const [loading, setLoading] = (0, import_react3.useState)(false);
-  const loadSeq = (0, import_react3.useRef)(0);
-  const pathRef = (0, import_react3.useRef)(path);
+  const [loading, setLoading] = (0, import_react4.useState)(false);
+  const loadSeq = (0, import_react4.useRef)(0);
+  const pathRef = (0, import_react4.useRef)(path);
   pathRef.current = path;
-  const [busy, setBusyState] = (0, import_react3.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.busy ?? false);
-  const [message, setMessageState] = (0, import_react3.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.message ?? null);
-  const [pendingOp, setPendingOpState] = (0, import_react3.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.pendingOp ?? null);
+  const [busy, setBusyState] = (0, import_react4.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.busy ?? false);
+  const [message, setMessageState] = (0, import_react4.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.message ?? null);
+  const [pendingOp, setPendingOpState] = (0, import_react4.useState)(() => GLOBAL_GIT_BUSY_MAP.get(path)?.pendingOp ?? null);
   const setBusy = (val) => {
     setBusyState(val);
     const cur = GLOBAL_GIT_BUSY_MAP.get(path) || {};
@@ -2143,14 +2374,14 @@ function GitPanel(props) {
     const cur = GLOBAL_GIT_BUSY_MAP.get(path) || {};
     GLOBAL_GIT_BUSY_MAP.set(path, { ...cur, message: msg });
   };
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!message || message.kind !== "ok" || busy || message.showAuthForm) return;
     const timer = setTimeout(() => {
       setMessage(null);
     }, 3e3);
     return () => clearTimeout(timer);
   }, [message, busy]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     setGenerating(false);
     setChanges([]);
     setStagedStats({});
@@ -2164,37 +2395,37 @@ function GitPanel(props) {
       if (globalState.message !== void 0) setMessageState(globalState.message);
     }
   }, [path]);
-  const [width, setWidth] = (0, import_react3.useState)(300);
-  const [filterBranch, setFilterBranch] = (0, import_react3.useState)(null);
-  const rootRef = (0, import_react3.useRef)(null);
-  const [menu, setMenu] = (0, import_react3.useState)(null);
-  const [menuMode, setMenuMode] = (0, import_react3.useState)("main");
-  const [renameValue, setRenameValue] = (0, import_react3.useState)("");
-  const [commitMsg, setCommitMsg] = (0, import_react3.useState)("");
-  const [generating, setGenerating] = (0, import_react3.useState)(false);
-  const commitRef = (0, import_react3.useRef)(null);
-  const appliedHeightRef = (0, import_react3.useRef)(null);
-  const [statusText, setStatusText] = (0, import_react3.useState)("");
-  const [stash, setStash] = (0, import_react3.useState)(null);
-  const [changes, setChanges] = (0, import_react3.useState)([]);
-  const [stagedStats, setStagedStats] = (0, import_react3.useState)({});
-  const [unstagedStats, setUnstagedStats] = (0, import_react3.useState)({});
-  const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(
+  const [width, setWidth] = (0, import_react4.useState)(300);
+  const [filterBranch, setFilterBranch] = (0, import_react4.useState)(null);
+  const rootRef = (0, import_react4.useRef)(null);
+  const [menu, setMenu] = (0, import_react4.useState)(null);
+  const [menuMode, setMenuMode] = (0, import_react4.useState)("main");
+  const [renameValue, setRenameValue] = (0, import_react4.useState)("");
+  const [commitMsg, setCommitMsg] = (0, import_react4.useState)("");
+  const [generating, setGenerating] = (0, import_react4.useState)(false);
+  const commitRef = (0, import_react4.useRef)(null);
+  const appliedHeightRef = (0, import_react4.useRef)(null);
+  const [statusText, setStatusText] = (0, import_react4.useState)("");
+  const [stash, setStash] = (0, import_react4.useState)(null);
+  const [changes, setChanges] = (0, import_react4.useState)([]);
+  const [stagedStats, setStagedStats] = (0, import_react4.useState)({});
+  const [unstagedStats, setUnstagedStats] = (0, import_react4.useState)({});
+  const { conflicts, staged, unstaged } = (0, import_react4.useMemo)(
     () => classifyChanges(changes, { stagedStats, unstagedStats }),
     [changes, stagedStats, unstagedStats]
   );
-  const [diffState, setDiffState] = (0, import_react3.useState)(null);
-  const diffStateRef = (0, import_react3.useRef)(diffState);
+  const [diffState, setDiffState] = (0, import_react4.useState)(null);
+  const diffStateRef = (0, import_react4.useRef)(diffState);
   diffStateRef.current = diffState;
-  const [branchSearch, setBranchSearch] = (0, import_react3.useState)("");
-  const [collapsedGroups, setCollapsedGroups] = (0, import_react3.useState)({});
-  const toggleGroup = (0, import_react3.useCallback)((group) => {
+  const [branchSearch, setBranchSearch] = (0, import_react4.useState)("");
+  const [collapsedGroups, setCollapsedGroups] = (0, import_react4.useState)({});
+  const toggleGroup = (0, import_react4.useCallback)((group) => {
     setCollapsedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
   }, []);
-  const [discardTarget, setDiscardTarget] = (0, import_react3.useState)(null);
-  const [discardAllOpen, setDiscardAllOpen] = (0, import_react3.useState)(false);
+  const [discardTarget, setDiscardTarget] = (0, import_react4.useState)(null);
+  const [discardAllOpen, setDiscardAllOpen] = (0, import_react4.useState)(false);
   ensureStyle();
-  (0, import_react3.useLayoutEffect)(() => {
+  (0, import_react4.useLayoutEffect)(() => {
     const el = commitRef.current;
     if (el === null) return;
     if (commitMsg === "") {
@@ -2209,7 +2440,7 @@ function GitPanel(props) {
     el.style.height = next;
     appliedHeightRef.current = next;
   }, [commitMsg]);
-  const load = (0, import_react3.useCallback)(async (silent = false) => {
+  const load = (0, import_react4.useCallback)(async (silent = false) => {
     if (!path) return;
     const seq = ++loadSeq.current;
     if (!silent) {
@@ -2236,10 +2467,10 @@ function GitPanel(props) {
       setLoading(false);
     }
   }, [path, api]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     void load();
   }, [load]);
-  const refreshStatus = (0, import_react3.useCallback)(async () => {
+  const refreshStatus = (0, import_react4.useCallback)(async () => {
     if (!path) return;
     const result = await api.status(path);
     const output = result.ok ? result.value.output : "";
@@ -2255,12 +2486,12 @@ function GitPanel(props) {
     }
     setChanges(list);
   }, [path, api]);
-  const refreshStash = (0, import_react3.useCallback)(async () => {
+  const refreshStash = (0, import_react4.useCallback)(async () => {
     if (!path) return;
     const result = await api.stashSummary(path);
     setStash(result.ok ? result.value : null);
   }, [path, api]);
-  const loadDiff = (0, import_react3.useCallback)(async (file) => {
+  const loadDiff = (0, import_react4.useCallback)(async (file) => {
     if (!path) return;
     if (diffStateRef.current?.file === file) {
       setDiffState(null);
@@ -2270,16 +2501,16 @@ function GitPanel(props) {
     const result = await api.diffFile(path, file);
     setDiffState({ file, content: result.ok ? result.value.output : tError(result.error?.code, result.error?.message ?? ""), busy: false });
   }, [path, api]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     void refreshStatus();
     void refreshStash();
   }, [refreshStatus, refreshStash]);
-  const refreshAll = (0, import_react3.useCallback)(async () => {
+  const refreshAll = (0, import_react4.useCallback)(async () => {
     if (!path || busy) return;
     onRefreshStatus?.();
     await Promise.all([load(false), refreshStatus(), refreshStash()]);
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!statusCache || !path) return void 0;
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return;
@@ -2297,7 +2528,7 @@ function GitPanel(props) {
     });
     return unsubscribe;
   }, [statusCache, path, busy, refreshStatus, refreshStash, load, api]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!path) return void 0;
     const onFocus = () => {
       if (document.visibilityState === "visible" && !busy) {
@@ -2314,7 +2545,7 @@ function GitPanel(props) {
       document.removeEventListener("visibilitychange", onFocus);
     };
   }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!path) return void 0;
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && !busy) {
@@ -2326,7 +2557,7 @@ function GitPanel(props) {
     }, 3500);
     return () => clearInterval(timer);
   }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
-  const runWrite = (0, import_react3.useCallback)(async (action, extra) => {
+  const runWrite = (0, import_react4.useCallback)(async (action, extra) => {
     if (!path || busy) return;
     setBusy(true);
     setPendingOp(action);
@@ -2379,13 +2610,13 @@ function GitPanel(props) {
     setPendingOp(null);
     setBusy(false);
   }, [path, api, busy, commitMsg, t2, refreshStatus, refreshStash, load, onRefreshStatus, staged.length]);
-  const confirmDiscard = (0, import_react3.useCallback)(async () => {
+  const confirmDiscard = (0, import_react4.useCallback)(async () => {
     if (!discardTarget) return;
     const { file, untracked } = discardTarget;
     setDiscardTarget(null);
     await runWrite("discard", `${file}|${untracked ? "untracked" : ""}`);
   }, [discardTarget, runWrite]);
-  const confirmDiscardAll = (0, import_react3.useCallback)(async () => {
+  const confirmDiscardAll = (0, import_react4.useCallback)(async () => {
     if (!path || busy || unstaged.length === 0) return;
     setDiscardAllOpen(false);
     setBusy(true);
@@ -2419,7 +2650,7 @@ function GitPanel(props) {
     setPendingOp(null);
     setBusy(false);
   }, [path, busy, unstaged, t2, api, refreshStatus, refreshStash, load, onRefreshStatus]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (!discardTarget && !discardAllOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -2431,7 +2662,7 @@ function GitPanel(props) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [discardTarget, discardAllOpen]);
-  const runBatchStage = (0, import_react3.useCallback)(async (files, action) => {
+  const runBatchStage = (0, import_react4.useCallback)(async (files, action) => {
     if (!path || busy || files.length === 0) return;
     setBusy(true);
     setPendingOp(action);
@@ -2460,7 +2691,7 @@ function GitPanel(props) {
     setPendingOp(null);
     setBusy(false);
   }, [path, api, busy, t2, refreshStatus, load, onRefreshStatus]);
-  const generateMessage = (0, import_react3.useCallback)(async () => {
+  const generateMessage = (0, import_react4.useCallback)(async () => {
     if (!path || generating || busy) return;
     const target = path;
     setGenerating(true);
@@ -2492,7 +2723,7 @@ function GitPanel(props) {
     }
     setGenerating(false);
   }, [path, api, generating, busy, t2]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     const onSwitched = () => {
       void refreshStatus();
       void refreshStash();
@@ -2501,7 +2732,7 @@ function GitPanel(props) {
     window.addEventListener("dsh-git-panel:switched", onSwitched);
     return () => window.removeEventListener("dsh-git-panel:switched", onSwitched);
   }, [load, refreshStatus, refreshStash]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     const el = rootRef.current;
     if (!el) return;
     const measure = (entries) => {
@@ -2519,7 +2750,7 @@ function GitPanel(props) {
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("panel.empty") })
     ] });
   }
-  const runOp = (0, import_react3.useCallback)(async (label, op, kind) => {
+  const runOp = (0, import_react4.useCallback)(async (label, op, kind) => {
     setBusy(true);
     setPendingOp(kind ?? label);
     setMessage({ text: t2("panel.running", { label }), kind: "ok" });
@@ -2547,7 +2778,7 @@ function GitPanel(props) {
     return t2("write.stash.drawer", { count: String(stash.files), entries: String(stash.entries) });
   })();
   const pendingOpLabel = pendingOp === "pull" ? t2("op.pulling") : pendingOp === "push" ? t2("op.pushing") : pendingOp === "sync" ? t2("op.syncing") : pendingOp === "fetch" ? t2("op.fetching") : pendingOp !== null ? t2("panel.running", { label: pendingOp }) : null;
-  const openMenu = (0, import_react3.useCallback)((event, row, isRemote) => {
+  const openMenu = (0, import_react4.useCallback)((event, row, isRemote) => {
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - 190),
       y: Math.min(event.clientY, window.innerHeight - 240),
@@ -2558,14 +2789,14 @@ function GitPanel(props) {
     setMenuMode("main");
     setRenameValue(row.name);
   }, [branches?.current]);
-  const activateLocal = (0, import_react3.useCallback)((branch) => {
+  const activateLocal = (0, import_react4.useCallback)((branch) => {
     if (branch === branches?.current) {
       void runOp(t2("op.pull"), () => api.pull(path), "pull");
     } else {
       void runOp(t2("op.switch"), () => api.switchBranch(path, branch));
     }
   }, [branches?.current, runOp, api, path]);
-  const activateRemote = (0, import_react3.useCallback)((branch) => {
+  const activateRemote = (0, import_react4.useCallback)((branch) => {
     void runOp(t2("op.checkout"), () => api.switchBranch(path, branch));
   }, [runOp, api, path]);
   const closeMenu = () => setMenu(null);
@@ -3183,6 +3414,9 @@ function GitPanel(props) {
         {
           graph,
           width,
+          branches,
+          path,
+          sessionId,
           filterBranch,
           onClearFilter: () => setFilterBranch(null),
           onCherryPick: (sha) => void runOp(t2("op.cherryPick"), () => api.cherryPick(path, sha)),
@@ -3435,15 +3669,17 @@ function addressOf(sessionId, relative) {
 }
 function GitTabBody(props) {
   const { sessions, statusCache } = props;
-  const [api] = (0, import_react4.useState)(() => props.api ?? new GitPanelApi());
-  const [path, setPath] = (0, import_react4.useState)(() => props.path ?? readPath(sessions));
+  const [api] = (0, import_react5.useState)(() => props.api ?? new GitPanelApi());
+  const [path, setPath] = (0, import_react5.useState)(() => props.path ?? readPath(sessions));
+  const [sessionId, setSessionId] = (0, import_react5.useState)(() => sessions?.list.getSnapshot().current ?? "");
   const info = props.useTabInfo?.();
-  (0, import_react4.useEffect)(() => {
+  (0, import_react5.useEffect)(() => {
     if (!sessions) return void 0;
     let prevRunning = false;
     const update = () => {
       const snapshot = sessions.list.getSnapshot();
       const current = snapshot.current;
+      setSessionId(current ?? "");
       const currentSession = current !== void 0 ? snapshot.byId[current] : void 0;
       const newPath = typeof currentSession?.cwd === "string" ? currentSession.cwd : "";
       setPath(newPath);
@@ -3456,26 +3692,26 @@ function GitTabBody(props) {
     update();
     return sessions.list.subscribe(update);
   }, [sessions, statusCache]);
-  const openDiff = (0, import_react4.useCallback)((relative) => {
+  const openDiff = (0, import_react5.useCallback)((relative) => {
     const snapshot = sessions?.list.getSnapshot();
-    const sessionId = snapshot?.current;
-    if (sessionId === void 0 || relative === "") return false;
+    const sessionId2 = snapshot?.current;
+    if (sessionId2 === void 0 || relative === "") return false;
     try {
-      info?.tab.actions.openResource(addressOf(sessionId, relative), { kind: "git-diff" });
+      info?.tab.actions.openResource(addressOf(sessionId2, relative), { kind: "git-diff" });
       return true;
     } catch (error) {
       console.warn("dsh-git-panel: open diff failed", error);
       return false;
     }
   }, [info, sessions]);
-  const refreshStatus = (0, import_react4.useCallback)(() => {
+  const refreshStatus = (0, import_react5.useCallback)(() => {
     if (statusCache !== void 0 && path !== "") void statusCache.ensure(path, true);
   }, [statusCache, path]);
-  return (0, import_react4.createElement)(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
+  return (0, import_react5.createElement)(GitPanel, { path, api, sessionId, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
 }
 
 // src/client/GitDiffView.tsx
-var import_react5 = require("react");
+var import_react6 = require("react");
 
 // src/client/diff.ts
 var LCS_CELL_CAP = 4e6;
@@ -3765,7 +4001,7 @@ function glyph(kind) {
   return icon(GLYPH_MAP[kind] ?? "info", 15);
 }
 function iconButton(id, label, active, onClick, kind, danger = false) {
-  return (0, import_react5.createElement)("button", {
+  return (0, import_react6.createElement)("button", {
     type: "button",
     "data-gd-btn": id,
     className: `dsh-gd-ico-btn${active ? " on" : ""}${danger ? " danger" : ""}`,
@@ -3782,35 +4018,35 @@ function GitDiffView(props) {
   const tab = info?.tab;
   const fromDocumentSlot = typeof props.resourceAddress === "string" && props.resourceAddress !== "";
   const address = fromDocumentSlot ? props.resourceAddress ?? "" : typeof tab?.contentId === "string" ? tab.contentId : "";
-  const parsed = (0, import_react5.useMemo)(() => parseFileAddress(address), [address]);
+  const parsed = (0, import_react6.useMemo)(() => parseFileAddress(address), [address]);
   const sessionId = parsed?.sessionId ?? "";
   const file = parsed?.path ?? "";
-  const [api] = (0, import_react5.useState)(() => props.api ?? new GitPanelApi());
-  const [cwd, setCwd] = (0, import_react5.useState)(() => readCwd(props.sessions, sessionId));
-  const [head, setHead] = (0, import_react5.useState)("");
-  const [working, setWorking] = (0, import_react5.useState)("");
-  const [baseline, setBaseline] = (0, import_react5.useState)("");
-  const [status, setStatus] = (0, import_react5.useState)(void 0);
-  const [isNew, setIsNew] = (0, import_react5.useState)(false);
-  const [missing, setMissing] = (0, import_react5.useState)(false);
-  const [binary, setBinary] = (0, import_react5.useState)(false);
-  const [error, setError] = (0, import_react5.useState)(null);
-  const [loading, setLoading] = (0, import_react5.useState)(true);
-  const [mode, setMode] = (0, import_react5.useState)("split");
-  const [wrap, setWrap] = (0, import_react5.useState)(true);
-  const [collapse, setCollapse] = (0, import_react5.useState)(true);
-  const [expanded, setExpanded] = (0, import_react5.useState)(() => /* @__PURE__ */ new Set());
-  const [busy, setBusy] = (0, import_react5.useState)(false);
-  const [note, setNote] = (0, import_react5.useState)(null);
-  const [fontSize, setFontSize] = (0, import_react5.useState)(12);
-  const scrollRef = (0, import_react5.useRef)(null);
-  (0, import_react5.useEffect)(() => {
+  const [api] = (0, import_react6.useState)(() => props.api ?? new GitPanelApi());
+  const [cwd, setCwd] = (0, import_react6.useState)(() => readCwd(props.sessions, sessionId));
+  const [head, setHead] = (0, import_react6.useState)("");
+  const [working, setWorking] = (0, import_react6.useState)("");
+  const [baseline, setBaseline] = (0, import_react6.useState)("");
+  const [status, setStatus] = (0, import_react6.useState)(void 0);
+  const [isNew, setIsNew] = (0, import_react6.useState)(false);
+  const [missing, setMissing] = (0, import_react6.useState)(false);
+  const [binary, setBinary] = (0, import_react6.useState)(false);
+  const [error, setError] = (0, import_react6.useState)(null);
+  const [loading, setLoading] = (0, import_react6.useState)(true);
+  const [mode, setMode] = (0, import_react6.useState)("split");
+  const [wrap, setWrap] = (0, import_react6.useState)(true);
+  const [collapse, setCollapse] = (0, import_react6.useState)(true);
+  const [expanded, setExpanded] = (0, import_react6.useState)(() => /* @__PURE__ */ new Set());
+  const [busy, setBusy] = (0, import_react6.useState)(false);
+  const [note, setNote] = (0, import_react6.useState)(null);
+  const [fontSize, setFontSize] = (0, import_react6.useState)(12);
+  const scrollRef = (0, import_react6.useRef)(null);
+  (0, import_react6.useEffect)(() => {
     if (!props.sessions) return void 0;
     const update = () => setCwd(readCwd(props.sessions, sessionId));
     update();
     return props.sessions.list.subscribe(update);
   }, [props.sessions, sessionId]);
-  const load = (0, import_react5.useCallback)(async () => {
+  const load = (0, import_react6.useCallback)(async () => {
     if (cwd === "" || file === "") return;
     setLoading(true);
     setError(null);
@@ -3842,24 +4078,24 @@ function GitDiffView(props) {
       setLoading(false);
     }
   }, [api, cwd, file]);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     void load();
   }, [load]);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     setBaseline(working);
   }, [loading]);
-  const rows = (0, import_react5.useMemo)(() => diffRows(head, working), [head, working]);
-  const stat = (0, import_react5.useMemo)(() => diffStat(rows), [rows]);
-  const conflicts = (0, import_react5.useMemo)(() => parseConflicts(working).blocks, [working]);
+  const rows = (0, import_react6.useMemo)(() => diffRows(head, working), [head, working]);
+  const stat = (0, import_react6.useMemo)(() => diffStat(rows), [rows]);
+  const conflicts = (0, import_react6.useMemo)(() => parseConflicts(working).blocks, [working]);
   const dirty = working !== baseline;
-  const display = (0, import_react5.useMemo)(
+  const display = (0, import_react6.useMemo)(
     () => collapse ? buildDisplay(rows, expanded) : rows.map((row, index) => ({ kind: "row", row, key: `r${index}` })),
     [rows, collapse, expanded]
   );
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (conflicts.length > 0) setMode("conflict");
   }, [conflicts.length]);
-  const save = (0, import_react5.useCallback)(async () => {
+  const save = (0, import_react6.useCallback)(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
@@ -3876,7 +4112,7 @@ function GitDiffView(props) {
       setBusy(false);
     }
   }, [api, busy, cwd, file, load, working]);
-  const stage = (0, import_react5.useCallback)(async () => {
+  const stage = (0, import_react6.useCallback)(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
@@ -3887,7 +4123,7 @@ function GitDiffView(props) {
       setBusy(false);
     }
   }, [api, busy, cwd, file]);
-  const openSource = (0, import_react5.useCallback)(() => {
+  const openSource = (0, import_react6.useCallback)(() => {
     try {
       if (props.sidebarRight && typeof props.sidebarRight.openResource === "function") {
         props.sidebarRight.openResource(address, {
@@ -3903,38 +4139,38 @@ function GitDiffView(props) {
   }, [address, props.sidebarRight, tab]);
   const color = status === void 0 ? void 0 : STATUS_COLORS[status];
   const name = basenameOf(file);
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: "dsh-gd" },
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: "dsh-gd-head" },
       // ---- 左：身份区（文件名 / 状态 / 完整路径 / 增删统计）----
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         { className: "dsh-gd-id" },
-        (0, import_react5.createElement)("span", { className: "dsh-gd-glyph", "aria-hidden": "true" }, glyph("file")),
-        (0, import_react5.createElement)("span", { className: "dsh-gd-name", title: file }, name),
-        status !== void 0 && (0, import_react5.createElement)("span", {
+        (0, import_react6.createElement)("span", { className: "dsh-gd-glyph", "aria-hidden": "true" }, glyph("file")),
+        (0, import_react6.createElement)("span", { className: "dsh-gd-name", title: file }, name),
+        status !== void 0 && (0, import_react6.createElement)("span", {
           className: "dsh-gd-badge",
           style: { color, borderColor: `${color}66`, background: `${color}1f` },
           title: t("diff.gitStatus", { status })
         }, status),
-        isNew && (0, import_react5.createElement)("span", { className: "dsh-gd-tag", title: t("diff.notInHead") }, t("diff.tagNew")),
-        (0, import_react5.createElement)("span", { className: "dsh-gd-path", title: file }, file),
-        (0, import_react5.createElement)(
+        isNew && (0, import_react6.createElement)("span", { className: "dsh-gd-tag", title: t("diff.notInHead") }, t("diff.tagNew")),
+        (0, import_react6.createElement)("span", { className: "dsh-gd-path", title: file }, file),
+        (0, import_react6.createElement)(
           "span",
           { className: "dsh-gd-stat" },
-          (0, import_react5.createElement)("span", { className: "dsh-gd-add", title: t("diff.linesAdded", { count: String(stat.added) }) }, `+${stat.added}`),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-del", title: t("diff.linesRemoved", { count: String(stat.removed) }) }, `\u2212${stat.removed}`)
+          (0, import_react6.createElement)("span", { className: "dsh-gd-add", title: t("diff.linesAdded", { count: String(stat.added) }) }, `+${stat.added}`),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-del", title: t("diff.linesRemoved", { count: String(stat.removed) }) }, `\u2212${stat.removed}`)
         )
       ),
-      (0, import_react5.createElement)("span", { className: "dsh-gd-spacer" }),
+      (0, import_react6.createElement)("span", { className: "dsh-gd-spacer" }),
       // ---- 右：控件区（视图 / 选项 / 动作）----
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         { className: "dsh-gd-tools" },
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-seg", role: "group", "aria-label": t("diff.viewSwitch") },
           iconButton("dsh-gd-split", t("diff.split"), mode === "split", () => setMode("split"), "split"),
@@ -3949,25 +4185,25 @@ function GitDiffView(props) {
             true
           )
         ),
-        (0, import_react5.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-seg", role: "group", "aria-label": t("diff.displayOptions") },
           iconButton("dsh-gd-wrap", t("diff.wrap"), wrap, () => setWrap((value) => !value), "wrap"),
           iconButton("dsh-gd-fold", t("diff.fold"), collapse, () => setCollapse((value) => !value), "fold")
         ),
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-stepper", role: "group", "aria-label": t("diff.fontSizeGroup") },
-          (0, import_react5.createElement)("button", {
+          (0, import_react6.createElement)("button", {
             type: "button",
             className: "dsh-gd-step",
             title: t("diff.fontSmaller"),
             "aria-label": t("diff.fontSmaller"),
             onClick: () => setFontSize((value) => Math.max(10, value - 1))
           }, "A\u2212"),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-size", title: t("diff.fontCurrent", { size: String(fontSize) }) }, String(fontSize)),
-          (0, import_react5.createElement)("button", {
+          (0, import_react6.createElement)("span", { className: "dsh-gd-size", title: t("diff.fontCurrent", { size: String(fontSize) }) }, String(fontSize)),
+          (0, import_react6.createElement)("button", {
             type: "button",
             className: "dsh-gd-step",
             title: t("diff.fontLarger"),
@@ -3975,64 +4211,64 @@ function GitDiffView(props) {
             onClick: () => setFontSize((value) => Math.min(20, value + 1))
           }, "A+")
         ),
-        (0, import_react5.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-actions" },
-          (0, import_react5.createElement)("button", {
+          (0, import_react6.createElement)("button", {
             type: "button",
             "data-gd-btn": "source",
             className: "dsh-gd-btn",
             title: t("diff.openOfficial"),
             onClick: openSource
-          }, glyph("code"), (0, import_react5.createElement)("span", null, t("diff.officialPreview"))),
-          (0, import_react5.createElement)("button", {
+          }, glyph("code"), (0, import_react6.createElement)("span", null, t("diff.officialPreview"))),
+          (0, import_react6.createElement)("button", {
             type: "button",
             className: "dsh-gd-btn",
             title: t("diff.stageFile"),
             disabled: busy,
             onClick: () => void stage()
-          }, glyph("stage"), (0, import_react5.createElement)("span", null, t("diff.stage"))),
-          (0, import_react5.createElement)("button", {
+          }, glyph("stage"), (0, import_react6.createElement)("span", null, t("diff.stage"))),
+          (0, import_react6.createElement)("button", {
             type: "button",
             "data-gd-btn": "save",
             className: `dsh-gd-btn${dirty ? " primary dirty" : " synced"}`,
             title: dirty ? t("diff.saveToWorkspace") : t("diff.inSync"),
             disabled: busy || !dirty,
             onClick: () => void save()
-          }, glyph(dirty ? "save" : "check"), (0, import_react5.createElement)("span", null, busy ? t("diff.processing") : dirty ? t("diff.save") : t("diff.synced")))
+          }, glyph(dirty ? "save" : "check"), (0, import_react6.createElement)("span", null, busy ? t("diff.processing") : dirty ? t("diff.save") : t("diff.synced")))
         )
       )
     ),
-    (note !== null || error !== null || binary || missing || isNew) && (0, import_react5.createElement)(
+    (note !== null || error !== null || binary || missing || isNew) && (0, import_react6.createElement)(
       "div",
       { className: "dsh-gd-notes" },
-      error !== null && (0, import_react5.createElement)("span", { className: "dsh-gd-note err" }, error),
-      binary && (0, import_react5.createElement)("span", { className: "dsh-gd-note" }, t("diff.binary")),
-      missing && (0, import_react5.createElement)("span", { className: "dsh-gd-note" }, t("diff.missing")),
-      isNew && (0, import_react5.createElement)("span", { className: "dsh-gd-note" }, t("diff.newFile")),
-      note !== null && (0, import_react5.createElement)("span", { className: `dsh-gd-note ${note.kind}` }, note.text)
+      error !== null && (0, import_react6.createElement)("span", { className: "dsh-gd-note err" }, error),
+      binary && (0, import_react6.createElement)("span", { className: "dsh-gd-note" }, t("diff.binary")),
+      missing && (0, import_react6.createElement)("span", { className: "dsh-gd-note" }, t("diff.missing")),
+      isNew && (0, import_react6.createElement)("span", { className: "dsh-gd-note" }, t("diff.newFile")),
+      note !== null && (0, import_react6.createElement)("span", { className: `dsh-gd-note ${note.kind}` }, note.text)
     ),
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: "dsh-gd-body", ref: scrollRef },
-      loading ? (0, import_react5.createElement)("div", { className: "dsh-gd-empty" }, t("diff.loading")) : mode === "conflict" ? renderConflicts(conflicts, working, setWorking, setNote) : mode === "edit" ? (0, import_react5.createElement)("textarea", {
+      loading ? (0, import_react6.createElement)("div", { className: "dsh-gd-empty" }, t("diff.loading")) : mode === "conflict" ? renderConflicts(conflicts, working, setWorking, setNote) : mode === "edit" ? (0, import_react6.createElement)("textarea", {
         className: "dsh-gd-editor",
         style: { fontSize: `${fontSize}px`, whiteSpace: wrap ? "pre-wrap" : "pre" },
         spellCheck: false,
         value: working,
         onChange: (event) => setWorking(event.target.value)
-      }) : (0, import_react5.createElement)(
+      }) : (0, import_react6.createElement)(
         "div",
         { className: "dsh-gd-scroll" },
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           {
             className: `dsh-gd-rows${wrap ? " wrap" : ""}${mode === "unified" ? " unified" : ""}`,
             style: { fontSize: `${fontSize}px` }
           },
           display.map(
-            (item) => item.kind === "gap" ? (0, import_react5.createElement)("div", {
+            (item) => item.kind === "gap" ? (0, import_react6.createElement)("div", {
               key: item.key,
               className: "dsh-gd-gap",
               onClick: () => setExpanded((held) => /* @__PURE__ */ new Set([...held, item.from - CONTEXT_LINES])),
@@ -4045,20 +4281,20 @@ function GitDiffView(props) {
   );
 }
 function renderSplitRow(row, key) {
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: `dsh-gd-row ${row.kind}`, key },
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: `dsh-gd-cell left ${row.kind}` },
-      (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, row.left === void 0 ? "" : String(row.left.num)),
-      (0, import_react5.createElement)("span", { className: "dsh-gd-txt", title: row.left?.text }, row.left?.text ?? "")
+      (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, row.left === void 0 ? "" : String(row.left.num)),
+      (0, import_react6.createElement)("span", { className: "dsh-gd-txt", title: row.left?.text }, row.left?.text ?? "")
     ),
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: `dsh-gd-cell right ${row.kind}` },
-      (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, row.right === void 0 ? "" : String(row.right.num)),
-      (0, import_react5.createElement)("span", { className: "dsh-gd-txt", title: row.right?.text }, row.right?.text ?? "")
+      (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, row.right === void 0 ? "" : String(row.right.num)),
+      (0, import_react6.createElement)("span", { className: "dsh-gd-txt", title: row.right?.text }, row.right?.text ?? "")
     )
   );
 }
@@ -4066,25 +4302,25 @@ function renderUnifiedRow(row, key) {
   const text = row.kind === "del" ? row.left?.text : row.right?.text ?? row.left?.text;
   const num = row.kind === "del" ? row.left?.num : row.right?.num ?? row.left?.num;
   const marker = row.kind === "ins" ? "+" : row.kind === "del" ? "-" : row.kind === "change" ? "\xB1" : " ";
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: `dsh-gd-row unified ${row.kind}`, key },
-    (0, import_react5.createElement)("span", { className: "dsh-gd-marker" }, marker),
-    (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, num === void 0 ? "" : String(num)),
-    (0, import_react5.createElement)("span", { className: "dsh-gd-txt", title: text }, text ?? ""),
-    row.kind === "change" && (0, import_react5.createElement)("span", { className: "dsh-gd-txt after" }, row.right?.text ?? "")
+    (0, import_react6.createElement)("span", { className: "dsh-gd-marker" }, marker),
+    (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, num === void 0 ? "" : String(num)),
+    (0, import_react6.createElement)("span", { className: "dsh-gd-txt", title: text }, text ?? ""),
+    row.kind === "change" && (0, import_react6.createElement)("span", { className: "dsh-gd-txt after" }, row.right?.text ?? "")
   );
 }
 function renderConflicts(conflicts, working, setWorking, setNote) {
   if (conflicts.length === 0) {
-    return (0, import_react5.createElement)("div", { className: "dsh-gd-empty ok" }, icon("check", 14), t("diff.allResolved"));
+    return (0, import_react6.createElement)("div", { className: "dsh-gd-empty ok" }, icon("check", 14), t("diff.allResolved"));
   }
   const lines = working.split("\n");
   const CONTEXT_AROUND = 8;
   const elements = [];
   let lineIdx = 0;
   elements.push(
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       {
         className: "dsh-gd-conflict-hint",
@@ -4109,7 +4345,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const fromLine = lineIdx + 1;
       const toLine = contextStart;
       elements.push(
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           {
             className: "dsh-gd-gap",
@@ -4133,7 +4369,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
           icon("fold", 13),
           t("diff.foldedAbove", { from: String(fromLine), to: String(toLine), count: String(skippedCount) })
         ),
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           {
             id: `gap-body-${cIdx}`,
@@ -4142,12 +4378,12 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
           },
           lines.slice(lineIdx, contextStart).map((lText, i) => {
             const num = lineIdx + i + 1;
-            return (0, import_react5.createElement)(
+            return (0, import_react6.createElement)(
               "div",
               { className: "dsh-gd-row normal", key: `line-${num}` },
-              (0, import_react5.createElement)("span", { className: "dsh-gd-marker" }, " "),
-              (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-              (0, import_react5.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
+              (0, import_react6.createElement)("span", { className: "dsh-gd-marker" }, " "),
+              (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+              (0, import_react6.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
             );
           })
         )
@@ -4158,18 +4394,18 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const num = lineIdx + 1;
       const text = lines[lineIdx] ?? "";
       elements.push(
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-row normal", key: `line-${num}` },
-          (0, import_react5.createElement)("span", { className: "dsh-gd-marker" }, " "),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
+          (0, import_react6.createElement)("span", { className: "dsh-gd-marker" }, " "),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
         )
       );
       lineIdx += 1;
     }
     elements.push(
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         {
           id: `conflict-block-${cIdx}`,
@@ -4183,7 +4419,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             background: "rgba(239, 68, 68, 0.04)"
           }
         },
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           {
             className: "dsh-gd-conflict-head",
@@ -4197,9 +4433,9 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
               fontSize: 11.5
             }
           },
-          (0, import_react5.createElement)("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--danger, #ef4444)" } }, icon("conflict", 14), t("diff.conflictHeader", { index: String(cIdx + 1), total: String(conflicts.length), from: String(block.start + 1), to: String(block.end + 1) })),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-spacer", style: { flex: 1 } }),
-          (0, import_react5.createElement)(
+          (0, import_react6.createElement)("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--danger, #ef4444)" } }, icon("conflict", 14), t("diff.conflictHeader", { index: String(cIdx + 1), total: String(conflicts.length), from: String(block.start + 1), to: String(block.end + 1) })),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-spacer", style: { flex: 1 } }),
+          (0, import_react6.createElement)(
             "button",
             {
               type: "button",
@@ -4213,7 +4449,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             icon("check", 13),
             t("diff.takeOurs")
           ),
-          (0, import_react5.createElement)(
+          (0, import_react6.createElement)(
             "button",
             {
               type: "button",
@@ -4227,7 +4463,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             icon("check", 13),
             t("diff.takeTheirs", { label: block.label })
           ),
-          (0, import_react5.createElement)(
+          (0, import_react6.createElement)(
             "button",
             {
               type: "button",
@@ -4242,20 +4478,20 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             t("diff.takeBoth")
           )
         ),
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-conflict-panes", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "rgba(128,128,128,0.15)" } },
-          (0, import_react5.createElement)(
+          (0, import_react6.createElement)(
             "div",
             { style: { padding: "8px 10px", background: "rgba(59, 130, 246, 0.08)" } },
-            (0, import_react5.createElement)("div", { style: { fontSize: 10.5, color: "var(--accent, #3b82f6)", marginBottom: 4, fontWeight: 600 } }, t("diff.oursLabel")),
-            (0, import_react5.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.ours || t("diff.empty"))
+            (0, import_react6.createElement)("div", { style: { fontSize: 10.5, color: "var(--accent, #3b82f6)", marginBottom: 4, fontWeight: 600 } }, t("diff.oursLabel")),
+            (0, import_react6.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.ours || t("diff.empty"))
           ),
-          (0, import_react5.createElement)(
+          (0, import_react6.createElement)(
             "div",
             { style: { padding: "8px 10px", background: "rgba(34, 197, 94, 0.08)" } },
-            (0, import_react5.createElement)("div", { style: { fontSize: 10.5, color: "var(--current, #22c55e)", marginBottom: 4, fontWeight: 600 } }, t("diff.theirsLabel", { label: block.label })),
-            (0, import_react5.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.theirs || t("diff.empty"))
+            (0, import_react6.createElement)("div", { style: { fontSize: 10.5, color: "var(--current, #22c55e)", marginBottom: 4, fontWeight: 600 } }, t("diff.theirsLabel", { label: block.label })),
+            (0, import_react6.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.theirs || t("diff.empty"))
           )
         )
       )
@@ -4266,12 +4502,12 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const num = lineIdx + 1;
       const text = lines[lineIdx] ?? "";
       elements.push(
-        (0, import_react5.createElement)(
+        (0, import_react6.createElement)(
           "div",
           { className: "dsh-gd-row normal", key: `line-${num}` },
-          (0, import_react5.createElement)("span", { className: "dsh-gd-marker" }, " "),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-          (0, import_react5.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
+          (0, import_react6.createElement)("span", { className: "dsh-gd-marker" }, " "),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+          (0, import_react6.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
         )
       );
       lineIdx += 1;
@@ -4282,7 +4518,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
     const fromLine = lineIdx + 1;
     const toLine = lines.length;
     elements.push(
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         {
           className: "dsh-gd-gap",
@@ -4306,7 +4542,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
         icon("fold", 13),
         t("diff.foldedBelow", { from: String(fromLine), to: String(toLine), count: String(remainingCount) })
       ),
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         {
           id: "gap-body-after-last",
@@ -4315,18 +4551,18 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
         },
         lines.slice(lineIdx).map((lText, i) => {
           const num = lineIdx + i + 1;
-          return (0, import_react5.createElement)(
+          return (0, import_react6.createElement)(
             "div",
             { className: "dsh-gd-row normal", key: `line-${num}` },
-            (0, import_react5.createElement)("span", { className: "dsh-gd-marker" }, " "),
-            (0, import_react5.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-            (0, import_react5.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
+            (0, import_react6.createElement)("span", { className: "dsh-gd-marker" }, " "),
+            (0, import_react6.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+            (0, import_react6.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
           );
         })
       )
     );
   }
-  return (0, import_react5.createElement)("div", { className: "dsh-gd-conflicts-flow", style: { padding: "8px 12px", overflowY: "auto" } }, elements);
+  return (0, import_react6.createElement)("div", { className: "dsh-gd-conflicts-flow", style: { padding: "8px 12px", overflowY: "auto" } }, elements);
 }
 var STYLE2 = `
 .dsh-gd { --gd-bg:var(--dsw-alias-bg-base, #ffffff); --gd-fg:var(--dsw-alias-label-primary, #24292f);
@@ -4551,12 +4787,1202 @@ var STYLE3 = `
 .dsh-git-deco[data-letter="\u2022"] { font-size:13px; line-height:1; opacity:.8; }
 `;
 
+// src/client/review/ReviewView.tsx
+var import_react10 = require("react");
+
+// src/client/review/CommitDiffPanel.tsx
+var import_react7 = require("react");
+var import_jsx_runtime2 = require("react/jsx-runtime");
+var CONTEXT_LINES2 = 3;
+function buildDisplay2(rows, expanded, expandAll) {
+  if (expandAll) {
+    return rows.map((row, idx) => ({ kind: "row", row, key: `r${idx}` }));
+  }
+  const items = [];
+  let index = 0;
+  while (index < rows.length) {
+    const row = rows[index];
+    if (row === void 0) break;
+    if (row.kind !== "equal") {
+      items.push({ kind: "row", row, key: `r${index}` });
+      index += 1;
+      continue;
+    }
+    let end = index;
+    while (end < rows.length && rows[end]?.kind === "equal") end += 1;
+    const count = end - index;
+    if (count <= CONTEXT_LINES2 * 2 + 1 || expanded.has(index)) {
+      for (let at = index; at < end; at += 1) {
+        const held = rows[at];
+        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
+      }
+    } else {
+      for (let at = index; at < index + CONTEXT_LINES2; at += 1) {
+        const held = rows[at];
+        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
+      }
+      items.push({ kind: "gap", from: index + CONTEXT_LINES2, to: end - CONTEXT_LINES2, key: `g${index}` });
+      for (let at = end - CONTEXT_LINES2; at < end; at += 1) {
+        const held = rows[at];
+        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
+      }
+    }
+    index = end;
+  }
+  return items;
+}
+var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
+  const { api, cwd, sha, file } = props;
+  const t2 = useT();
+  const [loading, setLoading] = (0, import_react7.useState)(false);
+  const [diffData, setDiffData] = (0, import_react7.useState)(null);
+  const [error, setError] = (0, import_react7.useState)(null);
+  const [mode, setMode] = (0, import_react7.useState)("split");
+  const [ignoreWhitespace, setIgnoreWhitespace] = (0, import_react7.useState)(false);
+  const [expandAll, setExpandAll] = (0, import_react7.useState)(false);
+  const [expandedGaps, setExpandedGaps] = (0, import_react7.useState)(() => /* @__PURE__ */ new Set());
+  (0, import_react7.useEffect)(() => {
+    if (!file || !cwd || !sha) {
+      setDiffData(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setExpandedGaps(/* @__PURE__ */ new Set());
+    api.commitFileDiff(cwd, sha, file.path, file.oldPath).then((res) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (res.ok) {
+        setDiffData(res.value);
+      } else {
+        setError(res.error.message || "\u52A0\u8F7D diff \u5931\u8D25");
+      }
+    }).catch((err) => {
+      if (cancelled) return;
+      setLoading(false);
+      setError(String(err));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, cwd, sha, file]);
+  const rows = (0, import_react7.useMemo)(() => {
+    if (!diffData || diffData.binary) return [];
+    let oldText = diffData.oldContent;
+    let newText = diffData.newContent;
+    if (ignoreWhitespace) {
+      oldText = oldText.split("\n").map((l) => l.trimEnd()).join("\n");
+      newText = newText.split("\n").map((l) => l.trimEnd()).join("\n");
+    }
+    return diffRows(oldText, newText);
+  }, [diffData, ignoreWhitespace]);
+  const displayItems = (0, import_react7.useMemo)(
+    () => buildDisplay2(rows, expandedGaps, expandAll),
+    [rows, expandedGaps, expandAll]
+  );
+  if (!file) {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-review-diff-pane", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-review-diff-header", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "var(--review-muted)", display: "flex" }, children: icon("file", 14) }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "span",
+          {
+            style: {
+              fontWeight: 600,
+              color: "var(--dsw-alias-label-primary, inherit)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 12.5
+            },
+            title: file.path,
+            children: file.path
+          }
+        ),
+        (file.added > 0 || file.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { fontSize: 11.5, display: "inline-flex", gap: 4, flexShrink: 0, fontFamily: "monospace" }, children: [
+          file.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { color: "var(--review-add-color)" }, children: [
+            "+",
+            file.added
+          ] }),
+          file.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { color: "var(--review-del-color)" }, children: [
+            "-",
+            file.deleted
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: () => setMode("split"),
+            className: `dsh-review-diff-btn${mode === "split" ? " active" : ""}`,
+            children: t2("review.splitDiff")
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: () => setMode("unified"),
+            className: `dsh-review-diff-btn${mode === "unified" ? " active" : ""}`,
+            children: t2("review.unifiedDiff")
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: () => setIgnoreWhitespace(!ignoreWhitespace),
+            className: `dsh-review-diff-btn${ignoreWhitespace ? " active" : ""}`,
+            title: t2("review.ignoreWhitespace"),
+            children: t2("review.ignoreWhitespace")
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: () => setExpandAll(!expandAll),
+            className: `dsh-review-diff-btn${expandAll ? " active" : ""}`,
+            title: expandAll ? t2("review.collapseAll") : t2("review.expandAll"),
+            children: expandAll ? t2("review.collapseAll") : t2("review.expandAll")
+          }
+        )
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-review-diff-scroll", children: loading ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--review-muted)", fontSize: 13, gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-gp-spinner lg" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t2("review.diffLoading") })
+    ] }) : error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-del-color)", fontSize: 13 }, children: error }) : diffData?.binary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("review.binary") }) : rows.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-review-table", children: displayItems.map((item) => {
+      if (item.kind === "gap") {
+        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+          "button",
+          {
+            type: "button",
+            onClick: () => setExpandedGaps((prev) => /* @__PURE__ */ new Set([...prev, item.from - CONTEXT_LINES2])),
+            className: "dsh-review-gap-bar",
+            title: t2("diff.expandBlock"),
+            children: [
+              "\xB7\xB7\xB7 \xB7\xB7\xB7 \u5C55\u5F00 ",
+              item.to - item.from,
+              " \u884C\u672A\u6539\u52A8"
+            ]
+          },
+          item.key
+        );
+      }
+      const r = item.row;
+      if (mode === "unified") {
+        const isIns = r.kind === "ins";
+        const isDel2 = r.kind === "del";
+        const num = isDel2 ? r.left?.num : r.right?.num ?? r.left?.num;
+        const text = isDel2 ? r.left?.text : r.right?.text ?? r.left?.text;
+        const rowCls2 = isIns ? " dsh-review-row-u-add" : isDel2 ? " dsh-review-row-u-del" : "";
+        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row-u${rowCls2}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-no-u", children: num ?? "" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-txt", children: text ?? "" })
+        ] }, item.key);
+      }
+      const isAdd = r.kind === "ins";
+      const isDel = r.kind === "del";
+      const isPair = r.kind === "change";
+      const rowCls = isAdd ? " dsh-review-row-add" : isDel ? " dsh-review-row-del" : isPair ? " dsh-review-row-pair" : "";
+      const leftHatched = r.left === void 0;
+      const rightHatched = r.right === void 0;
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row${rowCls}`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${leftHatched ? " dsh-review-hatched" : ""}`, children: r.left ? r.left.num : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${leftHatched ? " dsh-review-hatched" : ""}`, children: r.left ? r.left.text : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${rightHatched ? " dsh-review-hatched" : ""}`, children: r.right ? r.right.num : "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${rightHatched ? " dsh-review-hatched" : ""}`, children: r.right ? r.right.text : "" })
+      ] }, item.key);
+    }) }) })
+  ] });
+});
+
+// src/client/review/CommitFileTree.tsx
+var import_react8 = require("react");
+var import_jsx_runtime3 = require("react/jsx-runtime");
+function buildTree(files) {
+  const root = { name: "", fullPath: "", isDir: true, children: [], totalFiles: 0 };
+  for (const file of files) {
+    const parts = file.path.split("/");
+    let current = root;
+    let accumulatedPath = "";
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      accumulatedPath = accumulatedPath ? `${accumulatedPath}/${part}` : part;
+      const isLast = i === parts.length - 1;
+      let child = current.children.find((c) => c.name === part);
+      if (!child) {
+        child = {
+          name: part,
+          fullPath: accumulatedPath,
+          isDir: !isLast,
+          file: isLast ? file : void 0,
+          children: [],
+          totalFiles: 0
+        };
+        current.children.push(child);
+      }
+      current = child;
+    }
+  }
+  function countAndSort(node2) {
+    if (!node2.isDir) return 1;
+    let sum = 0;
+    for (const child of node2.children) {
+      sum += countAndSort(child);
+    }
+    node2.totalFiles = sum;
+    node2.children.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    return sum;
+  }
+  countAndSort(root);
+  return root.children;
+}
+function fileIcon(name) {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  let label = ext.slice(0, 2);
+  let bg = "rgba(128,128,128,0.14)";
+  let color = "var(--review-muted)";
+  if (ext === "vue") {
+    label = "vu";
+    bg = "rgba(65, 184, 131, 0.16)";
+    color = "#41b883";
+  } else if (ext === "ts" || ext === "tsx") {
+    label = "ts";
+    bg = "rgba(49, 120, 198, 0.16)";
+    color = "#3178c6";
+  } else if (ext === "js" || ext === "jsx") {
+    label = "js";
+    bg = "rgba(229, 160, 13, 0.16)";
+    color = "#e5a00d";
+  } else if (ext === "json") {
+    label = "{}";
+    bg = "rgba(133, 234, 45, 0.16)";
+    color = "#70c922";
+  } else if (ext === "css" || ext === "scss") {
+    label = "#";
+    bg = "rgba(66, 165, 245, 0.16)";
+    color = "#42a5f5";
+  } else if (ext === "md") {
+    label = "md";
+    bg = "rgba(171, 71, 188, 0.16)";
+    color = "#ab47bc";
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    "span",
+    {
+      style: {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 15,
+        height: 15,
+        fontSize: 9,
+        fontWeight: 700,
+        borderRadius: 3,
+        color,
+        background: bg,
+        flexShrink: 0,
+        textTransform: "lowercase"
+      },
+      children: label
+    }
+  );
+}
+function statusBadge(status) {
+  const s = status.toUpperCase().slice(0, 1);
+  let cls = "dsh-review-badge-m";
+  if (s === "A") cls = "dsh-review-badge-a";
+  else if (s === "D") cls = "dsh-review-badge-d";
+  else if (s === "R") cls = "dsh-review-badge-r";
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: `dsh-review-badge ${cls}`, title: `Status: ${status}`, children: s || "M" });
+}
+var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
+  const { files, selectedPath, onSelectFile } = props;
+  const t2 = useT();
+  const [filterText, setFilterText] = (0, import_react8.useState)("");
+  const [collapsedDirs, setCollapsedDirs] = (0, import_react8.useState)(() => /* @__PURE__ */ new Set());
+  const filteredFiles = (0, import_react8.useMemo)(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter((f) => f.path.toLowerCase().includes(q));
+  }, [files, filterText]);
+  const tree = (0, import_react8.useMemo)(() => buildTree(filteredFiles), [filteredFiles]);
+  const toggleDir = (dirPath) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(dirPath)) next.delete(dirPath);
+      else next.add(dirPath);
+      return next;
+    });
+  };
+  function renderNode(node2, depth) {
+    if (node2.isDir) {
+      const isCollapsed = collapsedDirs.has(node2.fullPath);
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", flexDirection: "column" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+          "button",
+          {
+            type: "button",
+            onClick: () => toggleDir(node2.fullPath),
+            className: "dsh-review-dir-row",
+            style: { paddingLeft: 8 + depth * 14 },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                "span",
+                {
+                  style: {
+                    display: "inline-flex",
+                    alignItems: "center",
+                    color: "var(--review-muted)",
+                    fontSize: 11,
+                    transform: isCollapsed ? "rotate(-90deg)" : "none",
+                    transition: "transform 0.12s ease",
+                    width: 10,
+                    flexShrink: 0
+                  },
+                  children: "\u2193"
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node2.name }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontSize: 11.5, color: "var(--review-muted)", marginLeft: 3 }, children: node2.totalFiles })
+            ]
+          }
+        ),
+        !isCollapsed && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { children: node2.children.map((child) => renderNode(child, depth + 1)) })
+      ] }, node2.fullPath);
+    }
+    const isSelected = selectedPath === node2.fullPath;
+    const f = node2.file;
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+      "button",
+      {
+        type: "button",
+        onClick: () => onSelectFile(f),
+        className: `dsh-review-file-row${isSelected ? " active" : ""}`,
+        style: { paddingLeft: 8 + depth * 14 },
+        title: f.path,
+        children: [
+          fileIcon(node2.name),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+            "span",
+            {
+              style: {
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: isSelected ? 600 : 400
+              },
+              children: node2.name
+            }
+          ),
+          (f.added > 0 || f.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { fontSize: 11, display: "inline-flex", gap: 3, flexShrink: 0, fontFamily: "monospace" }, children: [
+            f.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-add-color)" }, children: [
+              "+",
+              f.added
+            ] }),
+            f.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-del-color)" }, children: [
+              "-",
+              f.deleted
+            ] })
+          ] }),
+          statusBadge(f.status)
+        ]
+      },
+      node2.fullPath
+    );
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: "100%", minWidth: 180 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-review-tree-search", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { position: "relative", display: "flex", alignItems: "center" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { position: "absolute", left: 7, color: "var(--review-muted)", display: "flex", pointerEvents: "none" }, children: icon("search", 11) }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "input",
+        {
+          type: "text",
+          value: filterText,
+          placeholder: t2("review.filterFiles"),
+          onChange: (e) => setFilterText(e.target.value),
+          className: "dsh-review-tree-input"
+        }
+      ),
+      filterText && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          onClick: () => setFilterText(""),
+          style: {
+            position: "absolute",
+            right: 4,
+            border: "none",
+            background: "transparent",
+            color: "var(--review-muted)",
+            cursor: "pointer",
+            display: "flex",
+            padding: 2
+          },
+          children: icon("close", 10)
+        }
+      )
+    ] }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-review-tree-scroll", children: tree.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { padding: "24px 12px", textAlign: "center", color: "var(--review-muted)", fontSize: 12 }, children: filterText ? t2("graph.filter.empty") : t2("diff.empty") }) : tree.map((node2) => renderNode(node2, 0)) })
+  ] });
+});
+
+// src/client/review/CommitHeader.tsx
+var import_react9 = require("react");
+var import_jsx_runtime4 = require("react/jsx-runtime");
+var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
+  const { detail } = props;
+  const t2 = useT();
+  const [expanded, setExpanded] = (0, import_react9.useState)(false);
+  const [copied, setCopied] = (0, import_react9.useState)(false);
+  const copyHash = () => {
+    if (navigator?.clipboard?.writeText) {
+      void navigator.clipboard.writeText(detail.sha);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header-top", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "button",
+        {
+          type: "button",
+          onClick: () => setExpanded(!expanded),
+          className: "dsh-review-toggle",
+          title: expanded ? "\u6536\u8D77\u8BE6\u60C5" : "\u5C55\u5F00\u8BE6\u60C5",
+          "aria-expanded": expanded,
+          children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `dsh-review-toggle-icon${expanded ? " dsh-review-toggle-open" : ""}`, children: icon("arrowRight", 11) })
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-review-label", children: t2("review.description") }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-review-subject", title: detail.subject, children: detail.subject }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-stats", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-add", children: [
+          "+",
+          detail.totals.added
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-del", children: [
+          "-",
+          detail.totals.deleted
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-count", children: [
+          "\xB7 ",
+          t2("review.filesCount", { count: String(detail.totals.fileCount) })
+        ] })
+      ] })
+    ] }),
+    expanded && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-info-grid", children: [
+      detail.body && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "div",
+        {
+          style: {
+            gridColumn: "1 / -1",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            padding: "4px 0 6px 0",
+            borderBottom: "1px solid var(--review-border)",
+            lineHeight: 1.5
+          },
+          children: detail.body
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+        t2("review.commit"),
+        ":"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.sha }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: copyHash,
+            className: "dsh-review-diff-btn",
+            style: { padding: "1px 6px" },
+            children: copied ? t2("graph.menu.copyHash.done") : t2("graph.menu.copyHash")
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+        t2("review.author"),
+        ":"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+        detail.authorName,
+        " ",
+        detail.authorEmail ? `<${detail.authorEmail}>` : ""
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+        t2("review.date"),
+        ":"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: detail.date }),
+      detail.parents.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+          t2("review.parents"),
+          ":"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.parents.map((p) => p.slice(0, 7)).join(", ") })
+      ] })
+    ] })
+  ] });
+});
+
+// src/client/review/review.css.ts
+var REVIEW_STYLE = `
+/* 1. \u5BBF\u4E3B\u8054\u52A8\uFF1A\u53EA\u8981\u5BA1\u67E5\u89C6\u56FE\u6302\u8F7D\uFF0C\u7ACB\u5373\u5F7B\u5E95\u9690\u85CF\u5E95\u90E8\u8F93\u5165\u6846\u4E0E\u684C\u5BA0\uFF0C\u6D88\u9664\u5E95\u90E8\u9884\u7559\u9AD8\u5EA6 */
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) {
+  --dsh-composer-height: 0px !important;
+}
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) > :is([data-composer-seat], [class*="composerSeat"]) {
+  display: none !important;
+}
+:is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) .dsh-composer-pet {
+  display: none !important;
+}
+
+/* 2. \u5BA1\u67E5\u4E3B\u89C6\u56FE\u5BB9\u5668\u4E0E\u8BBE\u8BA1\u4EE4\u724C */
+.dsh-review-root {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  color: var(--dsw-alias-label-primary, var(--fg, #1f2328));
+  background: var(--dsw-alias-bg-layer-1, var(--bg, #ffffff));
+  --review-border: var(--dsw-alias-border-secondary, var(--dsw-alias-border-l2, rgba(128,128,128,0.18)));
+  --review-hover: var(--dsw-alias-fill-hover, var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.06)));
+  --review-active: var(--dsw-alias-fill-active, var(--dsw-alias-interactive-bg-active, rgba(128,128,128,0.12)));
+  --review-muted: var(--dsw-alias-label-tertiary, var(--muted, #656d76));
+  --review-secondary: var(--dsw-alias-label-secondary, #57606a);
+  --review-add-color: var(--dsw-alias-state-success-primary, #1a7f37);
+  --review-del-color: var(--dsw-alias-state-error-primary, #cf222e);
+  --review-biz-color: var(--dsw-alias-state-business-primary, #9a6700);
+  --review-add-bg: color-mix(in srgb, var(--review-add-color) 14%, transparent);
+  --review-del-bg: color-mix(in srgb, var(--review-del-color) 14%, transparent);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-ds-dark-theme] .dsh-review-root {
+  --review-add-color: #3fb950;
+  --review-del-color: #f85149;
+  --review-biz-color: #e3b341;
+  --review-muted: #8b949e;
+  --review-secondary: #8b949e;
+}
+
+/* 3. \u9876\u90E8 CommitHeader */
+.dsh-review-header {
+  border-bottom: 1px solid var(--review-border);
+  flex-direction: column;
+  flex: none;
+  gap: 6px;
+  padding: 8px 12px;
+  display: flex;
+  background: var(--dsw-alias-bg-layer-1, var(--bg));
+}
+.dsh-review-header-top {
+  align-items: center;
+  gap: 8px;
+  display: flex;
+  min-width: 0;
+}
+.dsh-review-toggle {
+  width: 20px;
+  height: 20px;
+  color: var(--review-muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  flex: none;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  display: inline-flex;
+}
+.dsh-review-toggle:hover {
+  background: var(--review-hover);
+  color: var(--dsw-alias-label-primary, var(--fg));
+}
+.dsh-review-toggle-icon {
+  transition: transform .12s ease;
+  display: inline-flex;
+}
+.dsh-review-toggle-open {
+  transform: rotate(90deg);
+}
+.dsh-review-label {
+  color: var(--review-muted);
+  font-size: 12px;
+  flex: none;
+  font-weight: 500;
+}
+.dsh-review-subject {
+  color: var(--dsw-alias-label-primary, var(--fg));
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.dsh-review-stats {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  display: inline-flex;
+  font-family: inherit;
+}
+.dsh-review-stat-add {
+  color: var(--review-add-color);
+  font-weight: 600;
+}
+.dsh-review-stat-del {
+  color: var(--review-del-color);
+  font-weight: 600;
+}
+.dsh-review-stat-count {
+  color: var(--review-muted);
+}
+.dsh-review-info-grid {
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: var(--review-hover);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  font-size: 12px;
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  row-gap: 5px;
+  column-gap: 8px;
+  align-items: center;
+}
+
+/* 4. \u5DE6\u4FA7\u6587\u4EF6\u6811 CommitFileTree */
+.dsh-review-tree {
+  border-right: 1px solid var(--review-border);
+  flex-direction: column;
+  flex: none;
+  min-height: 0;
+  display: flex;
+  background: var(--dsw-alias-bg-layer-1, var(--bg));
+}
+.dsh-review-tree-search {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--review-border);
+}
+.dsh-review-tree-input {
+  width: 100%;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 8px 0 24px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--review-border);
+  background: var(--review-hover);
+  color: inherit;
+  outline: none;
+}
+.dsh-review-tree-input:focus {
+  border-color: var(--review-biz-color);
+}
+.dsh-review-tree-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+.dsh-review-dir-row {
+  width: 100%;
+  height: 26px;
+  box-sizing: border-box;
+  color: var(--dsw-alias-label-primary, var(--fg));
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  display: flex;
+  user-select: none;
+  text-align: left;
+}
+.dsh-review-dir-row:hover {
+  background: var(--review-hover);
+}
+.dsh-review-file-row {
+  width: 100%;
+  height: 26px;
+  box-sizing: border-box;
+  color: var(--dsw-alias-label-primary, var(--fg));
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  display: flex;
+  user-select: none;
+  transition: background .1s;
+  text-align: left;
+}
+.dsh-review-file-row:hover {
+  background: var(--review-hover);
+}
+.dsh-review-file-row.active {
+  background: var(--review-active);
+}
+.dsh-review-badge {
+  border-radius: 3px;
+  flex: none;
+  justify-content: center;
+  align-items: center;
+  width: 14px;
+  height: 14px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+}
+.dsh-review-badge-m { color: #fff; background: var(--review-biz-color); }
+.dsh-review-badge-a { color: #fff; background: var(--review-add-color); }
+.dsh-review-badge-d { color: #fff; background: var(--review-del-color); }
+.dsh-review-badge-r { color: #fff; background: #8250df; }
+
+/* 5. \u53F3\u4FA7 Diff \u9762\u677F CommitDiffPanel */
+.dsh-review-diff-pane {
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--dsw-alias-bg-layer-1, var(--bg));
+}
+.dsh-review-diff-header {
+  border-bottom: 1px solid var(--review-border);
+  flex-flow: wrap;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  display: flex;
+  font-size: 12px;
+}
+.dsh-review-diff-btn {
+  border: 1px solid var(--review-border);
+  color: var(--review-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  transition: all .12s;
+}
+.dsh-review-diff-btn:hover {
+  background: var(--review-hover);
+  color: var(--dsw-alias-label-primary, var(--fg));
+}
+.dsh-review-diff-btn.active {
+  background: var(--review-active);
+  color: var(--review-biz-color);
+  font-weight: 600;
+}
+.dsh-review-diff-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1.55;
+  background: var(--dsw-alias-bg-layer-1, var(--bg));
+}
+
+/* \u7ECF\u5178 4 \u680F\u53CC\u5217 Grid (Split) - \u4E25\u683C 50% / 50% \u5BF9\u7B49\u5206\u680F\uFF0C\u786E\u4FDD\u53F3\u4FA7\u65B0\u4EE3\u7801\u9ED8\u8BA4\u5B8C\u6574\u53EF\u89C1 */
+.dsh-review-table {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.dsh-review-row {
+  grid-template-columns: 44px minmax(0, 1fr) 44px minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: grid;
+  position: relative;
+}
+.dsh-review-cell-no {
+  color: var(--review-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+.dsh-review-cell-no:first-child {
+  border-right: 1px solid var(--review-border);
+}
+.dsh-review-cell-txt {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+.dsh-review-cell-txt:nth-child(4) {
+  border-left: 1px solid var(--review-border);
+}
+
+/* \u659C\u7EBF\u906E\u7F69 hatched */
+.dsh-review-hatched {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--review-border) 55%, transparent) 4px 5px);
+}
+
+/* \u65B0\u589E\u884C */
+.dsh-review-row-add > .dsh-review-cell-no:nth-child(3) {
+  color: var(--review-add-color);
+  background: var(--review-add-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-add-color);
+}
+.dsh-review-row-add > .dsh-review-cell-txt:nth-child(4) {
+  color: color-mix(in srgb, var(--review-add-color) 82%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-add-bg);
+}
+
+/* \u5220\u9664\u884C */
+.dsh-review-row-del > .dsh-review-cell-no:first-child {
+  color: var(--review-del-color);
+  background: var(--review-del-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-del-color);
+}
+.dsh-review-row-del > .dsh-review-cell-txt:nth-child(2) {
+  color: color-mix(in srgb, var(--review-del-color) 88%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-del-bg);
+}
+
+/* \u4FEE\u6539\u884C Pair */
+.dsh-review-row-pair > .dsh-review-cell-no:first-child {
+  color: var(--review-del-color);
+  background: var(--review-del-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-del-color);
+}
+.dsh-review-row-pair > .dsh-review-cell-txt:nth-child(2) {
+  color: color-mix(in srgb, var(--review-del-color) 88%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-del-bg);
+}
+.dsh-review-row-pair > .dsh-review-cell-no:nth-child(3) {
+  color: var(--review-add-color);
+  background: var(--review-add-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-add-color);
+}
+.dsh-review-row-pair > .dsh-review-cell-txt:nth-child(4) {
+  color: color-mix(in srgb, var(--review-add-color) 82%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-add-bg);
+}
+
+/* \u5355\u5217\u6A21\u5F0F Grid (Unified) */
+.dsh-review-row-u {
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-width: 0;
+  display: grid;
+  position: relative;
+}
+.dsh-review-cell-no-u {
+  color: var(--review-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid var(--review-border);
+  padding: 0 6px;
+}
+.dsh-review-row-u-add > .dsh-review-cell-no-u {
+  color: var(--review-add-color);
+  background: var(--review-add-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-add-color);
+}
+.dsh-review-row-u-add > .dsh-review-cell-txt {
+  color: color-mix(in srgb, var(--review-add-color) 82%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-add-bg);
+}
+.dsh-review-row-u-del > .dsh-review-cell-no-u {
+  color: var(--review-del-color);
+  background: var(--review-del-bg);
+  box-shadow: inset -3px 0 0 0 var(--review-del-color);
+}
+.dsh-review-row-u-del > .dsh-review-cell-txt {
+  color: color-mix(in srgb, var(--review-del-color) 88%, var(--dsw-alias-label-primary, var(--fg)));
+  background: var(--review-del-bg);
+}
+
+/* \u6298\u53E0\u6761 gapBar */
+.dsh-review-gap-bar {
+  width: 100%;
+  color: var(--review-muted);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-style: italic;
+  display: block;
+}
+.dsh-review-gap-bar:hover {
+  background: var(--review-hover);
+  color: var(--review-secondary);
+}
+`;
+var styleInjected2 = false;
+function ensureReviewStyle() {
+  if (styleInjected2 || typeof document === "undefined") return;
+  styleInjected2 = true;
+  const tag = document.createElement("style");
+  tag.dataset.plugin = "dsh-git-panel-review";
+  tag.textContent = REVIEW_STYLE;
+  document.head.appendChild(tag);
+}
+
+// src/client/review/ReviewView.tsx
+var import_jsx_runtime5 = require("react/jsx-runtime");
+var STORAGE_TREE_WIDTH_KEY = "dsh-git-panel.review.treeWidth";
+var DEFAULT_TREE_WIDTH = 220;
+var MIN_TREE_WIDTH = 160;
+var MAX_TREE_WIDTH = 420;
+var ReviewView = (0, import_react10.memo)(function ReviewView2(props) {
+  ensureReviewStyle();
+  const t2 = useT();
+  const target = useReviewTarget(props.sessionId);
+  const [api] = (0, import_react10.useState)(() => props.api ?? new GitPanelApi());
+  const effectiveCwd = props.cwd || target?.cwd || "";
+  const effectiveSha = target?.sha || "";
+  const [detail, setDetail] = (0, import_react10.useState)(null);
+  const [loading, setLoading] = (0, import_react10.useState)(false);
+  const [error, setError] = (0, import_react10.useState)(null);
+  const [selectedFile, setSelectedFile] = (0, import_react10.useState)(null);
+  const [treeWidth, setTreeWidth] = (0, import_react10.useState)(() => {
+    try {
+      const stored = Number(localStorage.getItem(STORAGE_TREE_WIDTH_KEY));
+      if (Number.isFinite(stored) && stored >= MIN_TREE_WIDTH && stored <= MAX_TREE_WIDTH) {
+        return stored;
+      }
+    } catch {
+    }
+    return DEFAULT_TREE_WIDTH;
+  });
+  const isDraggingRef = (0, import_react10.useRef)(false);
+  const dragStartRef = (0, import_react10.useRef)(null);
+  const handleMouseDown = (0, import_react10.useCallback)((e) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartRef.current = { startX: e.clientX, startW: treeWidth };
+    const onMouseMove = (moveEvent) => {
+      if (!isDraggingRef.current || !dragStartRef.current) return;
+      const delta = moveEvent.clientX - dragStartRef.current.startX;
+      const newWidth = Math.min(MAX_TREE_WIDTH, Math.max(MIN_TREE_WIDTH, dragStartRef.current.startW + delta));
+      setTreeWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+      dragStartRef.current = null;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      try {
+        localStorage.setItem(STORAGE_TREE_WIDTH_KEY, String(treeWidth));
+      } catch {
+      }
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [treeWidth]);
+  (0, import_react10.useEffect)(() => {
+    if (!props.sessionId || !effectiveCwd || !effectiveSha) {
+      setDetail(null);
+      setSelectedFile(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api.commitDetail(effectiveCwd, effectiveSha).then((res) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (res.ok) {
+        setDetail(res.value);
+        if (res.value.files.length > 0) {
+          setSelectedFile(res.value.files[0]);
+        } else {
+          setSelectedFile(null);
+        }
+      } else {
+        setError(res.error.message || "\u83B7\u53D6\u63D0\u4EA4\u8BE6\u60C5\u5931\u8D25");
+      }
+    }).catch((err) => {
+      if (cancelled) return;
+      setLoading(false);
+      setError(String(err));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, props.sessionId, effectiveCwd, effectiveSha]);
+  if (!effectiveSha) {
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "dsh-review-root",
+        "data-conversation-composer-overlay": "",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          padding: 32,
+          textAlign: "center"
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--review-biz-color, #e3b341)", opacity: 0.85 }, children: icon("branch", 36) }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--dsw-alias-label-primary, inherit)" }, children: t2("review.title") }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5, maxWidth: 360, lineHeight: 1.5, color: "var(--review-muted)" }, children: t2("review.noCommit") })
+        ]
+      }
+    );
+  }
+  if (loading) {
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "dsh-review-root",
+        "data-conversation-composer-overlay": "",
+        style: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          fontSize: 13,
+          color: "var(--review-muted)"
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-gp-spinner lg" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: t2("review.loading") })
+        ]
+      }
+    );
+  }
+  if (error || !detail) {
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "dsh-review-root",
+        "data-conversation-composer-overlay": "",
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: 24,
+          color: "var(--review-del-color)"
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.opFailed") }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5 }, children: error })
+        ]
+      }
+    );
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+    "div",
+    {
+      className: "dsh-review-root",
+      "data-conversation-composer-overlay": "",
+      children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CommitHeader, { detail }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "div",
+            {
+              className: "dsh-review-tree",
+              style: { width: treeWidth },
+              children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                CommitFileTree,
+                {
+                  files: detail.files,
+                  selectedPath: selectedFile?.path ?? null,
+                  onSelectFile: setSelectedFile
+                }
+              )
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "div",
+            {
+              onMouseDown: handleMouseDown,
+              style: {
+                width: 4,
+                cursor: "col-resize",
+                background: "transparent",
+                position: "relative",
+                zIndex: 10,
+                marginLeft: -2,
+                marginRight: -2
+              },
+              title: "\u62D6\u62FD\u8C03\u8282\u5BBD\u5EA6"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            CommitDiffPanel,
+            {
+              api,
+              cwd: effectiveCwd,
+              sha: detail.sha,
+              file: selectedFile
+            }
+          ) })
+        ] })
+      ]
+    }
+  );
+});
+
 // src/client/index.ts
-var inject = ["sessions", "locale"];
+var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {
   const size = props.size ?? 26;
-  return (0, import_react6.createElement)(
+  return (0, import_react11.createElement)(
     "svg",
     {
       width: size,
@@ -4570,10 +5996,10 @@ function GitGuideIcon(props) {
       strokeLinejoin: "round",
       "aria-hidden": "true"
     },
-    (0, import_react6.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
-    (0, import_react6.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
-    (0, import_react6.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
-    (0, import_react6.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
+    (0, import_react11.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
+    (0, import_react11.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
+    (0, import_react11.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
+    (0, import_react11.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
   );
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
@@ -4662,18 +6088,18 @@ function apply(ctx) {
           () => scope.slots.register({
             name: "sidebar.right.pane.tab.title",
             key: TAB_ID
-          }, () => (0, import_react6.createElement)(
+          }, () => (0, import_react11.createElement)(
             "span",
             { style: { display: "flex", alignItems: "center", gap: 5 } },
-            (0, import_react6.createElement)(
+            (0, import_react11.createElement)(
               "svg",
               { viewBox: "0 0 16 16", width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
-              (0, import_react6.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
-              (0, import_react6.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
-              (0, import_react6.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
-              (0, import_react6.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
+              (0, import_react11.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
+              (0, import_react11.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
+              (0, import_react11.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
+              (0, import_react11.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
             ),
-            (0, import_react6.createElement)("span", null, "Git")
+            (0, import_react11.createElement)("span", null, "Git")
           ))
         );
         console.log("dsh-git-panel: registered into native sidebarRightTabs");
@@ -4713,6 +6139,27 @@ function apply(ctx) {
       console.log("dsh-git-panel: registered git-diff tab type");
     } catch (error) {
       console.warn("dsh-git-panel: git-diff register error", error);
+    }
+  });
+  ctx.inject(["slots", "sessions"], (scope) => {
+    try {
+      scope.slots.inject(
+        "conversation.view",
+        () => scope.slots.register({
+          name: "conversation.view",
+          id: "git-review",
+          order: 20,
+          label: () => t("tab.review"),
+          inject: (sessionId) => ({
+            sessionId,
+            cwd: cwdOf(sessionId),
+            api
+          })
+        }, ReviewView)
+      );
+      console.log("dsh-git-panel: registered conversation.view git-review tab");
+    } catch (error) {
+      console.warn("dsh-git-panel: conversation.view register error", error);
     }
   });
 }

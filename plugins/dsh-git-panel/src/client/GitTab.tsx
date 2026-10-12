@@ -66,6 +66,7 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
   const { sessions, statusCache } = props
   const [api] = useState<GitPanelApi>(() => props.api ?? new GitPanelApi())
   const [path, setPath] = useState<string>(() => props.path ?? readPath(sessions))
+  const [sessionId, setSessionId] = useState<string>(() => sessions?.list.getSnapshot().current ?? '')
   const info = props.useTabInfo?.()
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
     const update = (): void => {
       const snapshot = sessions.list.getSnapshot()
       const current = snapshot.current
+      setSessionId(current ?? '')
       const currentSession = current !== undefined ? snapshot.byId[current] : undefined
       const newPath = typeof currentSession?.cwd === 'string' ? currentSession.cwd : ''
       setPath(newPath)
@@ -108,5 +110,5 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
     if (statusCache !== undefined && path !== '') void statusCache.ensure(path, true)
   }, [statusCache, path])
 
-  return createElement(GitPanel, { path, api, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache })
+  return createElement(GitPanel, { path, api, sessionId, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache })
 }

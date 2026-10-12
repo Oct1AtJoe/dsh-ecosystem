@@ -21,6 +21,7 @@ import { GitDiffView } from './GitDiffView.tsx'
 import { GitStatusCache } from './git-status.ts'
 import { installFileTreeDecorations } from './decorations.ts'
 import { basenameOf, parseFileAddress } from './refs.ts'
+import { ReviewView } from './review/ReviewView.tsx'
 
 /**
  * 我们使用到的注入式客户端运行时结构。这里在本地声明，而不是导入 SDK 的
@@ -54,7 +55,7 @@ interface PanelClientContext {
   }
 }
 
-export const inject = ['sessions', 'locale']
+export const inject = ['sessions', 'locale', 'slots']
 
 const TAB_ID = '@deepseek-ai/dsh-git-panel'
 
@@ -265,6 +266,28 @@ export function apply(ctx: PanelClientContext): void {
       console.log('dsh-git-panel: registered git-diff tab type')
     } catch (error) {
       console.warn('dsh-git-panel: git-diff register error', error)
+    }
+  })
+
+  // 4. 中间主区域对话旁边的「审查」Tab：通过 conversation.view 插槽注册。
+  ctx.inject(['slots', 'sessions'], (scope: any) => {
+    try {
+      scope.slots.inject('conversation.view', () =>
+        scope.slots.register({
+          name: 'conversation.view',
+          id: 'git-review',
+          order: 20,
+          label: () => t('tab.review'),
+          inject: (sessionId: string) => ({
+            sessionId,
+            cwd: cwdOf(sessionId),
+            api,
+          }),
+        }, ReviewView)
+      )
+      console.log('dsh-git-panel: registered conversation.view git-review tab')
+    } catch (error) {
+      console.warn('dsh-git-panel: conversation.view register error', error)
     }
   })
 }

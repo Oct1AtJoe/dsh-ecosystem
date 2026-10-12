@@ -95,3 +95,40 @@ export interface WorkspaceFileRead {
   missing?: boolean
   error?: GitError
 }
+
+/** 提交改动文件条目。 */
+export interface CommitFileItem {
+  path: string
+  status: string
+  oldPath?: string
+  added: number
+  deleted: number
+}
+
+/** 提交详情载荷。 */
+export interface CommitDetail {
+  sha: string
+  subject: string
+  body: string
+  authorName: string
+  authorEmail: string
+  date: string
+  parents: string[]
+  files: CommitFileItem[]
+  totals: {
+    added: number
+    deleted: number
+    fileCount: number
+  }
+}
+
+/** 提交中单文件的 diff 及新旧内容。 */
+export interface CommitFileDiffResult {
+  path: string
+  oldPath?: string
+  diff: string
+  oldContent: string
+  newContent: string
+  binary?: boolean
+}
+

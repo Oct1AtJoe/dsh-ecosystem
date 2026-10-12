@@ -293,6 +293,24 @@ function route(service: GitService, ctx: Context) {
           json(res, value.ok ? { ok: true, value } : { ok: false, error: value.error ?? BAD_REQUEST })
           return
         }
+        case '/git-panel/commit-detail': {
+          const sha = field(payload, 'sha')
+          if (sha === null) { json(res, { ok: false, error: BAD_REQUEST }, 400); return }
+          const value = await service.commitDetail(root, sha)
+          json(res, { ok: true, value })
+          return
+        }
+        case '/git-panel/commit-file-diff': {
+          const sha = field(payload, 'sha')
+          const file = field(payload, 'file')
+          const oldPath = typeof (payload as Record<string, unknown>).oldPath === 'string'
+            ? ((payload as Record<string, unknown>).oldPath as string)
+            : undefined
+          if (sha === null || file === null) { json(res, { ok: false, error: BAD_REQUEST }, 400); return }
+          const value = await service.commitFileDiff(root, sha, file, oldPath)
+          json(res, { ok: true, value })
+          return
+        }
         default:
           json(res, { ok: false, error: { code: 'internal', message: `unknown route ${path}` } }, 404)
       }

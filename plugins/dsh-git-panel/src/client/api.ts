@@ -1,5 +1,5 @@
 /** /git-panel 路由的类型化传输层。 */
-import type { BranchesView, FileStatusView, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
+import type { BranchesView, CommitDetail, CommitFileDiffResult, FileStatusView, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
 
 export interface GitError {
   code: string
@@ -160,5 +160,13 @@ export class GitPanelApi {
 
   stashPop(path: string) {
     return post<OpResult>('/git-panel/stash-pop', { path })
+  }
+
+  commitDetail(path: string, sha: string) {
+    return post<CommitDetail>('/git-panel/commit-detail', { path, sha })
+  }
+
+  commitFileDiff(path: string, sha: string, file: string, oldPath?: string) {
+    return post<CommitFileDiffResult>('/git-panel/commit-file-diff', { path, sha, file, oldPath })
   }
 }

@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import type { BranchesView, BranchRow, FileNumstat, FileStatusView, GitError, GraphCommit, GraphTips, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
+import type { BranchesView, BranchRow, CommitDetail, CommitFileDiffResult, CommitFileItem, FileNumstat, FileStatusView, GitError, GraphCommit, GraphTips, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
 
 /** 一次已完成的 git 调用。 */
 export interface GitRunResult {
@@ -902,5 +902,129 @@ export class GitService {
     }
 
     return { repo, current, commits, tips }
+  }
+
+  /** 获取提交详情与变动文件统计。 */
+  async commitDetail(path: string, sha: string): Promise<CommitDetail> {
+    const canonical = await this.requireWorkspace(path)
+    const commitSha = sha.trim()
+    if (!/^[0-9a-fA-F]{4,40}$/.test(commitSha)) {
+      throw Object.assign(new Error('invalid commit sha'), { gitError: { code: 'invalid-sha', message: '非法提交哈希' } })
+    }
+
+    const logRun = await this.runner.run(
+      ['log', '-1', '--format=%H%x1f%s%x1f%b%x1f%an%x1f%ae%x1f%aI%x1f%P', commitSha],
+      canonical,
+    )
+    if (logRun.exitCode !== 0 || !logRun.stdout.trim()) {
+      throw Object.assign(new Error('commit not found'), { gitError: { code: 'not-found', message: '未找到指定提交' } })
+    }
+
+    const [fullSha, subject, body, authorName, authorEmail, date, parentsRaw] = logRun.stdout.trim().split('\x1f')
+    const parents = (parentsRaw ?? '').split(' ').filter(Boolean)
+    const parentRef = parents.length > 0 ? parents[0] : '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+    const [nameRun, numRun] = await Promise.all([
+      this.runner.run(
+        ['-c', 'core.quotepath=false', 'diff', '--name-status', '-M', parentRef, fullSha],
+        canonical,
+      ),
+      this.runner.run(
+        ['-c', 'core.quotepath=false', 'diff', '--numstat', '-M', parentRef, fullSha],
+        canonical,
+      ),
+    ])
+
+    const numstatMap = parseNumstat(numRun.stdout)
+
+    const files: CommitFileItem[] = []
+    let totalAdded = 0
+    let totalDeleted = 0
+
+    for (const line of nameRun.stdout.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const parts = trimmed.split('\t')
+      if (parts.length < 2) continue
+      const statusRaw = parts[0] ?? 'M'
+      const status = statusRaw.slice(0, 1)
+      let oldPath: string | undefined
+      let filePath: string
+      if (parts.length >= 3) {
+        oldPath = parts[1]
+        filePath = parts[2]
+      } else {
+        filePath = parts[1]
+      }
+
+      const num = numstatMap[filePath]
+      const added = num?.insertions ?? 0
+      const deleted = num?.deletions ?? 0
+
+      totalAdded += added
+      totalDeleted += deleted
+
+      files.push({
+        path: filePath,
+        status,
+        oldPath,
+        added,
+        deleted,
+      })
+    }
+
+    return {
+      sha: fullSha,
+      subject: subject ?? '',
+      body: body ?? '',
+      authorName: authorName ?? '',
+      authorEmail: authorEmail ?? '',
+      date: date ?? '',
+      parents,
+      files,
+      totals: {
+        added: totalAdded,
+        deleted: totalDeleted,
+        fileCount: files.length,
+      },
+    }
+  }
+
+  /** 获取提交中单个文件的 diff 文本及新旧完整内容。 */
+  async commitFileDiff(path: string, sha: string, file: string, oldPath?: string): Promise<CommitFileDiffResult> {
+    const canonical = await this.requireWorkspace(path)
+    const commitSha = sha.trim()
+    const filePath = file.trim()
+    if (!/^[0-9a-fA-F]{4,40}$/.test(commitSha) || !filePath) {
+      throw Object.assign(new Error('invalid params'), { gitError: { code: 'invalid-params', message: '参数非法' } })
+    }
+
+    const parentRun = await this.runner.run(['rev-list', '--parents', '-n', '1', commitSha], canonical)
+    const parts = parentRun.stdout.trim().split(' ')
+    const parentRef = parts.length > 1 ? parts[1] : '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+    const diffRun = await this.runner.run(
+      ['-c', 'core.quotepath=false', 'diff', '-M', parentRef, commitSha, '--', filePath],
+      canonical,
+    )
+
+    const oldTarget = oldPath?.trim() || filePath
+    const [oldContentRun, newContentRun] = await Promise.all([
+      this.runner.run(['show', `${parentRef}:${oldTarget}`], canonical),
+      this.runner.run(['show', `${commitSha}:${filePath}`], canonical),
+    ])
+
+    const oldText = oldContentRun.exitCode === 0 ? oldContentRun.stdout : ''
+    const newText = newContentRun.exitCode === 0 ? newContentRun.stdout : ''
+    const binary = oldText.includes('\0') || newText.includes('\0') || diffRun.stdout.includes('Binary files')
+
+    return {
+      path: filePath,
+      oldPath: oldPath?.trim(),
+      diff: diffRun.stdout,
+      oldContent: binary ? '' : oldText,
+      newContent: binary ? '' : newText,
+      binary,
+    }
   }
 }

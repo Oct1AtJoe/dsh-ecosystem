@@ -15,6 +15,7 @@ import { layoutGraph, type LayoutCommit } from './graph.ts'
 import { tError, useT } from './i18n.ts'
 import { icon, type IconName } from './icons.tsx'
 import { hideTip, showTip } from './tooltip.ts'
+import { reviewStore } from './review/review-store.ts'
 
 const STYLE = `
 .dsh-gp { --bg:#ffffff; --fg:#24292f; --muted:#6e7781; --border:rgba(128,128,128,0.25);
@@ -275,6 +276,21 @@ const STYLE = `
   padding:2px 6px; font-size:11px; color:var(--muted); background:transparent;
   border:1px solid var(--border); border-radius:4px; cursor:pointer; }
 .dsh-gp-filter-clear:hover { color:var(--fg); background:var(--hover); }
+.dsh-gp-graph-toolbar { display:flex; align-items:center; gap:6px; padding:6px 0 4px; width:100%; box-sizing:border-box; }
+.dsh-gp-graph-search-wrap { position:relative; flex:1; min-width:0; display:flex; align-items:center; }
+.dsh-gp-graph-search-icon { position:absolute; left:7px; color:var(--muted); pointer-events:none; display:flex; align-items:center; }
+.dsh-gp-graph-search-input { width:100%; height:26px; box-sizing:border-box; padding:0 22px 0 24px;
+  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--border);
+  border-radius:6px; outline:none; transition:border-color .15s ease; }
+.dsh-gp-graph-search-input:focus { border-color:var(--accent); }
+.dsh-gp-graph-search-clear { position:absolute; right:4px; border:none; background:transparent;
+  cursor:pointer; color:var(--muted); padding:2px; display:flex; align-items:center; }
+.dsh-gp-graph-search-clear:hover { color:var(--fg); }
+.dsh-gp-graph-branch-select-wrap { flex:none; max-width:45%; }
+.dsh-gp-graph-branch-select { height:26px; box-sizing:border-box; padding:0 6px; font-size:11.5px;
+  color:var(--fg); background:var(--panel-bg); border:1px solid var(--border); border-radius:6px;
+  outline:none; cursor:pointer; max-width:130px; text-overflow:ellipsis; white-space:nowrap; }
+.dsh-gp-graph-branch-select:focus { border-color:var(--accent); }
 `
 
 let styleInjected = false
@@ -903,13 +919,16 @@ export function filterCommitsByBranch(
 const GraphViewComponent = memo(function GraphViewComponent(props: {
   graph: GraphView
   width: number
+  branches?: BranchesView | null
+  path?: string
+  sessionId?: string
   filterBranch?: string | null
   onClearFilter?: () => void
   onCherryPick?: (sha: string) => void
   onRevert?: (sha: string) => void
   onCopyHash?: (sha: string) => void
 }): React.ReactElement {
-  const { graph, width, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props
+  const { graph, width, branches, path, sessionId, filterBranch, onClearFilter, onCherryPick, onRevert, onCopyHash } = props
   const t = useT()
   const [selected, setSelected] = useState<LayoutCommit | null>(null)
   const [contextMenu, setContextMenu] = useState<{
@@ -917,6 +936,13 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
     y: number
     commit: LayoutCommit
   } | null>(null)
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState<string>(filterBranch ?? '')
+
+  useEffect(() => {
+    setSelectedBranch(filterBranch ?? '')
+  }, [filterBranch])
 
   const handleContextMenu = useCallback((event: React.MouseEvent, commit: LayoutCommit) => {
     event.preventDefault()
@@ -934,12 +960,37 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
   }, [])
 
   const displayCommits = useMemo(() => {
-    if (!filterBranch) return graph.commits
-    return filterCommitsByBranch(graph.commits, graph.tips, filterBranch)
-  }, [graph.commits, graph.tips, filterBranch])
+    let list = graph.commits
+    const branchToFilter = selectedBranch || filterBranch
+    if (branchToFilter) {
+      list = filterCommitsByBranch(list, graph.tips, branchToFilter)
+    }
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter((c) => {
+        const sub = c.subject.toLowerCase()
+        const sha = c.sha.toLowerCase()
+        const author = c.author.toLowerCase()
+        return sub.includes(q) || sha.includes(q) || author.includes(q)
+      })
+    }
+    return list
+  }, [graph.commits, graph.tips, selectedBranch, filterBranch, searchQuery])
 
   const layout = useMemo(() => layoutGraph(displayCommits), [displayCommits])
-  const onSelect = useCallback((commit: LayoutCommit) => setSelected(commit), [])
+  const onSelect = useCallback((commit: LayoutCommit) => {
+    setSelected(commit)
+    if (path && sessionId) {
+      reviewStore.selectCommitAndActivate({
+        sessionId,
+        cwd: path,
+        sha: commit.sha,
+        subject: commit.subject,
+        author: commit.author,
+        date: commit.date,
+      })
+    }
+  }, [path, sessionId])
 
   // 1. 泳道几何与线图列宽：由实际 DAG 泳道数紧凑决定，且保证表头“线图”居中展示宽度
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1))
@@ -969,6 +1020,60 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
 
   return (
     <div style={{ padding: '0 8px', position: 'relative', width: '100%', boxSizing: 'border-box' }}>
+      {/* 列表上方新增搜索框与分支筛选下拉框 */}
+      <div className="dsh-gp-graph-toolbar">
+        <div className="dsh-gp-graph-search-wrap">
+          <span className="dsh-gp-graph-search-icon">{icon('search', 12)}</span>
+          <input
+            type="text"
+            className="dsh-gp-graph-search-input"
+            placeholder={t('graph.search.placeholder')}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              className="dsh-gp-graph-search-clear"
+              title={t('menu.cancel')}
+              onClick={() => setSearchQuery('')}
+            >
+              {icon('close', 10)}
+            </button>
+          ) : null}
+        </div>
+        <div className="dsh-gp-graph-branch-select-wrap">
+          <select
+            className="dsh-gp-graph-branch-select"
+            value={selectedBranch}
+            onChange={(e) => {
+              const val = e.target.value
+              setSelectedBranch(val)
+              if (!val && onClearFilter) onClearFilter()
+            }}
+          >
+            <option value="">{t('graph.filter.allBranches')}</option>
+            {branches?.local && branches.local.length > 0 && (
+              <optgroup label={t('graph.filter.localBranches')}>
+                {branches.local.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}{b.current ? ` (${t('badge.current')})` : ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {branches?.remote && branches.remote.length > 0 && (
+              <optgroup label={t('graph.filter.remoteBranches')}>
+                {branches.remote.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </div>
+      </div>
       {filterBranch ? (
         <div className="dsh-gp-filter-bar">
           <span className="dsh-gp-filter-ico">{icon('branch', 12)}</span>
@@ -1083,6 +1188,7 @@ const GraphViewComponent = memo(function GraphViewComponent(props: {
 export function GitPanel(props: {
   path: string
   api: GitPanelApi
+  sessionId?: string
   /** 在右侧栏以完整 Git 对比视图打开一个变更文件；返回是否成功。 */
   onOpenDiff?: (file: string) => boolean
   /** 写操作后刷新变更缓存（文件树装饰共用）。 */
@@ -1090,7 +1196,7 @@ export function GitPanel(props: {
   /** 外部共享的变更缓存，用于事件驱动自动刷新。 */
   statusCache?: GitStatusCache
 }): React.ReactElement {
-  const { path, api, onOpenDiff, onRefreshStatus, statusCache } = props
+  const { path, api, sessionId, onOpenDiff, onRefreshStatus, statusCache } = props
   const t = useT()
   const [tab, setTab] = useState<'branches' | 'graph'>('branches')
   const [branches, setBranches] = useState<BranchesView | null>(null)
@@ -2162,6 +2268,9 @@ export function GitPanel(props: {
           <GraphViewComponent
             graph={graph}
             width={width}
+            branches={branches}
+            path={path}
+            sessionId={sessionId}
             filterBranch={filterBranch}
             onClearFilter={() => setFilterBranch(null)}
             onCherryPick={(sha) => void runOp(t('op.cherryPick'), () => api.cherryPick(path, sha))}

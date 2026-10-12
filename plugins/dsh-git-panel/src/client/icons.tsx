@@ -32,6 +32,8 @@ export type IconName =
   | 'undo'
   | 'arrowUp'
   | 'arrowDown'
+  | 'arrowRight'
+  | 'search'
   | 'sync'
   | 'fetch'
   | 'trash'
@@ -91,6 +93,11 @@ const SHAPES: Record<IconName, Array<Record<string, unknown>>> = {
   ],
   arrowUp: [{ d: 'M8 12.8V3.2M4.6 6.6L8 3.2l3.4 3.4' }],
   arrowDown: [{ d: 'M8 3.2v9.6M4.6 9.4L8 12.8l3.4-3.4' }],
+  arrowRight: [{ d: 'M3.2 8h9.6M9.4 4.6L12.8 8l-3.4 3.4' }],
+  search: [
+    { circle: { cx: 7, cy: 7, r: 4.2 } },
+    { d: 'M10.2 10.2l3.4 3.4' },
+  ],
   sync: [
     { d: 'M3.4 6.6a4.6 4.6 0 0 1 7.6-2.2M12.6 9.4a4.6 4.6 0 0 1-7.6 2.2' },
     { d: 'M11 2.4v2.2H8.8M5 13.6v-2.2h2.2' },
