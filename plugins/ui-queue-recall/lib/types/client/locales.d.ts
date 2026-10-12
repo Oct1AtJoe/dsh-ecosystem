@@ -1,7 +1,9 @@
 export declare const NS: "queueRecall";
 export declare const zh: {
     readonly 'queue.count': "{n} 条排队消息";
+    readonly 'queue.sending': "发送中…";
     readonly 'queue.image': "排队消息图片";
+    readonly 'queue.file': "排队文件 {name}";
     readonly 'queue.recall': "撤回至输入框";
     readonly 'queue.recall.unsupported': "包含非文本内容，暂不支持撤回";
     readonly 'queue.recallFailed': "撤回排队消息失败";
@@ -13,7 +15,9 @@ export declare const zh: {
 };
 export declare const en: {
     readonly 'queue.count': "{n} queued messages";
+    readonly 'queue.sending': "Sending…";
     readonly 'queue.image': "Queued message image";
+    readonly 'queue.file': "Queued file {name}";
     readonly 'queue.recall': "Recall to draft";
     readonly 'queue.recall.unsupported': "Contains non-text content; recall is not supported yet";
     readonly 'queue.recallFailed': "Failed to recall queued message";

@@ -19,6 +19,58 @@ function inside(root, absolute) {
   if (absolute === root) return true;
   return absolute.startsWith(root.endsWith(sep) ? root : `${root}${sep}`);
 }
+function resolveNumstatRename(path) {
+  if (path.includes("{") && path.includes("}")) {
+    return path.replace(/\{[^{}]*=>\s*([^{}]*)\}/g, "$1").replace(/\/\//g, "/").trim();
+  }
+  const parts = path.split("=>");
+  if (parts.length === 2) {
+    return parts[1].trim();
+  }
+  return path;
+}
+function parseNumstat(output) {
+  const result = /* @__PURE__ */ Object.create(null);
+  for (const line of output.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = line.split("	");
+    if (parts.length < 3) continue;
+    const insStr = parts[0].trim();
+    const delStr = parts[1].trim();
+    const rawPath = parts.slice(2).join("	").trim();
+    if (!rawPath) continue;
+    const insertions = insStr === "-" ? 0 : parseInt(insStr, 10) || 0;
+    const deletions = delStr === "-" ? 0 : parseInt(delStr, 10) || 0;
+    const stat2 = { insertions, deletions };
+    result[rawPath] = stat2;
+    if (rawPath.includes("=>")) {
+      const newPath = resolveNumstatRename(rawPath);
+      if (newPath && newPath !== rawPath) {
+        result[newPath] = stat2;
+      }
+      const porcelainArrow = rawPath.replace("=>", "->");
+      result[porcelainArrow] = stat2;
+    }
+  }
+  return result;
+}
+async function countFileLines(fullPath) {
+  try {
+    const s = await stat(fullPath);
+    if (!s.isFile() || s.size > 2 * 1024 * 1024) return void 0;
+    const buf = await readBytes(fullPath);
+    if (buf.includes(0)) return void 0;
+    let lines = 0;
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] === 10) lines++;
+    }
+    if (buf.length > 0 && buf[buf.length - 1] !== 10) lines++;
+    return lines;
+  } catch {
+    return void 0;
+  }
+}
 function subprocessRunner(_ctx) {
   let current = null;
   return {
@@ -288,15 +340,39 @@ var GitService = class {
     }
     return { ok: true, output: run.stdout.trim() };
   }
-  /** 工作区状态摘要：变更文件列表（git status --porcelain）并自动读取 MERGE_MSG。 */
+  /** 工作区状态摘要：变更文件列表（git status --porcelain）、增减行统计，并自动读取 MERGE_MSG。 */
   async status(path) {
     const canonical = await this.requireWorkspace(path);
-    const run = await this.runner.run(["status", "--porcelain", "--untracked-files=all"], canonical);
+    const [run, diffRun, cachedDiffRun] = await Promise.all([
+      this.runner.run(["status", "--porcelain", "--untracked-files=all"], canonical),
+      this.runner.run(["-c", "core.quotepath=false", "diff", "--numstat"], canonical),
+      this.runner.run(["-c", "core.quotepath=false", "diff", "--cached", "--numstat"], canonical)
+    ]);
     if (run.exitCode !== 0) {
       return { ok: false, output: "", error: { code: "status-failed", message: run.stderr.trim() || "git status failed" } };
     }
     const lines = run.stdout.split("\n").filter((l) => l.trim() !== "");
     const output = lines.join("\n");
+    const unstagedStats = diffRun.exitCode === 0 ? parseNumstat(diffRun.stdout) : {};
+    const stagedStats = cachedDiffRun.exitCode === 0 ? parseNumstat(cachedDiffRun.stdout) : {};
+    const untrackedFiles = [];
+    for (const line of lines) {
+      if (line.startsWith("?? ")) {
+        const file = line.slice(3).trim();
+        if (file && safeRelative(file)) untrackedFiles.push(file);
+      }
+    }
+    if (untrackedFiles.length > 0) {
+      const batch = untrackedFiles.slice(0, 50);
+      await Promise.all(batch.map(async (file) => {
+        const full = resolvePath(canonical, file);
+        if (!inside(canonical, full)) return;
+        const linesCount = await countFileLines(full);
+        if (typeof linesCount === "number") {
+          unstagedStats[file] = { insertions: linesCount, deletions: 0 };
+        }
+      }));
+    }
     let mergeMsg = "";
     try {
       const revTop = await this.runner.run(["rev-parse", "--git-dir"], canonical);
@@ -308,7 +384,7 @@ var GitService = class {
       }
     } catch {
     }
-    return { ok: true, output, mergeMsg };
+    return { ok: true, output, mergeMsg, stagedStats, unstagedStats };
   }
   /** 单个文件暂存（git add -- <file>）。 */
   async stageFile(path, file) {

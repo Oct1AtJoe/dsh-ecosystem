@@ -8,6 +8,12 @@ export interface ImageAttachmentRef {
     readonly height?: number;
     readonly name?: string;
 }
+export interface FileAttachmentRef {
+    readonly attachmentId: string;
+    readonly name: string;
+    readonly bytes?: number;
+    readonly mediaType?: string;
+}
 export type QueueItemId = Parameters<SessionFace['updateQueue']>[0];
 export type QueueAction = Parameters<SessionFace['updateQueue']>[1];
 export type QueueRow = SessionSnapshot['queue'][number];

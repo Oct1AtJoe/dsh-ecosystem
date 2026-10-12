@@ -134,7 +134,7 @@ export function apply(ctx: ClientContext): void {
       return {
         updateQueue: (itemId, action) => conversation.updateQueue(itemId, action),
         notify: (level, text) => { conversation.input.for(actx).notify(level, text) },
-        loadImage: attachment => ctx.uiConversation.imageUrl(sessionId, attachment),
+        loadImage: attachment => ctx.uiConversation.imageUrl(sessionId, attachment as any),
       }
     },
   }, QueueDock))

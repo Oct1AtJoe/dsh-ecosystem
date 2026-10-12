@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import type { BranchesView, BranchRow, FileStatusView, GitError, GraphCommit, GraphTips, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
+import type { BranchesView, BranchRow, FileNumstat, FileStatusView, GitError, GraphCommit, GraphTips, GraphView, OpResult, WorkspaceFileRead } from '../core/types.ts'
 
 /** 一次已完成的 git 调用。 */
 export interface GitRunResult {
@@ -56,6 +56,67 @@ function safeRelative(name: string): boolean {
 function inside(root: string, absolute: string): boolean {
   if (absolute === root) return true
   return absolute.startsWith(root.endsWith(sep) ? root : `${root}${sep}`)
+}
+
+/** 解析 git diff --numstat 的重命名路径（如 "a => b" 或 "src/{old => new}.ts"）。 */
+function resolveNumstatRename(path: string): string {
+  if (path.includes('{') && path.includes('}')) {
+    return path.replace(/\{[^{}]*=>\s*([^{}]*)\}/g, '$1').replace(/\/\//g, '/').trim()
+  }
+  const parts = path.split('=>')
+  if (parts.length === 2) {
+    return parts[1]!.trim()
+  }
+  return path
+}
+
+/** 解析 git diff --numstat 的输出为路径到增减行数的映射。 */
+function parseNumstat(output: string): Record<string, FileNumstat> {
+  const result: Record<string, FileNumstat> = Object.create(null)
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const parts = line.split('\t')
+    if (parts.length < 3) continue
+    const insStr = parts[0]!.trim()
+    const delStr = parts[1]!.trim()
+    const rawPath = parts.slice(2).join('\t').trim()
+    if (!rawPath) continue
+
+    const insertions = insStr === '-' ? 0 : (parseInt(insStr, 10) || 0)
+    const deletions = delStr === '-' ? 0 : (parseInt(delStr, 10) || 0)
+    const stat: FileNumstat = { insertions, deletions }
+
+    result[rawPath] = stat
+
+    if (rawPath.includes('=>')) {
+      const newPath = resolveNumstatRename(rawPath)
+      if (newPath && newPath !== rawPath) {
+        result[newPath] = stat
+      }
+      const porcelainArrow = rawPath.replace('=>', '->')
+      result[porcelainArrow] = stat
+    }
+  }
+  return result
+}
+
+/** 快速统计文本文件行数；二进制或超 2MB 文件返回 undefined。 */
+async function countFileLines(fullPath: string): Promise<number | undefined> {
+  try {
+    const s = await stat(fullPath)
+    if (!s.isFile() || s.size > 2 * 1024 * 1024) return undefined
+    const buf = await readBytes(fullPath)
+    if (buf.includes(0)) return undefined
+    let lines = 0
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] === 10) lines++
+    }
+    if (buf.length > 0 && buf[buf.length - 1] !== 10) lines++
+    return lines
+  } catch {
+    return undefined
+  }
 }
 
 /** 工作区归属判定结果。 */
@@ -389,16 +450,23 @@ export class GitService {
     return { ok: true, output: run.stdout.trim() }
   }
 
-  /** 工作区状态摘要：变更文件列表（git status --porcelain）并自动读取 MERGE_MSG。 */
-  async status(path: string): Promise<{ ok: boolean; output: string; mergeMsg?: string; error?: { code: string; message: string } }> {
+  /** 工作区状态摘要：变更文件列表（git status --porcelain）、增减行统计，并自动读取 MERGE_MSG。 */
+  async status(path: string): Promise<{
+    ok: boolean
+    output: string
+    mergeMsg?: string
+    stagedStats?: Record<string, FileNumstat>
+    unstagedStats?: Record<string, FileNumstat>
+    error?: { code: string; message: string }
+  }> {
     const canonical = await this.requireWorkspace(path)
     // 必须带 --untracked-files=all，且必须与 fileStatus() 用同一组参数。
-    // git 默认是 normal：整个未跟踪目录会被折叠成一行 `?? dir/`，于是
-    // 「目录里有 11 个文件」在面板上只显示 1 行，其中到底有什么完全看不到；
-    // 而且折叠行的路径带尾部斜杠，行内动作（内嵌 diff / 复制路径）拿到
-    // 目录而非文件路径，行为不正确。fileStatus() 一直是 all，这里对齐后
-    // 两条路径对同一仓库给出同样的结论（否则状态栏计数与文件树标记会打架）。
-    const run = await this.runner.run(['status', '--porcelain', '--untracked-files=all'], canonical)
+    // 并行拉取 porcelain 状态与未暂存/已暂存的增减行统计（禁用 quotepath 以保证中文路径对齐）
+    const [run, diffRun, cachedDiffRun] = await Promise.all([
+      this.runner.run(['status', '--porcelain', '--untracked-files=all'], canonical),
+      this.runner.run(['-c', 'core.quotepath=false', 'diff', '--numstat'], canonical),
+      this.runner.run(['-c', 'core.quotepath=false', 'diff', '--cached', '--numstat'], canonical),
+    ])
     if (run.exitCode !== 0) {
       return { ok: false, output: '', error: { code: 'status-failed', message: run.stderr.trim() || 'git status failed' } }
     }
@@ -407,6 +475,29 @@ export class GitService {
     // （如 " M src/a.ts"）。任何 /^(\S+)\s+/ 形式的重排都会把这类行整行丢掉，
     // 因此这里不做任何改写，解析交给客户端按固定宽度处理。
     const output = lines.join('\n')
+
+    const unstagedStats = diffRun.exitCode === 0 ? parseNumstat(diffRun.stdout) : {}
+    const stagedStats = cachedDiffRun.exitCode === 0 ? parseNumstat(cachedDiffRun.stdout) : {}
+
+    // 针对未跟踪文件（??），git diff 默认不包含；为小于 2MB 的普通文本文件补充增行统计
+    const untrackedFiles: string[] = []
+    for (const line of lines) {
+      if (line.startsWith('?? ')) {
+        const file = line.slice(3).trim()
+        if (file && safeRelative(file)) untrackedFiles.push(file)
+      }
+    }
+    if (untrackedFiles.length > 0) {
+      const batch = untrackedFiles.slice(0, 50)
+      await Promise.all(batch.map(async (file) => {
+        const full = resolvePath(canonical, file)
+        if (!inside(canonical, full)) return
+        const linesCount = await countFileLines(full)
+        if (typeof linesCount === 'number') {
+          unstagedStats[file] = { insertions: linesCount, deletions: 0 }
+        }
+      }))
+    }
 
     // 像 VS Code 一样：检查是否有 .git/MERGE_MSG 并自动读取
     let mergeMsg = ''
@@ -420,7 +511,7 @@ export class GitService {
       }
     } catch {}
 
-    return { ok: true, output, mergeMsg }
+    return { ok: true, output, mergeMsg, stagedStats, unstagedStats }
   }
 
   /** 单个文件暂存（git add -- <file>）。 */

@@ -116,6 +116,26 @@ async function main(): Promise<void> {
       afterStage.some((e) => e.code === 'A ' && e.file.includes('file-0.txt')),
       JSON.stringify(afterStage.filter((e) => e.file.includes('file-0.txt'))))
 
+    // 验证增删行统计：
+    // staged 包含暂存的 file-0.txt（内容为 'nested-0\n'，1 行新增）
+    const fullStatus = await service.status(repo)
+    const stagedFile0 = fullStatus.stagedStats?.[firstNested?.file ?? '']
+    check('已暂存的 file-0.txt 增删行统计正确 (+1, -0)',
+      stagedFile0?.insertions === 1 && stagedFile0?.deletions === 0,
+      JSON.stringify(stagedFile0))
+
+    // unstaged 包含 tracked.txt（原有 'base\n'，新内容为 'base\nchanged\n'，末尾追加 1 行，即 +1, -0）
+    const unstagedTracked = fullStatus.unstagedStats?.['tracked.txt']
+    check('未暂存的 tracked.txt 增删行统计正确 (+1, -0)',
+      unstagedTracked?.insertions === 1 && unstagedTracked?.deletions === 0,
+      JSON.stringify(unstagedTracked))
+
+    // 未跟踪文件 loose.txt（内容为 'loose\n'，未暂存增行统计 +1, -0）
+    const unstagedLoose = fullStatus.unstagedStats?.['loose.txt']
+    check('未跟踪的 loose.txt 增行统计正确 (+1, -0)',
+      unstagedLoose?.insertions === 1 && unstagedLoose?.deletions === 0,
+      JSON.stringify(unstagedLoose))
+
     // 总数：1 已暂存 + 1 未暂存已跟踪 + 剩余未跟踪。
     const total = afterStage.length
     const expectedTotal = 1 + 1 + (expectedUntracked - 1)

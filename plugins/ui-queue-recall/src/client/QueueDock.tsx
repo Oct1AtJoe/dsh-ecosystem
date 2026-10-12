@@ -68,7 +68,7 @@ function QueueFile({ attachment, label }: { attachment: FileAttachmentRef; label
     <span className={css.file} aria-label={label} title={attachment.name}>
       <span className={css.fileIcon} aria-hidden><FileTypeIcon path={attachment.name} size={16} /></span>
       <span className={css.fileName}>{attachment.name}</span>
-      <span className={css.fileSize}>{fileSizeText(attachment.bytes)}</span>
+      <span className={css.fileSize}>{fileSizeText(attachment.bytes ?? 0)}</span>
     </span>
   )
 }
@@ -126,13 +126,26 @@ export function QueueDock({
   const draft = useInput(s => s.draft)
   const [busy, setBusy] = useState<QueueItemId | null>(null)
   const [collapsed, setCollapsed] = useState(true)
+  const [debouncedCount, setDebouncedCount] = useState(0)
   const listId = useId()
 
   useEffect(() => {
-    if (rowCount === 0 && !collapsed) setCollapsed(true)
-  }, [collapsed, rowCount])
+    if (rowCount === 0) {
+      setDebouncedCount(0)
+      if (!collapsed) setCollapsed(true)
+      return
+    }
+    if (debouncedCount > 0) {
+      setDebouncedCount(rowCount)
+      return
+    }
+    const timer = setTimeout(() => {
+      setDebouncedCount(rowCount)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [collapsed, debouncedCount, rowCount])
 
-  if (rowCount === 0) return null
+  if (debouncedCount === 0) return null
 
   const interactionActive = queueMutable && busy !== null
   const expanded = !collapsed || interactionActive

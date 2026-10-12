@@ -202,7 +202,13 @@ const STYLE = `
 .dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
 .dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
 .dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
-.dsh-gp-changes-file { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-spacer { flex:1; min-width:0; }
+.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:center; gap:3px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
+  font-variant-numeric:tabular-nums; line-height:1; user-select:none; margin-left:3px; }
+.dsh-gp-stat-add { color:var(--current); }
+.dsh-gp-stat-del { color:var(--danger); }
 /* 变更行尾操作按钮：统一图标按钮，悬停出现 + 即时 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
   justify-content:center; border:1px solid transparent; background:transparent; color:var(--muted);
@@ -379,6 +385,22 @@ function ChangeBadge(props: { code: string }): React.ReactElement {
   const tip = letter === 'C' ? `${label} (${props.code})` : label
   return (
     <span className="dsh-gp-changes-code" data-letter={letter} {...tipProps(tip)}>{letter}</span>
+  )
+}
+
+/** 文件增删行统计徽章：增行绿色（+N），减行红色（-M）。 */
+function FileStats(props: { insertions?: number; deletions?: number }): React.ReactElement | null {
+  const { insertions, deletions } = props
+  const hasIns = typeof insertions === 'number' && insertions > 0
+  const hasDel = typeof deletions === 'number' && deletions > 0
+  if (!hasIns && !hasDel) return null
+
+  const title = `${hasIns ? `+${insertions}` : ''}${hasIns && hasDel ? ', ' : ''}${hasDel ? `-${deletions}` : ''}`
+  return (
+    <span className="dsh-gp-changes-stat" {...tipProps(title)}>
+      {hasIns ? <span className="dsh-gp-stat-add">+{insertions}</span> : null}
+      {hasDel ? <span className="dsh-gp-stat-del">-{deletions}</span> : null}
+    </span>
   )
 }
 
@@ -1064,6 +1086,8 @@ export function GitPanel(props: {
     // 同理，切换仓库时先丢弃上一个仓库的变更结论：否则在新请求返回前，状态摘要
     // 会拿旧仓库的 changes 去描述新仓库（比如把有改动的仓库说成「干净」）。
     setChanges([])
+    setStagedStats({})
+    setUnstagedStats({})
     setStash(null)
     setFilterBranch(null)
     const globalState = GLOBAL_GIT_BUSY_MAP.get(path)
@@ -1097,9 +1121,14 @@ export function GitPanel(props: {
   const [statusText, setStatusText] = useState('')
   // 抽屉（stash 栈）概览：条目数与文件总数。null = 还没读到。
   const [stash, setStash] = useState<{ entries: number; files: number } | null>(null)
-  // 变更文件列表 + 选中的文件 diff。
+  // 变更文件列表 + 增删行统计 + 选中的文件 diff。
   const [changes, setChanges] = useState<Array<{ code: string; file: string }>>([])
-  const { conflicts, staged, unstaged } = useMemo(() => classifyChanges(changes), [changes])
+  const [stagedStats, setStagedStats] = useState<Record<string, { insertions: number; deletions: number }>>({})
+  const [unstagedStats, setUnstagedStats] = useState<Record<string, { insertions: number; deletions: number }>>({})
+  const { conflicts, staged, unstaged } = useMemo(
+    () => classifyChanges(changes, { stagedStats, unstagedStats }),
+    [changes, stagedStats, unstagedStats],
+  )
   const [diffState, setDiffState] = useState<{ file: string; content: string; busy: boolean } | null>(null)
   const diffStateRef = useRef(diffState)
   diffStateRef.current = diffState
@@ -1177,6 +1206,8 @@ export function GitPanel(props: {
     const result = await api.status(path)
     const output = result.ok ? result.value.output : ''
     setStatusText(output)
+    setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {})
+    setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {})
     // porcelain 固定宽度：前 2 字符是 XY 状态码，第 3 字符是分隔空格，其余是路径。
     // 不能用 /^(\S+)\s+/：未暂存修改的 X 位本身是空格（" M path"），会被整行漏掉，
     // 导致「仅工作区修改」的文件在变更列表里彻底消失。
@@ -1672,6 +1703,7 @@ export function GitPanel(props: {
                           <div key={c.file} className={`dsh-gp-changes-item${diffState?.file === c.file ? ' active' : ''}`} onClick={() => void loadDiff(c.file)}>
                             <ChangeBadge code={c.code} />
                             <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                            <FileStats insertions={c.insertions} deletions={c.deletions} />
                           </div>
                         ))}
                       </div>
@@ -1705,6 +1737,8 @@ export function GitPanel(props: {
                           <div key={c.file} className={`dsh-gp-changes-item${diffState?.file === c.file ? ' active' : ''}`} onClick={() => void loadDiff(c.file)}>
                             <ChangeBadge code={c.code} />
                             <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                            <FileStats insertions={c.insertions} deletions={c.deletions} />
+                            <span className="dsh-gp-changes-spacer" />
                             <RowAction icon="copy" label={t('changes.copyPath')}
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -1757,6 +1791,8 @@ export function GitPanel(props: {
                             onClick={() => void loadDiff(c.file)}>
                             <ChangeBadge code={c.code} />
                             <span className="dsh-gp-changes-file" title={c.file}>{c.file}</span>
+                            <FileStats insertions={c.insertions} deletions={c.deletions} />
+                            <span className="dsh-gp-changes-spacer" />
                             <RowAction icon="copy" label={t('changes.copyPath')}
                               onClick={(e) => {
                                 e.stopPropagation()

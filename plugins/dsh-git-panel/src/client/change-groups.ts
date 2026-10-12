@@ -25,6 +25,10 @@ export interface ChangeEntry {
   code: string
   /** 工作区相对路径。 */
   file: string
+  /** 增行数（如适用）。 */
+  insertions?: number
+  /** 减行数（如适用）。 */
+  deletions?: number
 }
 
 /** 三组变更。冲突单独成组，且不会同时出现在另外两组里。 */
@@ -44,6 +48,10 @@ export function changeBadgeOf(code: string): string {
   return statusLetter(code)
 }
 
+export interface ChangeStatsMap {
+  [file: string]: { insertions: number; deletions: number } | undefined
+}
+
 /**
  * 把变更清单分成冲突 / 已暂存 / 未暂存三组。
  *
@@ -56,15 +64,37 @@ export function changeBadgeOf(code: string): string {
  * 未解决的冲突文件，甚至可以对它点批量暂存，把没解决的冲突塞进 index。
  *
  * @param changes - porcelain 解析出的变更清单。
- * @returns 三组变更（各自保序）。
+ * @param stats - 可选的已暂存/未暂存增减行统计字典。
+ * @returns 三组变更（各自保序，且携带所属阶段对应的增减行）。
  */
-export function classifyChanges(changes: readonly ChangeEntry[]): ChangeGroups {
+export function classifyChanges(
+  changes: readonly ChangeEntry[],
+  stats?: {
+    stagedStats?: ChangeStatsMap
+    unstagedStats?: ChangeStatsMap
+  },
+): ChangeGroups {
   const conflicts = changes.filter((c) => statusLetter(c.code) === 'C')
+  const staged = changes
+    .filter((c) => c.code[0] !== ' ' && c.code[0] !== '?' && !conflicts.includes(c))
+    .map((c) => {
+      const s = stats?.stagedStats?.[c.file]
+      return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c
+    })
+  const unstaged = changes
+    .filter((c) => (c.code[1] !== ' ' || c.code === '??') && !conflicts.includes(c))
+    .map((c) => {
+      const s = stats?.unstagedStats?.[c.file]
+      return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c
+    })
+  const conflictList = conflicts.map((c) => {
+    const s = stats?.unstagedStats?.[c.file] ?? stats?.stagedStats?.[c.file]
+    return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c
+  })
+
   return {
-    // X 位非空格且非 `?`：index 里有改动（`M ` / `A ` / `D ` / `R ` …）。
-    staged: changes.filter((c) => c.code[0] !== ' ' && c.code[0] !== '?' && !conflicts.includes(c)),
-    // Y 位有改动，或未跟踪（`??`）。注意 ` M` 的 X 位是空格，必须靠 Y 位识别。
-    unstaged: changes.filter((c) => (c.code[1] !== ' ' || c.code === '??') && !conflicts.includes(c)),
-    conflicts,
+    conflicts: conflictList,
+    staged,
+    unstaged,
   }
 }

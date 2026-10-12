@@ -972,14 +972,24 @@ var GitStatusCache = class {
 function changeBadgeOf(code) {
   return statusLetter(code);
 }
-function classifyChanges(changes) {
+function classifyChanges(changes, stats) {
   const conflicts = changes.filter((c) => statusLetter(c.code) === "C");
+  const staged = changes.filter((c) => c.code[0] !== " " && c.code[0] !== "?" && !conflicts.includes(c)).map((c) => {
+    const s = stats?.stagedStats?.[c.file];
+    return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c;
+  });
+  const unstaged = changes.filter((c) => (c.code[1] !== " " || c.code === "??") && !conflicts.includes(c)).map((c) => {
+    const s = stats?.unstagedStats?.[c.file];
+    return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c;
+  });
+  const conflictList = conflicts.map((c) => {
+    const s = stats?.unstagedStats?.[c.file] ?? stats?.stagedStats?.[c.file];
+    return s ? { ...c, insertions: s.insertions, deletions: s.deletions } : c;
+  });
   return {
-    // X 位非空格且非 `?`：index 里有改动（`M ` / `A ` / `D ` / `R ` …）。
-    staged: changes.filter((c) => c.code[0] !== " " && c.code[0] !== "?" && !conflicts.includes(c)),
-    // Y 位有改动，或未跟踪（`??`）。注意 ` M` 的 X 位是空格，必须靠 Y 位识别。
-    unstaged: changes.filter((c) => (c.code[1] !== " " || c.code === "??") && !conflicts.includes(c)),
-    conflicts
+    conflicts: conflictList,
+    staged,
+    unstaged
   };
 }
 
@@ -1361,7 +1371,13 @@ var STYLE = `
 .dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
 .dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
 .dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
-.dsh-gp-changes-file { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-spacer { flex:1; min-width:0; }
+.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:center; gap:3px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
+  font-variant-numeric:tabular-nums; line-height:1; user-select:none; margin-left:3px; }
+.dsh-gp-stat-add { color:var(--current); }
+.dsh-gp-stat-del { color:var(--danger); }
 /* \u53D8\u66F4\u884C\u5C3E\u64CD\u4F5C\u6309\u94AE\uFF1A\u7EDF\u4E00\u56FE\u6807\u6309\u94AE\uFF0C\u60AC\u505C\u51FA\u73B0 + \u5373\u65F6 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
   justify-content:center; border:1px solid transparent; background:transparent; color:var(--muted);
@@ -1506,6 +1522,23 @@ function ChangeBadge(props) {
   const label = t2(BADGE_LABEL_KEY[letter] ?? "changes.mark.modified");
   const tip = letter === "C" ? `${label} (${props.code})` : label;
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-code", "data-letter": letter, ...tipProps(tip), children: letter });
+}
+function FileStats(props) {
+  const { insertions, deletions } = props;
+  const hasIns = typeof insertions === "number" && insertions > 0;
+  const hasDel = typeof deletions === "number" && deletions > 0;
+  if (!hasIns && !hasDel) return null;
+  const title = `${hasIns ? `+${insertions}` : ""}${hasIns && hasDel ? ", " : ""}${hasDel ? `-${deletions}` : ""}`;
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-gp-changes-stat", ...tipProps(title), children: [
+    hasIns ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-gp-stat-add", children: [
+      "+",
+      insertions
+    ] }) : null,
+    hasDel ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-gp-stat-del", children: [
+      "-",
+      deletions
+    ] }) : null
+  ] });
 }
 function RowAction(props) {
   const { icon: name, label, danger, onClick } = props;
@@ -2071,6 +2104,8 @@ function GitPanel(props) {
   (0, import_react3.useEffect)(() => {
     setGenerating(false);
     setChanges([]);
+    setStagedStats({});
+    setUnstagedStats({});
     setStash(null);
     setFilterBranch(null);
     const globalState = GLOBAL_GIT_BUSY_MAP.get(path);
@@ -2093,7 +2128,12 @@ function GitPanel(props) {
   const [statusText, setStatusText] = (0, import_react3.useState)("");
   const [stash, setStash] = (0, import_react3.useState)(null);
   const [changes, setChanges] = (0, import_react3.useState)([]);
-  const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(() => classifyChanges(changes), [changes]);
+  const [stagedStats, setStagedStats] = (0, import_react3.useState)({});
+  const [unstagedStats, setUnstagedStats] = (0, import_react3.useState)({});
+  const { conflicts, staged, unstaged } = (0, import_react3.useMemo)(
+    () => classifyChanges(changes, { stagedStats, unstagedStats }),
+    [changes, stagedStats, unstagedStats]
+  );
   const [diffState, setDiffState] = (0, import_react3.useState)(null);
   const diffStateRef = (0, import_react3.useRef)(diffState);
   diffStateRef.current = diffState;
@@ -2142,6 +2182,8 @@ function GitPanel(props) {
     const result = await api.status(path);
     const output = result.ok ? result.value.output : "";
     setStatusText(output);
+    setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {});
+    setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {});
     const list = [];
     for (const line of output.split("\n")) {
       if (line.trim() === "" || line.length < 4) continue;
@@ -2612,7 +2654,8 @@ function GitPanel(props) {
               ),
               !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file })
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions })
               ] }, c.file)) }) : null
             ] }) : null,
             staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
@@ -2648,6 +2691,8 @@ function GitPanel(props) {
               !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   RowAction,
                   {
@@ -2728,6 +2773,8 @@ function GitPanel(props) {
                   children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                       RowAction,
                       {

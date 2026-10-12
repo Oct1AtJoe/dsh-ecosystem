@@ -87,7 +87,7 @@ window.__ModuleLoader__.load({
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: QueueDock_module_css_default.fileSize,
-						children: (0, _deepseek_ai_dsh_client_ui_primitives.fileSizeText)(attachment.bytes)
+						children: (0, _deepseek_ai_dsh_client_ui_primitives.fileSizeText)(attachment.bytes ?? 0)
 					})
 				]
 			});
@@ -132,11 +132,28 @@ window.__ModuleLoader__.load({
 			const draft = useInput((s) => s.draft);
 			const [busy, setBusy] = (0, react.useState)(null);
 			const [collapsed, setCollapsed] = (0, react.useState)(true);
+			const [debouncedCount, setDebouncedCount] = (0, react.useState)(0);
 			const listId = (0, react.useId)();
 			(0, react.useEffect)(() => {
-				if (rowCount === 0 && !collapsed) setCollapsed(true);
-			}, [collapsed, rowCount]);
-			if (rowCount === 0) return null;
+				if (rowCount === 0) {
+					setDebouncedCount(0);
+					if (!collapsed) setCollapsed(true);
+					return;
+				}
+				if (debouncedCount > 0) {
+					setDebouncedCount(rowCount);
+					return;
+				}
+				const timer = setTimeout(() => {
+					setDebouncedCount(rowCount);
+				}, 250);
+				return () => clearTimeout(timer);
+			}, [
+				collapsed,
+				debouncedCount,
+				rowCount
+			]);
+			if (debouncedCount === 0) return null;
 			const interactionActive = queueMutable && busy !== null;
 			const expanded = !collapsed || interactionActive;
 			const listVisible = rowCount === 1 || expanded;

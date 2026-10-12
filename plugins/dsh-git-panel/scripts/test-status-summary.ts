@@ -68,6 +68,33 @@ check('未跟踪（??）≠ 新增（A ）', changeBadgeOf('??') !== changeBadge
 check('已暂存新增（A ）→ A', changeBadgeOf('A ') === 'A', changeBadgeOf('A '))
 check('未暂存删除（ D）→ D', changeBadgeOf(' D') === 'D', changeBadgeOf(' D'))
 check('未暂存重命名（RM）→ R', changeBadgeOf('RM') === 'R', changeBadgeOf('RM'))
+// ---- 增删行统计注入 ----
+const withStats = classifyChanges(
+  [
+    { code: 'M ', file: 'staged.ts' },
+    { code: ' M', file: 'unstaged.ts' },
+    { code: 'MM', file: 'both.ts' },
+  ],
+  {
+    stagedStats: {
+      'staged.ts': { insertions: 10, deletions: 2 },
+      'both.ts': { insertions: 5, deletions: 1 },
+    },
+    unstagedStats: {
+      'unstaged.ts': { insertions: 20, deletions: 0 },
+      'both.ts': { insertions: 3, deletions: 4 },
+    },
+  },
+)
+const sItem = withStats.staged.find((x) => x.file === 'staged.ts')
+check('已暂存项携带 stagedStats (+10, -2)', sItem?.insertions === 10 && sItem?.deletions === 2, JSON.stringify(sItem))
+const uItem = withStats.unstaged.find((x) => x.file === 'unstaged.ts')
+check('未暂存项携带 unstagedStats (+20, -0)', uItem?.insertions === 20 && uItem?.deletions === 0, JSON.stringify(uItem))
+const bStaged = withStats.staged.find((x) => x.file === 'both.ts')
+const bUnstaged = withStats.unstaged.find((x) => x.file === 'both.ts')
+check('MM 文件在暂存区携带 stagedStats (+5, -1)', bStaged?.insertions === 5 && bStaged?.deletions === 1, JSON.stringify(bStaged))
+check('MM 文件在未暂存区携带 unstagedStats (+3, -4)', bUnstaged?.insertions === 3 && bUnstaged?.deletions === 4, JSON.stringify(bUnstaged))
+
 for (const code of CONFLICTS) {
   check(`冲突码 ${code} → C`, changeBadgeOf(code) === 'C', changeBadgeOf(code))
 }

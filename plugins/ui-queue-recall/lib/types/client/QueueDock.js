@@ -1,19 +1,31 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useId, useMemo, useState } from 'react';
-import { IconChevronDownOutline14, IconChevronUpOutline14, IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, projectUserText, Tooltip, } from '@deepseek-ai/dsh-client-ui-primitives';
+import { FileTypeIcon, fileSizeText, IconChevronDownOutline14, IconChevronUpOutline14, IconEditOutline16, IconQueueOutline14, IconSendOutline14, IconTrashOutline16, projectUserText, Tooltip, } from '@deepseek-ai/dsh-client-ui-primitives';
 import css from './QueueDock.module.css';
 /**
  * Durable references carried by one queued row. Queue frames are wire data
- * despite their typed face, so an image block without a reference is skipped
+ * despite their typed face, so an image or file block without a reference is skipped
  * rather than trusted.
  */
-function queueImageRefs(content) {
-    return content.flatMap((block) => {
-        if (block.type !== 'image')
-            return [];
-        const { attachment } = block;
-        return attachment === undefined ? [] : [attachment];
-    });
+function queueAttachments(content) {
+    const attachments = [];
+    for (const block of content) {
+        if (block.type === 'image') {
+            const { attachment } = block;
+            if (attachment !== undefined)
+                attachments.push({ type: 'image', attachment });
+        }
+        if (block.type === 'file') {
+            const { attachment } = block;
+            if (attachment !== undefined)
+                attachments.push({ type: 'file', attachment });
+        }
+    }
+    return attachments;
+}
+/** Compact file identity used beside queue thumbnails. */
+function QueueFile({ attachment, label }) {
+    return (_jsxs("span", { className: css.file, "aria-label": label, title: attachment.name, children: [_jsx("span", { className: css.fileIcon, "aria-hidden": true, children: _jsx(FileTypeIcon, { path: attachment.name, size: 16 }) }), _jsx("span", { className: css.fileName, children: attachment.name }), _jsx("span", { className: css.fileSize, children: fileSizeText(attachment.bytes ?? 0) })] }));
 }
 /** One durable queued image as a fixed-size thumbnail; a load failure keeps the empty placeholder. */
 function QueueThumb({ attachment, loadImage, label }) {
@@ -29,63 +41,43 @@ function QueueThumb({ attachment, loadImage, label }) {
         : _jsx("img", { className: css.thumb, src: url, alt: label });
 }
 /**
- * Track request IDs of submissions that were submitted while idle (placement: transcript).
- * The host temporarily places these in inbox.nextTurn during driver wakeup/assemble, which
- * emits a transient placement: queued frame. They must not flicker into the queue dock.
- */
-const transcriptRequestIds = new Set();
-/**
  * Custom Queue dock: one item renders directly; multiple items default to a
  * collapsible count header; an empty queue renders nothing.
  * Clicking the edit button directly recalls the message to the composer draft.
  */
 export function QueueDock({ useSession, useInput, inputActions, updateQueue, notify, loadImage, t, }) {
     const inbox = useSession(s => s.queue);
+    const queue = useMemo(() => inbox.filter(row => row.placement === 'queued'), [inbox]);
     const pendingSubmissions = useSession(s => s.pendingSubmissions);
-    // Track any submission originating as a transcript prompt
-    for (const submission of pendingSubmissions) {
-        if (submission.placement === 'transcript') {
-            transcriptRequestIds.add(submission.requestId);
-        }
-    }
-    // Filter queue: exclude messages originating from an idle transcript send
-    const queue = useMemo(() => inbox.filter((row) => {
-        if (row.placement !== 'queued')
-            return false;
-        if (row.rpcId !== undefined && transcriptRequestIds.has(row.rpcId))
-            return false;
-        return true;
-    }), [inbox, pendingSubmissions]);
     const pendingQueue = useMemo(() => {
         const admitted = new Set(queue.flatMap(row => row.rpcId === undefined ? [] : [row.rpcId]));
         return pendingSubmissions.filter(submission => (submission.placement === 'queued' && !admitted.has(submission.requestId)));
     }, [pendingSubmissions, queue]);
     const rowCount = queue.length + pendingQueue.length;
     const running = useSession(s => s.running);
-    const queueMutable = useSession(s => s.subagent === null);
+    const queueMutable = useSession(s => s.subagent === null || s.subagent.address.mode === 'continuable');
     const draft = useInput(s => s.draft);
     const [busy, setBusy] = useState(null);
     const [collapsed, setCollapsed] = useState(true);
+    const [debouncedCount, setDebouncedCount] = useState(0);
     const listId = useId();
     useEffect(() => {
-        if (rowCount === 0 && !collapsed)
-            setCollapsed(true);
-    }, [collapsed, rowCount]);
-    // Prune settled IDs that are no longer pending and no longer in the inbox
-    useEffect(() => {
-        if (transcriptRequestIds.size === 0)
+        if (rowCount === 0) {
+            setDebouncedCount(0);
+            if (!collapsed)
+                setCollapsed(true);
             return;
-        const active = new Set([
-            ...pendingSubmissions.map(s => s.requestId),
-            ...inbox.flatMap(r => r.rpcId !== undefined ? [r.rpcId] : []),
-        ]);
-        for (const id of transcriptRequestIds) {
-            if (!active.has(id)) {
-                transcriptRequestIds.delete(id);
-            }
         }
-    }, [inbox, pendingSubmissions]);
-    if (rowCount === 0)
+        if (debouncedCount > 0) {
+            setDebouncedCount(rowCount);
+            return;
+        }
+        const timer = setTimeout(() => {
+            setDebouncedCount(rowCount);
+        }, 250);
+        return () => clearTimeout(timer);
+    }, [collapsed, debouncedCount, rowCount]);
+    if (debouncedCount === 0)
         return null;
     const interactionActive = queueMutable && busy !== null;
     const expanded = !collapsed || interactionActive;
@@ -112,13 +104,20 @@ export function QueueDock({ useSession, useInput, inputActions, updateQueue, not
         inputActions.setDraft(nextDraft);
         await applyAction(row.id, { kind: 'remove' }, t('queue.recallFailed'));
     };
-    return (_jsx("div", { className: css.dock, "data-queue-dock": "", children: _jsxs("div", { className: css.panel, children: [rowCount > 1 && (_jsxs("button", { type: "button", className: css.header, "aria-controls": listId, "aria-expanded": expanded, disabled: interactionActive, onClick: () => { setCollapsed(value => !value); }, children: [_jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), _jsx("span", { className: css.count, children: t('queue.count', { n: rowCount }) }), _jsx("span", { className: css.chevron, "aria-hidden": true, children: expanded ? _jsx(IconChevronDownOutline14, {}) : _jsx(IconChevronUpOutline14, {}) })] })), _jsxs("ul", { id: listId, className: css.list, hidden: !listVisible, children: [listVisible && queue.map((row) => {
-                            const imageRefs = queueImageRefs(row.content);
-                            return (_jsxs("li", { className: css.row, children: [rowCount === 1 && _jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), imageRefs.length > 0 && (_jsx("span", { className: css.thumbs, children: imageRefs.map((attachment, index) => (_jsx(QueueThumb, { attachment: attachment, loadImage: loadImage, label: t('queue.image') }, `${attachment.attachmentId}:${index}`))) })), _jsx("span", { className: css.preview, children: projectUserText(row.preview, []) }), queueMutable && (_jsxs("div", { className: css.actions, children: [_jsx(Tooltip, { label: t('queue.recall'), side: "bottom", delayMs: 500, disabled: row.text === null, children: _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.recall'), title: row.text === null ? t('queue.recall.unsupported') : undefined, disabled: busy !== null || row.text === null, onClick: () => { void handleRecall(row); }, children: _jsx(IconEditOutline16, { size: 14 }) }) }), _jsx(Tooltip, { label: t('queue.remove'), side: "bottom", delayMs: 500, children: _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.remove'), disabled: busy !== null, onClick: () => {
+    return (_jsx("div", { className: css.dock, "data-queue-dock": "", children: _jsxs("div", { className: css.panel, children: [rowCount > 1 && (_jsxs("button", { type: "button", className: css.header, "aria-controls": listId, "aria-expanded": expanded, disabled: interactionActive, onClick: () => { setCollapsed(value => !value); }, children: [_jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), _jsx("span", { className: css.count, children: t('queue.count', { n: rowCount }) }), !listVisible && pendingQueue.length > 0 && (_jsx("span", { className: css.status, role: "status", children: t('queue.sending') })), _jsx("span", { className: css.chevron, "aria-hidden": true, children: expanded ? _jsx(IconChevronDownOutline14, {}) : _jsx(IconChevronUpOutline14, {}) })] })), _jsxs("ul", { id: listId, className: css.list, hidden: !listVisible, children: [listVisible && queue.map((row) => {
+                            const attachments = queueAttachments(row.content);
+                            return (_jsxs("li", { className: css.row, children: [rowCount === 1 && _jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), attachments.length > 0 && (_jsx("span", { className: css.attachments, children: attachments.map((item, index) => item.type === 'image'
+                                            ? (_jsx(QueueThumb, { attachment: item.attachment, loadImage: loadImage, label: t('queue.image') }, `${item.attachment.attachmentId}:${index}`))
+                                            : (_jsx(QueueFile, { attachment: item.attachment, label: t('queue.file', { name: item.attachment.name }) }, `${item.attachment.attachmentId}:${item.attachment.name}:${index}`))) })), _jsx("span", { className: css.preview, children: projectUserText(row.preview, []) }), queueMutable && (_jsxs("div", { className: css.actions, children: [_jsx(Tooltip, { label: t('queue.recall'), side: "bottom", delayMs: 500, disabled: row.text === null, children: _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.recall'), title: row.text === null ? t('queue.recall.unsupported') : undefined, disabled: busy !== null || row.text === null, onClick: () => { void handleRecall(row); }, children: _jsx(IconEditOutline16, { size: 14 }) }) }), _jsx(Tooltip, { label: t('queue.remove'), side: "bottom", delayMs: 500, children: _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.remove'), disabled: busy !== null, onClick: () => {
                                                         void applyAction(row.id, { kind: 'remove' }, t('queue.removeFailed'));
                                                     }, children: _jsx(IconTrashOutline16, { size: 14 }) }) }), _jsx(Tooltip, { label: t('queue.steer'), side: "bottom", delayMs: 500, disabled: !running, children: _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.steer'), title: running ? undefined : t('queue.steer.unavailable'), disabled: busy !== null || !running, onClick: () => {
                                                         void applyAction(row.id, { kind: 'steer' }, t('queue.steerFailed'));
                                                     }, children: _jsx(IconSendOutline14, {}) }) })] }))] }, row.id));
-                        }), listVisible && pendingQueue.map(submission => (_jsxs("li", { className: css.row, "data-submission-echo": "", children: [rowCount === 1 && _jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), submission.images.length > 0 && (_jsx("span", { className: css.thumbs, children: submission.images.map((image, index) => (_jsx("img", { className: css.thumb, src: image.previewUrl, alt: t('queue.image') }, `${image.previewUrl}:${index}`))) })), _jsx("span", { className: css.preview, children: projectUserText(submission.text, []) })] }, submission.requestId)))] })] }) }));
+                        }), listVisible && pendingQueue.map((submission) => {
+                            const attachments = submission.attachments ?? [];
+                            return (_jsxs("li", { className: `${css.row} ${css.pendingRow}`, "data-submission-echo": "", children: [rowCount === 1 && _jsx("span", { className: css.lead, "aria-hidden": true, children: _jsx(IconQueueOutline14, {}) }), attachments.length > 0 && (_jsx("span", { className: css.attachments, children: attachments.map((attachment, index) => attachment.type === 'image'
+                                            ? (_jsx("img", { className: css.thumb, src: attachment.value.previewUrl, alt: t('queue.image') }, `${attachment.value.previewUrl}:${index}`))
+                                            : (_jsx(QueueFile, { attachment: attachment.value, label: t('queue.file', { name: attachment.value.name }) }, `${attachment.value.attachmentId}:${attachment.value.name}:${index}`))) })), _jsx("span", { className: css.preview, children: projectUserText(submission.text, []) }), _jsx("span", { className: css.status, role: "status", children: t('queue.sending') }), queueMutable && (_jsxs("div", { className: css.actions, children: [_jsx("button", { type: "button", className: css.action, "aria-label": t('queue.recall'), title: t('queue.sending'), disabled: true, children: _jsx(IconEditOutline16, { size: 14 }) }), _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.remove'), title: t('queue.sending'), disabled: true, children: _jsx(IconTrashOutline16, { size: 14 }) }), _jsx("button", { type: "button", className: css.action, "aria-label": t('queue.steer'), title: t('queue.sending'), disabled: true, children: _jsx(IconSendOutline14, {}) })] }))] }, submission.requestId));
+                        })] })] }) }));
 }
 //# sourceMappingURL=QueueDock.js.map

@@ -75,7 +75,11 @@ export class GitPanelApi {
   }
 
   status(path: string) {
-    return post<OpResult>('/git-panel/status', { path })
+    return post<OpResult & {
+      mergeMsg?: string
+      stagedStats?: Record<string, { insertions: number; deletions: number }>
+      unstagedStats?: Record<string, { insertions: number; deletions: number }>
+    }>('/git-panel/status', { path })
   }
 
   diffFile(path: string, file: string) {

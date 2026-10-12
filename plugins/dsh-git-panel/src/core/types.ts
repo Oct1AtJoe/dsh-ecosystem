@@ -64,6 +64,12 @@ export interface OpResult {
   error?: GitError
 }
 
+/** 文件的增删行统计。 */
+export interface FileNumstat {
+  insertions: number
+  deletions: number
+}
+
 /** 工作区变更清单：路径以工作区根为基准（含未跟踪）。 */
 export interface FileStatusView {
   /** 规范化后的工作区根。 */
