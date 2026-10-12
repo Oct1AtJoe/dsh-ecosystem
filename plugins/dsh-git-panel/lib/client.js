@@ -299,6 +299,9 @@ var DICTS = {
     "changes.mark.conflict": "\u51B2\u7A81",
     "changes.discard": "\u653E\u5F03\u66F4\u6539",
     "changes.discardConfirm": "\u786E\u8BA4\u653E\u5F03\u5BF9 {file} \u7684\u6240\u6709\u672A\u6682\u5B58\u66F4\u6539\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u9006\uFF01",
+    "changes.discardAll": "\u5168\u90E8\u653E\u5F03",
+    "changes.discardAllConfirm": "\u786E\u8BA4\u653E\u5F03\u6240\u6709 {count} \u4E2A\u6587\u4EF6\u7684\u672A\u6682\u5B58\u66F4\u6539\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u9006\uFF01",
+    "changes.discardAllDone": "\u5DF2\u653E\u5F03 {count} \u4E2A\u6587\u4EF6\u7684\u66F4\u6539",
     "changes.conflicts": "\u5B58\u5728 {count} \u4E2A\u51B2\u7A81\u6587\u4EF6\uFF0C\u8BF7\u5148\u89E3\u51B3\u51B2\u7A81",
     "changes.conflictsGroup": "\u51B2\u7A81\u6587\u4EF6 (\u9700\u89E3\u51B3)",
     "changes.diff": "\u5DEE\u5F02",
@@ -494,6 +497,9 @@ var DICTS = {
     "changes.mark.conflict": "Conflict",
     "changes.discard": "Discard Changes",
     "changes.discardConfirm": "Are you sure you want to discard changes in {file}? This cannot be undone!",
+    "changes.discardAll": "Discard all changes",
+    "changes.discardAllConfirm": "Are you sure you want to discard unstaged changes in {count} file(s)? This cannot be undone!",
+    "changes.discardAllDone": "Discarded changes in {count} file(s)",
     "changes.conflicts": "{count} conflicting file(s) detected, please resolve conflicts",
     "changes.conflictsGroup": "Conflicting Files",
     "changes.diff": "Diff",
@@ -689,6 +695,9 @@ var DICTS = {
     "changes.mark.conflict": "Conflicto",
     "changes.discard": "Descartar cambios",
     "changes.discardConfirm": "\xBFSeguro que desea descartar los cambios en {file}? \xA1No se puede deshacer!",
+    "changes.discardAll": "Descartar todos los cambios",
+    "changes.discardAllConfirm": "\xBFSeguro que desea descartar los cambios sin preparar en {count} archivo(s)? \xA1No se puede deshacer!",
+    "changes.discardAllDone": "Se descartaron los cambios en {count} archivo(s)",
     "changes.conflicts": "{count} archivo(s) en conflicto detectado(s)",
     "changes.conflictsGroup": "Archivos en conflicto",
     "changes.diff": "Diff",
@@ -2183,6 +2192,7 @@ function GitPanel(props) {
     setCollapsedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
   }, []);
   const [discardTarget, setDiscardTarget] = (0, import_react3.useState)(null);
+  const [discardAllOpen, setDiscardAllOpen] = (0, import_react3.useState)(false);
   ensureStyle();
   (0, import_react3.useLayoutEffect)(() => {
     const el = commitRef.current;
@@ -2375,17 +2385,52 @@ function GitPanel(props) {
     setDiscardTarget(null);
     await runWrite("discard", `${file}|${untracked ? "untracked" : ""}`);
   }, [discardTarget, runWrite]);
+  const confirmDiscardAll = (0, import_react3.useCallback)(async () => {
+    if (!path || busy || unstaged.length === 0) return;
+    setDiscardAllOpen(false);
+    setBusy(true);
+    setPendingOp("discard");
+    setMessage({ text: t2("panel.running", { label: t2("changes.discardAll") }), kind: "ok" });
+    const outcome = await runBatch(unstaged.map((c) => c.file), async (file) => {
+      try {
+        const item = unstaged.find((c) => c.file === file);
+        const isUntracked = item?.code === "??";
+        return await api.discardFile(path, file, isUntracked);
+      } catch (error) {
+        return { ok: false, error: { code: "internal", message: error instanceof Error ? error.message : String(error) } };
+      }
+    });
+    if (outcome.failure === null) {
+      setMessage({ text: t2("changes.discardAllDone", { count: String(outcome.done) }), kind: "ok" });
+    } else {
+      setMessage({
+        text: t2("changes.batchFailed", {
+          count: String(outcome.done),
+          reason: tError(outcome.failure.code, outcome.failure.message)
+        }),
+        kind: "err"
+      });
+    }
+    setDiffState(null);
+    void refreshStatus();
+    void refreshStash();
+    void load(true);
+    onRefreshStatus?.();
+    setPendingOp(null);
+    setBusy(false);
+  }, [path, busy, unstaged, t2, api, refreshStatus, refreshStash, load, onRefreshStatus]);
   (0, import_react3.useEffect)(() => {
-    if (!discardTarget) return;
+    if (!discardTarget && !discardAllOpen) return;
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         setDiscardTarget(null);
+        setDiscardAllOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [discardTarget]);
+  }, [discardTarget, discardAllOpen]);
   const runBatchStage = (0, import_react3.useCallback)(async (files, action) => {
     if (!path || busy || files.length === 0) return;
     setBusy(true);
@@ -2821,17 +2866,31 @@ function GitPanel(props) {
                         ")"
                       ] })
                     ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "plus",
-                        label: t2("changes.stageAll"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          void runBatchStage(unstaged.map((c) => c.file), "stage");
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        RowAction,
+                        {
+                          icon: "plus",
+                          label: t2("changes.stageAll"),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            void runBatchStage(unstaged.map((c) => c.file), "stage");
+                          }
                         }
-                      }
-                    ) })
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        RowAction,
+                        {
+                          icon: "undo",
+                          danger: true,
+                          label: t2("changes.discardAll"),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            setDiscardAllOpen(true);
+                          }
+                        }
+                      )
+                    ] })
                   ]
                 }
               ),
@@ -3297,6 +3356,58 @@ function GitPanel(props) {
                       autoFocus: true,
                       onClick: () => void confirmDiscard(),
                       children: t2("changes.discard")
+                    }
+                  )
+                ] })
+              ]
+            }
+          )
+        }
+      ),
+      document.body
+    ) : null,
+    discardAllOpen && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "div",
+        {
+          className: "dsh-gp-modal-backdrop",
+          onClick: () => setDiscardAllOpen(false),
+          onKeyDown: (event) => {
+            if (event.key === "Enter") void confirmDiscardAll();
+          },
+          children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "div",
+            {
+              className: "dsh-gp-modal",
+              role: "alertdialog",
+              "aria-modal": "true",
+              "aria-labelledby": "dsh-gp-discard-all-title",
+              "aria-describedby": "dsh-gp-discard-all-desc",
+              onClick: (event) => event.stopPropagation(),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-all-title", className: "dsh-gp-modal-title", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discardAll") })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-all-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardAllConfirm", { count: String(unstaged.length) }) }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      className: "dsh-gp-modal-btn",
+                      onClick: () => setDiscardAllOpen(false),
+                      children: t2("menu.cancel")
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "button",
+                    {
+                      type: "button",
+                      className: "dsh-gp-modal-btn danger",
+                      autoFocus: true,
+                      onClick: () => void confirmDiscardAll(),
+                      children: t2("changes.discardAll")
                     }
                   )
                 ] })

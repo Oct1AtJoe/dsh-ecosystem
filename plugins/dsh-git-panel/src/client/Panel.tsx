@@ -1198,6 +1198,8 @@ export function GitPanel(props: {
   }, [])
   // 放弃更改确认弹窗的目标文件。
   const [discardTarget, setDiscardTarget] = useState<{ file: string; untracked: boolean } | null>(null)
+  // 全部放弃确认弹窗的开启状态。
+  const [discardAllOpen, setDiscardAllOpen] = useState(false)
 
   ensureStyle()
 
@@ -1440,17 +1442,53 @@ export function GitPanel(props: {
     await runWrite('discard', `${file}|${untracked ? 'untracked' : ''}`)
   }, [discardTarget, runWrite])
 
+  const confirmDiscardAll = useCallback(async (): Promise<void> => {
+    if (!path || busy || unstaged.length === 0) return
+    setDiscardAllOpen(false)
+    setBusy(true)
+    setPendingOp('discard')
+    setMessage({ text: t('panel.running', { label: t('changes.discardAll') }), kind: 'ok' })
+    const outcome = await runBatch(unstaged.map((c) => c.file), async (file) => {
+      try {
+        const item = unstaged.find((c) => c.file === file)
+        const isUntracked = item?.code === '??'
+        return await api.discardFile(path, file, isUntracked)
+      } catch (error) {
+        return { ok: false as const, error: { code: 'internal', message: error instanceof Error ? error.message : String(error) } }
+      }
+    })
+    if (outcome.failure === null) {
+      setMessage({ text: t('changes.discardAllDone', { count: String(outcome.done) }), kind: 'ok' })
+    } else {
+      setMessage({
+        text: t('changes.batchFailed', {
+          count: String(outcome.done),
+          reason: tError(outcome.failure.code, outcome.failure.message),
+        }),
+        kind: 'err',
+      })
+    }
+    setDiffState(null)
+    void refreshStatus()
+    void refreshStash()
+    void load(true)
+    onRefreshStatus?.()
+    setPendingOp(null)
+    setBusy(false)
+  }, [path, busy, unstaged, t, api, refreshStatus, refreshStash, load, onRefreshStatus])
+
   useEffect(() => {
-    if (!discardTarget) return
+    if (!discardTarget && !discardAllOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
         setDiscardTarget(null)
+        setDiscardAllOpen(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [discardTarget])
+  }, [discardTarget, discardAllOpen])
 
   /**
    * 批量暂存 / 取消暂存一组文件。
@@ -1871,6 +1909,11 @@ export function GitPanel(props: {
                             e.stopPropagation()
                             void runBatchStage(unstaged.map((c) => c.file), 'stage')
                           }} />
+                        <RowAction icon="undo" danger label={t('changes.discardAll')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDiscardAllOpen(true)
+                          }} />
                       </div>
                     </div>
                     {!collapsedGroups['unstaged'] ? (
@@ -2290,6 +2333,53 @@ export function GitPanel(props: {
                 onClick={() => void confirmDiscard()}
               >
                 {t('changes.discard')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+
+      {discardAllOpen && typeof document !== 'undefined' ? createPortal(
+        <div
+          className="dsh-gp-modal-backdrop"
+          onClick={() => setDiscardAllOpen(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void confirmDiscardAll()
+          }}
+        >
+          <div
+            className="dsh-gp-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="dsh-gp-discard-all-title"
+            aria-describedby="dsh-gp-discard-all-desc"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div id="dsh-gp-discard-all-title" className="dsh-gp-modal-title">
+              <span style={{ color: 'var(--danger)', display: 'inline-flex' }}>{icon('undo', 15)}</span>
+              <span>{t('changes.discardAll')}</span>
+            </div>
+            <div id="dsh-gp-discard-all-desc" className="dsh-gp-modal-desc">
+              <div>
+                {t('changes.discardAllConfirm', { count: String(unstaged.length) })}
+              </div>
+            </div>
+            <div className="dsh-gp-modal-actions">
+              <button
+                type="button"
+                className="dsh-gp-modal-btn"
+                onClick={() => setDiscardAllOpen(false)}
+              >
+                {t('menu.cancel')}
+              </button>
+              <button
+                type="button"
+                className="dsh-gp-modal-btn danger"
+                autoFocus
+                onClick={() => void confirmDiscardAll()}
+              >
+                {t('changes.discardAll')}
               </button>
             </div>
           </div>
