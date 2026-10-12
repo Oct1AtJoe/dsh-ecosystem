@@ -433,6 +433,59 @@ function RowAction(props: {
   )
 }
 
+/** 比较两次拉取的分支数据是否完全一致（用于后台静默刷新防抖）。 */
+function areBranchesEqual(a: BranchesView | null, b: BranchesView | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.repo !== b.repo || a.current !== b.current) return false
+  if (a.local.length !== b.local.length || a.remote.length !== b.remote.length) return false
+  for (let i = 0; i < a.local.length; i++) {
+    const l1 = a.local[i]!
+    const l2 = b.local[i]!
+    if (
+      l1.name !== l2.name ||
+      l1.sha !== l2.sha ||
+      l1.date !== l2.date ||
+      l1.current !== l2.current ||
+      l1.ahead !== l2.ahead ||
+      l1.behind !== l2.behind ||
+      l1.subject !== l2.subject
+    ) return false
+  }
+  for (let i = 0; i < a.remote.length; i++) {
+    const r1 = a.remote[i]!
+    const r2 = b.remote[i]!
+    if (
+      r1.name !== r2.name ||
+      r1.sha !== r2.sha ||
+      r1.date !== r2.date ||
+      r1.subject !== r2.subject
+    ) return false
+  }
+  return true
+}
+
+/** 比较两次拉取的提交图数据是否完全一致（用于后台静默刷新防抖）。 */
+function areGraphsEqual(a: GraphView | null, b: GraphView | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.repo !== b.repo || a.current !== b.current) return false
+  if (a.commits.length !== b.commits.length) return false
+  const aTipsKeys = Object.keys(a.tips)
+  const bTipsKeys = Object.keys(b.tips)
+  if (aTipsKeys.length !== bTipsKeys.length) return false
+  for (const k of aTipsKeys) {
+    if (a.tips[k] !== b.tips[k]) return false
+  }
+  const sampleCount = Math.min(a.commits.length, 10)
+  for (let i = 0; i < sampleCount; i++) {
+    const c1 = a.commits[i]!
+    const c2 = b.commits[i]!
+    if (c1.sha !== c2.sha || c1.subject !== c2.subject || c1.date !== c2.date) return false
+  }
+  return true
+}
+
 /** GitLens 风格的分支行（双行信息分层）：单击查看图谱，双击激活，右键打开菜单。 */
 const BranchRowView = memo(function BranchRowView(props: {
   row: BranchRow
@@ -1042,6 +1095,10 @@ export function GitPanel(props: {
   const [tab, setTab] = useState<'branches' | 'graph'>('branches')
   const [branches, setBranches] = useState<BranchesView | null>(null)
   const [graph, setGraph] = useState<GraphView | null>(null)
+  const branchesRef = useRef<BranchesView | null>(null)
+  branchesRef.current = branches
+  const graphRef = useRef<GraphView | null>(null)
+  graphRef.current = graph
   const [loading, setLoading] = useState(false)
   // 对进行中的加载做单调递增保护（见 load()）。
   const loadSeq = useRef(0)
@@ -1177,23 +1234,35 @@ export function GitPanel(props: {
     appliedHeightRef.current = next
   }, [commitMsg])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!path) return
     // 会话切换：在加载新路径前丢弃上一个仓库的数据，这样一次失败的加载永不
     // 会在屏幕上留下过期的分支。序列号保护会丢弃在新路径再次改变之后才返回的
     // 响应（来自旧会话的在途请求绝不能落地）。
     const seq = ++loadSeq.current
-    setLoading(true)
-    setBranches(null)
-    setGraph(null)
-    setMessage(null)
+    if (!silent) {
+      setLoading(true)
+      setBranches(null)
+      setGraph(null)
+      setMessage(null)
+    }
     const [b, g] = await Promise.all([api.branches(path), api.graph(path)])
     if (seq !== loadSeq.current) return
-    if (b.ok) setBranches(b.value)
-    if (g.ok) setGraph(g.value)
-    if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: 'err' })
-    else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: 'err' })
-    setLoading(false)
+    if (b.ok) {
+      if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
+        setBranches(b.value)
+      }
+    }
+    if (g.ok) {
+      if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
+        setGraph(g.value)
+      }
+    }
+    if (!silent) {
+      if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: 'err' })
+      else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: 'err' })
+      setLoading(false)
+    }
   }, [path, api])
 
   useEffect(() => {
@@ -1252,16 +1321,17 @@ export function GitPanel(props: {
   const refreshAll = useCallback(async (): Promise<void> => {
     if (!path || busy) return
     onRefreshStatus?.()
-    await Promise.all([load(), refreshStatus(), refreshStash()])
+    await Promise.all([load(false), refreshStatus(), refreshStash()])
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash])
 
-  // 订阅后台 statusCache 变更通知：一旦有文件变动，自动刷新变更与储藏列表
+  // 订阅后台 statusCache 变更通知：一旦有文件变动，自动刷新变更、储藏、分支与图谱
   useEffect(() => {
     if (!statusCache || !path) return undefined
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return
       void refreshStatus()
       void refreshStash()
+      void load(true)
       const viewingFile = diffStateRef.current?.file
       if (viewingFile) {
         void api.diffFile(path, viewingFile).then((res) => {
@@ -1272,9 +1342,9 @@ export function GitPanel(props: {
       }
     })
     return unsubscribe
-  }, [statusCache, path, busy, refreshStatus, refreshStash, api])
+  }, [statusCache, path, busy, refreshStatus, refreshStash, load, api])
 
-  // 窗口重新获得焦点或切回前台时，强制刷新工作区状态
+  // 窗口重新获得焦点或切回前台时，强制刷新工作区状态、储藏、分支与图谱
   useEffect(() => {
     if (!path) return undefined
     const onFocus = (): void => {
@@ -1282,6 +1352,7 @@ export function GitPanel(props: {
         if (statusCache) void statusCache.ensure(path, true)
         void refreshStatus()
         void refreshStash()
+        void load(true)
       }
     }
     window.addEventListener('focus', onFocus)
@@ -1290,7 +1361,21 @@ export function GitPanel(props: {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
     }
-  }, [path, busy, statusCache, refreshStatus, refreshStash])
+  }, [path, busy, statusCache, refreshStatus, refreshStash, load])
+
+  // 面板处于前台展示时，定期静默同步（捕获外部 IDE 提交、分支切换、pull 等）
+  useEffect(() => {
+    if (!path) return undefined
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !busy) {
+        if (statusCache) void statusCache.ensure(path)
+        void refreshStatus()
+        void refreshStash()
+        void load(true)
+      }
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [path, busy, statusCache, refreshStatus, refreshStash, load])
 
   const runWrite = useCallback(async (action: 'commit' | 'push' | 'stash-push' | 'stash-pop' | 'stage' | 'unstage' | 'discard' | 'sync', extra?: string): Promise<void> => {
     if (!path || busy) return
@@ -1333,7 +1418,7 @@ export function GitPanel(props: {
       void refreshStatus()
       // 储藏/恢复会改变抽屉内容，状态行上的「已储藏 N 个文件」必须跟着更新。
       void refreshStash()
-      void load()
+      void load(true)
       onRefreshStatus?.()
     } else {
       let errMsg = tError(result.error?.code, result.error?.message ?? t('op.failed'))
@@ -1401,7 +1486,7 @@ export function GitPanel(props: {
       })
     }
     void refreshStatus()
-    void load()
+    void load(true)
     onRefreshStatus?.()
     setPendingOp(null)
     setBusy(false)
@@ -1453,11 +1538,13 @@ export function GitPanel(props: {
   // 输入 dock 的 chip 会在一次成功的分支切换后派发这个事件。
   useEffect(() => {
     const onSwitched = (): void => {
-      void load()
+      void refreshStatus()
+      void refreshStash()
+      void load(true)
     }
     window.addEventListener('dsh-git-panel:switched', onSwitched)
     return () => window.removeEventListener('dsh-git-panel:switched', onSwitched)
-  }, [load])
+  }, [load, refreshStatus, refreshStash])
 
   useEffect(() => {
     const el = rootRef.current
@@ -1488,7 +1575,9 @@ export function GitPanel(props: {
     const result = await op()
     if (result.ok) {
       setMessage({ text: result.value.output || t('op.done', { label }), kind: 'ok' })
-      await load()
+      void refreshStatus()
+      void refreshStash()
+      await load(true)
     } else {
       let errMsg = tError(result.error.code, result.error.message || t('panel.opFailed'))
       let showAuthForm = false
@@ -1500,7 +1589,7 @@ export function GitPanel(props: {
     }
     setPendingOp(null)
     setBusy(false)
-  }, [load, t])
+  }, [load, t, refreshStatus, refreshStash])
 
   const repoName = branches?.repo ?? ''
 

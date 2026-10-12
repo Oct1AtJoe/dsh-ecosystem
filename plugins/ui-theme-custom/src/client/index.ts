@@ -1110,6 +1110,45 @@ span > input[class*="Input"],
   background:var(--dsh-scrollbar-thumb-hover, rgba(128,128,128,0.4)) !important;
 }
 
+/* 插件市场吸顶搜索区：未吸顶时透明融入背景，吸顶时激活精致磨砂浮岛（全主题通用） */
+[data-dsh-market-root] [class*="stickyHead"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+[data-dsh-market-root] [class*="stickyHead"]::before {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* 滚动吸顶激活态：同色系柔和磨砂遮罩，阻断下层文字穿透，杜绝死白补丁 */
+[data-dsh-market-root] [class*="stickyHead"][data-stuck="true"],
+[data-dsh-market-root] [class*="stickyHead"][class*="Stuck"] {
+  background: rgba(245, 245, 247, 0.88) !important;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, rgb(245, 245, 247)) 88%, transparent) !important;
+  backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
+  -webkit-backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.06) !important;
+}
+[data-dsh-market-root] [class*="stickyHead"][data-stuck="true"]::before,
+[data-dsh-market-root] [class*="stickyHead"][class*="Stuck"]::before {
+  background: inherit !important;
+  backdrop-filter: inherit !important;
+  -webkit-backdrop-filter: inherit !important;
+}
+
+/* 深色模式吸顶态：与深色基底自然融合 */
+body[data-ds-dark-theme] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"],
+body[data-ds-dark-theme] [data-dsh-market-root] [class*="stickyHead"][class*="Stuck"] {
+  background: rgba(22, 24, 30, 0.88) !important;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, rgb(22, 24, 30)) 88%, transparent) !important;
+  box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.40) !important;
+}
+
 /* 弹窗进场动画 */
 @keyframes dsh-glass-dialog-in {
   0% {

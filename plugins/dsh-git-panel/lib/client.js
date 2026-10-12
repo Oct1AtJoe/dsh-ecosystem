@@ -1557,6 +1557,42 @@ function RowAction(props) {
     }
   );
 }
+function areBranchesEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.repo !== b.repo || a.current !== b.current) return false;
+  if (a.local.length !== b.local.length || a.remote.length !== b.remote.length) return false;
+  for (let i = 0; i < a.local.length; i++) {
+    const l1 = a.local[i];
+    const l2 = b.local[i];
+    if (l1.name !== l2.name || l1.sha !== l2.sha || l1.date !== l2.date || l1.current !== l2.current || l1.ahead !== l2.ahead || l1.behind !== l2.behind || l1.subject !== l2.subject) return false;
+  }
+  for (let i = 0; i < a.remote.length; i++) {
+    const r1 = a.remote[i];
+    const r2 = b.remote[i];
+    if (r1.name !== r2.name || r1.sha !== r2.sha || r1.date !== r2.date || r1.subject !== r2.subject) return false;
+  }
+  return true;
+}
+function areGraphsEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.repo !== b.repo || a.current !== b.current) return false;
+  if (a.commits.length !== b.commits.length) return false;
+  const aTipsKeys = Object.keys(a.tips);
+  const bTipsKeys = Object.keys(b.tips);
+  if (aTipsKeys.length !== bTipsKeys.length) return false;
+  for (const k of aTipsKeys) {
+    if (a.tips[k] !== b.tips[k]) return false;
+  }
+  const sampleCount = Math.min(a.commits.length, 10);
+  for (let i = 0; i < sampleCount; i++) {
+    const c1 = a.commits[i];
+    const c2 = b.commits[i];
+    if (c1.sha !== c2.sha || c1.subject !== c2.subject || c1.date !== c2.date) return false;
+  }
+  return true;
+}
 var BranchRowView = (0, import_react3.memo)(function BranchRowView2(props) {
   const { row, isRemote, current, busy, onSelect, onActivate, onPull, onContextMenu } = props;
   const t2 = useT();
@@ -2072,6 +2108,10 @@ function GitPanel(props) {
   const [tab, setTab] = (0, import_react3.useState)("branches");
   const [branches, setBranches] = (0, import_react3.useState)(null);
   const [graph, setGraph] = (0, import_react3.useState)(null);
+  const branchesRef = (0, import_react3.useRef)(null);
+  branchesRef.current = branches;
+  const graphRef = (0, import_react3.useRef)(null);
+  graphRef.current = graph;
   const [loading, setLoading] = (0, import_react3.useState)(false);
   const loadSeq = (0, import_react3.useRef)(0);
   const pathRef = (0, import_react3.useRef)(path);
@@ -2159,20 +2199,32 @@ function GitPanel(props) {
     el.style.height = next;
     appliedHeightRef.current = next;
   }, [commitMsg]);
-  const load = (0, import_react3.useCallback)(async () => {
+  const load = (0, import_react3.useCallback)(async (silent = false) => {
     if (!path) return;
     const seq = ++loadSeq.current;
-    setLoading(true);
-    setBranches(null);
-    setGraph(null);
-    setMessage(null);
+    if (!silent) {
+      setLoading(true);
+      setBranches(null);
+      setGraph(null);
+      setMessage(null);
+    }
     const [b, g] = await Promise.all([api.branches(path), api.graph(path)]);
     if (seq !== loadSeq.current) return;
-    if (b.ok) setBranches(b.value);
-    if (g.ok) setGraph(g.value);
-    if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: "err" });
-    else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: "err" });
-    setLoading(false);
+    if (b.ok) {
+      if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
+        setBranches(b.value);
+      }
+    }
+    if (g.ok) {
+      if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
+        setGraph(g.value);
+      }
+    }
+    if (!silent) {
+      if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: "err" });
+      else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: "err" });
+      setLoading(false);
+    }
   }, [path, api]);
   (0, import_react3.useEffect)(() => {
     void load();
@@ -2215,7 +2267,7 @@ function GitPanel(props) {
   const refreshAll = (0, import_react3.useCallback)(async () => {
     if (!path || busy) return;
     onRefreshStatus?.();
-    await Promise.all([load(), refreshStatus(), refreshStash()]);
+    await Promise.all([load(false), refreshStatus(), refreshStash()]);
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash]);
   (0, import_react3.useEffect)(() => {
     if (!statusCache || !path) return void 0;
@@ -2223,6 +2275,7 @@ function GitPanel(props) {
       if (busy) return;
       void refreshStatus();
       void refreshStash();
+      void load(true);
       const viewingFile = diffStateRef.current?.file;
       if (viewingFile) {
         void api.diffFile(path, viewingFile).then((res) => {
@@ -2233,7 +2286,7 @@ function GitPanel(props) {
       }
     });
     return unsubscribe;
-  }, [statusCache, path, busy, refreshStatus, refreshStash, api]);
+  }, [statusCache, path, busy, refreshStatus, refreshStash, load, api]);
   (0, import_react3.useEffect)(() => {
     if (!path) return void 0;
     const onFocus = () => {
@@ -2241,6 +2294,7 @@ function GitPanel(props) {
         if (statusCache) void statusCache.ensure(path, true);
         void refreshStatus();
         void refreshStash();
+        void load(true);
       }
     };
     window.addEventListener("focus", onFocus);
@@ -2249,7 +2303,19 @@ function GitPanel(props) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [path, busy, statusCache, refreshStatus, refreshStash]);
+  }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
+  (0, import_react3.useEffect)(() => {
+    if (!path) return void 0;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible" && !busy) {
+        if (statusCache) void statusCache.ensure(path);
+        void refreshStatus();
+        void refreshStash();
+        void load(true);
+      }
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
   const runWrite = (0, import_react3.useCallback)(async (action, extra) => {
     if (!path || busy) return;
     setBusy(true);
@@ -2289,7 +2355,7 @@ function GitPanel(props) {
       if (action === "commit" || action === "stash-pop") setCommitMsg("");
       void refreshStatus();
       void refreshStash();
-      void load();
+      void load(true);
       onRefreshStatus?.();
     } else {
       let errMsg = tError(result.error?.code, result.error?.message ?? t2("op.failed"));
@@ -2344,7 +2410,7 @@ function GitPanel(props) {
       });
     }
     void refreshStatus();
-    void load();
+    void load(true);
     onRefreshStatus?.();
     setPendingOp(null);
     setBusy(false);
@@ -2383,11 +2449,13 @@ function GitPanel(props) {
   }, [path, api, generating, busy, t2]);
   (0, import_react3.useEffect)(() => {
     const onSwitched = () => {
-      void load();
+      void refreshStatus();
+      void refreshStash();
+      void load(true);
     };
     window.addEventListener("dsh-git-panel:switched", onSwitched);
     return () => window.removeEventListener("dsh-git-panel:switched", onSwitched);
-  }, [load]);
+  }, [load, refreshStatus, refreshStash]);
   (0, import_react3.useEffect)(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -2413,7 +2481,9 @@ function GitPanel(props) {
     const result = await op();
     if (result.ok) {
       setMessage({ text: result.value.output || t2("op.done", { label }), kind: "ok" });
-      await load();
+      void refreshStatus();
+      void refreshStash();
+      await load(true);
     } else {
       let errMsg = tError(result.error.code, result.error.message || t2("panel.opFailed"));
       let showAuthForm = false;
@@ -2425,7 +2495,7 @@ function GitPanel(props) {
     }
     setPendingOp(null);
     setBusy(false);
-  }, [load, t2]);
+  }, [load, t2, refreshStatus, refreshStash]);
   const repoName = branches?.repo ?? "";
   const drawerSummary = (() => {
     if (stash === null || stash.files === 0) return "";
