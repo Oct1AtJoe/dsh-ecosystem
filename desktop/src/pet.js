@@ -364,16 +364,22 @@ async function applyConfig(config) {
   const show = config.desktopPetEnabled !== false;
   document.body.style.opacity = show ? String(config.opacity ?? 1) : '0';
   document.body.style.pointerEvents = show ? 'auto' : 'none';
+  // 内联 display 是权威：宿主/缓存不参与，透明内容也不会漏出点击面
   document.body.style.display = show ? '' : 'none';
-  if (pet) pet.style.display = show ? 'flex' : 'none';
-  // 尺寸变更：按素材比例 122×207 设窗口，不拉伸；关闭时尺寸设为 0，移除桌面占位
+  // 尺寸：开关关闭时把窗口压到 0×0，桌面上不留任何占位；开启时恢复角色尺寸。
+  // 这里刻意用 set_size(0,0) 而非 window.hide()——Tauri 默认
+  // BackgroundThrottlingPolicy::Suspend，窗口隐藏后 WebView2 会挂起 JS，
+  // 2s 的 pollConfig 随之停摆，用户重新打开开关将永远无法恢复显示。
+  // 0×0 时窗口仍属 visible，轮询照常跑，下一个周期即可自愈复原。
   const newSize = Math.min(300, Number(config.size));
-  if (Number.isFinite(newSize) && newSize > 0) {
+  const hasSize = Number.isFinite(newSize) && newSize > 0;
+  // 关闭态无条件缩零（size 无效时也要缩，否则占位残留）；开启态仅在 size 有效时设尺寸
+  if (hasSize || !show) {
     const FRAME_W = 122, FRAME_H = 207; // 裁剪后每帧尺寸
     const winW = show ? Math.round(newSize) : 0;
     const winH = show ? Math.round(newSize * FRAME_H / FRAME_W) : 0;
     const invoke = window.__TAURI_INTERNALS__?.invoke;
-    if (invoke && (show ? (winW > 0 && winH > 0) : true)) {
+    if (typeof invoke === 'function') {
       try {
         await invoke('plugin:window|set_size', {
           value: { Logical: { width: winW, height: winH } },

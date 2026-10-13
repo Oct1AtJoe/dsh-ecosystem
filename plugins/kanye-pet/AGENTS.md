@@ -243,15 +243,16 @@ async function applyConfig(config) {
   document.body.style.opacity = show ? String(config.opacity ?? 1) : '0'
   document.body.style.pointerEvents = show ? 'auto' : 'none'
   document.body.style.display = show ? '' : 'none'
-  if (pet) pet.style.display = show ? 'flex' : 'none'
+  // 关闭时窗口压到 0×0（不是 hide()：Tauri 默认 background throttling = Suspend，
+  // 隐藏会挂起 WebView JS，2s 轮询停摆 → 重开开关再也回不来；0×0 时窗口仍 visible）
   const newSize = Math.min(300, Number(config.size))
-  if (Number.isFinite(newSize) && newSize > 0) {
+  const hasSize = Number.isFinite(newSize) && newSize > 0
+  // 关闭态无条件缩零（size 无效也缩，保证不残留占位）；开启态仅在 size 有效时设尺寸
+  if (hasSize || !show) {
     const FRAME_W = 122, FRAME_H = 207
     const winW = show ? Math.round(newSize) : 0
     const winH = show ? Math.round(newSize * FRAME_H / FRAME_W) : 0
-    if (invoke && (show ? (winW > 0 && winH > 0) : true)) {
-      await invoke('plugin:window|set_size', { value: { Logical: { width: winW, height: winH } } })
-    }
+    await invoke('plugin:window|set_size', { value: { Logical: { width: winW, height: winH } } })
   }
 }
 ```
@@ -546,12 +547,31 @@ pet.js 在**配置首次到达时一次性**探测这四个文件（各发一次
 - 自定义 wav 播放音量 = `sound.volume`（不再固定 0.3）
 
 **改动生效范围**：换音效文件、改 assets 路由 = 服务器侧，重启 DSH 生效；
-改 `pet.js` 的播放逻辑 = **重启桌宠窗口即可，不需重编 exe**。
+改 `pet.js`/`pet.html` = **必须重编 exe**（见下方更正）。
 
-> 为什么改 `pet.js` 不用重编：前端资源是运行时从 `desktop/src/` 磁盘读取的，
-> 并未嵌入 exe。已用二进制扫描确认——exe 里搜不到 `playNotifSound`、
-> `Desktop pet window renderer` 等 pet.js 特征串，明文和 gzip 成员都没有。
-> 所以别白跑 `cargo build`，重启桌宠（或重启 DSH）就会加载新的 pet.js。
+> ⚠️ **2026-10-13 实证更正（原结论错误，曾导致一次静默失效）**：
+> 本节此前断言「pet.js 是运行时从 `desktop/src/` 磁盘读取、未嵌入 exe，
+> 所以改完重启桌宠即可、别白跑 cargo build」——**这是错的**。
+>
+> 错因是取证不完整：只做了明文扫描与 gzip 成员扫描，**漏了 Brotli**。Tauri 把
+> `frontendDist`（`../src`）里的资源以 **Brotli 压缩**嵌进 exe，因此
+> `Select-String` 在 exe 里搜 `playNotifSound`/`showBubble`/`scheduleSetPosition`
+> 全部 `absent`，看起来"没嵌入"，实际明文只是被压掉了。
+>
+> **正确取证法**（可复现）：把 `tauri-codegen-assets/*.js` 用
+> `zlib.brotliDecompressSync` 解出来，即得 pet.js 全文；或直接断言
+> 「压缩后的 asset 字节序列出现在 exe 内」：
+>
+> ```js
+> const exe = fs.readFileSync('desktop/dist/DeepSeekHarness.exe')
+> const asset = fs.readFileSync('<target>/release/build/deepseek-harness-desktop-*/out/tauri-codegen-assets/<hash>.js')
+> console.log(exe.includes(asset))            // true  → 确已嵌入
+> console.log(exe.includes(plainPetJsText))   // false → 明文当然搜不到（Brotli）
+> ```
+>
+> **后果**：只改磁盘 `desktop/src/pet.js` 却**不重编 exe**，运行中的桌宠
+> **行为完全不变**（实证：改完实测窗口仍 140×238，与改动前一致）。
+> 改 pet.js 后必须走 §6.3 的「删 build 产物 → 重建 → 覆盖 dist」全流程。
 
 ---
 
