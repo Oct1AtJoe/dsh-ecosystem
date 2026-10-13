@@ -2258,6 +2258,18 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
 body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([class*="overlayAnchor"] [class$="_menu"]){
   z-index:9500 !important;
 }
+/* 上下文占用弹窗（官方 ContextMeter 的 role="dialog"）同为**卡片内浮层**：
+   它的 z-index:100 只在卡片内部有效（卡片自身上面那条 z-index:0 建了 stacking
+   context），而挂件 .dsh-composer-pet（z-index:50）与卡片同层，故弹窗被挂件压住。
+   含弹窗时把卡片整体抬到挂件之上，弹窗随之浮起 —— 只改层叠，几何与交互不变。
+   （用 :has 自适应，与上方菜单抬层同源，无需改 JS。六主题中只有 sequoia/sonoma
+   给卡片加了 z-index:0，其余主题不建立该 context，本就不冲突。）
+   选择器收窄到 ContextMeter 面板本体（[role="dialog"][class$="_panel"]），
+   与既有 [class$="_menu"] / [class$="_card"] 同一后缀范式，不波及其它卡片内浮层。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([role="dialog"][class$="_panel"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="dialog"][class$="_panel"]){
+  z-index:9500 !important;
+}
 
 /* ── 输入框上方像素小伙伴挂件（全主题通用）─────────────────────────────
    素材为「单行 8 列」条带：每张 584×109px，单元格 73×109px。

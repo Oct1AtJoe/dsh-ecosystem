@@ -190,6 +190,13 @@ check(
   '浮层：卡片含菜单时抬层（:has([role="menu"]) → z-index:9500）',
   /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
 )
+// 上下文占用弹窗（官方 ContextMeter，role="dialog"）也是卡片内浮层：卡片自身
+// z-index:0 建了 stacking context，弹窗的 z-index:100 出不去，会被同层的挂件
+// `.dsh-composer-pet`（z-index:50）压住。含弹窗时同样抬卡片。
+check(
+  '浮层：卡片含上下文弹窗时抬层（:has([role="dialog"][class$="_panel"]) → z-index:9500，须高于挂件 50）',
+  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="dialog"\]\[class\$="_panel"\]\)[\s\S]{0,200}?z-index:9500/.test(indexSrc),
+)
 check(
   '浮层：指令面板纳入 C 组统一毛玻璃',
   /\[class\*="overlayAnchor"\]\s+\[class\$="_menu"\]/.test(indexSrc),
