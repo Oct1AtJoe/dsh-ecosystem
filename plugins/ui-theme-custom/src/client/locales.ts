@@ -22,6 +22,10 @@ export const zh = {
   'sidebar-font.unit': 'px',
   'sidebar-font.increase': '增大侧边栏字号',
   'sidebar-font.decrease': '减小侧边栏字号',
+  'home-layout.title': '新会话版面',
+  'home-layout.description': '工作室版面在中央展示模型用量面板，输入框贴底；经典版面保持居中',
+  'home-layout.classic': '经典',
+  'home-layout.studio': '工作室',
 } satisfies Record<string, string>
 
 /** English dictionary checked against the Chinese key set. */
@@ -45,6 +49,10 @@ export const en = {
   'sidebar-font.unit': 'px',
   'sidebar-font.increase': 'Increase sidebar font size',
   'sidebar-font.decrease': 'Decrease sidebar font size',
+  'home-layout.title': 'New conversation layout',
+  'home-layout.description': 'Studio layout displays the usage panel in center with docked composer; Classic keeps centered',
+  'home-layout.classic': 'Classic',
+  'home-layout.studio': 'Studio',
 } satisfies Record<TechThemeKey, string>
 
 /** Copy keys shared by both dictionaries. */

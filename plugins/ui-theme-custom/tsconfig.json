@@ -5,7 +5,12 @@
     "outDir": "lib/types",
     "typeRoots": [
       "E:/vibeCoding/deepseek-harness/scripts/types",
+      "E:/vibeCoding/deepseek-harness/node_modules/@types",
       "../../node_modules/@types"
+    ],
+    "types": [
+      "node",
+      "client-build-environment"
     ]
   },
   "include": [

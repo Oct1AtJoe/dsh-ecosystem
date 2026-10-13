@@ -74,4 +74,17 @@ export function createRightbarWidthStore() {
         },
     });
 }
+export function createHomeLayoutStore() {
+    return defineStore({
+        init: () => ({ layout: 'studio', revision: -1 }),
+        actions: {
+            sync: (d, layout, revision) => {
+                if (revision <= d.revision)
+                    return;
+                d.layout = layout;
+                d.revision = revision;
+            },
+        },
+    });
+}
 //# sourceMappingURL=settings-store.js.map

@@ -117,5 +117,18 @@ export const SOLAR_TOKENS = Object.freeze({
     '--dsw-specific-sidebar-nav-item-active': 'rgb(46, 36, 40)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgb(38, 30, 32)',
     '--dsw-specific-tip': 'rgba(38, 30, 32, 0.80)',
+    // 用量图表与热力图（暖琥珀金红调）
+    '--dsh-chart-rank-0': 'rgb(240, 180, 90)',
+    '--dsh-chart-rank-1': 'rgb(220, 156, 60)',
+    '--dsh-chart-rank-2': 'rgb(204, 136, 48)',
+    '--dsh-chart-rank-3': 'rgb(186, 116, 38)',
+    '--dsh-chart-rank-4': 'rgb(168, 96, 32)',
+    '--dsh-chart-rank-5': 'rgb(148, 80, 28)',
+    '--dsh-chart-rank-6': 'rgb(128, 64, 24)',
+    '--dsh-chart-rank-7': 'rgb(108, 52, 22)',
+    '--dsh-heat-step-1': 'rgba(240, 180, 90, 0.18)',
+    '--dsh-heat-step-2': 'rgba(240, 180, 90, 0.40)',
+    '--dsh-heat-step-3': 'rgba(240, 180, 90, 0.68)',
+    '--dsh-heat-step-4': 'rgba(240, 180, 90, 0.95)',
 });
 //# sourceMappingURL=solar.js.map

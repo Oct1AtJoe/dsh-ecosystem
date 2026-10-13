@@ -126,3 +126,27 @@ export function createRightbarWidthStore(): EngineStoreHandle<RightbarWidthRowSt
   })
 }
 
+/** 新会话版面设置行的状态。 */
+export interface HomeLayoutRowState {
+  layout: 'classic' | 'studio'
+  revision: number
+}
+
+type HomeLayoutRowActions = {
+  sync: (draft: HomeLayoutRowState, layout: 'classic' | 'studio', revision: number) => void
+}
+
+export function createHomeLayoutStore(): EngineStoreHandle<HomeLayoutRowState, HomeLayoutRowActions> {
+  return defineStore({
+    init: () => ({ layout: 'studio', revision: -1 }),
+    actions: {
+      sync: (d, layout, revision) => {
+        if (revision <= d.revision) return
+        d.layout = layout
+        d.revision = revision
+      },
+    },
+  })
+}
+
+

@@ -22,6 +22,10 @@ export declare const zh: {
     'sidebar-font.unit': string;
     'sidebar-font.increase': string;
     'sidebar-font.decrease': string;
+    'home-layout.title': string;
+    'home-layout.description': string;
+    'home-layout.classic': string;
+    'home-layout.studio': string;
 };
 /** English dictionary checked against the Chinese key set. */
 export declare const en: {
@@ -44,6 +48,10 @@ export declare const en: {
     'sidebar-font.unit': string;
     'sidebar-font.increase': string;
     'sidebar-font.decrease': string;
+    'home-layout.title': string;
+    'home-layout.description': string;
+    'home-layout.classic': string;
+    'home-layout.studio': string;
 };
 /** Copy keys shared by both dictionaries. */
 export type TechThemeKey = keyof typeof zh;

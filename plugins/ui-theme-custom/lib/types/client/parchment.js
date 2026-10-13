@@ -111,5 +111,18 @@ export const PARCHMENT_TOKENS = Object.freeze({
     '--dsw-specific-sidebar-nav-item-active': 'rgba(242, 236, 225, 0.90)',
     '--dsw-specific-sidebar-nav-item-hover': 'rgba(34, 28, 24, 0.04)',
     '--dsw-specific-tip': 'rgba(228, 221, 208, 0.80)',
+    // 用量图表与热力图（朱砂印拓与松墨茶青调）
+    '--dsh-chart-rank-0': 'rgb(156, 48, 28)',
+    '--dsh-chart-rank-1': 'rgb(176, 68, 44)',
+    '--dsh-chart-rank-2': 'rgb(196, 92, 64)',
+    '--dsh-chart-rank-3': 'rgb(212, 120, 92)',
+    '--dsh-chart-rank-4': 'rgb(142, 110, 84)',
+    '--dsh-chart-rank-5': 'rgb(168, 138, 112)',
+    '--dsh-chart-rank-6': 'rgb(194, 168, 144)',
+    '--dsh-chart-rank-7': 'rgb(216, 196, 176)',
+    '--dsh-heat-step-1': 'rgba(156, 48, 28, 0.16)',
+    '--dsh-heat-step-2': 'rgba(156, 48, 28, 0.35)',
+    '--dsh-heat-step-3': 'rgba(156, 48, 28, 0.62)',
+    '--dsh-heat-step-4': 'rgba(156, 48, 28, 0.90)',
 });
 //# sourceMappingURL=parchment.js.map

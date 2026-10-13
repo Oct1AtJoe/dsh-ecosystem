@@ -13,6 +13,7 @@
  * and compiles against whatever host version is installed.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { registerRoutes } from './host/routes.ts'
 import { SEQUOIA_TOKENS } from './client/sequoia.ts'
 import { SONOMA_TOKENS } from './client/sonoma.ts'
 import { VOID_TOKENS } from './client/void.ts'
@@ -94,5 +95,10 @@ try {
 export function apply(ctx: Context): void {
   ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
     table.push({ kind: 'script', placement: 'body', text: BOOT_SCRIPT })
+  })
+
+  ctx.inject(['webServer'], (scope: any) => {
+    const dispose = registerRoutes(ctx, scope)
+    scope.effect(() => dispose)
   })
 }

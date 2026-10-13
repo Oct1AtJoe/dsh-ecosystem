@@ -67,5 +67,14 @@ type RightbarWidthRowActions = {
  * @returns store 句柄。
  */
 export declare function createRightbarWidthStore(): EngineStoreHandle<RightbarWidthRowState, RightbarWidthRowActions>;
+/** 新会话版面设置行的状态。 */
+export interface HomeLayoutRowState {
+    layout: 'classic' | 'studio';
+    revision: number;
+}
+type HomeLayoutRowActions = {
+    sync: (draft: HomeLayoutRowState, layout: 'classic' | 'studio', revision: number) => void;
+};
+export declare function createHomeLayoutStore(): EngineStoreHandle<HomeLayoutRowState, HomeLayoutRowActions>;
 export {};
 //# sourceMappingURL=settings-store.d.ts.map

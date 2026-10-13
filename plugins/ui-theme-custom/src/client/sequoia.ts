@@ -156,4 +156,18 @@ export const SEQUOIA_TOKENS: ThemeTokens = Object.freeze({
   '--dsw-code-keyword': '#cf222e',
   '--dsw-code-string': '#0a3069',
   '--dsw-code-function': '#8250df',
+
+  // 16. 用量图表与热力图（晨曦蓝调）
+  '--dsh-chart-rank-0': '#147ce5',
+  '--dsh-chart-rank-1': '#2b8cf0',
+  '--dsh-chart-rank-2': '#4fa2f6',
+  '--dsh-chart-rank-3': '#73b6f8',
+  '--dsh-chart-rank-4': '#98c9fa',
+  '--dsh-chart-rank-5': '#bddcfc',
+  '--dsh-chart-rank-6': '#d5e9fd',
+  '--dsh-chart-rank-7': '#e7f2fe',
+  '--dsh-heat-step-1': 'rgba(20, 124, 229, 0.18)',
+  '--dsh-heat-step-2': 'rgba(20, 124, 229, 0.38)',
+  '--dsh-heat-step-3': 'rgba(20, 124, 229, 0.65)',
+  '--dsh-heat-step-4': 'rgba(20, 124, 229, 0.92)',
 })

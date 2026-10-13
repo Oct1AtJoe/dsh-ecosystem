@@ -143,4 +143,18 @@ export const JADE_TOKENS: ThemeTokens = Object.freeze({
   '--dsw-specific-sidebar-nav-item-active': 'rgba(238, 241, 246, 0.90)',
   '--dsw-specific-sidebar-nav-item-hover': 'rgba(15, 23, 42, 0.05)',
   '--dsw-specific-tip': 'rgba(226, 229, 236, 0.85)',
+
+  // 用量图表与热力图（黑曜石黑与液态银调）
+  '--dsh-chart-rank-0': 'rgb(20, 22, 28)',
+  '--dsh-chart-rank-1': 'rgb(42, 46, 56)',
+  '--dsh-chart-rank-2': 'rgb(68, 76, 88)',
+  '--dsh-chart-rank-3': 'rgb(96, 106, 120)',
+  '--dsh-chart-rank-4': 'rgb(124, 134, 148)',
+  '--dsh-chart-rank-5': 'rgb(154, 162, 176)',
+  '--dsh-chart-rank-6': 'rgb(184, 190, 202)',
+  '--dsh-chart-rank-7': 'rgb(208, 212, 222)',
+  '--dsh-heat-step-1': 'rgba(20, 22, 28, 0.14)',
+  '--dsh-heat-step-2': 'rgba(20, 22, 28, 0.35)',
+  '--dsh-heat-step-3': 'rgba(20, 22, 28, 0.62)',
+  '--dsh-heat-step-4': 'rgba(20, 22, 28, 0.90)',
 })

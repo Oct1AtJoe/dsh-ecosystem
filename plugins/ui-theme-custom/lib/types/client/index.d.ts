@@ -15,6 +15,7 @@ export type { TechThemeRowInjected } from './TechThemeRow.tsx';
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx';
 export type { MascotRowInjected } from './MascotRow.tsx';
 export type { RightbarWidthRowInjected } from './RightbarWidthRow.tsx';
+export type { HomeLayoutRowInjected } from './HomeLayoutRow.tsx';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** The tech-theme row's copy. */

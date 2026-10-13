@@ -12,10 +12,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+import * as React from 'react'
+import * as ReactDOM from 'react-dom/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale), the
 // settings section's SlotMap entry (ctx.slots.register for settings.general.item),
 // and the renderer's Context merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { SEQUOIA_TOKENS } from './sequoia.ts'
@@ -25,19 +28,25 @@ import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
 import { PARCHMENT_TOKENS } from './parchment.ts'
 import { en, zh, type TechThemeKey } from './locales.ts'
-import { createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
+import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
 import { SidebarFontRow, type SidebarFontRowInjected } from './SidebarFontRow.tsx'
 import { MascotRow, type MascotRowInjected } from './MascotRow.tsx'
 import { RightbarWidthRow, type RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
+import { HomeLayoutRow, type HomeLayoutRowInjected } from './HomeLayoutRow.tsx'
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from './sidebar-font.ts'
 import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from './rightbar-width.ts'
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from './mascot.ts'
+import { HomeUsagePanel } from './usage/HomeUsagePanel.tsx'
+import { SaulFingerGunIcon } from './usage/SaulIcon.tsx'
+import { createHomeUsage } from './usage/data.ts'
+import { injectHomeUsageStyles } from './usage/styles.ts'
 
 export type { TechThemeRowInjected } from './TechThemeRow.tsx'
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
 export type { MascotRowInjected } from './MascotRow.tsx'
 export type { RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
+export type { HomeLayoutRowInjected } from './HomeLayoutRow.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -2073,6 +2082,150 @@ export function apply(ctx: Context): void {
     inject: injected,
   }, TechThemeRow))
 
+  // ── 新会话版面设置行 ───────────────────────────────────────────────
+  // order 10.6：紧随科技主题(10.5)之后，在 Claude 挂件开关(10.7)之前。
+  const HOME_LAYOUT_STORAGE_KEY = 'dsh-home-layout'
+  function readHomeLayout(): 'classic' | 'studio' {
+    try {
+      const v = localStorage.getItem(HOME_LAYOUT_STORAGE_KEY)
+      if (v === 'classic' || v === 'studio') return v
+    } catch {}
+    return 'studio'
+  }
+  function writeHomeLayout(val: 'classic' | 'studio'): void {
+    try {
+      localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, val)
+    } catch {}
+  }
+
+  let currentHomeLayout: 'classic' | 'studio' = readHomeLayout()
+  let bookPick = Math.random()
+  const homeUsage = createHomeUsage(ctx)
+
+  function isHeroPhase(): boolean {
+    if (typeof document === 'undefined') return false
+    return document.querySelector('[data-phase="hero"]') !== null
+      || document.querySelector('[class*="_composerHero"]') !== null
+      || document.querySelector('[class*="composerHero"]') !== null
+      || document.querySelector('[class*="_headline"]') !== null
+  }
+
+  let coldSeat: { stack: Element; element: HTMLElement; root: ReactDOM.Root } | null = null
+
+  function unmountColdSeat() {
+    if (coldSeat === null) return
+    coldSeat.root.unmount()
+    if (coldSeat.element.parentElement !== null) {
+      coldSeat.element.parentElement.removeChild(coldSeat.element)
+    }
+    coldSeat = null
+  }
+
+  function syncColdSeat() {
+    if (typeof document === 'undefined') return
+    const isHero = isHeroPhase()
+    const studioHero = currentHomeLayout === 'studio' && isHero
+    const stack = studioHero
+      ? document.querySelector('[class*="_composerStack"][class*="_composerHero"]')
+        || document.querySelector('[class*="composerStack"][class*="composerHero"]')
+      : null
+    if (stack === null || stack.querySelector(':scope > [data-slot="conversation.input.dock"]') !== null) {
+      unmountColdSeat()
+      return
+    }
+    if (coldSeat !== null && coldSeat.stack === stack && coldSeat.element.parentElement === stack) return
+    unmountColdSeat()
+    const element = document.createElement('div')
+    element.className = 'dsh-theme-home-seat'
+    stack.appendChild(element)
+    const root = ReactDOM.createRoot(element)
+    root.render(React.createElement(HomeUsagePanel, {
+      usage: homeUsage,
+      bookPick,
+    }))
+    coldSeat = { stack, element, root }
+  }
+
+  let lastHeroState = false
+  function syncHeroAttrs() {
+    if (typeof document === 'undefined') return
+    const hero = isHeroPhase()
+    const studioHero = currentHomeLayout === 'studio' && hero
+    if (studioHero) {
+      document.body.setAttribute('data-dsh-home-hero', '')
+    } else {
+      document.body.removeAttribute('data-dsh-home-hero')
+    }
+    if (hero !== lastHeroState) {
+      lastHeroState = hero
+      if (hero) bookPick = Math.random()
+      homeUsage.notify()
+    }
+    syncColdSeat()
+  }
+
+  function applyHomeLayout(layout: 'classic' | 'studio') {
+    currentHomeLayout = layout
+    if (typeof document === 'undefined') return
+    if (layout === 'studio') {
+      document.body.setAttribute('data-dsh-home-layout', 'studio')
+      homeUsage.load(false)
+      homeUsage.loadList()
+    } else {
+      document.body.removeAttribute('data-dsh-home-layout')
+    }
+    syncHeroAttrs()
+    syncColdSeat()
+    homeUsage.notify()
+  }
+
+  const homeLayoutStore = createHomeLayoutStore()
+  let homeLayoutBound: BoundActions<typeof homeLayoutStore> | undefined
+  let homeLayoutRevision = 0
+  const syncHomeLayoutRow = (): void => {
+    homeLayoutBound?.sync(readHomeLayout(), ++homeLayoutRevision)
+  }
+  const homeLayoutInjected = (actions: BoundActions<typeof homeLayoutStore>): HomeLayoutRowInjected => {
+    homeLayoutBound = actions
+    syncHomeLayoutRow()
+    return {
+      setLayout: (next) => {
+        writeHomeLayout(next)
+        applyHomeLayout(next)
+        syncHomeLayoutRow()
+      },
+    }
+  }
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'home-layout-custom',
+    order: 10.6,
+    store: homeLayoutStore,
+    locale: SETTINGS_NS,
+    inject: homeLayoutInjected,
+  }, HomeLayoutRow))
+
+  // ── 注册新会话页输入坞插槽面板 ─────────────────────────────────────
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock',
+    id: 'ui-theme-custom-usage',
+    order: 40,
+  }, () => React.createElement(HomeUsagePanel, {
+    usage: homeUsage,
+    bookPick,
+  })))
+
+  // ── 注册新会话页 Better Call Saul 专属指弹图标 ──────────────────────
+  ctx.slots.inject('conversation.hero.brand.mark', () => ctx.slots.register({
+    name: 'conversation.hero.brand.mark',
+    priority: -5,
+  }, (props: any) => {
+    if (readHomeLayout() === 'studio') {
+      return React.createElement(SaulFingerGunIcon, { size: props?.size ?? 34, className: props?.className })
+    }
+    return null
+  }))
+
   // ── Claude 挂件开关行 ───────────────────────────────────────────────
   // order 10.7：紧随科技主题(10.5)之后，在官方字号(11)之前。
   const mascotStore = createMascotStore()
@@ -2232,6 +2385,7 @@ export function apply(ctx: Context): void {
     const disposeParchment = ctx.theme.register(PARCHMENT)
     const removeKeyframes = injectButtonDrift()
     const removeSurfaceGlass = injectSurfaceGlass()
+    const removeHomeUsageStyles = injectHomeUsageStyles()
     return () => {
       disposeSequoia()
       disposeSonoma()
@@ -2241,6 +2395,7 @@ export function apply(ctx: Context): void {
       disposeParchment()
       removeKeyframes()
       removeSurfaceGlass()
+      removeHomeUsageStyles()
       clearTokens()
     }
   }, 'ui-theme-custom: tech theme registrations + drift keyframes + surface glass')
@@ -2249,6 +2404,35 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     return initMascot(ctx)
   }, 'ui-theme-custom: claude mascot companion')
+
+  // 新会话版面状态与用量面板 DOM 观察
+  ctx.effect(() => {
+    applyHomeLayout(readHomeLayout())
+    let rafScheduled = false
+    const scheduleSync = () => {
+      if (rafScheduled) return
+      rafScheduled = true
+      requestAnimationFrame(() => {
+        rafScheduled = false
+        syncHeroAttrs()
+      })
+    }
+    const observer = new MutationObserver(() => {
+      scheduleSync()
+    })
+    observer.observe(document.body, { attributes: true, subtree: true, childList: true })
+    const interval = setInterval(() => {
+      syncHeroAttrs()
+    }, 200)
+    return () => {
+      observer.disconnect()
+      clearInterval(interval)
+      unmountColdSeat()
+      homeUsage.stop()
+      document.body.removeAttribute('data-dsh-home-layout')
+      document.body.removeAttribute('data-dsh-home-hero')
+    }
+  }, 'ui-theme-custom: home studio layout & usage panel sync')
 
   // Restore the user's saved custom theme preference now that themes are
   // registered. Runs during apply() (before first React render when

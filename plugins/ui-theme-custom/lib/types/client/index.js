@@ -1,3 +1,5 @@
+import * as React from 'react';
+import * as ReactDOM from 'react-dom/client';
 import { SEQUOIA_TOKENS } from "./sequoia.js";
 import { SONOMA_TOKENS } from "./sonoma.js";
 import { VOID_TOKENS } from "./void.js";
@@ -5,14 +7,19 @@ import { JADE_TOKENS } from "./jade.js";
 import { SOLAR_TOKENS } from "./solar.js";
 import { PARCHMENT_TOKENS } from "./parchment.js";
 import { en, zh } from "./locales.js";
-import { createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
+import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
 import { SETTINGS_NS, TechThemeRow } from "./TechThemeRow.js";
 import { SidebarFontRow } from "./SidebarFontRow.js";
 import { MascotRow } from "./MascotRow.js";
 import { RightbarWidthRow } from "./RightbarWidthRow.js";
+import { HomeLayoutRow } from "./HomeLayoutRow.js";
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from "./sidebar-font.js";
 import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from "./rightbar-width.js";
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from "./mascot.js";
+import { HomeUsagePanel } from "./usage/HomeUsagePanel.js";
+import { SaulFingerGunIcon } from "./usage/SaulIcon.js";
+import { createHomeUsage } from "./usage/data.js";
+import { injectHomeUsageStyles } from "./usage/styles.js";
 /** Sequoia: macOS Sequoia 液态透光浅色版 (Liquid Frost Light). */
 const SEQUOIA = Object.freeze({
     id: 'sequoia',
@@ -2008,6 +2015,151 @@ export function apply(ctx) {
         locale: SETTINGS_NS,
         inject: injected,
     }, TechThemeRow));
+    // ── 新会话版面设置行 ───────────────────────────────────────────────
+    // order 10.6：紧随科技主题(10.5)之后，在 Claude 挂件开关(10.7)之前。
+    const HOME_LAYOUT_STORAGE_KEY = 'dsh-home-layout';
+    function readHomeLayout() {
+        try {
+            const v = localStorage.getItem(HOME_LAYOUT_STORAGE_KEY);
+            if (v === 'classic' || v === 'studio')
+                return v;
+        }
+        catch { }
+        return 'studio';
+    }
+    function writeHomeLayout(val) {
+        try {
+            localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, val);
+        }
+        catch { }
+    }
+    let currentHomeLayout = readHomeLayout();
+    let bookPick = Math.random();
+    const homeUsage = createHomeUsage(ctx);
+    function isHeroPhase() {
+        if (typeof document === 'undefined')
+            return false;
+        return document.querySelector('[data-phase="hero"]') !== null
+            || document.querySelector('[class*="_composerHero"]') !== null
+            || document.querySelector('[class*="composerHero"]') !== null
+            || document.querySelector('[class*="_headline"]') !== null;
+    }
+    let coldSeat = null;
+    function unmountColdSeat() {
+        if (coldSeat === null)
+            return;
+        coldSeat.root.unmount();
+        if (coldSeat.element.parentElement !== null) {
+            coldSeat.element.parentElement.removeChild(coldSeat.element);
+        }
+        coldSeat = null;
+    }
+    function syncColdSeat() {
+        if (typeof document === 'undefined')
+            return;
+        const isHero = isHeroPhase();
+        const studioHero = currentHomeLayout === 'studio' && isHero;
+        const stack = studioHero
+            ? document.querySelector('[class*="_composerStack"][class*="_composerHero"]')
+                || document.querySelector('[class*="composerStack"][class*="composerHero"]')
+            : null;
+        if (stack === null || stack.querySelector(':scope > [data-slot="conversation.input.dock"]') !== null) {
+            unmountColdSeat();
+            return;
+        }
+        if (coldSeat !== null && coldSeat.stack === stack && coldSeat.element.parentElement === stack)
+            return;
+        unmountColdSeat();
+        const element = document.createElement('div');
+        element.className = 'dsh-theme-home-seat';
+        stack.appendChild(element);
+        const root = ReactDOM.createRoot(element);
+        root.render(React.createElement(HomeUsagePanel, {
+            usage: homeUsage,
+            bookPick,
+        }));
+        coldSeat = { stack, element, root };
+    }
+    let lastHeroState = false;
+    function syncHeroAttrs() {
+        if (typeof document === 'undefined')
+            return;
+        const hero = isHeroPhase();
+        const studioHero = currentHomeLayout === 'studio' && hero;
+        if (studioHero) {
+            document.body.setAttribute('data-dsh-home-hero', '');
+        }
+        else {
+            document.body.removeAttribute('data-dsh-home-hero');
+        }
+        if (hero !== lastHeroState) {
+            lastHeroState = hero;
+            if (hero)
+                bookPick = Math.random();
+            homeUsage.notify();
+        }
+        syncColdSeat();
+    }
+    function applyHomeLayout(layout) {
+        currentHomeLayout = layout;
+        if (typeof document === 'undefined')
+            return;
+        if (layout === 'studio') {
+            document.body.setAttribute('data-dsh-home-layout', 'studio');
+            homeUsage.load(false);
+            homeUsage.loadList();
+        }
+        else {
+            document.body.removeAttribute('data-dsh-home-layout');
+        }
+        syncHeroAttrs();
+        syncColdSeat();
+        homeUsage.notify();
+    }
+    const homeLayoutStore = createHomeLayoutStore();
+    let homeLayoutBound;
+    let homeLayoutRevision = 0;
+    const syncHomeLayoutRow = () => {
+        homeLayoutBound?.sync(readHomeLayout(), ++homeLayoutRevision);
+    };
+    const homeLayoutInjected = (actions) => {
+        homeLayoutBound = actions;
+        syncHomeLayoutRow();
+        return {
+            setLayout: (next) => {
+                writeHomeLayout(next);
+                applyHomeLayout(next);
+                syncHomeLayoutRow();
+            },
+        };
+    };
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+        name: 'settings.general.item',
+        id: 'home-layout-custom',
+        order: 10.6,
+        store: homeLayoutStore,
+        locale: SETTINGS_NS,
+        inject: homeLayoutInjected,
+    }, HomeLayoutRow));
+    // ── 注册新会话页输入坞插槽面板 ─────────────────────────────────────
+    ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+        name: 'conversation.input.dock',
+        id: 'ui-theme-custom-usage',
+        order: 40,
+    }, () => React.createElement(HomeUsagePanel, {
+        usage: homeUsage,
+        bookPick,
+    })));
+    // ── 注册新会话页 Better Call Saul 专属指弹图标 ──────────────────────
+    ctx.slots.inject('conversation.hero.brand.mark', () => ctx.slots.register({
+        name: 'conversation.hero.brand.mark',
+        priority: -5,
+    }, (props) => {
+        if (readHomeLayout() === 'studio') {
+            return React.createElement(SaulFingerGunIcon, { size: props?.size ?? 34, className: props?.className });
+        }
+        return null;
+    }));
     // ── Claude 挂件开关行 ───────────────────────────────────────────────
     // order 10.7：紧随科技主题(10.5)之后，在官方字号(11)之前。
     const mascotStore = createMascotStore();
@@ -2165,6 +2317,7 @@ export function apply(ctx) {
         const disposeParchment = ctx.theme.register(PARCHMENT);
         const removeKeyframes = injectButtonDrift();
         const removeSurfaceGlass = injectSurfaceGlass();
+        const removeHomeUsageStyles = injectHomeUsageStyles();
         return () => {
             disposeSequoia();
             disposeSonoma();
@@ -2174,6 +2327,7 @@ export function apply(ctx) {
             disposeParchment();
             removeKeyframes();
             removeSurfaceGlass();
+            removeHomeUsageStyles();
             clearTokens();
         };
     }, 'ui-theme-custom: tech theme registrations + drift keyframes + surface glass');
@@ -2181,6 +2335,35 @@ export function apply(ctx) {
     ctx.effect(() => {
         return initMascot(ctx);
     }, 'ui-theme-custom: claude mascot companion');
+    // 新会话版面状态与用量面板 DOM 观察
+    ctx.effect(() => {
+        applyHomeLayout(readHomeLayout());
+        let rafScheduled = false;
+        const scheduleSync = () => {
+            if (rafScheduled)
+                return;
+            rafScheduled = true;
+            requestAnimationFrame(() => {
+                rafScheduled = false;
+                syncHeroAttrs();
+            });
+        };
+        const observer = new MutationObserver(() => {
+            scheduleSync();
+        });
+        observer.observe(document.body, { attributes: true, subtree: true, childList: true });
+        const interval = setInterval(() => {
+            syncHeroAttrs();
+        }, 200);
+        return () => {
+            observer.disconnect();
+            clearInterval(interval);
+            unmountColdSeat();
+            homeUsage.stop();
+            document.body.removeAttribute('data-dsh-home-layout');
+            document.body.removeAttribute('data-dsh-home-hero');
+        };
+    }, 'ui-theme-custom: home studio layout & usage panel sync');
     // Restore the user's saved custom theme preference now that themes are
     // registered. Runs during apply() (before first React render when
     // "immediately" is true), so the first paint already shows the right

@@ -123,5 +123,18 @@ export const SONOMA_TOKENS = Object.freeze({
     '--dsw-code-keyword': '#ff7b72',
     '--dsw-code-string': '#a5d6ff',
     '--dsw-code-function': '#d2a8ff',
+    // 16. 用量图表与热力图（暗夜亮蓝调）
+    '--dsh-chart-rank-0': '#2997ff',
+    '--dsh-chart-rank-1': '#1f80e6',
+    '--dsh-chart-rank-2': '#3aa0ff',
+    '--dsh-chart-rank-3': '#52afff',
+    '--dsh-chart-rank-4': '#70bfff',
+    '--dsh-chart-rank-5': '#94d0ff',
+    '--dsh-chart-rank-6': '#b8e0ff',
+    '--dsh-chart-rank-7': '#dcf0ff',
+    '--dsh-heat-step-1': 'rgba(41, 151, 255, 0.20)',
+    '--dsh-heat-step-2': 'rgba(41, 151, 255, 0.42)',
+    '--dsh-heat-step-3': 'rgba(41, 151, 255, 0.68)',
+    '--dsh-heat-step-4': 'rgba(41, 151, 255, 0.95)',
 });
 //# sourceMappingURL=sonoma.js.map

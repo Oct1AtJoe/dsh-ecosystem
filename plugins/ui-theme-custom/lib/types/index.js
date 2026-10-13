@@ -1,3 +1,4 @@
+import { registerRoutes } from "./host/routes.js";
 import { SEQUOIA_TOKENS } from "./client/sequoia.js";
 import { SONOMA_TOKENS } from "./client/sonoma.js";
 import { VOID_TOKENS } from "./client/void.js";
@@ -62,6 +63,10 @@ try {
 export function apply(ctx) {
     ctx.on('webserver/index-inject', (table) => {
         table.push({ kind: 'script', placement: 'body', text: BOOT_SCRIPT });
+    });
+    ctx.inject(['webServer'], (scope) => {
+        const dispose = registerRoutes(ctx, scope);
+        scope.effect(() => dispose);
     });
 }
 //# sourceMappingURL=index.js.map

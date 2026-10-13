@@ -4,10 +4,35 @@ window.__ModuleLoader__.load({
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		//#region \0rolldown/runtime.js
+		var __create = Object.create;
+		var __defProp = Object.defineProperty;
+		var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+		var __getOwnPropNames = Object.getOwnPropertyNames;
+		var __getProtoOf = Object.getPrototypeOf;
+		var __hasOwnProp = Object.prototype.hasOwnProperty;
+		var __copyProps = (to, from, except, desc) => {
+			if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+				key = keys[i];
+				if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+					get: ((k) => from[k]).bind(null, key),
+					enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+				});
+			}
+			return to;
+		};
+		var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+			value: mod,
+			enumerable: true
+		}) : target, mod));
+		//#endregion
+		let react = require("react");
+		react = __toESM(react, 1);
+		let react_dom_client = require("react-dom/client");
+		react_dom_client = __toESM(react_dom_client, 1);
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let react = require("react");
 		//#region src/client/sequoia.ts
 		const SEQUOIA_TOKENS = Object.freeze({
 			"--dsw-alias-bg-app-image": "none",
@@ -113,7 +138,19 @@ window.__ModuleLoader__.load({
 			"--dsw-code-comment": "#6e7781",
 			"--dsw-code-keyword": "#cf222e",
 			"--dsw-code-string": "#0a3069",
-			"--dsw-code-function": "#8250df"
+			"--dsw-code-function": "#8250df",
+			"--dsh-chart-rank-0": "#147ce5",
+			"--dsh-chart-rank-1": "#2b8cf0",
+			"--dsh-chart-rank-2": "#4fa2f6",
+			"--dsh-chart-rank-3": "#73b6f8",
+			"--dsh-chart-rank-4": "#98c9fa",
+			"--dsh-chart-rank-5": "#bddcfc",
+			"--dsh-chart-rank-6": "#d5e9fd",
+			"--dsh-chart-rank-7": "#e7f2fe",
+			"--dsh-heat-step-1": "rgba(20, 124, 229, 0.18)",
+			"--dsh-heat-step-2": "rgba(20, 124, 229, 0.38)",
+			"--dsh-heat-step-3": "rgba(20, 124, 229, 0.65)",
+			"--dsh-heat-step-4": "rgba(20, 124, 229, 0.92)"
 		});
 		//#endregion
 		//#region src/client/sonoma.ts
@@ -221,7 +258,19 @@ window.__ModuleLoader__.load({
 			"--dsw-code-comment": "#7d8590",
 			"--dsw-code-keyword": "#ff7b72",
 			"--dsw-code-string": "#a5d6ff",
-			"--dsw-code-function": "#d2a8ff"
+			"--dsw-code-function": "#d2a8ff",
+			"--dsh-chart-rank-0": "#2997ff",
+			"--dsh-chart-rank-1": "#1f80e6",
+			"--dsh-chart-rank-2": "#3aa0ff",
+			"--dsh-chart-rank-3": "#52afff",
+			"--dsh-chart-rank-4": "#70bfff",
+			"--dsh-chart-rank-5": "#94d0ff",
+			"--dsh-chart-rank-6": "#b8e0ff",
+			"--dsh-chart-rank-7": "#dcf0ff",
+			"--dsh-heat-step-1": "rgba(41, 151, 255, 0.20)",
+			"--dsh-heat-step-2": "rgba(41, 151, 255, 0.42)",
+			"--dsh-heat-step-3": "rgba(41, 151, 255, 0.68)",
+			"--dsh-heat-step-4": "rgba(41, 151, 255, 0.95)"
 		});
 		//#endregion
 		//#region src/client/void.ts
@@ -323,7 +372,19 @@ window.__ModuleLoader__.load({
 			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(33, 33, 40)",
 			"--dsw-specific-sidebar-nav-item-active": "rgb(29, 29, 36)",
 			"--dsw-specific-sidebar-nav-item-hover": "rgb(24, 24, 30)",
-			"--dsw-specific-tip": "rgba(24, 24, 30, 0.78)"
+			"--dsw-specific-tip": "rgba(24, 24, 30, 0.78)",
+			"--dsh-chart-rank-0": "rgb(196, 194, 202)",
+			"--dsh-chart-rank-1": "rgb(168, 166, 176)",
+			"--dsh-chart-rank-2": "rgb(146, 144, 154)",
+			"--dsh-chart-rank-3": "rgb(126, 124, 134)",
+			"--dsh-chart-rank-4": "rgb(108, 106, 116)",
+			"--dsh-chart-rank-5": "rgb(90, 88, 98)",
+			"--dsh-chart-rank-6": "rgb(74, 72, 82)",
+			"--dsh-chart-rank-7": "rgb(58, 56, 66)",
+			"--dsh-heat-step-1": "rgba(196, 194, 202, 0.18)",
+			"--dsh-heat-step-2": "rgba(196, 194, 202, 0.38)",
+			"--dsh-heat-step-3": "rgba(196, 194, 202, 0.65)",
+			"--dsh-heat-step-4": "rgba(196, 194, 202, 0.92)"
 		});
 		//#endregion
 		//#region src/client/jade.ts
@@ -425,7 +486,19 @@ window.__ModuleLoader__.load({
 			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(212, 216, 224)",
 			"--dsw-specific-sidebar-nav-item-active": "rgba(238, 241, 246, 0.90)",
 			"--dsw-specific-sidebar-nav-item-hover": "rgba(15, 23, 42, 0.05)",
-			"--dsw-specific-tip": "rgba(226, 229, 236, 0.85)"
+			"--dsw-specific-tip": "rgba(226, 229, 236, 0.85)",
+			"--dsh-chart-rank-0": "rgb(20, 22, 28)",
+			"--dsh-chart-rank-1": "rgb(42, 46, 56)",
+			"--dsh-chart-rank-2": "rgb(68, 76, 88)",
+			"--dsh-chart-rank-3": "rgb(96, 106, 120)",
+			"--dsh-chart-rank-4": "rgb(124, 134, 148)",
+			"--dsh-chart-rank-5": "rgb(154, 162, 176)",
+			"--dsh-chart-rank-6": "rgb(184, 190, 202)",
+			"--dsh-chart-rank-7": "rgb(208, 212, 222)",
+			"--dsh-heat-step-1": "rgba(20, 22, 28, 0.14)",
+			"--dsh-heat-step-2": "rgba(20, 22, 28, 0.35)",
+			"--dsh-heat-step-3": "rgba(20, 22, 28, 0.62)",
+			"--dsh-heat-step-4": "rgba(20, 22, 28, 0.90)"
 		});
 		//#endregion
 		//#region src/client/solar.ts
@@ -527,7 +600,19 @@ window.__ModuleLoader__.load({
 			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(50, 38, 42)",
 			"--dsw-specific-sidebar-nav-item-active": "rgb(46, 36, 40)",
 			"--dsw-specific-sidebar-nav-item-hover": "rgb(38, 30, 32)",
-			"--dsw-specific-tip": "rgba(38, 30, 32, 0.80)"
+			"--dsw-specific-tip": "rgba(38, 30, 32, 0.80)",
+			"--dsh-chart-rank-0": "rgb(240, 180, 90)",
+			"--dsh-chart-rank-1": "rgb(220, 156, 60)",
+			"--dsh-chart-rank-2": "rgb(204, 136, 48)",
+			"--dsh-chart-rank-3": "rgb(186, 116, 38)",
+			"--dsh-chart-rank-4": "rgb(168, 96, 32)",
+			"--dsh-chart-rank-5": "rgb(148, 80, 28)",
+			"--dsh-chart-rank-6": "rgb(128, 64, 24)",
+			"--dsh-chart-rank-7": "rgb(108, 52, 22)",
+			"--dsh-heat-step-1": "rgba(240, 180, 90, 0.18)",
+			"--dsh-heat-step-2": "rgba(240, 180, 90, 0.40)",
+			"--dsh-heat-step-3": "rgba(240, 180, 90, 0.68)",
+			"--dsh-heat-step-4": "rgba(240, 180, 90, 0.95)"
 		});
 		//#endregion
 		//#region src/client/parchment.ts
@@ -628,7 +713,19 @@ window.__ModuleLoader__.load({
 			"--dsw-specific-sidebar-nav-item-active-accent": "rgb(214, 206, 192)",
 			"--dsw-specific-sidebar-nav-item-active": "rgba(242, 236, 225, 0.90)",
 			"--dsw-specific-sidebar-nav-item-hover": "rgba(34, 28, 24, 0.04)",
-			"--dsw-specific-tip": "rgba(228, 221, 208, 0.80)"
+			"--dsw-specific-tip": "rgba(228, 221, 208, 0.80)",
+			"--dsh-chart-rank-0": "rgb(156, 48, 28)",
+			"--dsh-chart-rank-1": "rgb(176, 68, 44)",
+			"--dsh-chart-rank-2": "rgb(196, 92, 64)",
+			"--dsh-chart-rank-3": "rgb(212, 120, 92)",
+			"--dsh-chart-rank-4": "rgb(142, 110, 84)",
+			"--dsh-chart-rank-5": "rgb(168, 138, 112)",
+			"--dsh-chart-rank-6": "rgb(194, 168, 144)",
+			"--dsh-chart-rank-7": "rgb(216, 196, 176)",
+			"--dsh-heat-step-1": "rgba(156, 48, 28, 0.16)",
+			"--dsh-heat-step-2": "rgba(156, 48, 28, 0.35)",
+			"--dsh-heat-step-3": "rgba(156, 48, 28, 0.62)",
+			"--dsh-heat-step-4": "rgba(156, 48, 28, 0.90)"
 		});
 		//#endregion
 		//#region src/client/locales.ts
@@ -655,7 +752,11 @@ window.__ModuleLoader__.load({
 			"sidebar-font.description": "仅影响两侧边栏。默认比对话区小一档，避免导航与正文抢视觉重量",
 			"sidebar-font.unit": "px",
 			"sidebar-font.increase": "增大侧边栏字号",
-			"sidebar-font.decrease": "减小侧边栏字号"
+			"sidebar-font.decrease": "减小侧边栏字号",
+			"home-layout.title": "新会话版面",
+			"home-layout.description": "工作室版面在中央展示模型用量面板，输入框贴底；经典版面保持居中",
+			"home-layout.classic": "经典",
+			"home-layout.studio": "工作室"
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -677,7 +778,11 @@ window.__ModuleLoader__.load({
 			"sidebar-font.description": "Affects both sidebars only. Sits one step below the chat area so navigation never competes with the content",
 			"sidebar-font.unit": "px",
 			"sidebar-font.increase": "Increase sidebar font size",
-			"sidebar-font.decrease": "Decrease sidebar font size"
+			"sidebar-font.decrease": "Decrease sidebar font size",
+			"home-layout.title": "New conversation layout",
+			"home-layout.description": "Studio layout displays the usage panel in center with docked composer; Classic keeps centered",
+			"home-layout.classic": "Classic",
+			"home-layout.studio": "Studio"
 		};
 		//#endregion
 		//#region src/client/sidebar-font.ts
@@ -847,6 +952,19 @@ window.__ModuleLoader__.load({
 				} }
 			});
 		}
+		function createHomeLayoutStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({
+					layout: "studio",
+					revision: -1
+				}),
+				actions: { sync: (d, layout, revision) => {
+					if (revision <= d.revision) return;
+					d.layout = layout;
+					d.revision = revision;
+				} }
+			});
+		}
 		//#endregion
 		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
@@ -864,13 +982,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css$3 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
-		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
+		const css$4 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		const tagId$4 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$3;
-			tag.textContent = css$3;
+			tag.dataset.pluginCss = tagId$4;
+			tag.textContent = css$4;
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
@@ -1000,13 +1118,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css$2 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+		const css$3 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
+			tag.dataset.pluginCss = tagId$3;
+			tag.textContent = css$3;
 			document.head.appendChild(tag);
 		}
 		var SidebarFontRow_module_css_default = {
@@ -1118,13 +1236,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
-		const css$1 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+		const css$2 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
 		var MascotRow_module_css_default = {
@@ -1174,13 +1292,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\RightbarWidthRow.module.css.mjs
-		const css = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
-		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var RightbarWidthRow_module_css_default = {
@@ -1286,6 +1404,60 @@ window.__ModuleLoader__.load({
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: RightbarWidthRow_module_css_default.unit,
 						children: t("rightbar-width.unit")
+					})]
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\HomeLayoutRow.module.css.mjs
+		const css = ".YIkPxa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.YIkPxa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.YIkPxa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.YIkPxa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.YIkPxa_segmented{background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;align-items:center;gap:2px;padding:2px;display:inline-flex}.YIkPxa_segmentItem{appearance:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;line-height:18px;transition:all .15s}.YIkPxa_segmentItem:hover:not([data-active]){color:var(--dsw-alias-label-primary)}.YIkPxa_segmentItem[data-active]{background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px #00000014}";
+		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/HomeLayoutRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var HomeLayoutRow_module_css_default = {
+			"desc": "YIkPxa_desc",
+			"row": "YIkPxa_row",
+			"rowText": "YIkPxa_rowText",
+			"segmentItem": "YIkPxa_segmentItem",
+			"segmented": "YIkPxa_segmented",
+			"title": "YIkPxa_title"
+		};
+		//#endregion
+		//#region src/client/HomeLayoutRow.tsx
+		function HomeLayoutRow({ t, setLayout, useStore }) {
+			const current = useStore((s) => s.layout);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: HomeLayoutRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: HomeLayoutRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: HomeLayoutRow_module_css_default.title,
+						children: t("home-layout.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: HomeLayoutRow_module_css_default.desc,
+						children: t("home-layout.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: HomeLayoutRow_module_css_default.segmented,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: HomeLayoutRow_module_css_default.segmentItem,
+						"data-active": current === "classic" ? "" : void 0,
+						"aria-pressed": current === "classic",
+						onClick: () => setLayout("classic"),
+						children: t("home-layout.classic")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: HomeLayoutRow_module_css_default.segmentItem,
+						"data-active": current === "studio" ? "" : void 0,
+						"aria-pressed": current === "studio",
+						onClick: () => setLayout("studio"),
+						children: t("home-layout.studio")
 					})]
 				})]
 			});
@@ -1802,6 +1974,1463 @@ window.__ModuleLoader__.load({
 				window.removeEventListener("keydown", onActivity);
 				if (currentAnimation) currentAnimation.cancel();
 				detach();
+			};
+		}
+		//#endregion
+		//#region src/client/usage/data.ts
+		const USAGE_ROUTE = "/ui-theme-custom/usage";
+		const HOME_BOOKS = [
+			{
+				key: "TaoTeChing",
+				title: "道德经",
+				tokens: 7607
+			},
+			{
+				key: "Alice",
+				title: "爱丽丝梦游仙境",
+				tokens: 37248
+			},
+			{
+				key: "AnimalFarm",
+				title: "动物庄园",
+				tokens: 39e3
+			},
+			{
+				key: "LittlePrince",
+				title: "小王子",
+				tokens: 46e3
+			},
+			{
+				key: "Gatsby",
+				title: "了不起的盖茨比",
+				tokens: 65763
+			},
+			{
+				key: "1984",
+				title: "一九八四",
+				tokens: 136278
+			},
+			{
+				key: "ToLive",
+				title: "活着",
+				tokens: 115e3
+			},
+			{
+				key: "Hobbit",
+				title: "霍比特人",
+				tokens: 123e3
+			},
+			{
+				key: "ThreeBody",
+				title: "三体",
+				tokens: 202e3
+			},
+			{
+				key: "DarkForest",
+				title: "黑暗森林",
+				tokens: 307e3
+			},
+			{
+				key: "DeathsEnd",
+				title: "死神永生",
+				tokens: 336e3
+			},
+			{
+				key: "ThreeKingdoms",
+				title: "三国演义",
+				tokens: 638009
+			},
+			{
+				key: "JourneyWest",
+				title: "西游记",
+				tokens: 783200
+			},
+			{
+				key: "RedChamber",
+				title: "红楼梦",
+				tokens: 903956
+			},
+			{
+				key: "OrdinaryWorld",
+				title: "平凡的世界",
+				tokens: 998e3
+			},
+			{
+				key: "HarryPotter",
+				title: "哈利波特全集",
+				tokens: 1409e3
+			}
+		];
+		const HOME_RANGES = [
+			{
+				id: "all",
+				label: "全部",
+				days: 0
+			},
+			{
+				id: "30d",
+				label: "30天",
+				days: 30
+			},
+			{
+				id: "7d",
+				label: "7天",
+				days: 7
+			}
+		];
+		function pad2(value) {
+			return value < 10 ? `0${value}` : String(value);
+		}
+		function homeDayKey(date) {
+			return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+		}
+		function homeShortDate(day) {
+			const parts = day.split("-");
+			if (parts.length < 3 || !parts[1] || !parts[2]) return day;
+			return `${Number(parts[1])}月${Number(parts[2])}日`;
+		}
+		function homeRangeStart(windowDays) {
+			if (!windowDays) return null;
+			const start = /* @__PURE__ */ new Date();
+			start.setHours(0, 0, 0, 0);
+			start.setDate(start.getDate() - (windowDays - 1));
+			return homeDayKey(start);
+		}
+		function formatHomeCount(count) {
+			const value = Math.round(Number(count) || 0);
+			return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		}
+		function formatCompactTokens(count) {
+			const value = Number(count) || 0;
+			const units = [
+				[1e9, "B"],
+				[1e6, "M"],
+				[1e3, "k"]
+			];
+			for (let u = 0; u < units.length; u++) {
+				const pair = units[u];
+				if (!pair) continue;
+				const scaled = Math.round(value / pair[0] * 10) / 10;
+				if (scaled >= 1) return String(scaled) + pair[1];
+			}
+			return String(Math.round(value));
+		}
+		function formatHomeHour(hour) {
+			const h12 = hour % 12 === 0 ? 12 : hour % 12;
+			return hour < 12 ? `上午 ${h12} 点` : `下午 ${h12} 点`;
+		}
+		function homeDayTokens(day) {
+			if (!day) return 0;
+			if (day.total !== void 0) return Number(day.total) || 0;
+			return (day.input || 0) + (day.output || 0) + (day.cacheRead || 0) + (day.cacheWrite || 0);
+		}
+		function homeModelTokens(entry) {
+			if (entry.tokens !== void 0) return Number(entry.tokens) || 0;
+			return (entry.input || 0) + (entry.output || 0) + (entry.cacheRead || 0) + (entry.cacheWrite || 0);
+		}
+		function homeHeatGrid(days) {
+			const byDate = {};
+			const callsByDate = {};
+			const list = days || [];
+			let counted = true;
+			for (let i = 0; i < list.length; i++) {
+				const item = list[i];
+				if (!item) continue;
+				byDate[item.date] = homeDayTokens(item);
+				const calls = item.calls;
+				if (typeof calls === "number") callsByDate[item.date] = calls;
+				else counted = false;
+			}
+			const today = /* @__PURE__ */ new Date();
+			today.setHours(0, 0, 0, 0);
+			const start = new Date(today);
+			start.setDate(start.getDate() - 181);
+			start.setDate(start.getDate() - start.getDay());
+			const cells = [];
+			let peak = 0;
+			for (const cursor = new Date(start); cursor <= today; cursor.setDate(cursor.getDate() + 1)) {
+				const key = homeDayKey(cursor);
+				const tokens = byDate[key] || 0;
+				if (tokens > peak) peak = tokens;
+				cells.push({
+					date: key,
+					tokens,
+					messages: counted ? callsByDate[key] || 0 : null,
+					level: 0
+				});
+			}
+			for (let c = 0; c < cells.length; c++) {
+				const cell = cells[c];
+				if (!cell || cell.tokens === 0 || peak === 0) continue;
+				cell.level = Math.max(1, Math.min(4, Math.ceil(cell.tokens / peak * 4)));
+			}
+			return {
+				cells,
+				peak
+			};
+		}
+		function homeModelList(value, listed, start = null) {
+			if (value !== null && Array.isArray(value.days) && start !== null) {
+				const byModel = /* @__PURE__ */ new Map();
+				for (let i = 0; i < value.days.length; i++) {
+					const day = value.days[i];
+					if (!day || day.date < start) continue;
+					if (day.modelDetails) for (const [id, cell] of Object.entries(day.modelDetails)) {
+						let target = byModel.get(id);
+						if (!target) {
+							target = {
+								input: 0,
+								output: 0,
+								cacheRead: 0,
+								cacheWrite: 0,
+								tokens: 0
+							};
+							byModel.set(id, target);
+						}
+						target.input += cell.input || 0;
+						target.output += cell.output || 0;
+						target.cacheRead += cell.cacheRead || 0;
+						target.cacheWrite += cell.cacheWrite || 0;
+						target.tokens += cell.tokens || 0;
+					}
+					else if (day.models) for (const [id, count] of Object.entries(day.models)) {
+						let target = byModel.get(id);
+						if (!target) {
+							target = {
+								input: 0,
+								output: 0,
+								cacheRead: 0,
+								cacheWrite: 0,
+								tokens: 0
+							};
+							byModel.set(id, target);
+						}
+						target.tokens += Number(count) || 0;
+					}
+				}
+				if (byModel.size > 0) return [...byModel.entries()].map(([id, m]) => ({
+					id,
+					input: m.input,
+					output: m.output,
+					cacheRead: m.cacheRead,
+					cacheWrite: m.cacheWrite,
+					tokens: m.tokens
+				})).sort((a, b) => b.tokens - a.tokens);
+			}
+			if (value !== null && Array.isArray(value.models) && value.models.length > 0) return value.models.map((entry) => ({
+				id: entry.id,
+				input: entry.input || 0,
+				output: entry.output || 0,
+				cacheRead: entry.cacheRead || 0,
+				cacheWrite: entry.cacheWrite || 0,
+				tokens: homeModelTokens(entry),
+				sessions: entry.sessions,
+				lastAt: entry.lastAt
+			}));
+			if (listed === null) return null;
+			const startMs = start === null ? null : (/* @__PURE__ */ new Date(`${start}T00:00:00`)).getTime();
+			return listed.models.filter((entry) => startMs === null || entry.lastAt >= startMs).map((entry) => ({
+				id: entry.id,
+				tokens: entry.tokens,
+				sessions: entry.sessions,
+				lastAt: entry.lastAt
+			})).sort((a, b) => b.tokens - a.tokens);
+		}
+		function homeModelDays(value, windowDays) {
+			if (value === null || !Array.isArray(value.days)) return null;
+			const start = homeRangeStart(windowDays > 0 && windowDays < 30 ? windowDays : 30);
+			const columns = [];
+			for (let i = 0; i < value.days.length; i++) {
+				const day = value.days[i];
+				if (!day || day.date < start || !day.models) continue;
+				columns.push({
+					date: day.date,
+					models: day.models
+				});
+			}
+			if (columns.length === 0) return null;
+			columns.sort((a, b) => a.date < b.date ? -1 : 1);
+			return columns;
+		}
+		function homePanelData(state, listed, range, bookPick) {
+			const value = state.value;
+			const ready = value !== null && value.totals !== void 0;
+			const totals = ready ? value.totals : null;
+			const known = ready || listed !== null;
+			let windowDays = 0;
+			for (let r = 0; r < HOME_RANGES.length; r++) {
+				const rangeItem = HOME_RANGES[r];
+				if (rangeItem && rangeItem.id === range) windowDays = rangeItem.days;
+			}
+			const start = homeRangeStart(windowDays);
+			const startMs = start === null ? null : (/* @__PURE__ */ new Date(`${start}T00:00:00`)).getTime();
+			const inRange = (date) => start === null || date >= start;
+			let tokens = 0;
+			let calls = null;
+			let sessions = null;
+			let activeDays = null;
+			if (ready && start === null && totals !== null) {
+				tokens = homeDayTokens(totals);
+				calls = totals.calls ?? null;
+				sessions = totals.sessions ?? null;
+				activeDays = totals.activeDays ?? null;
+			} else if (ready) {
+				const ids = {};
+				let everyDayHasIds = true;
+				let daySessions = 0;
+				calls = 0;
+				sessions = 0;
+				activeDays = 0;
+				for (let d = 0; d < value.days.length; d++) {
+					const day = value.days[d];
+					if (!day || !inRange(day.date)) continue;
+					tokens += homeDayTokens(day);
+					calls += day.calls || 0;
+					activeDays += 1;
+					if (Array.isArray(day.sessionIds)) for (let s = 0; s < day.sessionIds.length; s++) {
+						const sid = day.sessionIds[s];
+						if (sid) ids[sid] = true;
+					}
+					else everyDayHasIds = false;
+					daySessions += day.sessions || 0;
+				}
+				sessions = everyDayHasIds ? Object.keys(ids).length : daySessions;
+			} else if (listed !== null) {
+				sessions = 0;
+				activeDays = 0;
+				for (let e = 0; e < listed.entries.length; e++) {
+					const item = listed.entries[e];
+					if (!item) continue;
+					if (startMs !== null && item.at < startMs) continue;
+					tokens += item.tokens;
+					sessions += 1;
+				}
+				for (let ld = 0; ld < listed.days.length; ld++) {
+					const item = listed.days[ld];
+					if (item && inRange(item.date)) activeDays += 1;
+				}
+			}
+			let hourCounts = null;
+			if (ready && start === null && Array.isArray(value.hours)) hourCounts = value.hours;
+			else if (ready && start !== null && Array.isArray(value.days)) for (let hd = 0; hd < value.days.length; hd++) {
+				const hourDay = value.days[hd];
+				if (!hourDay || !inRange(hourDay.date) || !Array.isArray(hourDay.hours)) continue;
+				if (hourCounts === null) hourCounts = new Array(24).fill(0);
+				for (let dh = 0; dh < 24; dh++) hourCounts[dh] = (hourCounts[dh] ?? 0) + (Number(hourDay.hours[dh]) || 0);
+			}
+			let peakHour = null;
+			if (hourCounts !== null) {
+				let bestHour = 0;
+				let hourSum = 0;
+				for (let h = 0; h < 24; h++) {
+					const count = Number(hourCounts[h]) || 0;
+					hourSum += count;
+					if (count > (Number(hourCounts[bestHour]) || 0)) bestHour = h;
+				}
+				if (hourSum > 0) peakHour = formatHomeHour(bestHour);
+			}
+			const models = homeModelList(value, listed, start);
+			let model = null;
+			if (models && models.length > 0 && models[0]) model = models[0].id;
+			else if (ready && typeof value.model === "string") model = value.model;
+			else if (listed !== null) if (startMs === null) model = listed.model;
+			else {
+				let bestSessions = 0;
+				for (let m = 0; m < listed.models.length; m++) {
+					const item = listed.models[m];
+					if (!item || item.lastAt < startMs || item.sessions <= bestSessions) continue;
+					bestSessions = item.sessions;
+					model = item.id;
+				}
+			}
+			let fun = null;
+			let bookIndex = Math.min(HOME_BOOKS.length - 1, Math.floor(bookPick * HOME_BOOKS.length));
+			while (bookIndex >= 0) {
+				const bookCandidate = HOME_BOOKS[bookIndex];
+				if (bookCandidate && tokens >= bookCandidate.tokens) break;
+				bookIndex -= 1;
+			}
+			if (bookIndex >= 0) {
+				const book = HOME_BOOKS[bookIndex];
+				if (book) fun = `已消耗约相当于 ${formatHomeCount(Math.max(1, Math.round(tokens / book.tokens)))} 本《${book.title}》的 Tokens`;
+			}
+			return {
+				listed,
+				known,
+				tokens,
+				calls,
+				sessions,
+				activeDays,
+				peakHour,
+				model,
+				grid: homeHeatGrid(ready ? value.days : listed ? listed.days : null),
+				fun,
+				models,
+				modelDays: homeModelDays(value, windowDays)
+			};
+		}
+		function createHomeUsage(ctx) {
+			const usage = {
+				value: null,
+				computing: false,
+				error: null,
+				loading: false,
+				polls: 0
+			};
+			let listSummary = null;
+			let listLoading = false;
+			const listeners = [];
+			let pollTimer = null;
+			let disposed = false;
+			function emit() {
+				for (let i = 0; i < listeners.length; i++) {
+					const fn = listeners[i];
+					if (typeof fn === "function") try {
+						fn();
+					} catch {}
+				}
+			}
+			function subscribe(listener) {
+				listeners.push(listener);
+				return () => {
+					const idx = listeners.indexOf(listener);
+					if (idx !== -1) listeners.splice(idx, 1);
+				};
+			}
+			function stopPolling() {
+				if (pollTimer !== null) {
+					clearTimeout(pollTimer);
+					pollTimer = null;
+				}
+			}
+			function loadUsage(force) {
+				if (disposed || usage.loading) return;
+				if (!force && usage.value !== null && !usage.computing) return;
+				usage.loading = true;
+				fetch(USAGE_ROUTE, {
+					credentials: "same-origin",
+					headers: { accept: "application/json" }
+				}).then((r) => r && r.ok ? r.json() : null).then((body) => {
+					usage.loading = false;
+					if (disposed) return;
+					if (!body || !body.ok) {
+						usage.error = "unavailable";
+						emit();
+						return;
+					}
+					usage.value = body.value ?? null;
+					usage.computing = body.computing === true;
+					usage.error = body.error ?? null;
+					emit();
+					if (usage.computing) {
+						if (usage.polls >= 15) return;
+						usage.polls += 1;
+						stopPolling();
+						pollTimer = setTimeout(() => {
+							pollTimer = null;
+							loadUsage(true);
+						}, 800);
+					}
+				}).catch(() => {
+					usage.loading = false;
+					if (disposed) return;
+					usage.error = "unavailable";
+					emit();
+				});
+			}
+			function summarizeSessionList(rows) {
+				let tokens = 0;
+				const dayCount = {};
+				const byDay = {};
+				const byModel = {};
+				const entries = [];
+				for (let i = 0; i < rows.length; i++) {
+					const row = rows[i];
+					if (!row) continue;
+					const values = row.projections?.values;
+					if (!values) continue;
+					const meta = values.sessionListMetadata;
+					if (meta?.blank === true) continue;
+					const bucket = values.tokenUsage;
+					const total = bucket ? (bucket.uncachedInputTokens || 0) + (bucket.outputTokens || 0) + (bucket.cacheReadTokens || 0) + (bucket.cacheWriteTokens || 0) : 0;
+					tokens += total;
+					const at = typeof meta?.lastPromptAt === "number" ? meta.lastPromptAt : row.updatedAt ?? 0;
+					const selection = values.modelSelection;
+					const picked = selection ? selection.next || selection.lastUsed : null;
+					const id = typeof picked?.model === "string" ? picked.model : null;
+					entries.push({
+						at: typeof at === "number" ? at : 0,
+						tokens: total,
+						model: id
+					});
+					if (typeof at === "number") {
+						const day = homeDayKey(new Date(at));
+						dayCount[day] = true;
+						byDay[day] = (byDay[day] || 0) + total;
+					}
+					if (id !== null) {
+						let cell = byModel[id];
+						if (!cell) {
+							cell = {
+								tokens: 0,
+								sessions: 0,
+								lastAt: 0
+							};
+							byModel[id] = cell;
+						}
+						cell.tokens += total;
+						cell.sessions += 1;
+						if (typeof at === "number" && at > cell.lastAt) cell.lastAt = at;
+					}
+				}
+				let favorite = null;
+				let best = 0;
+				const models = [];
+				for (const name in byModel) {
+					const item = byModel[name];
+					if (!item) continue;
+					models.push({
+						id: name,
+						tokens: item.tokens,
+						sessions: item.sessions,
+						lastAt: item.lastAt
+					});
+					if (item.sessions > best) {
+						best = item.sessions;
+						favorite = name;
+					}
+				}
+				models.sort((a, b) => b.tokens - a.tokens);
+				const days = [];
+				for (const date in byDay) {
+					const total = byDay[date];
+					if (typeof total === "number") days.push({
+						date,
+						total
+					});
+				}
+				return {
+					tokens,
+					sessions: entries.length,
+					activeDays: Object.keys(dayCount).length,
+					model: favorite,
+					models,
+					days,
+					entries
+				};
+			}
+			function loadSessionSummary() {
+				if (disposed || listLoading || listSummary !== null) return;
+				const sessions = ctx.get("remote.session");
+				if (!sessions || typeof sessions.list !== "function") return;
+				listLoading = true;
+				sessions.list({}).then((result) => {
+					listLoading = false;
+					if (disposed) return;
+					const items = result?.ok && Array.isArray(result?.value?.items) ? result.value.items : null;
+					if (items) {
+						listSummary = summarizeSessionList(items);
+						emit();
+					}
+				}).catch(() => {
+					listLoading = false;
+				});
+			}
+			return {
+				state() {
+					return usage;
+				},
+				list() {
+					return listSummary;
+				},
+				listLoading() {
+					return listLoading;
+				},
+				subscribe,
+				notify: emit,
+				load: loadUsage,
+				loadList: loadSessionSummary,
+				stop() {
+					disposed = true;
+					stopPolling();
+					listeners.length = 0;
+				}
+			};
+		}
+		//#endregion
+		//#region src/client/usage/models.tsx
+		const RANK_LAST = 7;
+		function share(part, whole) {
+			return whole > 0 ? `${(Math.round(part / whole * 1e3) / 10).toFixed(1)}%` : "—";
+		}
+		function axisMax(peak) {
+			if (!(peak > 0)) return 0;
+			const magnitude = Math.pow(10, Math.floor(Math.log(peak) / Math.LN10));
+			const scaled = peak / magnitude;
+			return (scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 2.5 ? 2.5 : scaled <= 5 ? 5 : 10) * magnitude;
+		}
+		function sides(entry) {
+			return {
+				input: (entry.input || 0) + (entry.cacheRead || 0) + (entry.cacheWrite || 0),
+				output: entry.output || 0
+			};
+		}
+		function hasSplit(entry) {
+			return entry.input !== void 0 || entry.output !== void 0 || entry.cacheRead !== void 0 || entry.cacheWrite !== void 0;
+		}
+		function ModelChart({ columns, rankOf, skeleton }) {
+			let peak = 0;
+			const list = columns || [];
+			for (let c = 0; c < list.length; c++) {
+				const col = list[c];
+				if (!col) continue;
+				let total = 0;
+				const models = col.models;
+				for (const id in models) total += models[id] ?? 0;
+				if (total > peak) peak = total;
+			}
+			const top = axisMax(peak);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: "dsh-theme-home-chart",
+				"data-skeleton": skeleton ? "" : void 0,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: "dsh-theme-home-chart-plot",
+					children: [[
+						1,
+						.75,
+						.5,
+						.25,
+						0
+					].map((at) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+						className: "dsh-theme-home-chart-tick",
+						style: { bottom: `${at * 100}%` },
+						children: skeleton || top === 0 ? "" : formatCompactTokens(top * at)
+					}, at)), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: "dsh-theme-home-chart-bars",
+						children: list.map((column) => {
+							if (!column) return null;
+							let dayTotal = 0;
+							const stack = [];
+							const models = column.models;
+							for (const id in models) {
+								const tokens = models[id] ?? 0;
+								dayTotal += tokens;
+								const rank = rankOf[id];
+								stack.push({
+									id,
+									tokens,
+									rank: rank === void 0 ? Number.MAX_VALUE : rank
+								});
+							}
+							stack.sort((a, b) => a.rank - b.rank);
+							return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: "dsh-theme-home-chart-col",
+								title: `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`,
+								style: { height: `${top > 0 ? dayTotal / top * 100 : 0}%` },
+								children: stack.map((slice) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: "dsh-theme-home-chart-seg",
+									"data-rank": Math.min(slice.rank, RANK_LAST),
+									style: { height: `${dayTotal > 0 ? slice.tokens / dayTotal * 100 : 0}%` }
+								}, slice.id))
+							}, column.date);
+						})
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: "dsh-theme-home-chart-axis",
+					children: list.map((column, index) => {
+						if (!column) return null;
+						return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: "dsh-theme-home-chart-label",
+							children: index % 3 === 0 ? homeShortDate(column.date) : ""
+						}, column.date);
+					})
+				})]
+			});
+		}
+		function ModelsView({ data }) {
+			const [expanded, setExpanded] = react.useState(false);
+			const models = data.models;
+			const columns = data.modelDays;
+			const skeleton = !data.known;
+			if (!models || models.length === 0) {
+				if (data.listed !== null || !skeleton) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: "dsh-theme-home-models-empty",
+					children: "暂无模型用量数据"
+				});
+				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModelChart, {
+					columns: null,
+					rankOf: {},
+					skeleton: true
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: "dsh-theme-home-models",
+					"data-skeleton": "",
+					children: [
+						0,
+						1,
+						2
+					].map((index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: "dsh-theme-home-model",
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: "dsh-theme-home-model-swatch" }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: "dsh-theme-home-model-name" }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: "dsh-theme-home-model-split" }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: "dsh-theme-home-model-share" })
+						]
+					}, index))
+				})] });
+			}
+			let total = 0;
+			const rankOf = {};
+			for (let i = 0; i < models.length; i++) {
+				const item = models[i];
+				if (!item) continue;
+				total += item.tokens;
+				rankOf[item.id] = i;
+			}
+			const shown = expanded ? models : models.slice(0, 6);
+			const hidden = models.length - shown.length;
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [columns === null && !skeleton ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModelChart, {
+				columns,
+				rankOf,
+				skeleton
+			}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: "dsh-theme-home-models",
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: "dsh-theme-home-models-list",
+					"data-expanded": expanded ? "" : void 0,
+					children: shown.map((entry, rank) => {
+						if (!entry) return null;
+						const parts = sides(entry);
+						return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: "dsh-theme-home-model",
+							title: entry.sessions === void 0 ? entry.id : `${entry.id} · ${formatHomeCount(entry.sessions)} 会话`,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: "dsh-theme-home-model-swatch",
+									"data-rank": Math.min(rank, RANK_LAST)
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: "dsh-theme-home-model-name",
+									children: entry.id
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: "dsh-theme-home-model-split",
+									children: hasSplit(entry) ? `${formatCompactTokens(parts.input)} 入 · ${formatCompactTokens(parts.output)} 出` : formatCompactTokens(entry.tokens)
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: "dsh-theme-home-model-share",
+									children: share(entry.tokens, total)
+								})
+							]
+						}, entry.id);
+					})
+				}), models.length <= 6 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+					type: "button",
+					className: "dsh-theme-home-models-more",
+					"aria-expanded": expanded,
+					onClick: () => setExpanded(!expanded),
+					children: expanded ? "收起" : `展开更多 ${hidden} 个模型`
+				})]
+			})] });
+		}
+		//#endregion
+		//#region src/client/usage/overview.tsx
+		const HOME_TIP_EDGE = 3;
+		function statCell(key, label, text, skeleton) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: "dsh-theme-home-stat",
+				"data-stat": key,
+				"data-skeleton": skeleton ? "" : void 0,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: "dsh-theme-home-stat-label",
+					children: label
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: "dsh-theme-home-stat-value",
+					title: skeleton ? void 0 : text,
+					children: skeleton ? "" : text
+				})]
+			}, key);
+		}
+		function heatTip(cell) {
+			const date = homeShortDate(cell.date);
+			if (cell.messages !== null) return `${date} — ${formatHomeCount(cell.messages)} 消息`;
+			return `${date} — ${formatCompactTokens(cell.tokens)} tokens`;
+		}
+		function OverviewView({ data }) {
+			const skeleton = !data.known;
+			const columns = Math.ceil(data.grid.cells.length / 7);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: "dsh-theme-home-stats",
+					children: [
+						statCell("sessions", "会话数", data.sessions === null ? "—" : formatHomeCount(data.sessions), skeleton),
+						statCell("calls", "消息数", data.calls === null ? "—" : formatHomeCount(data.calls), skeleton),
+						statCell("tokens", "总 Tokens", formatCompactTokens(data.tokens), skeleton),
+						statCell("days", "活跃天数", data.activeDays === null ? "—" : formatHomeCount(data.activeDays), skeleton),
+						statCell("peak", "高峰时段", data.peakHour === null ? "—" : data.peakHour, skeleton),
+						statCell("model", "最常用模型", data.model === null ? "—" : data.model, skeleton)
+					]
+				}),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: "dsh-theme-home-heat",
+					"data-skeleton": data.known ? void 0 : "",
+					children: data.grid.cells.map((cell, index) => {
+						const tip = skeleton ? void 0 : heatTip(cell);
+						const column = Math.floor(index / 7);
+						const edge = column < HOME_TIP_EDGE ? "start" : column >= columns - HOME_TIP_EDGE ? "end" : void 0;
+						return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: "dsh-theme-home-heat-cell",
+							"data-level": cell.level,
+							"data-tip": tip,
+							"data-edge": edge,
+							"aria-label": tip
+						}, cell.date);
+					})
+				}),
+				data.fun === null ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					className: "dsh-theme-home-fun",
+					children: data.fun
+				})
+			] });
+		}
+		//#endregion
+		//#region src/client/usage/HomeUsagePanel.tsx
+		function checkHeroPhase() {
+			if (typeof document === "undefined") return false;
+			return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null || document.querySelector("[class*=\"_headline\"]") !== null;
+		}
+		function checkLayout() {
+			try {
+				return localStorage.getItem("dsh-home-layout") || "studio";
+			} catch {
+				return "studio";
+			}
+		}
+		function HomeUsagePanel({ usage, bookPick = .5, isHero, layout }) {
+			const [, bump] = react.useState(0);
+			const [tab, setTab] = react.useState("overview");
+			const [range, setRange] = react.useState("all");
+			react.useEffect(() => {
+				return usage.subscribe(() => {
+					bump((c) => c + 1);
+				});
+			}, [usage]);
+			const effectiveLayout = layout ?? checkLayout();
+			const effectiveHero = isHero ?? checkHeroPhase();
+			if (effectiveLayout !== "studio" || !effectiveHero) return null;
+			const state = usage.state();
+			const data = homePanelData(state, usage.list(), range, bookPick);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+				className: "dsh-theme-home-panel",
+				"data-computing": state.computing ? "" : void 0,
+				"aria-busy": state.computing || !data.known ? "true" : "false",
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: "dsh-theme-home-panel-head",
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: "dsh-theme-home-tabs",
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: "dsh-theme-home-tab",
+							"data-active": tab === "overview" ? "" : void 0,
+							"aria-pressed": tab === "overview",
+							onClick: () => setTab("overview"),
+							children: "概览"
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: "dsh-theme-home-tab",
+							"data-active": tab === "models" ? "" : void 0,
+							"aria-pressed": tab === "models",
+							onClick: () => setTab("models"),
+							children: "模型"
+						})]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: "dsh-theme-home-panel-side",
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: "dsh-theme-home-ranges",
+							children: HOME_RANGES.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: "dsh-theme-home-range",
+								"data-active": range === item.id ? "" : void 0,
+								"aria-pressed": range === item.id,
+								onClick: () => setRange(item.id),
+								children: item.label
+							}, item.id))
+						})
+					})]
+				}), tab === "models" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ModelsView, { data }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(OverviewView, { data })]
+			});
+		}
+		//#endregion
+		//#region src/client/usage/SaulIcon.tsx
+		function SaulFingerGunIcon({ size = 34, className }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("svg", {
+				width: size,
+				height: size,
+				viewBox: "0 0 34 34",
+				fill: "none",
+				xmlns: "http://www.w3.org/2000/svg",
+				className,
+				style: {
+					overflow: "visible",
+					verticalAlign: "middle"
+				},
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("g", {
+						className: "dsh-saul-sparkle",
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+							d: "M29 9L29.8 12.2L33 13L29.8 13.8L29 17L28.2 13.8L25 13L28.2 12.2L29 9Z",
+							fill: "#f59e0b"
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("circle", {
+							cx: "25",
+							cy: "8",
+							r: "1.2",
+							fill: "#fbbf24"
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+						d: "M5 24.5C6.5 24 8 22 9 20L11 16.5C11.5 15.5 12.5 15 13.5 15H23.5C24.88 15 26 13.88 26 12.5C26 11.12 24.88 10 23.5 10H14.5C14.5 10 14 8.5 13.5 7C13 5.5 11.5 4.5 10 5C8.8 5.4 8.2 6.8 8.5 8L9.5 12L7.5 15C6.5 16.5 5 18 3.5 19L2 20.5",
+						stroke: "currentColor",
+						strokeWidth: "2",
+						strokeLinecap: "round",
+						strokeLinejoin: "round"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+						d: "M13.5 15C13.5 16.5 14.5 17.5 16 17.5H19C20.1 17.5 21 16.6 21 15.5",
+						stroke: "currentColor",
+						strokeWidth: "1.8",
+						strokeLinecap: "round"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+						d: "M12.5 18C12.5 19.5 13.5 20.5 15 20.5H18C19.1 20.5 20 19.6 20 18.5",
+						stroke: "currentColor",
+						strokeWidth: "1.8",
+						strokeLinecap: "round"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+						d: "M11.5 21C11.5 22.5 12.5 23.5 14 23.5H17C18.1 23.5 19 22.6 19 21.5",
+						stroke: "currentColor",
+						strokeWidth: "1.8",
+						strokeLinecap: "round"
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", {
+						d: "M2.5 22.5L6.5 27.5",
+						stroke: "#f59e0b",
+						strokeWidth: "2.2",
+						strokeLinecap: "round"
+					})
+				]
+			});
+		}
+		//#endregion
+		//#region src/client/usage/styles.ts
+		const HOME_USAGE_STYLE_ATTR = "data-dsh-home-usage-style";
+		const HOME_USAGE_CSS = `
+/* ui-theme-custom Home Usage Panel Styles */
+
+.dsh-theme-home-seat {
+  display: contents;
+}
+
+.dsh-theme-home-panel {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 720px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.08));
+  background: var(--dsh-frost-noise, none), var(--dsw-alias-bg-layer-1, rgba(255, 255, 255, 0.88));
+  background-repeat: repeat, no-repeat;
+  backdrop-filter: var(--dsw-alias-glass-blur, blur(40px));
+  -webkit-backdrop-filter: var(--dsw-alias-glass-blur, blur(40px));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] .dsh-theme-home-panel {
+  display: flex;
+}
+
+.dsh-theme-home-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dsh-theme-home-tabs,
+.dsh-theme-home-ranges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--dsw-alias-bg-module-platform, rgba(0, 0, 0, 0.04));
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.dsh-theme-home-tab,
+.dsh-theme-home-range {
+  appearance: none;
+  margin: 0;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dsh-theme-home-tab:hover:not([data-active]),
+.dsh-theme-home-range:hover:not([data-active]) {
+  color: var(--dsw-alias-label-primary, #1d1d1f);
+}
+
+.dsh-theme-home-tab[data-active],
+.dsh-theme-home-range[data-active] {
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  color: var(--dsw-alias-label-primary, #1d1d1f);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.dsh-theme-home-panel-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stat cells */
+.dsh-theme-home-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .dsh-theme-home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dsh-theme-home-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--dsw-alias-border-l1, transparent);
+}
+
+.dsh-theme-home-stat-label {
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dsh-theme-home-stat-value {
+  color: var(--dsw-alias-label-primary, #1d1d1f);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsh-theme-home-stat[data-stat="model"] .dsh-theme-home-stat-value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Heat Grid */
+.dsh-theme-home-heat {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  align-content: start;
+  padding: 4px 0;
+}
+
+.dsh-theme-home-heat-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.06));
+}
+
+.dsh-theme-home-heat-cell[data-tip]:hover:after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 10;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--dsw-alias-label-primary, #1d1d1f);
+  color: var(--dsw-alias-bg-base, #ffffff);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 15px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dsh-theme-home-heat-cell[data-tip][data-edge="start"]:hover:after {
+  left: 0;
+  transform: none;
+}
+
+.dsh-theme-home-heat-cell[data-tip][data-edge="end"]:hover:after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.dsh-theme-home-heat-cell[data-level="1"] {
+  background: var(--dsh-heat-step-1, rgba(20, 124, 229, 0.20));
+}
+.dsh-theme-home-heat-cell[data-level="2"] {
+  background: var(--dsh-heat-step-2, rgba(20, 124, 229, 0.45));
+}
+.dsh-theme-home-heat-cell[data-level="3"] {
+  background: var(--dsh-heat-step-3, rgba(20, 124, 229, 0.70));
+}
+.dsh-theme-home-heat-cell[data-level="4"] {
+  background: var(--dsh-heat-step-4, rgba(20, 124, 229, 0.95));
+}
+
+.dsh-theme-home-fun {
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
+  padding-top: 2px;
+}
+
+/* Chart */
+.dsh-theme-home-chart {
+  --dsh-home-axis: 38px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.dsh-theme-home-chart-plot {
+  position: relative;
+  height: 140px;
+  margin-left: var(--dsh-home-axis);
+}
+
+.dsh-theme-home-chart-tick {
+  position: absolute;
+  left: calc(-1 * var(--dsh-home-axis));
+  width: calc(var(--dsh-home-axis) - 6px);
+  transform: translateY(50%);
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-size: 10px;
+  line-height: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsh-theme-home-chart-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, 0.08));
+}
+
+.dsh-theme-home-chart-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease;
+}
+
+.dsh-theme-home-chart-col:hover {
+  opacity: 0.85;
+}
+
+.dsh-theme-home-chart-seg {
+  display: block;
+  width: 100%;
+}
+
+.dsh-theme-home-chart-axis {
+  display: flex;
+  gap: 3px;
+  margin-left: var(--dsh-home-axis);
+}
+
+.dsh-theme-home-chart-label {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rank Swatches & Segments */
+.dsh-theme-home-chart-seg[data-rank="0"],
+.dsh-theme-home-model-swatch[data-rank="0"] { background: var(--dsh-chart-rank-0, #147ce5); }
+.dsh-theme-home-chart-seg[data-rank="1"],
+.dsh-theme-home-model-swatch[data-rank="1"] { background: var(--dsh-chart-rank-1, #2b8cf0); }
+.dsh-theme-home-chart-seg[data-rank="2"],
+.dsh-theme-home-model-swatch[data-rank="2"] { background: var(--dsh-chart-rank-2, #4fa2f6); }
+.dsh-theme-home-chart-seg[data-rank="3"],
+.dsh-theme-home-model-swatch[data-rank="3"] { background: var(--dsh-chart-rank-3, #73b6f8); }
+.dsh-theme-home-chart-seg[data-rank="4"],
+.dsh-theme-home-model-swatch[data-rank="4"] { background: var(--dsh-chart-rank-4, #98c9fa); }
+.dsh-theme-home-chart-seg[data-rank="5"],
+.dsh-theme-home-model-swatch[data-rank="5"] { background: var(--dsh-chart-rank-5, #bddcfc); }
+.dsh-theme-home-chart-seg[data-rank="6"],
+.dsh-theme-home-model-swatch[data-rank="6"] { background: var(--dsh-chart-rank-6, #d5e9fd); }
+.dsh-theme-home-chart-seg[data-rank="7"],
+.dsh-theme-home-model-swatch[data-rank="7"] { background: var(--dsh-chart-rank-7, #e7f2fe); }
+
+/* Models List */
+.dsh-theme-home-models {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.dsh-theme-home-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dsh-theme-home-models-list[data-expanded] {
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dsw-alias-border-l3, rgba(0, 0, 0, 0.2)) transparent;
+}
+
+.dsh-theme-home-models-list[data-expanded]::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dsh-theme-home-models-list[data-expanded]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dsh-theme-home-models-list[data-expanded]::-webkit-scrollbar-thumb {
+  background: var(--dsw-alias-border-l3, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+}
+
+.dsh-theme-home-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  transition: background 0.15s ease;
+}
+
+.dsh-theme-home-model:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.dsh-theme-home-model-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.dsh-theme-home-model-name {
+  flex: 1 1 auto;
+  color: var(--dsw-alias-label-primary, #1d1d1f);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-theme-home-model-split {
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.dsh-theme-home-model-share {
+  color: var(--dsw-alias-label-primary, #1d1d1f);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  width: 44px;
+  text-align: right;
+}
+
+.dsh-theme-home-models-more {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 6px 8px;
+  color: var(--dsw-alias-brand-primary, #147ce5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.dsh-theme-home-models-more:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.dsh-theme-home-models-empty {
+  color: var(--dsw-alias-label-tertiary, #8f8a7e);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Studio Layout Overrides - 优雅纵向居中布局 */
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_scrollBody"] {
+  justify-content: center !important;
+  overflow-y: auto !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerSeat"] {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  margin: auto 0 !important;
+  width: 100% !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerStack"][class*="_composerHero"] {
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 720px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: auto !important;
+  gap: 12px !important;
+  padding: 24px 0 32px !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"] > :has([class*="_headline"]) {
+  order: 0 !important;
+  height: auto !important;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  margin-bottom: 8px !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"],
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="titleGroup"] {
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+
+/* 隐藏官方预览版 Badge */
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="previewBadge"] {
+  display: none !important;
+}
+
+/* 标题文本重写为 Better Call Saul */
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="titleGroup"] > span:not([class*="previewBadge"]) {
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="titleGroup"] > span:not([class*="previewBadge"])::after {
+  content: "Better Call Saul";
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 30px !important;
+  letter-spacing: -0.02em !important;
+  color: var(--dsw-alias-label-primary, #1d1d1f) !important;
+}
+
+/* Better Call Saul 指弹图标微动 */
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="fishHitbox"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  cursor: pointer !important;
+  color: var(--dsw-alias-brand-primary, #147ce5) !important;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="fishHitbox"]:hover {
+  transform: scale(1.08) rotate(-4deg);
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="fishHitbox"]:hover .dsh-saul-sparkle {
+  transform: scale(1.3) rotate(15deg);
+  transform-origin: 29px 13px;
+  transition: transform 0.25s ease-out;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"] > :is([data-slot="conversation.input.dock"], .dsh-theme-home-seat) > * {
+  order: 1 !important;
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  max-width: 720px !important;
+  margin: 0 auto !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"] > [class*="_heroWorkspaceRow"] {
+  order: 2 !important;
+  margin-top: 84px !important;
+  gap: 8px !important;
+}
+
+body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"] > [data-slot="conversation.composer.bar"] > * {
+  order: 3 !important;
+}
+`;
+		function injectHomeUsageStyles() {
+			if (typeof document === "undefined") return () => {};
+			if (document.head.querySelector(`style[data-dsh-home-usage-style]`) !== null) return () => {};
+			const tag = document.createElement("style");
+			tag.setAttribute(HOME_USAGE_STYLE_ATTR, "");
+			tag.textContent = HOME_USAGE_CSS;
+			document.head.appendChild(tag);
+			return () => {
+				tag.remove();
 			};
 		}
 		//#endregion
@@ -3737,6 +5366,123 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				locale: SETTINGS_NS,
 				inject: injected
 			}, TechThemeRow));
+			const HOME_LAYOUT_STORAGE_KEY = "dsh-home-layout";
+			function readHomeLayout() {
+				try {
+					const v = localStorage.getItem(HOME_LAYOUT_STORAGE_KEY);
+					if (v === "classic" || v === "studio") return v;
+				} catch {}
+				return "studio";
+			}
+			function writeHomeLayout(val) {
+				try {
+					localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, val);
+				} catch {}
+			}
+			let currentHomeLayout = readHomeLayout();
+			let bookPick = Math.random();
+			const homeUsage = createHomeUsage(ctx);
+			function isHeroPhase() {
+				if (typeof document === "undefined") return false;
+				return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null || document.querySelector("[class*=\"_headline\"]") !== null;
+			}
+			let coldSeat = null;
+			function unmountColdSeat() {
+				if (coldSeat === null) return;
+				coldSeat.root.unmount();
+				if (coldSeat.element.parentElement !== null) coldSeat.element.parentElement.removeChild(coldSeat.element);
+				coldSeat = null;
+			}
+			function syncColdSeat() {
+				if (typeof document === "undefined") return;
+				const isHero = isHeroPhase();
+				const stack = currentHomeLayout === "studio" && isHero ? document.querySelector("[class*=\"_composerStack\"][class*=\"_composerHero\"]") || document.querySelector("[class*=\"composerStack\"][class*=\"composerHero\"]") : null;
+				if (stack === null || stack.querySelector(":scope > [data-slot=\"conversation.input.dock\"]") !== null) {
+					unmountColdSeat();
+					return;
+				}
+				if (coldSeat !== null && coldSeat.stack === stack && coldSeat.element.parentElement === stack) return;
+				unmountColdSeat();
+				const element = document.createElement("div");
+				element.className = "dsh-theme-home-seat";
+				stack.appendChild(element);
+				const root = react_dom_client.createRoot(element);
+				root.render(react.createElement(HomeUsagePanel, {
+					usage: homeUsage,
+					bookPick
+				}));
+				coldSeat = {
+					stack,
+					element,
+					root
+				};
+			}
+			let lastHeroState = false;
+			function syncHeroAttrs() {
+				if (typeof document === "undefined") return;
+				const hero = isHeroPhase();
+				if (currentHomeLayout === "studio" && hero) document.body.setAttribute("data-dsh-home-hero", "");
+				else document.body.removeAttribute("data-dsh-home-hero");
+				if (hero !== lastHeroState) {
+					lastHeroState = hero;
+					if (hero) bookPick = Math.random();
+					homeUsage.notify();
+				}
+				syncColdSeat();
+			}
+			function applyHomeLayout(layout) {
+				currentHomeLayout = layout;
+				if (typeof document === "undefined") return;
+				if (layout === "studio") {
+					document.body.setAttribute("data-dsh-home-layout", "studio");
+					homeUsage.load(false);
+					homeUsage.loadList();
+				} else document.body.removeAttribute("data-dsh-home-layout");
+				syncHeroAttrs();
+				syncColdSeat();
+				homeUsage.notify();
+			}
+			const homeLayoutStore = createHomeLayoutStore();
+			let homeLayoutBound;
+			let homeLayoutRevision = 0;
+			const syncHomeLayoutRow = () => {
+				homeLayoutBound?.sync(readHomeLayout(), ++homeLayoutRevision);
+			};
+			const homeLayoutInjected = (actions) => {
+				homeLayoutBound = actions;
+				syncHomeLayoutRow();
+				return { setLayout: (next) => {
+					writeHomeLayout(next);
+					applyHomeLayout(next);
+					syncHomeLayoutRow();
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "home-layout-custom",
+				order: 10.6,
+				store: homeLayoutStore,
+				locale: SETTINGS_NS,
+				inject: homeLayoutInjected
+			}, HomeLayoutRow));
+			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+				name: "conversation.input.dock",
+				id: "ui-theme-custom-usage",
+				order: 40
+			}, () => react.createElement(HomeUsagePanel, {
+				usage: homeUsage,
+				bookPick
+			})));
+			ctx.slots.inject("conversation.hero.brand.mark", () => ctx.slots.register({
+				name: "conversation.hero.brand.mark",
+				priority: -5
+			}, (props) => {
+				if (readHomeLayout() === "studio") return react.createElement(SaulFingerGunIcon, {
+					size: props?.size ?? 34,
+					className: props?.className
+				});
+				return null;
+			}));
 			const mascotStore = createMascotStore();
 			let mascotBound;
 			let mascotRevision = 0;
@@ -3867,6 +5613,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				const disposeParchment = ctx.theme.register(PARCHMENT);
 				const removeKeyframes = injectButtonDrift();
 				const removeSurfaceGlass = injectSurfaceGlass();
+				const removeHomeUsageStyles = injectHomeUsageStyles();
 				return () => {
 					disposeSequoia();
 					disposeSonoma();
@@ -3876,12 +5623,44 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 					disposeParchment();
 					removeKeyframes();
 					removeSurfaceGlass();
+					removeHomeUsageStyles();
 					clearTokens();
 				};
 			}, "ui-theme-custom: tech theme registrations + drift keyframes + surface glass");
 			ctx.effect(() => {
 				return initMascot(ctx);
 			}, "ui-theme-custom: claude mascot companion");
+			ctx.effect(() => {
+				applyHomeLayout(readHomeLayout());
+				let rafScheduled = false;
+				const scheduleSync = () => {
+					if (rafScheduled) return;
+					rafScheduled = true;
+					requestAnimationFrame(() => {
+						rafScheduled = false;
+						syncHeroAttrs();
+					});
+				};
+				const observer = new MutationObserver(() => {
+					scheduleSync();
+				});
+				observer.observe(document.body, {
+					attributes: true,
+					subtree: true,
+					childList: true
+				});
+				const interval = setInterval(() => {
+					syncHeroAttrs();
+				}, 200);
+				return () => {
+					observer.disconnect();
+					clearInterval(interval);
+					unmountColdSeat();
+					homeUsage.stop();
+					document.body.removeAttribute("data-dsh-home-layout");
+					document.body.removeAttribute("data-dsh-home-hero");
+				};
+			}, "ui-theme-custom: home studio layout & usage panel sync");
 			try {
 				const saved = readSaved();
 				if (saved !== void 0) activateTheme(saved);

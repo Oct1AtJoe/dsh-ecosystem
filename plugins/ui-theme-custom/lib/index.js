@@ -1,3 +1,636 @@
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { zstdDecompressSync } from "node:zlib";
+//#region lib/types/host/usage-fold.js
+const BUCKET_KEYS = [
+	"input",
+	"output",
+	"cacheRead",
+	"cacheWrite"
+];
+const SESSION_LOG = /^session(?:\.v([1-9][0-9]*))?\.jsonl(?:\.zstd)?$/i;
+const ZSTD_MAGIC = globalThis.Buffer?.from([
+	40,
+	181,
+	47,
+	253
+]) ?? Buffer.from([
+	40,
+	181,
+	47,
+	253
+]);
+function emptyBuckets() {
+	return {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		calls: 0
+	};
+}
+function addBuckets(target, buckets, sign) {
+	if (!buckets) return;
+	for (const key of BUCKET_KEYS) {
+		const value = Number(buckets[key]);
+		if (Number.isFinite(value) && value !== 0) target[key] += sign * value;
+	}
+	const calls = Number(buckets.calls);
+	if (Number.isFinite(calls)) target.calls += sign * calls;
+}
+function dayKey(time) {
+	const date = new Date(time);
+	if (!Number.isFinite(date.getTime())) return null;
+	const pad = (v) => String(v).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+function usageOf(event) {
+	const data = event?.data;
+	if (!data || typeof data !== "object") return void 0;
+	if (event.type === "assistant/message" && data.usage !== void 0) return data.usage;
+	if (event.type !== "assistant/message" && event.type !== "assistant/attempt") return void 0;
+	const stream = data.stream;
+	if (!Array.isArray(stream)) return void 0;
+	for (let index = stream.length - 1; index >= 0; index -= 1) {
+		const record = stream[index];
+		if (record?.type === "chunk" && record.chunk?.type === "usage") return record.chunk.usage;
+	}
+}
+function bucketsFrom(usage) {
+	const count = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+	return {
+		input: count(usage?.inputTokens),
+		output: count(usage?.outputTokens),
+		cacheRead: count(usage?.cacheReadTokens),
+		cacheWrite: count(usage?.cacheWriteTokens),
+		calls: 1
+	};
+}
+function modelOf(event) {
+	const model = event?.data?.message?.source?.model;
+	return typeof model === "string" && model !== "" ? model : null;
+}
+function foldSession(events) {
+	const days = /* @__PURE__ */ new Map();
+	const hours = new Array(24).fill(0);
+	const bump = (day, hour, buckets, sign, model) => {
+		hours[hour] += sign;
+		let target = days.get(day);
+		if (!target) {
+			if (sign < 0) return;
+			const fresh = emptyBuckets();
+			fresh.hours = new Array(24).fill(0);
+			fresh.models = /* @__PURE__ */ new Map();
+			days.set(day, fresh);
+			target = fresh;
+		}
+		const targetHours = target.hours ?? (target.hours = new Array(24).fill(0));
+		targetHours[hour] += sign;
+		addBuckets(target, buckets, sign);
+		if (model !== null) {
+			const models = target.models ?? (target.models = /* @__PURE__ */ new Map());
+			let cell = models.get(model);
+			if (!cell && sign > 0) {
+				cell = emptyBuckets();
+				models.set(model, cell);
+			}
+			if (cell) {
+				addBuckets(cell, buckets, sign);
+				if (sign < 0 && BUCKET_KEYS.every((k) => cell[k] === 0) && cell.calls === 0) models.delete(model);
+			}
+		}
+		if (sign < 0 && BUCKET_KEYS.every((k) => target[k] === 0) && target.calls === 0) days.delete(day);
+	};
+	let last = null;
+	for (const event of events) {
+		const type = event?.type;
+		if (type === "llm/retry-started") {
+			const data = event.data;
+			if (last !== null && last.turn === data?.turn && last.step === data?.step) last = null;
+			continue;
+		}
+		if (type !== "assistant/message" && type !== "assistant/attempt") continue;
+		const usage = usageOf(event);
+		if (!usage) continue;
+		if (typeof event.time !== "number") continue;
+		const day = dayKey(event.time);
+		if (!day) continue;
+		const hour = new Date(event.time).getHours();
+		const buckets = bucketsFrom(usage);
+		const model = modelOf(event);
+		const turn = event.data?.turn;
+		const step = event.data?.step;
+		const replacing = last !== null && last.turn === turn && last.step === step;
+		if (replacing && last !== null && BUCKET_KEYS.every((k) => last.buckets[k] === buckets[k])) continue;
+		if (replacing && last !== null) bump(last.day, last.hour, last.buckets, -1, last.model);
+		bump(day, hour, buckets, 1, model);
+		last = {
+			turn,
+			step,
+			buckets,
+			day,
+			hour,
+			model
+		};
+	}
+	return {
+		days,
+		hours
+	};
+}
+function newestLog(dir) {
+	let best = null;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		if (!entry.isFile()) continue;
+		const match = SESSION_LOG.exec(entry.name);
+		if (!match) continue;
+		const version = Number(match[1] ?? 0);
+		const compressed = /\.zstd$/i.test(entry.name);
+		if (best === null || version > best.version || version === best.version && Number(compressed) > Number(best.compressed)) best = {
+			name: entry.name,
+			version,
+			compressed
+		};
+	}
+	if (!best) return null;
+	const path = join(dir, best.name);
+	const stat = statSync(path);
+	return {
+		path,
+		size: stat.size,
+		mtimeMs: stat.mtimeMs,
+		...best
+	};
+}
+function listSessionLogs(root) {
+	const out = [];
+	if (!existsSync(root)) return out;
+	for (const project of readdirSync(root, { withFileTypes: true })) {
+		if (!project.isDirectory()) continue;
+		const projectDir = join(root, project.name);
+		for (const session of readdirSync(projectDir, { withFileTypes: true })) {
+			if (!session.isDirectory()) continue;
+			const log = newestLog(join(projectDir, session.name));
+			if (!log) continue;
+			out.push({
+				id: session.name,
+				...log
+			});
+		}
+	}
+	return out;
+}
+function decompressZstd(buf) {
+	let out = "";
+	let pos = 0;
+	while (pos < buf.length) {
+		const idx = buf.indexOf(ZSTD_MAGIC, pos);
+		if (idx < 0) break;
+		const next = buf.indexOf(ZSTD_MAGIC, idx + 4);
+		const end = next < 0 ? buf.length : next;
+		try {
+			out += zstdDecompressSync(buf.subarray(idx, end)).toString("utf8");
+		} catch {
+			break;
+		}
+		pos = end;
+	}
+	return out;
+}
+function readEventsFromFile(logPath) {
+	try {
+		const buf = readFileSync(logPath);
+		const lines = (logPath.endsWith(".zstd") ? decompressZstd(buf) : buf.toString("utf8")).split("\n");
+		const events = [];
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			if (!line) continue;
+			try {
+				const j = JSON.parse(line);
+				if (j && typeof j === "object") events.push(j);
+			} catch {}
+		}
+		return events;
+	} catch {
+		return null;
+	}
+}
+async function readEvents(ctx, sessionId, logPath) {
+	const query = ctx.get?.("sessionQuery");
+	if (query && typeof query.readSession === "function") try {
+		const snapshot = await query.readSession(sessionId);
+		if (Array.isArray(snapshot?.events)) return snapshot.events;
+	} catch (error) {
+		if (error?.code !== "SESSION_QUERY_CORRUPT_SESSION" && error?.code !== "SESSION_QUERY_SESSION_NOT_FOUND") throw error;
+	}
+	if (logPath && existsSync(logPath)) return readEventsFromFile(logPath);
+	return null;
+}
+//#endregion
+//#region lib/types/host/usage-cache.js
+const CACHE_VERSION = 1;
+function cacheFile(home) {
+	return join(home, "cache", "ui-theme-custom", "usage.json");
+}
+function hoursFrom(raw) {
+	return Array.isArray(raw) && raw.length === 24 ? raw.map((v) => Number.isFinite(Number(v)) ? Number(v) : 0) : new Array(24).fill(0);
+}
+function daysToObject(days) {
+	const out = {};
+	for (const [day, buckets] of days) {
+		const entry = {
+			...buckets,
+			models: void 0,
+			sessions: void 0
+		};
+		if (buckets.models) {
+			const cells = {};
+			for (const [model, cell] of buckets.models) cells[model] = cell;
+			entry.models = cells;
+		}
+		out[day] = entry;
+	}
+	return out;
+}
+function daysFromObject(raw) {
+	const days = /* @__PURE__ */ new Map();
+	if (!raw || typeof raw !== "object") return days;
+	for (const [day, stored] of Object.entries(raw)) {
+		if (!stored || typeof stored !== "object") continue;
+		const clean = emptyBuckets();
+		addBuckets(clean, stored, 1);
+		clean.hours = hoursFrom(stored.hours);
+		if (stored.models && typeof stored.models === "object") {
+			const models = /* @__PURE__ */ new Map();
+			for (const [model, cell] of Object.entries(stored.models)) {
+				if (!cell || typeof cell !== "object") continue;
+				const into = emptyBuckets();
+				addBuckets(into, cell, 1);
+				models.set(model, into);
+			}
+			clean.models = models;
+		}
+		days.set(day, clean);
+	}
+	return days;
+}
+function readCache(_ctx, home) {
+	const file = cacheFile(home);
+	if (!existsSync(file)) return /* @__PURE__ */ new Map();
+	let parsed;
+	try {
+		parsed = JSON.parse(readFileSync(file, "utf8"));
+	} catch {
+		return /* @__PURE__ */ new Map();
+	}
+	if (!parsed || typeof parsed !== "object" || parsed.version !== CACHE_VERSION) return /* @__PURE__ */ new Map();
+	const sessions = /* @__PURE__ */ new Map();
+	const rawSessions = parsed.sessions;
+	if (!rawSessions || typeof rawSessions !== "object") return sessions;
+	for (const [id, value] of Object.entries(rawSessions)) {
+		if (!value || typeof value !== "object") continue;
+		if (!Number.isFinite(value.size) || !Number.isFinite(value.mtimeMs)) continue;
+		sessions.set(id, {
+			size: Number(value.size),
+			mtimeMs: Number(value.mtimeMs),
+			days: daysFromObject(value.days),
+			hours: hoursFrom(value.hours)
+		});
+	}
+	return sessions;
+}
+function writeCache(_ctx, home, sessions) {
+	const file = cacheFile(home);
+	const dir = dirname(file);
+	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+	const document = {
+		version: CACHE_VERSION,
+		computedAt: Date.now(),
+		sessions: {}
+	};
+	for (const [id, entry] of sessions) document.sessions[id] = {
+		size: entry.size,
+		mtimeMs: entry.mtimeMs,
+		days: daysToObject(entry.days),
+		hours: entry.hours
+	};
+	const temp = `${file}.${process.pid ?? 0}.tmp`;
+	try {
+		writeFileSync(temp, JSON.stringify(document), "utf8");
+		renameSync(temp, file);
+	} catch {}
+}
+//#endregion
+//#region lib/types/host/usage-summary.js
+function bucketTotal(buckets) {
+	let total = 0;
+	for (const key of BUCKET_KEYS) total += Number(buckets?.[key]) || 0;
+	return total;
+}
+function mergeSessions(sessions) {
+	const days = /* @__PURE__ */ new Map();
+	const hours = new Array(24).fill(0);
+	const seen = /* @__PURE__ */ new Set();
+	for (const [id, entry] of sessions) {
+		seen.add(id);
+		if (Array.isArray(entry.hours)) for (let h = 0; h < 24; h++) hours[h] = (hours[h] ?? 0) + (Number(entry.hours[h]) || 0);
+		for (const [day, buckets] of entry.days) {
+			let target = days.get(day);
+			if (!target) {
+				target = emptyBuckets();
+				target.sessions = /* @__PURE__ */ new Set();
+				target.hours = new Array(24).fill(0);
+				days.set(day, target);
+			}
+			addBuckets(target, buckets, 1);
+			if (target.sessions instanceof Set) target.sessions.add(id);
+			const targetHours = target.hours ?? (target.hours = new Array(24).fill(0));
+			for (let h = 0; h < 24; h++) targetHours[h] = (targetHours[h] ?? 0) + ((buckets.hours ?? [])[h] ?? 0);
+			if (!buckets.models) continue;
+			for (const [model, cell] of buckets.models) {
+				if (!target.models) target.models = /* @__PURE__ */ new Map();
+				let into = target.models.get(model);
+				if (!into) {
+					into = emptyBuckets();
+					target.models.set(model, into);
+				}
+				addBuckets(into, cell, 1);
+			}
+		}
+	}
+	for (const day of days.values()) {
+		const behind = day.sessions instanceof Set ? [...day.sessions].sort() : [];
+		day.sessionIds = behind;
+		day.sessions = behind.length;
+	}
+	return {
+		days,
+		sessionCount: seen.size,
+		hours
+	};
+}
+function summarize(days, sessionCount, source, hours, extra) {
+	const list = [...days.entries()].map(([date, buckets]) => ({
+		date,
+		input: buckets.input,
+		output: buckets.output,
+		cacheRead: buckets.cacheRead,
+		cacheWrite: buckets.cacheWrite,
+		calls: buckets.calls,
+		sessions: typeof buckets.sessions === "number" ? buckets.sessions : 0,
+		sessionIds: Array.isArray(buckets.sessionIds) ? buckets.sessionIds : [],
+		models: buckets.models ? Object.fromEntries([...buckets.models].map(([id, cell]) => [id, bucketTotal(cell)])) : void 0,
+		modelDetails: buckets.models ? Object.fromEntries([...buckets.models].map(([id, cell]) => [id, {
+			input: cell.input,
+			output: cell.output,
+			cacheRead: cell.cacheRead,
+			cacheWrite: cell.cacheWrite,
+			tokens: bucketTotal(cell)
+		}])) : void 0,
+		hours: buckets.hours
+	})).sort((a, b) => a.date < b.date ? -1 : 1);
+	const totals = emptyBuckets();
+	const byModel = /* @__PURE__ */ new Map();
+	for (const [, buckets] of days) {
+		addBuckets(totals, buckets, 1);
+		if (!buckets.models) continue;
+		for (const [id, cell] of buckets.models) {
+			let into = byModel.get(id);
+			if (!into) {
+				into = emptyBuckets();
+				byModel.set(id, into);
+			}
+			addBuckets(into, cell, 1);
+		}
+	}
+	const models = [...byModel.entries()].map(([id, cell]) => ({
+		id,
+		input: cell.input,
+		output: cell.output,
+		cacheRead: cell.cacheRead,
+		cacheWrite: cell.cacheWrite,
+		tokens: bucketTotal(cell)
+	})).sort((a, b) => b.tokens - a.tokens);
+	const first = list[0];
+	const last = list[list.length - 1];
+	return {
+		source,
+		computedAt: Date.now(),
+		days: list,
+		models,
+		firstDay: first ? first.date : null,
+		lastDay: last ? last.date : null,
+		model: models[0]?.id ?? void 0,
+		...hours ? { hours } : {},
+		totals: {
+			input: totals.input,
+			output: totals.output,
+			cacheRead: totals.cacheRead,
+			cacheWrite: totals.cacheWrite,
+			calls: totals.calls,
+			sessions: extra?.sessionIds ? extra.sessionIds.size : sessionCount,
+			activeDays: list.length
+		}
+	};
+}
+//#endregion
+//#region lib/types/host/usage.js
+function getHarnessHome(ctx) {
+	const resolvePath = ctx.get("dshHomePath");
+	if (typeof resolvePath === "function") return resolvePath();
+	return process.env.DSH_HOME ?? join(homedir(), ".dsh");
+}
+function hoursOf(days) {
+	const hours = new Array(24).fill(0);
+	for (const buckets of days.values()) {
+		if (!buckets.hours) continue;
+		for (let h = 0; h < 24; h++) hours[h] = (hours[h] ?? 0) + (Number(buckets.hours[h]) || 0);
+	}
+	return hours;
+}
+function createUsage(ctx) {
+	const home = () => getHarnessHome(ctx);
+	let state = null;
+	let pending = null;
+	let disposed = false;
+	async function computeLocal(logs) {
+		const cache = readCache(ctx, home());
+		const sessions = /* @__PURE__ */ new Map();
+		let read = 0;
+		let failed = 0;
+		for (const log of logs) {
+			const cached = cache.get(log.id);
+			if (cached && cached.size === log.size && cached.mtimeMs === log.mtimeMs) {
+				sessions.set(log.id, cached);
+				continue;
+			}
+			const events = await readEvents(ctx, log.id, log.path);
+			if (!events) {
+				failed += 1;
+				if (cached) sessions.set(log.id, cached);
+				continue;
+			}
+			const folded = foldSession(events);
+			sessions.set(log.id, {
+				size: log.size,
+				mtimeMs: log.mtimeMs,
+				days: folded.days,
+				hours: folded.hours
+			});
+			read += 1;
+		}
+		writeCache(ctx, home(), sessions);
+		const rolled = mergeSessions(sessions);
+		const summary = summarize(rolled.days, rolled.sessionCount, "local", rolled.days.size === 0 ? void 0 : hoursOf(rolled.days));
+		if (sessions.size === 0 && failed > 0) return {
+			...summary,
+			unavailable: true,
+			reason: "session-query-unavailable"
+		};
+		return {
+			...summary,
+			read,
+			failed
+		};
+	}
+	async function compute() {
+		const logs = listSessionLogs(resolve(join(home(), "sessions")));
+		if (logs.length === 0) return summarize(/* @__PURE__ */ new Map(), 0, "local", new Array(24).fill(0));
+		return await computeLocal(logs);
+	}
+	function refresh() {
+		if (disposed) return Promise.resolve(null);
+		if (pending !== null) return pending;
+		state = state === null ? {
+			value: null,
+			computing: true
+		} : {
+			...state,
+			computing: true
+		};
+		pending = compute().then((value) => {
+			pending = null;
+			if (disposed) return value;
+			state = {
+				value,
+				computing: false
+			};
+			return value;
+		}, (error) => {
+			pending = null;
+			if (!disposed) state = {
+				value: state?.value ?? null,
+				computing: false,
+				error: String(error?.message ?? error)
+			};
+			return null;
+		});
+		return pending;
+	}
+	return {
+		snapshot() {
+			return state === null ? {
+				ok: true,
+				value: null,
+				computing: false
+			} : {
+				ok: true,
+				value: state.value,
+				computing: state.computing === true,
+				error: state.error
+			};
+		},
+		refresh,
+		dispose() {
+			disposed = true;
+			state = null;
+			pending = null;
+		}
+	};
+}
+//#endregion
+//#region lib/types/host/routes.js
+const USAGE_PATH = "/ui-theme-custom/usage";
+const USAGE_TTL_MS = 300 * 1e3;
+function refusalOf(ctx, req) {
+	const connection = ctx.get("connection");
+	if (typeof connection?.requestRejection === "function") return connection.requestRejection(req);
+	const host = req.headers?.host;
+	if (host !== void 0) {
+		if (!URL.canParse(`http://${host}`)) return 403;
+		const name = new URL(`http://${host}`).hostname;
+		if (name !== "localhost" && name !== "[::1]" && !/^127\.\d+\.\d+\.\d+$/.test(name)) return 403;
+	}
+	const site = req.headers?.["sec-fetch-site"];
+	if (site !== void 0 && site !== "same-origin" && site !== "none") return 403;
+	const origin = req.headers?.origin;
+	if (origin === void 0) return void 0;
+	if (!URL.canParse(origin)) return 403;
+	return new URL(origin).host === host ? void 0 : 403;
+}
+function sendJson(res, status, payload) {
+	const body = (globalThis.Buffer ?? Buffer).from(JSON.stringify(payload));
+	res.writeHead(status, {
+		"content-type": "application/json; charset=utf-8",
+		"content-length": String(body.byteLength),
+		"cache-control": "no-store"
+	});
+	res.end(body);
+}
+function registerRoutes(ctx, scope) {
+	const usage = createUsage(ctx);
+	const disposers = [];
+	const methodRefused = (req, res, methods) => {
+		if (req.method !== void 0 && methods.includes(req.method)) return false;
+		res.writeHead(405, { allow: methods.join(", ") });
+		res.end();
+		return true;
+	};
+	const fenceRefused = (req, res) => {
+		const refused = refusalOf(ctx, req);
+		if (refused === void 0) return false;
+		sendJson(res, refused, {
+			ok: false,
+			error: refused === 401 ? "unauthorized" : "forbidden"
+		});
+		return true;
+	};
+	const register = (route) => {
+		try {
+			const disposer = scope.webServer?.register(route);
+			if (typeof disposer === "function") disposers.push(disposer);
+		} catch (error) {
+			ctx.logger?.warn?.(`ui-theme-custom: route unavailable: ${error?.message ?? String(error)}`);
+		}
+	};
+	register({
+		kind: "exact",
+		path: USAGE_PATH,
+		handler: (req, res) => {
+			if (methodRefused(req, res, ["GET", "HEAD"])) return;
+			if (fenceRefused(req, res)) return;
+			let snapshot = usage.snapshot();
+			if (snapshot.value === null || snapshot.computing === true || Date.now() - (snapshot.value?.computedAt ?? 0) > USAGE_TTL_MS) {
+				usage.refresh();
+				snapshot = usage.snapshot();
+			}
+			sendJson(res, 200, {
+				ok: true,
+				value: snapshot.value,
+				computing: snapshot.computing === true,
+				...snapshot.error !== void 0 ? { error: snapshot.error } : {}
+			});
+		}
+	});
+	return () => {
+		usage.dispose();
+		for (const dispose of disposers) try {
+			dispose();
+		} catch {}
+	};
+}
+//#endregion
 //#region lib/types/client/sequoia.js
 const SEQUOIA_TOKENS = Object.freeze({
 	"--dsw-alias-bg-app-image": "none",
@@ -103,7 +736,19 @@ const SEQUOIA_TOKENS = Object.freeze({
 	"--dsw-code-comment": "#6e7781",
 	"--dsw-code-keyword": "#cf222e",
 	"--dsw-code-string": "#0a3069",
-	"--dsw-code-function": "#8250df"
+	"--dsw-code-function": "#8250df",
+	"--dsh-chart-rank-0": "#147ce5",
+	"--dsh-chart-rank-1": "#2b8cf0",
+	"--dsh-chart-rank-2": "#4fa2f6",
+	"--dsh-chart-rank-3": "#73b6f8",
+	"--dsh-chart-rank-4": "#98c9fa",
+	"--dsh-chart-rank-5": "#bddcfc",
+	"--dsh-chart-rank-6": "#d5e9fd",
+	"--dsh-chart-rank-7": "#e7f2fe",
+	"--dsh-heat-step-1": "rgba(20, 124, 229, 0.18)",
+	"--dsh-heat-step-2": "rgba(20, 124, 229, 0.38)",
+	"--dsh-heat-step-3": "rgba(20, 124, 229, 0.65)",
+	"--dsh-heat-step-4": "rgba(20, 124, 229, 0.92)"
 });
 //#endregion
 //#region lib/types/client/sonoma.js
@@ -211,7 +856,19 @@ const SONOMA_TOKENS = Object.freeze({
 	"--dsw-code-comment": "#7d8590",
 	"--dsw-code-keyword": "#ff7b72",
 	"--dsw-code-string": "#a5d6ff",
-	"--dsw-code-function": "#d2a8ff"
+	"--dsw-code-function": "#d2a8ff",
+	"--dsh-chart-rank-0": "#2997ff",
+	"--dsh-chart-rank-1": "#1f80e6",
+	"--dsh-chart-rank-2": "#3aa0ff",
+	"--dsh-chart-rank-3": "#52afff",
+	"--dsh-chart-rank-4": "#70bfff",
+	"--dsh-chart-rank-5": "#94d0ff",
+	"--dsh-chart-rank-6": "#b8e0ff",
+	"--dsh-chart-rank-7": "#dcf0ff",
+	"--dsh-heat-step-1": "rgba(41, 151, 255, 0.20)",
+	"--dsh-heat-step-2": "rgba(41, 151, 255, 0.42)",
+	"--dsh-heat-step-3": "rgba(41, 151, 255, 0.68)",
+	"--dsh-heat-step-4": "rgba(41, 151, 255, 0.95)"
 });
 //#endregion
 //#region lib/types/client/void.js
@@ -313,7 +970,19 @@ const VOID_TOKENS = Object.freeze({
 	"--dsw-specific-sidebar-nav-item-active-accent": "rgb(33, 33, 40)",
 	"--dsw-specific-sidebar-nav-item-active": "rgb(29, 29, 36)",
 	"--dsw-specific-sidebar-nav-item-hover": "rgb(24, 24, 30)",
-	"--dsw-specific-tip": "rgba(24, 24, 30, 0.78)"
+	"--dsw-specific-tip": "rgba(24, 24, 30, 0.78)",
+	"--dsh-chart-rank-0": "rgb(196, 194, 202)",
+	"--dsh-chart-rank-1": "rgb(168, 166, 176)",
+	"--dsh-chart-rank-2": "rgb(146, 144, 154)",
+	"--dsh-chart-rank-3": "rgb(126, 124, 134)",
+	"--dsh-chart-rank-4": "rgb(108, 106, 116)",
+	"--dsh-chart-rank-5": "rgb(90, 88, 98)",
+	"--dsh-chart-rank-6": "rgb(74, 72, 82)",
+	"--dsh-chart-rank-7": "rgb(58, 56, 66)",
+	"--dsh-heat-step-1": "rgba(196, 194, 202, 0.18)",
+	"--dsh-heat-step-2": "rgba(196, 194, 202, 0.38)",
+	"--dsh-heat-step-3": "rgba(196, 194, 202, 0.65)",
+	"--dsh-heat-step-4": "rgba(196, 194, 202, 0.92)"
 });
 //#endregion
 //#region lib/types/client/jade.js
@@ -415,7 +1084,19 @@ const JADE_TOKENS = Object.freeze({
 	"--dsw-specific-sidebar-nav-item-active-accent": "rgb(212, 216, 224)",
 	"--dsw-specific-sidebar-nav-item-active": "rgba(238, 241, 246, 0.90)",
 	"--dsw-specific-sidebar-nav-item-hover": "rgba(15, 23, 42, 0.05)",
-	"--dsw-specific-tip": "rgba(226, 229, 236, 0.85)"
+	"--dsw-specific-tip": "rgba(226, 229, 236, 0.85)",
+	"--dsh-chart-rank-0": "rgb(20, 22, 28)",
+	"--dsh-chart-rank-1": "rgb(42, 46, 56)",
+	"--dsh-chart-rank-2": "rgb(68, 76, 88)",
+	"--dsh-chart-rank-3": "rgb(96, 106, 120)",
+	"--dsh-chart-rank-4": "rgb(124, 134, 148)",
+	"--dsh-chart-rank-5": "rgb(154, 162, 176)",
+	"--dsh-chart-rank-6": "rgb(184, 190, 202)",
+	"--dsh-chart-rank-7": "rgb(208, 212, 222)",
+	"--dsh-heat-step-1": "rgba(20, 22, 28, 0.14)",
+	"--dsh-heat-step-2": "rgba(20, 22, 28, 0.35)",
+	"--dsh-heat-step-3": "rgba(20, 22, 28, 0.62)",
+	"--dsh-heat-step-4": "rgba(20, 22, 28, 0.90)"
 });
 //#endregion
 //#region lib/types/client/solar.js
@@ -517,7 +1198,19 @@ const SOLAR_TOKENS = Object.freeze({
 	"--dsw-specific-sidebar-nav-item-active-accent": "rgb(50, 38, 42)",
 	"--dsw-specific-sidebar-nav-item-active": "rgb(46, 36, 40)",
 	"--dsw-specific-sidebar-nav-item-hover": "rgb(38, 30, 32)",
-	"--dsw-specific-tip": "rgba(38, 30, 32, 0.80)"
+	"--dsw-specific-tip": "rgba(38, 30, 32, 0.80)",
+	"--dsh-chart-rank-0": "rgb(240, 180, 90)",
+	"--dsh-chart-rank-1": "rgb(220, 156, 60)",
+	"--dsh-chart-rank-2": "rgb(204, 136, 48)",
+	"--dsh-chart-rank-3": "rgb(186, 116, 38)",
+	"--dsh-chart-rank-4": "rgb(168, 96, 32)",
+	"--dsh-chart-rank-5": "rgb(148, 80, 28)",
+	"--dsh-chart-rank-6": "rgb(128, 64, 24)",
+	"--dsh-chart-rank-7": "rgb(108, 52, 22)",
+	"--dsh-heat-step-1": "rgba(240, 180, 90, 0.18)",
+	"--dsh-heat-step-2": "rgba(240, 180, 90, 0.40)",
+	"--dsh-heat-step-3": "rgba(240, 180, 90, 0.68)",
+	"--dsh-heat-step-4": "rgba(240, 180, 90, 0.95)"
 });
 //#endregion
 //#region lib/types/client/parchment.js
@@ -618,7 +1311,19 @@ const PARCHMENT_TOKENS = Object.freeze({
 	"--dsw-specific-sidebar-nav-item-active-accent": "rgb(214, 206, 192)",
 	"--dsw-specific-sidebar-nav-item-active": "rgba(242, 236, 225, 0.90)",
 	"--dsw-specific-sidebar-nav-item-hover": "rgba(34, 28, 24, 0.04)",
-	"--dsw-specific-tip": "rgba(228, 221, 208, 0.80)"
+	"--dsw-specific-tip": "rgba(228, 221, 208, 0.80)",
+	"--dsh-chart-rank-0": "rgb(156, 48, 28)",
+	"--dsh-chart-rank-1": "rgb(176, 68, 44)",
+	"--dsh-chart-rank-2": "rgb(196, 92, 64)",
+	"--dsh-chart-rank-3": "rgb(212, 120, 92)",
+	"--dsh-chart-rank-4": "rgb(142, 110, 84)",
+	"--dsh-chart-rank-5": "rgb(168, 138, 112)",
+	"--dsh-chart-rank-6": "rgb(194, 168, 144)",
+	"--dsh-chart-rank-7": "rgb(216, 196, 176)",
+	"--dsh-heat-step-1": "rgba(156, 48, 28, 0.16)",
+	"--dsh-heat-step-2": "rgba(156, 48, 28, 0.35)",
+	"--dsh-heat-step-3": "rgba(156, 48, 28, 0.62)",
+	"--dsh-heat-step-4": "rgba(156, 48, 28, 0.90)"
 });
 //#endregion
 //#region lib/types/index.js
@@ -680,6 +1385,10 @@ function apply(ctx) {
 			placement: "body",
 			text: BOOT_SCRIPT
 		});
+	});
+	ctx.inject(["webServer"], (scope) => {
+		const dispose = registerRoutes(ctx, scope);
+		scope.effect(() => dispose);
 	});
 }
 //#endregion

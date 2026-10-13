@@ -1,4 +1,4 @@
-﻿/**
+/**
  * The plugin-registered "void" theme (冥夜): a deep neutral-gray variant with
  * a blurred-glass backplate — the background uses a dark graphite base with
  * soft gray aurora pools that shine through translucent acrylic panels,
@@ -154,4 +154,18 @@ export const VOID_TOKENS: ThemeTokens = Object.freeze({
   '--dsw-specific-sidebar-nav-item-active': 'rgb(29, 29, 36)',
   '--dsw-specific-sidebar-nav-item-hover': 'rgb(24, 24, 30)',
   '--dsw-specific-tip': 'rgba(24, 24, 30, 0.78)',
+
+  // 用量图表与热力图（冷薰衣草银灰调）
+  '--dsh-chart-rank-0': 'rgb(196, 194, 202)',
+  '--dsh-chart-rank-1': 'rgb(168, 166, 176)',
+  '--dsh-chart-rank-2': 'rgb(146, 144, 154)',
+  '--dsh-chart-rank-3': 'rgb(126, 124, 134)',
+  '--dsh-chart-rank-4': 'rgb(108, 106, 116)',
+  '--dsh-chart-rank-5': 'rgb(90, 88, 98)',
+  '--dsh-chart-rank-6': 'rgb(74, 72, 82)',
+  '--dsh-chart-rank-7': 'rgb(58, 56, 66)',
+  '--dsh-heat-step-1': 'rgba(196, 194, 202, 0.18)',
+  '--dsh-heat-step-2': 'rgba(196, 194, 202, 0.38)',
+  '--dsh-heat-step-3': 'rgba(196, 194, 202, 0.65)',
+  '--dsh-heat-step-4': 'rgba(196, 194, 202, 0.92)',
 })
