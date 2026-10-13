@@ -274,6 +274,25 @@ body[data-dsh-home-layout="studio"][data-dsh-home-hero] .dsh-theme-home-panel {
   font-variant-numeric: tabular-nums;
 }
 
+/* Single Day Bar (Today) */
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-bars,
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-axis {
+  justify-content: center;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-col {
+  flex: 0 0 54px;
+  max-width: 54px;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-label {
+  flex: none;
+  width: auto;
+  text-align: center;
+  font-weight: 500;
+  font-size: 11px;
+}
+
 /* Rank Swatches & Segments */
 .dsh-theme-home-chart-seg[data-rank="0"],
 .dsh-theme-home-model-swatch[data-rank="0"] { background: var(--dsh-chart-rank-0, #147ce5); }

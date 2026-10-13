@@ -38,7 +38,7 @@ export function HomeUsagePanel({
 }: HomeUsagePanelProps) {
   const [, bump] = React.useState(0)
   const [tab, setTab] = React.useState<'overview' | 'models'>('overview')
-  const [range, setRange] = React.useState<string>('all')
+  const [range, setRange] = React.useState<string>('today')
 
   React.useEffect(() => {
     return usage.subscribe(() => {

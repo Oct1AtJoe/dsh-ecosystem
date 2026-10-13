@@ -56,8 +56,14 @@ export function ModelChart({
   const top = axisMax(peak)
   const ticks = [1, 0.75, 0.5, 0.25, 0]
 
+  const isSingle = list.length === 1
+
   return (
-    <div className="dsh-theme-home-chart" data-skeleton={skeleton ? '' : undefined}>
+    <div
+      className="dsh-theme-home-chart"
+      data-skeleton={skeleton ? '' : undefined}
+      data-single={isSingle ? '' : undefined}
+    >
       <div className="dsh-theme-home-chart-plot">
         {ticks.map(at => (
           <span
@@ -85,7 +91,11 @@ export function ModelChart({
               <span
                 key={column.date}
                 className="dsh-theme-home-chart-col"
-                title={`${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`}
+                title={
+                  isSingle
+                    ? `今日用量 · ${formatCompactTokens(dayTotal)}`
+                    : `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`
+                }
                 style={{ height: `${top > 0 ? (dayTotal / top) * 100 : 0}%` }}
               >
                 {stack.map(slice => (
@@ -104,10 +114,12 @@ export function ModelChart({
       <div className="dsh-theme-home-chart-axis">
         {list.map((column, index) => {
           if (!column) return null
-          const labelled = index % 3 === 0
+          const text = isSingle
+            ? `今日 (${homeShortDate(column.date)})`
+            : (list.length <= 7 || index % 3 === 0 ? homeShortDate(column.date) : '')
           return (
             <span key={column.date} className="dsh-theme-home-chart-label">
-              {labelled ? homeShortDate(column.date) : ''}
+              {text}
             </span>
           )
         })}

@@ -62,6 +62,25 @@ body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"]
   border-radius: 4px;
 }
 
+/* Single Day Bar (Today) */
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-bars,
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-axis {
+  justify-content: center !important;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-col {
+  flex: 0 0 54px !important;
+  max-width: 54px !important;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-label {
+  flex: none !important;
+  width: auto !important;
+  text-align: center !important;
+  font-weight: 500 !important;
+  font-size: 11px !important;
+}
+
 body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"],
 body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_headline"] [class*="titleGroup"] {
   justify-content: flex-start !important;

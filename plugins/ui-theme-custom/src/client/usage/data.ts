@@ -42,6 +42,7 @@ export const HOME_RANGES = [
   { id: 'all', label: '全部', days: 0 },
   { id: '30d', label: '30天', days: 30 },
   { id: '7d', label: '7天', days: 7 },
+  { id: 'today', label: '今天', days: 1 },
 ]
 
 export function pad2(value: number): string {

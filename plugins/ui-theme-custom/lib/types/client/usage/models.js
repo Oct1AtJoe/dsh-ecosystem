@@ -39,7 +39,8 @@ export function ModelChart({ columns, rankOf, skeleton, }) {
     }
     const top = axisMax(peak);
     const ticks = [1, 0.75, 0.5, 0.25, 0];
-    return (_jsxs("div", { className: "dsh-theme-home-chart", "data-skeleton": skeleton ? '' : undefined, children: [_jsxs("div", { className: "dsh-theme-home-chart-plot", children: [ticks.map(at => (_jsx("span", { className: "dsh-theme-home-chart-tick", style: { bottom: `${at * 100}%` }, children: skeleton || top === 0 ? '' : formatCompactTokens(top * at) }, at))), _jsx("div", { className: "dsh-theme-home-chart-bars", children: list.map(column => {
+    const isSingle = list.length === 1;
+    return (_jsxs("div", { className: "dsh-theme-home-chart", "data-skeleton": skeleton ? '' : undefined, "data-single": isSingle ? '' : undefined, children: [_jsxs("div", { className: "dsh-theme-home-chart-plot", children: [ticks.map(at => (_jsx("span", { className: "dsh-theme-home-chart-tick", style: { bottom: `${at * 100}%` }, children: skeleton || top === 0 ? '' : formatCompactTokens(top * at) }, at))), _jsx("div", { className: "dsh-theme-home-chart-bars", children: list.map(column => {
                             if (!column)
                                 return null;
                             let dayTotal = 0;
@@ -52,12 +53,16 @@ export function ModelChart({ columns, rankOf, skeleton, }) {
                                 stack.push({ id, tokens, rank: rank === undefined ? Number.MAX_VALUE : rank });
                             }
                             stack.sort((a, b) => a.rank - b.rank);
-                            return (_jsx("span", { className: "dsh-theme-home-chart-col", title: `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`, style: { height: `${top > 0 ? (dayTotal / top) * 100 : 0}%` }, children: stack.map(slice => (_jsx("span", { className: "dsh-theme-home-chart-seg", "data-rank": Math.min(slice.rank, RANK_LAST), style: { height: `${dayTotal > 0 ? (slice.tokens / dayTotal) * 100 : 0}%` } }, slice.id))) }, column.date));
+                            return (_jsx("span", { className: "dsh-theme-home-chart-col", title: isSingle
+                                    ? `今日用量 · ${formatCompactTokens(dayTotal)}`
+                                    : `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`, style: { height: `${top > 0 ? (dayTotal / top) * 100 : 0}%` }, children: stack.map(slice => (_jsx("span", { className: "dsh-theme-home-chart-seg", "data-rank": Math.min(slice.rank, RANK_LAST), style: { height: `${dayTotal > 0 ? (slice.tokens / dayTotal) * 100 : 0}%` } }, slice.id))) }, column.date));
                         }) })] }), _jsx("div", { className: "dsh-theme-home-chart-axis", children: list.map((column, index) => {
                     if (!column)
                         return null;
-                    const labelled = index % 3 === 0;
-                    return (_jsx("span", { className: "dsh-theme-home-chart-label", children: labelled ? homeShortDate(column.date) : '' }, column.date));
+                    const text = isSingle
+                        ? `今日 (${homeShortDate(column.date)})`
+                        : (list.length <= 7 || index % 3 === 0 ? homeShortDate(column.date) : '');
+                    return (_jsx("span", { className: "dsh-theme-home-chart-label", children: text }, column.date));
                 }) })] }));
 }
 export function ModelsView({ data }) {

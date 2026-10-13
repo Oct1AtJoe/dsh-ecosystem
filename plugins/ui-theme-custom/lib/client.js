@@ -2076,6 +2076,11 @@ window.__ModuleLoader__.load({
 				id: "7d",
 				label: "7天",
 				days: 7
+			},
+			{
+				id: "today",
+				label: "今天",
+				days: 1
 			}
 		];
 		function pad2(value) {
@@ -2590,18 +2595,21 @@ window.__ModuleLoader__.load({
 				if (total > peak) peak = total;
 			}
 			const top = axisMax(peak);
+			const ticks = [
+				1,
+				.75,
+				.5,
+				.25,
+				0
+			];
+			const isSingle = list.length === 1;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: "dsh-theme-home-chart",
 				"data-skeleton": skeleton ? "" : void 0,
+				"data-single": isSingle ? "" : void 0,
 				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: "dsh-theme-home-chart-plot",
-					children: [[
-						1,
-						.75,
-						.5,
-						.25,
-						0
-					].map((at) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+					children: [ticks.map((at) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 						className: "dsh-theme-home-chart-tick",
 						style: { bottom: `${at * 100}%` },
 						children: skeleton || top === 0 ? "" : formatCompactTokens(top * at)
@@ -2625,7 +2633,7 @@ window.__ModuleLoader__.load({
 							stack.sort((a, b) => a.rank - b.rank);
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: "dsh-theme-home-chart-col",
-								title: `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`,
+								title: isSingle ? `今日用量 · ${formatCompactTokens(dayTotal)}` : `${homeShortDate(column.date)} · ${formatCompactTokens(dayTotal)}`,
 								style: { height: `${top > 0 ? dayTotal / top * 100 : 0}%` },
 								children: stack.map((slice) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 									className: "dsh-theme-home-chart-seg",
@@ -2641,7 +2649,7 @@ window.__ModuleLoader__.load({
 						if (!column) return null;
 						return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: "dsh-theme-home-chart-label",
-							children: index % 3 === 0 ? homeShortDate(column.date) : ""
+							children: isSingle ? `今日 (${homeShortDate(column.date)})` : list.length <= 7 || index % 3 === 0 ? homeShortDate(column.date) : ""
 						}, column.date);
 					})
 				})]
@@ -2809,7 +2817,7 @@ window.__ModuleLoader__.load({
 		function HomeUsagePanel({ usage, bookPick = .5, isHero, layout }) {
 			const [, bump] = react.useState(0);
 			const [tab, setTab] = react.useState("overview");
-			const [range, setRange] = react.useState("all");
+			const [range, setRange] = react.useState("today");
 			react.useEffect(() => {
 				return usage.subscribe(() => {
 					bump((c) => c + 1);
@@ -3196,6 +3204,25 @@ body[data-dsh-home-layout="studio"][data-dsh-home-hero] .dsh-theme-home-panel {
   line-height: 14px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* Single Day Bar (Today) */
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-bars,
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-axis {
+  justify-content: center;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-col {
+  flex: 0 0 54px;
+  max-width: 54px;
+}
+
+.dsh-theme-home-chart[data-single] .dsh-theme-home-chart-label {
+  flex: none;
+  width: auto;
+  text-align: center;
+  font-weight: 500;
+  font-size: 11px;
 }
 
 /* Rank Swatches & Segments */

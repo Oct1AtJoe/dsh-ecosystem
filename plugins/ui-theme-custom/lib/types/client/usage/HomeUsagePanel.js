@@ -22,7 +22,7 @@ function checkLayout() {
 export function HomeUsagePanel({ usage, bookPick = 0.5, isHero, layout, }) {
     const [, bump] = React.useState(0);
     const [tab, setTab] = React.useState('overview');
-    const [range, setRange] = React.useState('all');
+    const [range, setRange] = React.useState('today');
     React.useEffect(() => {
         return usage.subscribe(() => {
             bump(c => c + 1);
