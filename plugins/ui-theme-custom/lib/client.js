@@ -2121,8 +2121,14 @@ window.__ModuleLoader__.load({
 			return String(Math.round(value));
 		}
 		function formatHomeHour(hour) {
-			const h12 = hour % 12 === 0 ? 12 : hour % 12;
-			return hour < 12 ? `上午 ${h12} 点` : `下午 ${h12} 点`;
+			if (hour === 0) return "午夜 0 点";
+			if (hour >= 1 && hour <= 5) return `凌晨 ${hour} 点`;
+			if (hour >= 6 && hour <= 8) return `早晨 ${hour} 点`;
+			if (hour >= 9 && hour <= 11) return `上午 ${hour} 点`;
+			if (hour === 12) return "中午 12 点";
+			if (hour >= 13 && hour <= 17) return `下午 ${hour - 12} 点`;
+			if (hour >= 18 && hour <= 23) return `晚上 ${hour - 12} 点`;
+			return `${hour} 点`;
 		}
 		function homeDayTokens(day) {
 			if (!day) return 0;
