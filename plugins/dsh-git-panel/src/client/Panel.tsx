@@ -666,6 +666,28 @@ export function resolveBranchInfoByRow(
 }
 
 /**
+ * 由实际分支名推导分支列宽，避免固定 64px 把 `point-co-10-12-17:05`
+ * 这类分支名截成 `point-co-…`。
+ *
+ * 上下限：至少 64px 保证列头「分支」可读；至多占净宽 30%，否则窄侧栏里
+ * 分支列会把提交列挤没（提交列才是主内容）。
+ *
+ * @param tips - 分支指针映射（其键即渲染到该列的分支名）。
+ * @param usableWidth - 图谱净可用宽度。
+ * @returns 分支列像素宽度。
+ */
+export function branchColumnWidth(tips: Record<string, string>, usableWidth: number): number {
+  let need = 64
+  for (const name of Object.keys(tips)) {
+    // +14 = 两侧各 6px 内边距 + 2px 余量；渲染侧用 branchWidth - 6 做截断，
+    // 因此最长分支名有 8px 富余，不会被 "…" 截掉。
+    const w = Math.ceil(labelWidth(name)) + 14
+    if (w > need) need = w
+  }
+  return Math.min(need, Math.max(64, Math.floor(usableWidth * 0.3)))
+}
+
+/**
  * 图谱标签页的 SVG 主体，按其几何信息做 memo：点击某个节点只更新详情条，
  * 因此 300 个提交的 DOM 在点击时不会重建。被截断的文本按每列的宽度缓存，
  * 因此重渲染时不会逐字符重新遍历每个 subject。只渲染可见视口内（±一个缓冲
@@ -998,14 +1020,20 @@ export const GraphViewComponent = memo(function GraphViewComponent(props: {
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8)
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12
 
-  // 2. 分支列宽与日期列宽：紧凑固定，绝不挤占中间主内容
-  const branchWidth = 64
-  const dateWidth = 72
-
-  // 3. 视口净可用宽度与四列自适应：
+  // 2. 视口净可用宽度与四列自适应：
   const usableWidth = Math.max(240, width - 16)
   const textX = lanesWidth + 6
-  // 拉宽侧边栏增加的所有空间，100% 优先灌注给提交列
+
+  // 3. 分支列宽：由实际分支名宽度推导（原先固定 64px 会把 point-co-10-12-17:05
+  //    这类分支名截成 point-co-…）。完整规则见 branchColumnWidth。
+  //    分支列渲染的名字全部来自 graph.tips 的键（见 resolveBranchInfoByRow）。
+  const branchWidth = useMemo(
+    () => branchColumnWidth(graph.tips, usableWidth),
+    [graph.tips, usableWidth],
+  )
+  const dateWidth = 72
+
+  // 4. 剩余空间 100% 灌注给提交列
   const commitWidth = Math.max(60, usableWidth - textX - branchWidth - dateWidth)
   const graphWidth = usableWidth
 

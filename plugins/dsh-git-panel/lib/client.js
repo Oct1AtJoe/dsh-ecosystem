@@ -1832,6 +1832,7 @@ var PAD_TOP = 10;
 var LANE_COLOR_COUNT = 12;
 var GRAPH_BUFFER_ROWS = 10;
 var laneColor = (lane) => `var(--dsh-gp-lane-${lane % LANE_COLOR_COUNT})`;
+var labelWidth = (text) => [...text].reduce((w, ch) => w + (ch.charCodeAt(0) > 255 ? 12 : 6.5), 0);
 var fitByWidth = (text, maxWidth) => {
   let w = 0;
   for (let i = 0; i < text.length; i += 1) {
@@ -1890,6 +1891,14 @@ function resolveBranchInfoByRow(layout, tips, currentBranch) {
     }
   }
   return byRow;
+}
+function branchColumnWidth(tips, usableWidth) {
+  let need = 64;
+  for (const name of Object.keys(tips)) {
+    const w = Math.ceil(labelWidth(name)) + 14;
+    if (w > need) need = w;
+  }
+  return Math.min(need, Math.max(64, Math.floor(usableWidth * 0.3)));
 }
 var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
   const { layout, graph, textX, commitWidth, branchWidth, dateWidth, graphWidth, height, onSelect, onContextMenu } = props;
@@ -2184,10 +2193,13 @@ var GraphViewComponent = (0, import_react4.memo)(function GraphViewComponent2(pr
   const lanes = Math.max(1, ...layout.map((c) => c.lane + 1));
   const lanesWidth = Math.max(52, PAD_LEFT + lanes * LANE_WIDTH + 8);
   const height = PAD_TOP + layout.length * ROW_HEIGHT + 12;
-  const branchWidth = 64;
-  const dateWidth = 72;
   const usableWidth = Math.max(240, width - 16);
   const textX = lanesWidth + 6;
+  const branchWidth = (0, import_react4.useMemo)(
+    () => branchColumnWidth(graph.tips, usableWidth),
+    [graph.tips, usableWidth]
+  );
+  const dateWidth = 72;
   const commitWidth = Math.max(60, usableWidth - textX - branchWidth - dateWidth);
   const graphWidth = usableWidth;
   (0, import_react4.useEffect)(() => {
