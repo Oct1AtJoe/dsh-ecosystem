@@ -5017,6 +5017,19 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   background: #14161b !important;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5) !important;
 }
+
+/* 修复 markdown 表格 hover 时底边线下移与抖动：
+   消解官方在 .tableScroll.md-table-wide 上常态 padding-bottom: 8px、hover 切换为 0 的 hack。
+   统一常态与 hover 的 padding-bottom 为 0，并保持 overflow-x: auto。 */
+[class*="tableScroll"].md-table-wide {
+  overflow-x: auto !important;
+  padding-bottom: 0 !important;
+}
+[class*="tableScroll"].md-table-wide:hover,
+[class*="tableScroll"].md-table-wide:focus-visible {
+  overflow-x: auto !important;
+  padding-bottom: 0 !important;
+}
 `;
 		/** localStorage key for the user's custom theme preference. */
 		const LS_KEY = "dsh-theme-preference";
