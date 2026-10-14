@@ -526,6 +526,88 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
   z-index:9500 !important;
 }
 
+/* ── 输入坞底部状态药丸栏（StatsPills / _MG5Va_root）防透与毛玻璃 ───────────
+   组件源码 StatsPills.module.css 的 .root（哈希形如 _MG5Va_root），带 [data-composer-stats]，
+   挂载于 [data-slot="conversation.composer.dock"]，处于输入框卡片正下方。
+   原官方在 composerSeat 上有实色压底渐变，但 sequoia/sonoma 为实现输入框毛玻璃
+   移除了该压底，导致处于底部的 StatsPills 完全透明（alpha=0）。
+   当对话流向上滚动时，正文文字滑入输入区下方，直接与状态药丸（77.7M tok 等）文字重合叠印。
+   修法：
+     ① 贯彻「内容可读性优先」原则，采用高不透明度半透明底衬（浅色 .88 / 深色 .90）；
+     ② 将 backdrop-filter 挂于 ::before 伪元素，杜绝嵌套 backdrop root 风险；
+     ③ 虚化半径 blur(40px) saturate(180%)，彻底抚平滑入背后的文字；
+     ④ 四角圆角严格对齐输入框卡片 20px（border-radius: 20px），保持上下曲率一致；
+     ⑤ 通用规则覆盖其余自定义主题，确保全主题文字清晰绝不重叠。 */
+body[data-ds-custom-theme="sequoia"] [data-composer-stats],
+body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"],
+body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
+  position: relative !important;
+  z-index: 0 !important;
+  background: var(--dsh-glass-sheen), rgba(245, 245, 247, 0.88) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 20px !important;
+  border: 0.5px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  padding: 4px 16px !important;
+  margin: 2px auto 0 !important;
+}
+body[data-ds-custom-theme="sequoia"] [data-composer-stats]::before,
+body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"]::before,
+body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(40px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+}
+
+body[data-ds-custom-theme="sonoma"] [data-composer-stats],
+body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"],
+body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
+  position: relative !important;
+  z-index: 0 !important;
+  background: var(--dsh-glass-sheen), rgba(22, 24, 30, 0.90) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 20px !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20) !important;
+  padding: 4px 16px !important;
+  margin: 2px auto 0 !important;
+}
+body[data-ds-custom-theme="sonoma"] [data-composer-stats]::before,
+body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"]::before,
+body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(40px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+}
+
+/* 其余主题通用防穿透底色 */
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-stats],
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [class*="_MG5Va_root"],
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-slot="conversation.composer.dock"] > [class*="_root"] {
+  background: var(--dsw-alias-bg-base) !important;
+  border-radius: 20px !important;
+  padding: 4px 16px !important;
+  margin: 2px auto 0 !important;
+}
+
+/* 状态药丸文字对比度提升：次级文字从 tertiary 升级至 secondary，字迹更清晰 */
+body[data-ds-custom-theme] [data-composer-stats] [class*="pill"],
+body[data-ds-custom-theme] [class*="_MG5Va_root"] [class*="pill"] {
+  color: var(--dsw-alias-label-secondary) !important;
+}
+
 /* ── 输入框上方像素小伙伴挂件（全主题通用）─────────────────────────────
    素材为「单行 8 列」条带：每张 584×109px，单元格 73×109px。
    取景窗只露一格，WAAPI steps 逐帧平移即为动画。
