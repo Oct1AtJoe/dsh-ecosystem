@@ -64,6 +64,7 @@ window.__ModuleLoader__.load({
       delete: '删除',
       add: '添加托底模型',
       effortDefault: '跟随模型默认',
+      effortUnsupported: '（该模型不支持，请更换）',
       maxTokens: '最大输出 Tokens',
       maxTokensHint: '单次标题生成的输出上限（16–8192）。',
       maxInputChars: '首条消息截断',
@@ -98,6 +99,7 @@ window.__ModuleLoader__.load({
       delete: 'Delete',
       add: 'Add fallback model',
       effortDefault: 'Model default',
+      effortUnsupported: ' (unsupported, change it)',
       maxTokens: 'Max output tokens',
       maxTokensHint: 'Output cap for one title generation (16–8192).',
       maxInputChars: 'First message cap',
@@ -136,6 +138,7 @@ window.__ModuleLoader__.load({
       '.stc-row-num{font-size:11.5px;font-weight:600;color:var(--dsw-alias-label-tertiary);text-align:center;font-variant-numeric:tabular-nums}',
       '.stc-table-select{width:100%;box-sizing:border-box;padding:4px 6px;border:0.5px solid var(--dsw-alias-border-l4, rgba(128,128,128,0.25));border-radius:6px;background:var(--dsw-alias-bg-layer-3, rgba(128,128,128,0.08));color:var(--dsw-alias-label-primary);font-size:12px;outline:none;text-overflow:ellipsis}',
       '.stc-table-select:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}',
+      '.stc-table-select[data-unsupported="true"]{border-color:var(--dsw-alias-label-error, #cf222e);color:var(--dsw-alias-label-error, #cf222e);background:color-mix(in srgb, var(--dsw-alias-label-error, #cf222e) 8%, transparent)}',
       '.stc-row-ops{display:flex;align-items:center;gap:3px;justify-content:flex-end}',
       '.stc-icon-btn{width:22px;height:22px;border:0.5px solid var(--dsw-alias-border-l3, rgba(128,128,128,0.2));border-radius:4px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:0;transition:all 0.15s}',
       '.stc-icon-btn:hover:not(:disabled){background:var(--dsw-alias-fill-hover, rgba(128,128,128,0.1));color:var(--dsw-alias-label-primary)}',
@@ -238,14 +241,21 @@ window.__ModuleLoader__.load({
         return (model?.reasoning?.efforts ?? []).map(effort => effort.id);
       }
 
-      /** 归一化获取 models 列表，保证老旧单个配置平滑读取为数组第一项 */
+      /**
+       * 归一化获取 models 列表，保证老旧单个配置平滑读取为数组第一项。
+       *
+       * 档位默认值是 `''`（跟随模型默认），**不是 `'off'`**：`off` 只是模型可在
+       * 其 reasoningEfforts 里逐个声明的档位之一，并非通用值。早期把它硬编码为
+       * 默认值，导致写进配置后该模型又不支持它，且下拉里根本不存在这个选项 →
+       * 用户既选不回「跟随默认」也改不掉，三行配置全废（已踩坑）。
+       */
       normalizeModels(rawModels, val) {
         if (Array.isArray(rawModels) && rawModels.length > 0) {
           return rawModels.map((m, idx) => ({
             id: m.id || String(idx + 1),
             provider: m.provider || 'xiaomi',
             model: m.model || 'mimo-v2.5',
-            reasoningEffort: m.reasoningEffort !== undefined ? m.reasoningEffort : 'off',
+            reasoningEffort: typeof m.reasoningEffort === 'string' ? m.reasoningEffort : '',
           }));
         }
         if (val && val.provider && val.model) {
@@ -253,14 +263,14 @@ window.__ModuleLoader__.load({
             id: '1',
             provider: val.provider,
             model: val.model,
-            reasoningEffort: val.reasoningEffort !== undefined ? val.reasoningEffort : 'off',
+            reasoningEffort: typeof val.reasoningEffort === 'string' ? val.reasoningEffort : '',
           }];
         }
         return [{
           id: '1',
           provider: 'xiaomi',
           model: 'mimo-v2.5',
-          reasoningEffort: 'off',
+          reasoningEffort: '',
         }];
       }
 
@@ -272,7 +282,7 @@ window.__ModuleLoader__.load({
         const modelsList = normalized.map((item, idx) => {
           const provider = item.provider || '';
           const model = item.model || '';
-          const effort = item.reasoningEffort !== undefined ? item.reasoningEffort : 'off';
+          const effort = typeof item.reasoningEffort === 'string' ? item.reasoningEffort : '';
 
           const group = this.groups.find(g => g.id === provider);
           const modelEntries = group?.models ?? [];
@@ -288,10 +298,17 @@ window.__ModuleLoader__.load({
             models.unshift({ id: model, name: model });
           }
 
+          // 档位下拉 = 「跟随模型默认」+ 该模型声明的档位；当前存量的值若不在其中
+          // 就补进列表并标红告警（保留用户配置、不擅自改动），让他看得见问题所在。
           const efforts = [{ id: '', name: this.t('effortDefault') }]
             .concat((currentModelEntry?.reasoning?.efforts ?? []).map(e => ({ id: e.id, name: e.name })));
-          if (effort !== '' && !efforts.some(e => e.id === effort)) {
-            efforts.unshift({ id: effort, name: effort });
+          const catalogReady = this.catalogStatus === 'ready';
+          const effortUnsupported = effort !== ''
+            && catalogReady
+            && currentModelEntry !== undefined
+            && !efforts.some(e => e.id === effort);
+          if (effortUnsupported) {
+            efforts.unshift({ id: effort, name: `${effort}${this.t('effortUnsupported')}` });
           }
 
           return {
@@ -302,6 +319,7 @@ window.__ModuleLoader__.load({
             providers,
             models,
             efforts,
+            effortUnsupported,
           };
         });
 
@@ -334,11 +352,14 @@ window.__ModuleLoader__.load({
       saveModels(nextModels) {
         const snapshot = this.scope.getSnapshot();
         if (this.disposed || snapshot.status !== 'ready' || !snapshot.writable || this.saving) return;
+        // 空字符串 = 跟随模型默认，是合法且首选的缺省值（不要兜成 'off'）
         const payload = nextModels.map((m, idx) => ({
           id: m.id || String(idx + 1),
           provider: m.provider,
           model: m.model,
-          reasoningEffort: m.effort !== undefined ? m.effort : (m.reasoningEffort ?? 'off'),
+          reasoningEffort: typeof m.effort === 'string'
+            ? m.effort
+            : (typeof m.reasoningEffort === 'string' ? m.reasoningEffort : ''),
         }));
         void this.scope.set('models', payload);
         if (payload[0]) {
@@ -357,7 +378,8 @@ window.__ModuleLoader__.load({
           const group = this.groups.find(g => g.id === val);
           if (group && !group.models.some(m => m.id === target.model)) {
             target.model = group.models[0]?.id || '';
-            target.reasoningEffort = 'off';
+            // 换模型后用「跟随模型默认」而不是硬编码 'off'：新模型不一定声明 off 档
+            target.reasoningEffort = '';
           }
         } else if (field === 'model') {
           target.model = val;
@@ -365,7 +387,7 @@ window.__ModuleLoader__.load({
           const m = group?.models.find(entry => entry.id === val);
           const allowedEfforts = this.effortIds(m);
           if (target.reasoningEffort && !allowedEfforts.includes(target.reasoningEffort)) {
-            target.reasoningEffort = 'off';
+            target.reasoningEffort = '';
           }
         } else if (field === 'effort') {
           target.reasoningEffort = val;
@@ -407,7 +429,8 @@ window.__ModuleLoader__.load({
           id: String(Date.now()),
           provider: firstGroup?.id || 'deepseek-official',
           model: firstModel?.id || 'deepseek-flash',
-          reasoningEffort: 'off',
+          // 新行一律「跟随模型默认」：不知道新模型声明了哪些档位，硬给 off 会造出非法配置
+          reasoningEffort: '',
         });
         this.saveModels(list);
       }
@@ -556,6 +579,8 @@ window.__ModuleLoader__.load({
               e('select', {
                 className: 'stc-table-select',
                 value: row.effort,
+                'data-unsupported': row.effortUnsupported ? 'true' : 'false',
+                title: row.effortUnsupported ? t('effortUnsupported') : undefined,
                 disabled: disabled || row.efforts.length <= 1,
                 onChange: ev => { props.editRow(idx, 'effort', ev.target.value); },
               }, row.efforts.map(eff => e('option', { key: eff.id, value: eff.id }, eff.name))),

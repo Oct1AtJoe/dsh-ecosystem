@@ -35,15 +35,19 @@ module.exports = __toCommonJS(index_exports);
 var import_react12 = require("react");
 
 // src/client/api.ts
-async function post(path, payload) {
+async function post(path, payload, signal) {
   let response;
   try {
     response = await fetch(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      ...signal !== void 0 ? { signal } : {}
     });
-  } catch {
+  } catch (error) {
+    if (signal?.aborted === true || error instanceof DOMException && error.name === "AbortError") {
+      return { ok: false, error: { code: "cancelled", message: "request cancelled" } };
+    }
     return { ok: false, error: { code: "internal", message: "git route unavailable" } };
   }
   try {
@@ -126,9 +130,84 @@ var GitPanelApi = class {
   commit(path, message) {
     return post("/git-panel/commit", { path, message });
   }
-  /** 读取暂存区内容，由当前默认模型生成一条提交信息。 */
-  generateCommitMessage(path) {
-    return post("/git-panel/generate-commit-message", { path });
+  /** 读取暂存区内容，由当前默认模型生成一条提交信息。传 signal 可中途取消。 */
+  generateCommitMessage(path, signal) {
+    return post("/git-panel/generate-commit-message", { path }, signal);
+  }
+  /**
+   * 流式版本：边生成边把托底链的尝试/失败事件回调出来，让「某模型报错 →
+   * 正改用下一个」在切换之前就可见。
+   *
+   * @param path - 工作区路径。
+   * @param onEvent - 每收到一帧即时调用（attempt / fallback / effort-retry）。
+   * @param signal - 取消信号。
+   * @returns 终结结果（成功消息或错误），与 `generateCommitMessage` 同形。
+   */
+  async generateCommitMessageStream(path, onEvent, signal) {
+    let response;
+    try {
+      response = await fetch("/git-panel/generate-commit-message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path }),
+        ...signal !== void 0 ? { signal } : {}
+      });
+    } catch (error) {
+      if (signal?.aborted === true || error instanceof DOMException && error.name === "AbortError") {
+        return { ok: false, error: { code: "cancelled", message: "request cancelled" } };
+      }
+      return { ok: false, error: { code: "internal", message: "git route unavailable" } };
+    }
+    if (response.body === null) {
+      return { ok: false, error: { code: "internal", message: "response has no body" } };
+    }
+    let final = null;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const handleLine = (line) => {
+      const trimmed = line.trim();
+      if (trimmed === "") return false;
+      let frame;
+      try {
+        frame = JSON.parse(trimmed);
+      } catch {
+        return false;
+      }
+      if (frame.type === "done") {
+        final = frame.error !== void 0 ? { ok: false, error: frame.error } : { ok: true, value: frame.value ?? { message: "" } };
+        return true;
+      }
+      onEvent(frame);
+      return false;
+    };
+    try {
+      for (; ; ) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl = buffer.indexOf("\n");
+        while (nl !== -1) {
+          const line = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 1);
+          if (handleLine(line)) {
+            void reader.cancel();
+            return final ?? { ok: false, error: { code: "internal", message: "no result frame" } };
+          }
+          nl = buffer.indexOf("\n");
+        }
+      }
+      if (buffer !== "" && handleLine(buffer)) {
+        return final ?? { ok: false, error: { code: "internal", message: "no result frame" } };
+      }
+    } catch (error) {
+      if (signal?.aborted === true || error instanceof DOMException && error.name === "AbortError") {
+        return { ok: false, error: { code: "cancelled", message: "request cancelled" } };
+      }
+      return { ok: false, error: { code: "internal", message: error instanceof Error ? error.message : String(error) } };
+    }
+    if (final !== null) return final;
+    return { ok: false, error: { code: "internal", message: "stream ended without a result" } };
   }
   push(path) {
     return post("/git-panel/push", { path });
@@ -269,6 +348,12 @@ var DICTS = {
     "write.commit.generate": "\u81EA\u52A8\u751F\u6210\u63D0\u4EA4\u4FE1\u606F",
     "write.commit.generating": "\u6B63\u5728\u6839\u636E\u6682\u5B58\u533A\u53D8\u66F4\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u2026",
     "write.commit.generated": "\u5DF2\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\uFF0C\u8BF7\u786E\u8BA4\u540E\u63D0\u4EA4",
+    "write.commit.cancel": "\u53D6\u6D88\u751F\u6210",
+    "write.commit.cancelled": "\u5DF2\u53D6\u6D88\u751F\u6210\u63D0\u4EA4\u4FE1\u606F",
+    "write.commit.fallback": "\u26A0\uFE0F \u7B2C {index}/{total} \u4E2A\u6A21\u578B {model} \u62A5\u9519\uFF1A{reason}\u3000\u6B63\u6539\u7528\u4E0B\u4E00\u4E2A \u2192 {next}",
+    "write.commit.fallbackLast": "\u26A0\uFE0F \u7B2C {index}/{total} \u4E2A\u6A21\u578B {model} \u62A5\u9519\uFF1A{reason}\u3000\u5DF2\u65E0\u540E\u5907\u6A21\u578B",
+    "write.commit.allFailed": "\u6A21\u578B\u5747\u672A\u80FD\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\uFF0C\u5931\u8D25\u539F\u56E0\u89C1\u4E0B\u65B9\u9010\u6761\u8BB0\u5F55",
+    "write.commit.effortRetry": "\u2139\uFE0F {model} \u4E0D\u652F\u6301\u601D\u8003\u6863\u4F4D\u300C{effort}\u300D\uFF0C\u5DF2\u6539\u4E3A\u8DDF\u968F\u6A21\u578B\u9ED8\u8BA4\u540E\u91CD\u8BD5",
     "write.commit.emptyStage": "\u6682\u5B58\u533A\u4E3A\u7A7A\uFF1A\u8BF7\u5148\u6682\u5B58\u8981\u63D0\u4EA4\u7684\u6539\u52A8\uFF0C\u518D\u81EA\u52A8\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u3002",
     "write.commit.emptyStageNotice": "\u6682\u5B58\u533A\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u63D0\u4EA4\uFF1A\u8BF7\u5148\u6682\u5B58\u8981\u63D0\u4EA4\u7684\u6587\u4EF6\u3002",
     "write.commit.failed": "\u751F\u6210\u63D0\u4EA4\u4FE1\u606F\u5931\u8D25\uFF1A{reason}",
@@ -490,6 +575,12 @@ var DICTS = {
     "write.commit.generate": "Generate commit message",
     "write.commit.generating": "Generating a commit message from the staged changes\u2026",
     "write.commit.generated": "Commit message generated \u2014 review it before committing",
+    "write.commit.cancel": "Cancel generation",
+    "write.commit.cancelled": "Commit message generation cancelled",
+    "write.commit.fallback": "\u26A0\uFE0F Model {index}/{total} ({model}) failed: {reason} \u2014 falling back \u2192 {next}",
+    "write.commit.fallbackLast": "\u26A0\uFE0F Model {index}/{total} ({model}) failed: {reason} \u2014 no fallback model left",
+    "write.commit.allFailed": "No model could generate a commit message; see the per-model reasons below",
+    "write.commit.effortRetry": '\u2139\uFE0F {model} does not support thinking level "{effort}"; retrying with the model default',
     "write.commit.emptyStage": "Nothing is staged: stage the changes you want to commit, then generate.",
     "write.commit.emptyStageNotice": "Nothing is staged to commit: please stage the files you want to commit first.",
     "write.commit.failed": "Failed to generate a commit message: {reason}",
@@ -711,6 +802,12 @@ var DICTS = {
     "write.commit.generate": "Generar mensaje de commit",
     "write.commit.generating": "Generando el mensaje a partir de los cambios preparados\u2026",
     "write.commit.generated": "Mensaje generado: rev\xEDsalo antes de confirmar",
+    "write.commit.cancel": "Cancelar generaci\xF3n",
+    "write.commit.cancelled": "Generaci\xF3n del mensaje cancelada",
+    "write.commit.fallback": "\u26A0\uFE0F El modelo {index}/{total} ({model}) fall\xF3: {reason} \u2014 cambiando al siguiente \u2192 {next}",
+    "write.commit.fallbackLast": "\u26A0\uFE0F El modelo {index}/{total} ({model}) fall\xF3: {reason} \u2014 no queda modelo de respaldo",
+    "write.commit.allFailed": "Ning\xFAn modelo pudo generar el mensaje; mira los motivos abajo",
+    "write.commit.effortRetry": "\u2139\uFE0F {model} no admite el nivel de razonamiento \xAB{effort}\xBB; se reintenta con el predeterminado",
     "write.commit.emptyStage": "No hay nada preparado: prepara los cambios que quieras confirmar y vuelve a generar.",
     "write.commit.emptyStageNotice": "No hay nada preparado para confirmar: prepara primero los archivos que quieras confirmar.",
     "write.commit.failed": "No se pudo generar el mensaje de commit: {reason}",
@@ -1486,6 +1583,16 @@ var STYLE = `
 .dsh-gp-input-btn:hover:not(:disabled) { background:var(--hover); border-color:var(--border); color:var(--fg); }
 .dsh-gp-input-btn:disabled { cursor:default; opacity:0.55; }
 .dsh-gp-input-btn .dsh-gp-spinner { width:11px; height:11px; }
+/* \u751F\u6210\u4E2D\uFF1A\u9ED8\u8BA4\u663E\u793A\u8F6C\u5708\uFF1B\u60AC\u6D6E\u65F6\u8F6C\u5708\u6DE1\u51FA\u3001\u6362\u6210\u300C\u53D6\u6D88\u300D\u7684 \xD7 \u56FE\u6807\uFF0C\u70B9\u51FB\u5373\u4E2D\u6B62\u8BF7\u6C42\u3002
+   \u4E24\u5C42\u56FE\u6807\u53E0\u5728\u540C\u4E00\u683C\u5185\u505A\u4EA4\u53C9\u6DE1\u5165\u6DE1\u51FA\uFF0C\u907F\u514D\u60AC\u6D6E\u65F6\u6309\u94AE\u5C3A\u5BF8\u8DF3\u52A8\u3002 */
+.dsh-gp-gen-btn .dsh-gp-gen-spin, .dsh-gp-gen-btn .dsh-gp-gen-cancel {
+  grid-area:1/1; display:inline-flex; align-items:center; justify-content:center;
+  transition:opacity .12s ease; }
+.dsh-gp-gen-btn { display:inline-grid; place-items:center; }
+.dsh-gp-gen-btn .dsh-gp-gen-cancel { opacity:0; }
+.dsh-gp-gen-btn:hover .dsh-gp-gen-spin { opacity:0; }
+.dsh-gp-gen-btn:hover .dsh-gp-gen-cancel { opacity:1; }
+.dsh-gp-gen-btn:hover { background:var(--hover); border-color:var(--danger); color:var(--danger); }
 /* \u72B6\u6001\u6458\u8981\uFF1A\u5185\u5BB9\u662F\u4EBA\u8BDD\uFF08\u53EF\u80FD\u8F83\u957F\uFF09\uFF0C\u6362\u884C\u663E\u793A\u800C\u4E0D\u662F\u7701\u7565\u53F7\u622A\u65AD\u2014\u2014\u622A\u65AD\u4F1A\u628A
    \u300C12 \u4E2A\u6587\u4EF6\u5DF2\u6539\u52A8 \xB7 4 \u5DF2\u6682\u5B58 \xB7 8 \u672A\u6682\u5B58\u300D\u7684\u5173\u952E\u6570\u5B57\u5403\u6389\uFF0C\u90A3\u6B63\u662F\u5B83\u5B58\u5728\u7684\u610F\u4E49\u3002
    \u5B8C\u6574\u7684 porcelain \u539F\u6587\u4ECD\u6302\u5728 title \u4E0A\u4F9B\u60AC\u505C\u67E5\u770B\u3002 */
@@ -1493,12 +1600,12 @@ var STYLE = `
 .dsh-gp-detail-actions { display:flex; gap:6px; margin-top:6px; }
 .dsh-gp-detail-actions .dsh-gp-btn { font-size:11px; padding:2px 8px; }
 .dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px;
-  max-height:min(280px, 38vh); overflow-y:auto; }
-.dsh-gp-conflict-banner { background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
+  max-height:min(320px, 45vh); overflow-y:auto; }
+.dsh-gp-conflict-banner { flex:none; background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
   color:#d29922; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; }
 [data-ds-dark-theme] .dsh-gp-conflict-banner { color:#e3b341; border-color:rgba(227,179,65,0.4); }
 .dsh-gp-changes-group { display:flex; flex-direction:column; gap:2px; }
-.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
+.dsh-gp-changes-group-head { flex:none; font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
   display:flex; align-items:center; justify-content:space-between; gap:6px; cursor:pointer; user-select:none; border-radius:4px; }
 .dsh-gp-changes-group-head:hover { background:var(--hover); color:var(--fg); }
 .dsh-gp-group-title { display:inline-flex; align-items:center; gap:4px; }
@@ -1508,7 +1615,10 @@ var STYLE = `
 .dsh-gp-group-actions { display:flex; align-items:center; gap:2px; flex:none; }
 .dsh-gp-changes-group-head .dsh-gp-act { opacity:1; }
 .dsh-gp-changes-title { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 0 4px; font-size:11px; color:var(--muted); }
-.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; }
+/* \u5173\u952E\u7A33\u5065\u5E03\u5C40\uFF1A\u6BCF\u4E2A\u5206\u7EC4\u5217\u8868\u72EC\u7ACB\u9650\u9AD8 130px \u5185\u90E8\u6EDA\u52A8\u3002
+   \u5373\u4F7F\u300C\u5DF2\u6682\u5B58\u300D\u6709\u51E0\u5341\u4E2A\u6587\u4EF6\uFF0C\u81EA\u8EAB\u4E5F\u5728 130px \u5185\u6EDA\u52A8\u5C01\u9876\uFF0C\u7EDD\u4E0D\u65E0\u9650\u6491\u9AD8\uFF1B
+   \u300C\u672A\u6682\u5B58\u300D\u7D27\u8DDF\u5176\u540E\u6E05\u6670\u53EF\u89C1\uFF0C\u7EDD\u4E0D\u53EF\u80FD\u88AB\u6324\u538B\u51FA\u5C4F\u5E55\uFF0C\u4E5F\u7EDD\u4E0D\u4F1A\u584C\u9677\u5168\u7A7A\u3002 */
+.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:130px; overflow-y:auto; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
@@ -1549,6 +1659,12 @@ var STYLE = `
   transition:background .12s ease, color .12s ease; }
 .dsh-gp-cancel:hover { background:color-mix(in srgb, var(--danger) 12%, transparent); }
 .dsh-gp-cancel .dsh-icon { vertical-align:0; }
+/* \u6A21\u578B\u964D\u7EA7\u8BB0\u5F55\uFF1A\u67D0\u7EA7\u6A21\u578B\u62A5\u9519\u3001\u6B63\u6539\u7528\u4E0B\u4E00\u4E2A\u65F6\u9010\u6761\u8FFD\u52A0\u3002
+   \u523B\u610F\u7528\u7425\u73C0\u8272\u800C\u975E\u9519\u8BEF\u7EA2\u2014\u2014\u964D\u7EA7\u540E\u751F\u6210\u4ECD\u53EF\u80FD\u6210\u529F\uFF0C\u4E0D\u662F\u5931\u8D25\u6001\u3002 */
+.dsh-gp-fallbacks { display:flex; flex-direction:column; gap:3px; margin-top:6px;
+  padding-top:6px; border-top:1px dashed var(--border); }
+.dsh-gp-fallback { font-size:11px; line-height:1.5; color:var(--dsh-gp-modified);
+  word-break:break-word; white-space:pre-wrap; }
 /* \u5373\u65F6 tooltip\uFF1A\u56FA\u5B9A\u5B9A\u4F4D\u6302\u5728 body \u4E0B\uFF0C\u4E0D\u4F1A\u88AB\u5217\u8868\u7684 overflow \u88C1\u6389 */
 .dsh-gp-tip { position:fixed; z-index:9999; pointer-events:none; padding:3px 8px; border-radius:6px;
   font-size:11px; line-height:16px; white-space:nowrap; color:#fff; background:rgba(28,32,38,.96);
@@ -1570,7 +1686,9 @@ var STYLE = `
 /* \u5F53\u5185\u8054\u67E5\u770B diff \u65F6\uFF0Cdiff \u533A\u57DF\u4E0E\u5916\u5C42\u5BB9\u5668\u52A0\u5927\u5E76\u5360\u6EE1\u5F53\u524D\u4FA7\u8FB9\u680F\u5269\u4F59\u9AD8\u5EA6 */
 .dsh-gp.has-diff .dsh-gp-write { flex:1; min-height:0; display:flex; flex-direction:column; }
 .dsh-gp.has-diff .dsh-gp-changes { flex:1; min-height:0; max-height:none; display:flex; flex-direction:column; overflow:hidden; }
-.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:110px; overflow-y:auto; }
+/* \u5185\u8054 diff \u6253\u5F00\u65F6\uFF1A\u53D8\u66F4\u5206\u7EC4\u533A\u9650\u9AD8\u5E76\u5141\u8BB8\u6EDA\u52A8\uFF0C\u786E\u4FDD\u4E0B\u65B9 diff \u533A\u57DF\u83B7\u5F97\u6700\u5927\u7A7A\u95F4\u3002 */
+.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:min(160px, 28vh);
+  display:flex; flex-direction:column; gap:4px; overflow-y:auto; }
 .dsh-gp.has-diff .dsh-gp-changes-diff { flex:1; min-height:0; display:flex; flex-direction:column; margin-top:4px; }
 .dsh-gp.has-diff .dsh-gp-changes-diff .dsh-gp-changes-head { flex:none; }
 .dsh-gp.has-diff .dsh-gp-changes-pre { flex:1; min-height:0; max-height:none; overflow:auto; }
@@ -2418,7 +2536,13 @@ function GitPanel(props) {
   const [menuMode, setMenuMode] = (0, import_react4.useState)("main");
   const [renameValue, setRenameValue] = (0, import_react4.useState)("");
   const [commitMsg, setCommitMsg] = (0, import_react4.useState)("");
+  const [fallbackNotes, setFallbackNotes] = (0, import_react4.useState)([]);
+  (0, import_react4.useEffect)(() => {
+    if (pendingOp !== null) setFallbackNotes([]);
+  }, [pendingOp]);
   const [generating, setGenerating] = (0, import_react4.useState)(false);
+  const generateAbortRef = (0, import_react4.useRef)(null);
+  const fallbackCountRef = (0, import_react4.useRef)(0);
   const commitRef = (0, import_react4.useRef)(null);
   const appliedHeightRef = (0, import_react4.useRef)(null);
   const [statusText, setStatusText] = (0, import_react4.useState)("");
@@ -2456,8 +2580,13 @@ function GitPanel(props) {
     el.style.height = next;
     appliedHeightRef.current = next;
   }, [commitMsg]);
+  const loadInFlightRef = (0, import_react4.useRef)(false);
+  const statusInFlightRef = (0, import_react4.useRef)(false);
+  const stashInFlightRef = (0, import_react4.useRef)(false);
+  const lastAutoRefreshRef = (0, import_react4.useRef)(0);
   const load = (0, import_react4.useCallback)(async (silent = false) => {
-    if (!path) return;
+    if (!path || loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     const seq = ++loadSeq.current;
     if (!silent) {
       setLoading(true);
@@ -2465,47 +2594,61 @@ function GitPanel(props) {
       setGraph(null);
       setMessage(null);
     }
-    const [b, g] = await Promise.all([api.branches(path), api.graph(path)]);
-    if (seq !== loadSeq.current) return;
-    if (b.ok) {
-      if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
-        setBranches(b.value);
+    try {
+      const [b, g] = await Promise.all([api.branches(path), api.graph(path)]);
+      if (seq !== loadSeq.current) return;
+      if (b.ok) {
+        if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
+          setBranches(b.value);
+        }
       }
-    }
-    if (g.ok) {
-      if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
-        setGraph(g.value);
+      if (g.ok) {
+        if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
+          setGraph(g.value);
+        }
       }
-    }
-    if (!silent) {
-      if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: "err" });
-      else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: "err" });
-      setLoading(false);
+      if (!silent) {
+        if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: "err" });
+        else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: "err" });
+        setLoading(false);
+      }
+    } finally {
+      loadInFlightRef.current = false;
     }
   }, [path, api]);
   (0, import_react4.useEffect)(() => {
     void load();
   }, [load]);
   const refreshStatus = (0, import_react4.useCallback)(async () => {
-    if (!path) return;
-    const result = await api.status(path);
-    const output = result.ok ? result.value.output : "";
-    setStatusText(output);
-    setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {});
-    setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {});
-    const list = [];
-    for (const line of output.split("\n")) {
-      if (line.trim() === "" || line.length < 4) continue;
-      const code = line.slice(0, 2);
-      const file = line.slice(3).trim();
-      if (file !== "") list.push({ code, file });
+    if (!path || statusInFlightRef.current) return;
+    statusInFlightRef.current = true;
+    try {
+      const result = await api.status(path);
+      const output = result.ok ? result.value.output : "";
+      setStatusText(output);
+      setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {});
+      setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {});
+      const list = [];
+      for (const line of output.split("\n")) {
+        if (line.trim() === "" || line.length < 4) continue;
+        const code = line.slice(0, 2);
+        const file = line.slice(3).trim();
+        if (file !== "") list.push({ code, file });
+      }
+      setChanges(list);
+    } finally {
+      statusInFlightRef.current = false;
     }
-    setChanges(list);
   }, [path, api]);
   const refreshStash = (0, import_react4.useCallback)(async () => {
-    if (!path) return;
-    const result = await api.stashSummary(path);
-    setStash(result.ok ? result.value : null);
+    if (!path || stashInFlightRef.current) return;
+    stashInFlightRef.current = true;
+    try {
+      const result = await api.stashSummary(path);
+      setStash(result.ok ? result.value : null);
+    } finally {
+      stashInFlightRef.current = false;
+    }
   }, [path, api]);
   const loadDiff = (0, import_react4.useCallback)(async (file) => {
     if (!path) return;
@@ -2530,6 +2673,9 @@ function GitPanel(props) {
     if (!statusCache || !path) return void 0;
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return;
+      const now = Date.now();
+      if (now - lastAutoRefreshRef.current < 8e3) return;
+      lastAutoRefreshRef.current = now;
       void refreshStatus();
       void refreshStash();
       void load(true);
@@ -2548,7 +2694,9 @@ function GitPanel(props) {
     if (!path) return void 0;
     const onFocus = () => {
       if (document.visibilityState === "visible" && !busy) {
-        if (statusCache) void statusCache.ensure(path, true);
+        const now = Date.now();
+        if (now - lastAutoRefreshRef.current < 1e4) return;
+        lastAutoRefreshRef.current = now;
         void refreshStatus();
         void refreshStash();
         void load(true);
@@ -2560,19 +2708,7 @@ function GitPanel(props) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
-  (0, import_react4.useEffect)(() => {
-    if (!path) return void 0;
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && !busy) {
-        if (statusCache) void statusCache.ensure(path);
-        void refreshStatus();
-        void refreshStash();
-        void load(true);
-      }
-    }, 3500);
-    return () => clearInterval(timer);
-  }, [path, busy, statusCache, refreshStatus, refreshStash, load]);
+  }, [path, busy, refreshStatus, refreshStash, load]);
   const runWrite = (0, import_react4.useCallback)(async (action, extra) => {
     if (!path || busy) return;
     setBusy(true);
@@ -2710,15 +2846,53 @@ function GitPanel(props) {
   const generateMessage = (0, import_react4.useCallback)(async () => {
     if (!path || generating || busy) return;
     const target = path;
+    const controller = new AbortController();
+    generateAbortRef.current = controller;
     setGenerating(true);
+    setFallbackNotes([]);
+    fallbackCountRef.current = 0;
     setMessage({ text: t2("write.commit.generating"), kind: "ok" });
     let result;
     try {
-      result = await api.generateCommitMessage(target);
+      result = await api.generateCommitMessageStream(target, (event) => {
+        if (event.type === "fallback") {
+          const hasNext = event.nextProvider !== void 0 && event.nextModel !== void 0;
+          fallbackCountRef.current += 1;
+          const text = hasNext ? t2("write.commit.fallback", {
+            index: String(event.index),
+            total: String(event.total),
+            model: `${event.provider}/${event.model}`,
+            reason: event.reason,
+            next: `${event.nextProvider}/${event.nextModel}`
+          }) : t2("write.commit.fallbackLast", {
+            index: String(event.index),
+            total: String(event.total),
+            model: `${event.provider}/${event.model}`,
+            reason: event.reason
+          });
+          setFallbackNotes((prev) => [...prev, { text, detail: event.detail }]);
+        } else if (event.type === "effort-retry") {
+          fallbackCountRef.current += 1;
+          setFallbackNotes((prev) => [
+            ...prev,
+            {
+              text: t2("write.commit.effortRetry", {
+                model: `${event.provider}/${event.model}`,
+                effort: event.droppedEffort
+              })
+            }
+          ]);
+        }
+      }, controller.signal);
     } catch (error) {
       result = { ok: false, error: { code: "internal", message: error instanceof Error ? error.message : String(error) } };
     }
+    if (generateAbortRef.current === controller) generateAbortRef.current = null;
     if (pathRef.current !== target) {
+      setGenerating(false);
+      return;
+    }
+    if (!result.ok && result.error.code === "cancelled") {
       setGenerating(false);
       return;
     }
@@ -2734,11 +2908,19 @@ function GitPanel(props) {
       setMessage({ text: t2("write.commit.emptyStage"), kind: "err" });
     } else if (result.error.code === "no-model") {
       setMessage({ text: t2("write.commit.noModel"), kind: "err" });
+    } else if (result.error.code === "generate-failed" && fallbackCountRef.current > 0) {
+      setMessage({ text: t2("write.commit.allFailed"), kind: "err" });
     } else {
       setMessage({ text: t2("write.commit.failed", { reason: tError(result.error.code, result.error.message) }), kind: "err" });
     }
     setGenerating(false);
   }, [path, api, generating, busy, t2]);
+  const cancelGenerate = (0, import_react4.useCallback)(() => {
+    generateAbortRef.current?.abort();
+    generateAbortRef.current = null;
+    setGenerating(false);
+    setMessage({ text: t2("write.commit.cancelled"), kind: "ok" });
+  }, [t2]);
   (0, import_react4.useEffect)(() => {
     const onSwitched = () => {
       void refreshStatus();
@@ -2900,12 +3082,17 @@ function GitPanel(props) {
             "button",
             {
               type: "button",
-              className: "dsh-gp-input-btn",
-              disabled: busy || generating,
-              "aria-label": t2("write.commit.generate"),
-              ...tipProps(t2("write.commit.generate")),
-              onClick: () => void generateMessage(),
-              children: generating ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": t2("write.commit.generating") }) : icon("sparkles", 13)
+              className: `dsh-gp-input-btn${generating ? " dsh-gp-gen-btn" : ""}`,
+              disabled: busy,
+              "aria-label": generating ? t2("write.commit.cancel") : t2("write.commit.generate"),
+              ...tipProps(generating ? t2("write.commit.cancel") : t2("write.commit.generate")),
+              onClick: () => {
+                generating ? cancelGenerate() : void generateMessage();
+              },
+              children: generating ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-spin", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": t2("write.commit.generating") }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-cancel", "aria-hidden": "true", children: icon("close", 13) })
+              ] }) : icon("sparkles", 13)
             }
           )
         ] }),
@@ -3290,6 +3477,7 @@ function GitPanel(props) {
             }
           ) : null
         ] }),
+        fallbackNotes.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallbacks", children: fallbackNotes.map((note, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallback", title: note.detail ?? note.text, children: note.text }, i)) }) : null,
         message.showAuthForm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: {
           background: "rgba(128,128,128,0.12)",
           padding: 8,
@@ -4745,7 +4933,6 @@ function installFileTreeDecorations(cache, ensure) {
     for (const tree of trees) {
       const root = tree.getAttribute("data-files-root");
       if (root === null || root === "") continue;
-      ensure(root);
       const view = cache.viewOf(root);
       if (view === void 0) continue;
       const directories = /* @__PURE__ */ new Set();
@@ -6281,7 +6468,6 @@ function GitGuideIcon(props) {
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
 var DIFF_KIND = "git-diff";
-var POLL_MS = 3e3;
 function apply(ctx) {
   try {
     initI18n(ctx.locale);
@@ -6302,31 +6488,38 @@ function apply(ctx) {
   };
   ctx.inject(["sessions"], () => {
     try {
-      const refresh = (fresh = false) => {
+      let lastCwd = "";
+      let lastRefreshTime = 0;
+      const refreshCurrent = (fresh = false) => {
         const current = ctx.sessions.list.getSnapshot().current;
         const cwd = cwdOf(current);
-        if (cwd !== "") void statusCache.ensure(cwd, fresh);
-        for (const root of statusCache.roots()) {
-          if (root !== cwd) void statusCache.ensure(root, fresh);
-        }
+        if (!cwd) return;
+        const now = Date.now();
+        if (!fresh && cwd === lastCwd && now - lastRefreshTime < 1e4) return;
+        lastCwd = cwd;
+        lastRefreshTime = now;
+        void statusCache.ensure(cwd, fresh);
       };
-      refresh();
-      ctx.sessions.list.subscribe(() => refresh(false));
-      const timer = window.setInterval(() => {
-        if (document.visibilityState === "visible") refresh(false);
-      }, POLL_MS);
+      refreshCurrent();
+      ctx.sessions.list.subscribe(() => {
+        const current = ctx.sessions.list.getSnapshot().current;
+        const cwd = cwdOf(current);
+        if (cwd && cwd !== lastCwd) {
+          refreshCurrent(true);
+        }
+      });
       const onFocusOrVisible = () => {
-        if (document.visibilityState === "visible") refresh(true);
+        if (document.visibilityState === "visible") {
+          refreshCurrent(false);
+        }
       };
       window.addEventListener("focus", onFocusOrVisible);
       document.addEventListener("visibilitychange", onFocusOrVisible);
       ctx.effect(() => () => {
-        window.clearInterval(timer);
         window.removeEventListener("focus", onFocusOrVisible);
         document.removeEventListener("visibilitychange", onFocusOrVisible);
       }, "dsh-git-panel: status poll");
-      ctx.effect(() => installFileTreeDecorations(statusCache, (root) => {
-        void statusCache.ensure(root);
+      ctx.effect(() => installFileTreeDecorations(statusCache, () => {
       }), "dsh-git-panel: file tree decorations");
     } catch (error) {
       console.warn("dsh-git-panel: status polling setup failed", error);

@@ -41,6 +41,48 @@ function json(res: ServerResponse, envelope: Envelope<unknown>, status = 200): v
   res.end(JSON.stringify(envelope))
 }
 
+/**
+ * NDJSON 流式响应：逐帧写事件，浏览器边收边渲染。
+ *
+ * 用于「生成提交信息」——托底链某一级报错时，必须让用户在**切换到下一个模型
+ * 之前**就看到失败原因，否则整个过程只表现为「转了很久终于出结果」。
+ *
+ * 客户端断开（取消生成）时写入会抛错，用 closed 标记吞掉后续写入。
+ */
+function ndjsonStream(res: ServerResponse): {
+  write: (event: unknown) => void
+  end: () => void
+  isClosed: () => boolean
+} {
+  res.writeHead(200, {
+    'content-type': 'application/x-ndjson; charset=utf-8',
+    'cache-control': 'no-store',
+    // 关掉中间层缓冲，确保每帧立刻到达浏览器
+    'x-accel-buffering': 'no',
+  })
+  let closed = false
+  return {
+    write(event: unknown): void {
+      if (closed) return
+      try {
+        res.write(`${JSON.stringify(event)}\n`)
+      } catch {
+        closed = true
+      }
+    },
+    end(): void {
+      if (closed) return
+      closed = true
+      try {
+        res.end()
+      } catch {
+        /* 已断开 */
+      }
+    },
+    isClosed: () => closed || res.writableEnded === true || res.destroyed === true,
+  }
+}
+
 /** 从 JSON 对象载荷中提取必需的字符串字段。 */
 function field(payload: unknown, key: string): string | null {
   if (typeof payload !== 'object' || payload === null) return null
@@ -143,10 +185,22 @@ function route(service: GitService, ctx: Context) {
           return
         }
         case '/git-panel/generate-commit-message': {
-          // 读取暂存区内容交给当前默认模型生成提交信息；暂存区为空与生成失败
-          // 都以稳定错误码返回，由客户端分别呈现且不改动输入框。
-          const value = await generateCommitMessage(ctx, service, root)
-          json(res, value.ok ? { ok: true, value: { message: value.message } } : { ok: false, error: value.error })
+          // 以 NDJSON 流式返回：每级模型尝试/失败/档位重试都即时推给浏览器，
+          // 让「某模型报错 → 正改用下一个」在切换之前就可见。暂存区为空与生成
+          // 失败都以稳定错误码出现在终结帧里，由客户端分别呈现且不改动输入框。
+          const stream = ndjsonStream(res)
+          try {
+            const value = await generateCommitMessage(ctx, service, root, (event) => {
+              if (!stream.isClosed()) stream.write(event)
+            })
+            if (!stream.isClosed()) {
+              stream.write(value.ok
+                ? { type: 'done', value: { message: value.message } }
+                : { type: 'done', error: value.error })
+            }
+          } finally {
+            stream.end()
+          }
           return
         }
         case '/git-panel/push': {
@@ -317,6 +371,16 @@ function route(service: GitService, ctx: Context) {
     } catch (error) {
       const gitError: GitError = (error as { gitError?: GitError }).gitError
         ?? { code: 'internal', message: String(error instanceof Error ? error.message : error) }
+      // 响应头已发出（例如 NDJSON 流已经开始）时不能再写 JSON 头，否则
+      // 触发 ERR_HTTP_HEADERS_SENT；此时直接结束响应。
+      if (res.headersSent) {
+        try {
+          res.end()
+        } catch {
+          /* 已断开 */
+        }
+        return
+      }
       json(res, { ok: false, error: gitError })
     }
   }

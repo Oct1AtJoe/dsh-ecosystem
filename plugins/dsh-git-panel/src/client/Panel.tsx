@@ -165,6 +165,16 @@ const STYLE = `
 .dsh-gp-input-btn:hover:not(:disabled) { background:var(--hover); border-color:var(--border); color:var(--fg); }
 .dsh-gp-input-btn:disabled { cursor:default; opacity:0.55; }
 .dsh-gp-input-btn .dsh-gp-spinner { width:11px; height:11px; }
+/* 生成中：默认显示转圈；悬浮时转圈淡出、换成「取消」的 × 图标，点击即中止请求。
+   两层图标叠在同一格内做交叉淡入淡出，避免悬浮时按钮尺寸跳动。 */
+.dsh-gp-gen-btn .dsh-gp-gen-spin, .dsh-gp-gen-btn .dsh-gp-gen-cancel {
+  grid-area:1/1; display:inline-flex; align-items:center; justify-content:center;
+  transition:opacity .12s ease; }
+.dsh-gp-gen-btn { display:inline-grid; place-items:center; }
+.dsh-gp-gen-btn .dsh-gp-gen-cancel { opacity:0; }
+.dsh-gp-gen-btn:hover .dsh-gp-gen-spin { opacity:0; }
+.dsh-gp-gen-btn:hover .dsh-gp-gen-cancel { opacity:1; }
+.dsh-gp-gen-btn:hover { background:var(--hover); border-color:var(--danger); color:var(--danger); }
 /* 状态摘要：内容是人话（可能较长），换行显示而不是省略号截断——截断会把
    「12 个文件已改动 · 4 已暂存 · 8 未暂存」的关键数字吃掉，那正是它存在的意义。
    完整的 porcelain 原文仍挂在 title 上供悬停查看。 */
@@ -172,12 +182,12 @@ const STYLE = `
 .dsh-gp-detail-actions { display:flex; gap:6px; margin-top:6px; }
 .dsh-gp-detail-actions .dsh-gp-btn { font-size:11px; padding:2px 8px; }
 .dsh-gp-changes { border-top:1px solid var(--border); padding:6px 8px; display:flex; flex-direction:column; gap:6px;
-  max-height:min(280px, 38vh); overflow-y:auto; }
-.dsh-gp-conflict-banner { background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
+  max-height:min(320px, 45vh); overflow-y:auto; }
+.dsh-gp-conflict-banner { flex:none; background:rgba(210,153,34,0.15); border:1px solid rgba(210,153,34,0.4);
   color:#d29922; border-radius:6px; padding:4px 8px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; }
 [data-ds-dark-theme] .dsh-gp-conflict-banner { color:#e3b341; border-color:rgba(227,179,65,0.4); }
 .dsh-gp-changes-group { display:flex; flex-direction:column; gap:2px; }
-.dsh-gp-changes-group-head { font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
+.dsh-gp-changes-group-head { flex:none; font-size:10.5px; color:var(--muted); font-weight:600; padding:2px 4px;
   display:flex; align-items:center; justify-content:space-between; gap:6px; cursor:pointer; user-select:none; border-radius:4px; }
 .dsh-gp-changes-group-head:hover { background:var(--hover); color:var(--fg); }
 .dsh-gp-group-title { display:inline-flex; align-items:center; gap:4px; }
@@ -187,7 +197,10 @@ const STYLE = `
 .dsh-gp-group-actions { display:flex; align-items:center; gap:2px; flex:none; }
 .dsh-gp-changes-group-head .dsh-gp-act { opacity:1; }
 .dsh-gp-changes-title { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 0 4px; font-size:11px; color:var(--muted); }
-.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; }
+/* 关键稳健布局：每个分组列表独立限高 130px 内部滚动。
+   即使「已暂存」有几十个文件，自身也在 130px 内滚动封顶，绝不无限撑高；
+   「未暂存」紧跟其后清晰可见，绝不可能被挤压出屏幕，也绝不会塌陷全空。 */
+.dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:130px; overflow-y:auto; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
   font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
@@ -228,6 +241,12 @@ const STYLE = `
   transition:background .12s ease, color .12s ease; }
 .dsh-gp-cancel:hover { background:color-mix(in srgb, var(--danger) 12%, transparent); }
 .dsh-gp-cancel .dsh-icon { vertical-align:0; }
+/* 模型降级记录：某级模型报错、正改用下一个时逐条追加。
+   刻意用琥珀色而非错误红——降级后生成仍可能成功，不是失败态。 */
+.dsh-gp-fallbacks { display:flex; flex-direction:column; gap:3px; margin-top:6px;
+  padding-top:6px; border-top:1px dashed var(--border); }
+.dsh-gp-fallback { font-size:11px; line-height:1.5; color:var(--dsh-gp-modified);
+  word-break:break-word; white-space:pre-wrap; }
 /* 即时 tooltip：固定定位挂在 body 下，不会被列表的 overflow 裁掉 */
 .dsh-gp-tip { position:fixed; z-index:9999; pointer-events:none; padding:3px 8px; border-radius:6px;
   font-size:11px; line-height:16px; white-space:nowrap; color:#fff; background:rgba(28,32,38,.96);
@@ -249,7 +268,9 @@ const STYLE = `
 /* 当内联查看 diff 时，diff 区域与外层容器加大并占满当前侧边栏剩余高度 */
 .dsh-gp.has-diff .dsh-gp-write { flex:1; min-height:0; display:flex; flex-direction:column; }
 .dsh-gp.has-diff .dsh-gp-changes { flex:1; min-height:0; max-height:none; display:flex; flex-direction:column; overflow:hidden; }
-.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:110px; overflow-y:auto; }
+/* 内联 diff 打开时：变更分组区限高并允许滚动，确保下方 diff 区域获得最大空间。 */
+.dsh-gp.has-diff .dsh-gp-changes-groups { flex:none; max-height:min(160px, 28vh);
+  display:flex; flex-direction:column; gap:4px; overflow-y:auto; }
 .dsh-gp.has-diff .dsh-gp-changes-diff { flex:1; min-height:0; display:flex; flex-direction:column; margin-top:4px; }
 .dsh-gp.has-diff .dsh-gp-changes-diff .dsh-gp-changes-head { flex:none; }
 .dsh-gp.has-diff .dsh-gp-changes-pre { flex:1; min-height:0; max-height:none; overflow:auto; }
@@ -1304,8 +1325,31 @@ export function GitPanel(props: {
   const [renameValue, setRenameValue] = useState('')
   // 写操作：提交信息、变更状态、暂存列表。
   const [commitMsg, setCommitMsg] = useState('')
+  // 生成提交信息时的模型降级记录（某一级报错、正改用下一个）。
+  // 生成结束后刻意保留，让用户知道发生过降级、以及是哪个模型出的问题。
+  // detail 存 provider 原始报错，悬浮时以 tooltip 展示，便于排查。
+  const [fallbackNotes, setFallbackNotes] = useState<Array<{ text: string; detail?: string }>>([])
+
+  /**
+   * 任何新的 git 操作开始时，作废上一次生成留下的模型降级记录。
+   *
+   * 这些记录是「上一次生成」的上下文，与当前操作无关；不清就会在成功提示下方
+   * 残留过期报错（用户实测：执行其他操作后旧报错仍挂在界面上）。
+   *
+   * 为什么不用 setMessage 统一清：生成过程中 setMessage 会被多次调用
+   * （起始 / 终态），在那里清会把刚收集到的记录冲掉。而所有其他操作都会把
+   * pendingOp 置为非空，generateMessage 全程不碰它 —— 用它当界碑最干净。
+   */
+  useEffect(() => {
+    if (pendingOp !== null) setFallbackNotes([])
+  }, [pendingOp])
   // 自动生成提交信息进行中（生成按钮的转圈与禁用）。
   const [generating, setGenerating] = useState(false)
+  // 生成中的请求控制器：供「取消生成」中止在飞的请求。
+  const generateAbortRef = useRef<AbortController | null>(null)
+  // 本次生成已产生的降级记录条数。用 ref 而非读 state：回调里 setState 是异步的，
+  // 失败分支需要同步知道「下面到底有没有逐条记录」，以决定红字要不要复述长文。
+  const fallbackCountRef = useRef(0)
   // 提交信息输入框：textarea 随内容自适应高度。
   const commitRef = useRef<HTMLTextAreaElement | null>(null)
   // 上一次由自适应写入的 inline height；被外部改过即说明用户拖了高度。
@@ -1371,8 +1415,15 @@ export function GitPanel(props: {
     appliedHeightRef.current = next
   }, [commitMsg])
 
+  // 请求防重入与并发锁：避免任何情况下的重复请求并发轰炸宿主
+  const loadInFlightRef = useRef(false)
+  const statusInFlightRef = useRef(false)
+  const stashInFlightRef = useRef(false)
+  const lastAutoRefreshRef = useRef(0)
+
   const load = useCallback(async (silent = false) => {
-    if (!path) return
+    if (!path || loadInFlightRef.current) return
+    loadInFlightRef.current = true
     // 会话切换：在加载新路径前丢弃上一个仓库的数据，这样一次失败的加载永不
     // 会在屏幕上留下过期的分支。序列号保护会丢弃在新路径再次改变之后才返回的
     // 响应（来自旧会话的在途请求绝不能落地）。
@@ -1383,22 +1434,26 @@ export function GitPanel(props: {
       setGraph(null)
       setMessage(null)
     }
-    const [b, g] = await Promise.all([api.branches(path), api.graph(path)])
-    if (seq !== loadSeq.current) return
-    if (b.ok) {
-      if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
-        setBranches(b.value)
+    try {
+      const [b, g] = await Promise.all([api.branches(path), api.graph(path)])
+      if (seq !== loadSeq.current) return
+      if (b.ok) {
+        if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
+          setBranches(b.value)
+        }
       }
-    }
-    if (g.ok) {
-      if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
-        setGraph(g.value)
+      if (g.ok) {
+        if (!silent || !areGraphsEqual(graphRef.current, g.value)) {
+          setGraph(g.value)
+        }
       }
-    }
-    if (!silent) {
-      if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: 'err' })
-      else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: 'err' })
-      setLoading(false)
+      if (!silent) {
+        if (!b.ok) setMessage({ text: tError(b.error.code, b.error.message), kind: 'err' })
+        else if (!g.ok) setMessage({ text: tError(g.error.code, g.error.message), kind: 'err' })
+        setLoading(false)
+      }
+    } finally {
+      loadInFlightRef.current = false
     }
   }, [path, api])
 
@@ -1408,23 +1463,28 @@ export function GitPanel(props: {
 
   // ---- 写操作（commit / push / stash） ----
   const refreshStatus = useCallback(async (): Promise<void> => {
-    if (!path) return
-    const result = await api.status(path)
-    const output = result.ok ? result.value.output : ''
-    setStatusText(output)
-    setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {})
-    setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {})
-    // porcelain 固定宽度：前 2 字符是 XY 状态码，第 3 字符是分隔空格，其余是路径。
-    // 不能用 /^(\S+)\s+/：未暂存修改的 X 位本身是空格（" M path"），会被整行漏掉，
-    // 导致「仅工作区修改」的文件在变更列表里彻底消失。
-    const list: Array<{ code: string; file: string }> = []
-    for (const line of output.split('\n')) {
-      if (line.trim() === '' || line.length < 4) continue
-      const code = line.slice(0, 2)
-      const file = line.slice(3).trim()
-      if (file !== '') list.push({ code, file })
+    if (!path || statusInFlightRef.current) return
+    statusInFlightRef.current = true
+    try {
+      const result = await api.status(path)
+      const output = result.ok ? result.value.output : ''
+      setStatusText(output)
+      setStagedStats(result.ok && result.value.stagedStats ? result.value.stagedStats : {})
+      setUnstagedStats(result.ok && result.value.unstagedStats ? result.value.unstagedStats : {})
+      // porcelain 固定宽度：前 2 字符是 XY 状态码，第 3 字符是分隔空格，其余是路径。
+      // 不能用 /^(\S+)\s+/：未暂存修改的 X 位本身是空格（" M path"），会被整行漏掉，
+      // 导致「仅工作区修改」的文件在变更列表里彻底消失。
+      const list: Array<{ code: string; file: string }> = []
+      for (const line of output.split('\n')) {
+        if (line.trim() === '' || line.length < 4) continue
+        const code = line.slice(0, 2)
+        const file = line.slice(3).trim()
+        if (file !== '') list.push({ code, file })
+      }
+      setChanges(list)
+    } finally {
+      statusInFlightRef.current = false
     }
-    setChanges(list)
   }, [path, api])
 
   /**
@@ -1432,9 +1492,14 @@ export function GitPanel(props: {
    * 文件数只能由宿主逐条 `stash show -u` 算出来（`stash list` 不含文件）。
    */
   const refreshStash = useCallback(async (): Promise<void> => {
-    if (!path) return
-    const result = await api.stashSummary(path)
-    setStash(result.ok ? result.value : null)
+    if (!path || stashInFlightRef.current) return
+    stashInFlightRef.current = true
+    try {
+      const result = await api.stashSummary(path)
+      setStash(result.ok ? result.value : null)
+    } finally {
+      stashInFlightRef.current = false
+    }
   }, [path, api])
 
   /** 加载某文件的 diff。再次点击同一个文件则收起关闭。 */
@@ -1462,10 +1527,14 @@ export function GitPanel(props: {
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash])
 
   // 订阅后台 statusCache 变更通知：一旦有文件变动，自动刷新变更、储藏、分支与图谱
+  // 订阅后台 statusCache 变更通知：一旦有文件变动，做节流静默刷新（最少间隔 8 秒）
   useEffect(() => {
     if (!statusCache || !path) return undefined
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return
+      const now = Date.now()
+      if (now - lastAutoRefreshRef.current < 8000) return
+      lastAutoRefreshRef.current = now
       void refreshStatus()
       void refreshStash()
       void load(true)
@@ -1481,12 +1550,14 @@ export function GitPanel(props: {
     return unsubscribe
   }, [statusCache, path, busy, refreshStatus, refreshStash, load, api])
 
-  // 窗口重新获得焦点或切回前台时，强制刷新工作区状态、储藏、分支与图谱
+  // 窗口重新获得焦点或切回前台时，至少间隔 10 秒才按需刷新一次
   useEffect(() => {
     if (!path) return undefined
     const onFocus = (): void => {
       if (document.visibilityState === 'visible' && !busy) {
-        if (statusCache) void statusCache.ensure(path, true)
+        const now = Date.now()
+        if (now - lastAutoRefreshRef.current < 10000) return
+        lastAutoRefreshRef.current = now
         void refreshStatus()
         void refreshStash()
         void load(true)
@@ -1498,21 +1569,7 @@ export function GitPanel(props: {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
     }
-  }, [path, busy, statusCache, refreshStatus, refreshStash, load])
-
-  // 面板处于前台展示时，定期静默同步（捕获外部 IDE 提交、分支切换、pull 等）
-  useEffect(() => {
-    if (!path) return undefined
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible' && !busy) {
-        if (statusCache) void statusCache.ensure(path)
-        void refreshStatus()
-        void refreshStash()
-        void load(true)
-      }
-    }, 3500)
-    return () => clearInterval(timer)
-  }, [path, busy, statusCache, refreshStatus, refreshStash, load])
+  }, [path, busy, refreshStatus, refreshStash, load])
 
   const runWrite = useCallback(async (action: 'commit' | 'push' | 'stash-push' | 'stash-pop' | 'stage' | 'unstage' | 'discard' | 'sync', extra?: string): Promise<void> => {
     if (!path || busy) return
@@ -1678,15 +1735,61 @@ export function GitPanel(props: {
   const generateMessage = useCallback(async (): Promise<void> => {
     if (!path || generating || busy) return
     const target = path
+    const controller = new AbortController()
+    generateAbortRef.current = controller
     setGenerating(true)
+    setFallbackNotes([])
+    fallbackCountRef.current = 0
     setMessage({ text: t('write.commit.generating'), kind: 'ok' })
     let result: Envelope<{ message: string }>
     try {
-      result = await api.generateCommitMessage(target)
+      // 流式：某级模型报错时立刻把「正改用下一个」append 到降级记录，
+      // 这样用户在该级被跳过之前就看到了原因，而不是只看到转圈。
+      result = await api.generateCommitMessageStream(target, (event) => {
+        if (event.type === 'fallback') {
+          const hasNext = event.nextProvider !== undefined && event.nextModel !== undefined
+          fallbackCountRef.current += 1
+          // 没有下一级时不能渲染「正改用下一个」（会悬空无宾语）——最后一级
+          // 必须明确告知已无后备模型。reason 已是宿主提炼过的短文，
+          // 原始长报错放进 detail 由悬浮提示承载。
+          const text = hasNext
+            ? t('write.commit.fallback', {
+              index: String(event.index),
+              total: String(event.total),
+              model: `${event.provider}/${event.model}`,
+              reason: event.reason,
+              next: `${event.nextProvider}/${event.nextModel}`,
+            })
+            : t('write.commit.fallbackLast', {
+              index: String(event.index),
+              total: String(event.total),
+              model: `${event.provider}/${event.model}`,
+              reason: event.reason,
+            })
+          setFallbackNotes((prev) => [...prev, { text, detail: event.detail }])
+        } else if (event.type === 'effort-retry') {
+          fallbackCountRef.current += 1
+          setFallbackNotes((prev) => [
+            ...prev,
+            {
+              text: t('write.commit.effortRetry', {
+                model: `${event.provider}/${event.model}`,
+                effort: event.droppedEffort,
+              }),
+            },
+          ])
+        }
+      }, controller.signal)
     } catch (error) {
       result = { ok: false, error: { code: 'internal', message: error instanceof Error ? error.message : String(error) } }
     }
+    // 已取消：不覆盖消息区（取消提示由 cancelGenerate 负责），也不动输入框
+    if (generateAbortRef.current === controller) generateAbortRef.current = null
     if (pathRef.current !== target) {
+      setGenerating(false)
+      return
+    }
+    if (!result.ok && result.error.code === 'cancelled') {
       setGenerating(false)
       return
     }
@@ -1702,11 +1805,23 @@ export function GitPanel(props: {
       setMessage({ text: t('write.commit.emptyStage'), kind: 'err' })
     } else if (result.error.code === 'no-model') {
       setMessage({ text: t('write.commit.noModel'), kind: 'err' })
+    } else if (result.error.code === 'generate-failed' && fallbackCountRef.current > 0) {
+      // 逐条失败原因已在下方黄字里列过一遍，红字只给一句总结，
+      // 不再复述 host 那串原始报错（界面噪音翻倍，且无新增信息）。
+      setMessage({ text: t('write.commit.allFailed'), kind: 'err' })
     } else {
       setMessage({ text: t('write.commit.failed', { reason: tError(result.error.code, result.error.message) }), kind: 'err' })
     }
     setGenerating(false)
   }, [path, api, generating, busy, t])
+
+  /** 取消正在进行的提交信息生成：中止请求并复位按钮。 */
+  const cancelGenerate = useCallback((): void => {
+    generateAbortRef.current?.abort()
+    generateAbortRef.current = null
+    setGenerating(false)
+    setMessage({ text: t('write.commit.cancelled'), kind: 'ok' })
+  }, [t])
 
   // 输入 dock 的 chip 会在一次成功的分支切换后派发这个事件。
   useEffect(() => {
@@ -1898,12 +2013,20 @@ export function GitPanel(props: {
                   void runWrite('commit')
                 }
               }} />
-            <button type="button" className="dsh-gp-input-btn"
-              disabled={busy || generating}
-              aria-label={t('write.commit.generate')}
-              {...tipProps(t('write.commit.generate'))}
-              onClick={() => void generateMessage()}>
-              {generating ? <span className="dsh-gp-spinner" role="status" aria-label={t('write.commit.generating')} /> : icon('sparkles', 13)}
+            <button type="button"
+              className={`dsh-gp-input-btn${generating ? ' dsh-gp-gen-btn' : ''}`}
+              disabled={busy}
+              aria-label={generating ? t('write.commit.cancel') : t('write.commit.generate')}
+              {...tipProps(generating ? t('write.commit.cancel') : t('write.commit.generate'))}
+              onClick={() => { generating ? cancelGenerate() : void generateMessage() }}>
+              {generating ? (
+                <>
+                  <span className="dsh-gp-gen-spin">
+                    <span className="dsh-gp-spinner" role="status" aria-label={t('write.commit.generating')} />
+                  </span>
+                  <span className="dsh-gp-gen-cancel" aria-hidden="true">{icon('close', 13)}</span>
+                </>
+              ) : icon('sparkles', 13)}
             </button>
           </div>
           <button className="dsh-gp-btn" disabled={busy || commitMsg.trim() === ''}
@@ -2177,6 +2300,17 @@ export function GitPanel(props: {
                 </button>
               ) : null}
             </div>
+            {/* 模型降级记录：生成结束后保留，让用户知道哪个模型出过错。
+                原始报错很长，放进 tooltip（title）而不是铺在界面上。 */}
+            {fallbackNotes.length > 0 ? (
+              <div className="dsh-gp-fallbacks">
+                {fallbackNotes.map((note, i) => (
+                  <div key={i} className="dsh-gp-fallback" title={note.detail ?? note.text}>
+                    {note.text}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {message.showAuthForm ? (
               <div style={{
                 background: 'rgba(128,128,128,0.12)',

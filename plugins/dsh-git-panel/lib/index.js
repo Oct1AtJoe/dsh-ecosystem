@@ -931,18 +931,6 @@ function resolveCommitModelChain(ctx) {
       reasoningEffort: DEFAULT_REASONING_EFFORT
     });
   }
-  try {
-    const selection = ctx.get("agentDefaultModel")?.currentSelection?.();
-    if (typeof selection?.provider === "string" && typeof selection?.model === "string" && selection.provider && selection.model) {
-      if (!candidates.some((c) => c.provider === selection.provider && c.model === selection.model)) {
-        candidates.push({
-          provider: selection.provider,
-          model: selection.model
-        });
-      }
-    }
-  } catch {
-  }
   return candidates;
 }
 var SYSTEM = [
@@ -956,22 +944,78 @@ function cleanMessage(raw) {
   let text = raw.trim();
   const fence = /^```[^\n]*\n([\s\S]*?)\n?```$/.exec(text);
   if (fence !== null) text = fence[1].trim();
-  text = text.replace(/^["'“”‘’`]+/u, "").replace(/["'“”‘’`]+$/u, "").trim();
+  text = text.replace(/^["'“”‘’`]+/u, "").replace(/["'“”‘’`]+$/u, "");
   return text.slice(0, MESSAGE_CAP_CHARS).trim();
 }
-async function generateCommitMessage(ctx, service, root) {
+var REASON_CAP_CHARS = 160;
+function isEffortRejection(message) {
+  return /reasoning effort|reasoning_effort|thinking level/i.test(message) && /not support|unsupported|invalid/i.test(message);
+}
+function summarizeFailure(raw) {
+  const text = String(raw ?? "").trim();
+  if (text === "") return "unknown error";
+  const walk = (input, depth) => {
+    if (depth > 6) return input;
+    let current = input.trim();
+    const prefix = current.match(/^(?:https?:\/\/\S+\s*)?(?:[A-Za-z ]*?\b\d{3}\b[:：]\s*)/);
+    if (prefix !== null && prefix[0].length < current.length) {
+      current = current.slice(prefix[0].length).trim();
+    }
+    if (current.startsWith("{") || current.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(current);
+        const display = parsed["displayMsg"];
+        const ext = parsed["extError"];
+        const nested = parsed["error"];
+        const candidate = display?.["en"] ?? display?.["zh"] ?? parsed["msg"] ?? parsed["message"] ?? nested?.["message"] ?? ext?.["message"];
+        if (typeof candidate === "string" && candidate.trim() !== "") {
+          return walk(candidate, depth + 1);
+        }
+        return current;
+      } catch {
+      }
+    }
+    const brace = current.indexOf("{");
+    if (brace > 0) {
+      const head = current.slice(0, brace).trim();
+      const inner = walk(current.slice(brace), depth + 1);
+      return head === "" ? inner : inner;
+    }
+    return current;
+  };
+  const summary = walk(text, 0).replace(/\s+/g, " ").trim();
+  if (summary === "") return "unknown error";
+  return summary.length > REASON_CAP_CHARS ? `${summary.slice(0, REASON_CAP_CHARS)}\u2026` : summary;
+}
+async function generateCommitMessage(ctx, service, root, onEvent) {
+  const emit = async (event) => {
+    if (onEvent === void 0) return;
+    try {
+      await onEvent(event);
+    } catch {
+    }
+  };
   const llm = ctx.get("llm");
   if (llm === void 0 || typeof llm.stream !== "function") {
-    return { ok: false, error: { code: "no-model", message: "LLM service is unavailable" } };
+    const error2 = { code: "no-model", message: "LLM service is unavailable" };
+    await emit({ type: "result", ok: false, error: error2 });
+    return { ok: false, error: error2 };
   }
   const chain = resolveCommitModelChain(ctx);
   if (chain.length === 0) {
-    return { ok: false, error: { code: "no-model", message: "no model selection" } };
+    const error2 = { code: "no-model", message: "no model selection" };
+    await emit({ type: "result", ok: false, error: error2 });
+    return { ok: false, error: error2 };
   }
   const staged = await service.stagedContext(root);
-  if (!staged.ok) return { ok: false, error: staged.error };
+  if (!staged.ok) {
+    await emit({ type: "result", ok: false, error: staged.error });
+    return { ok: false, error: staged.error };
+  }
   if (staged.diff.trim() === "") {
-    return { ok: false, error: { code: "empty-stage", message: "nothing is staged" } };
+    const error2 = { code: "empty-stage", message: "nothing is staged" };
+    await emit({ type: "result", ok: false, error: error2 });
+    return { ok: false, error: error2 };
   }
   const diff = staged.diff.length > DIFF_CAP_CHARS ? `${staged.diff.slice(0, DIFF_CAP_CHARS)}
 ... (diff truncated)` : staged.diff;
@@ -982,16 +1026,15 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
     "Staged changes (git diff --cached):",
     diff
   ].join("\n");
-  let lastFailure = null;
-  for (let i = 0; i < chain.length; i++) {
-    const candidate = chain[i];
+  const attempts = [];
+  const callOnce = async (candidate, effort) => {
     let text = "";
     let failure = null;
     try {
       const stream = llm.stream({
         provider: candidate.provider,
         model: candidate.model,
-        ...candidate.reasoningEffort !== void 0 ? { reasoningEffort: candidate.reasoningEffort } : {},
+        ...effort !== void 0 ? { reasoningEffort: effort } : {},
         system: SYSTEM,
         messages: [{
           id: "dsh-git-panel-commit-message",
@@ -1012,20 +1055,91 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
           failure = typeof part.reason.failure?.message === "string" ? part.reason.failure.message : String(part.reason.kind);
         }
       }
-    } catch (error) {
-      failure = error instanceof Error ? error.message : String(error);
+    } catch (error2) {
+      failure = error2 instanceof Error ? error2.message : String(error2);
+    }
+    return { text, failure };
+  };
+  for (let i = 0; i < chain.length; i++) {
+    const candidate = chain[i];
+    const next = i + 1 < chain.length ? chain[i + 1] : void 0;
+    await emit({
+      type: "attempt",
+      index: i + 1,
+      total: chain.length,
+      provider: candidate.provider,
+      model: candidate.model,
+      ...candidate.reasoningEffort !== void 0 ? { reasoningEffort: candidate.reasoningEffort } : {}
+    });
+    let { text, failure } = await callOnce(candidate, candidate.reasoningEffort);
+    if (failure !== null && candidate.reasoningEffort !== void 0 && isEffortRejection(failure)) {
+      await emit({
+        type: "effort-retry",
+        index: i + 1,
+        provider: candidate.provider,
+        model: candidate.model,
+        droppedEffort: candidate.reasoningEffort
+      });
+      const retry = await callOnce(candidate, void 0);
+      if (retry.failure === null) {
+        text = retry.text;
+        failure = null;
+      } else {
+        const raw = retry.failure;
+        const reason2 = summarizeFailure(raw);
+        attempts.push(`${candidate.provider}/${candidate.model}: ${reason2}`);
+        await emit({
+          type: "fallback",
+          index: i + 1,
+          total: chain.length,
+          provider: candidate.provider,
+          model: candidate.model,
+          reason: reason2,
+          detail: raw,
+          ...next !== void 0 ? { nextProvider: next.provider, nextModel: next.model } : {}
+        });
+        continue;
+      }
     }
     if (failure !== null) {
-      lastFailure = failure;
+      const raw = failure;
+      const reason2 = summarizeFailure(raw);
+      attempts.push(`${candidate.provider}/${candidate.model}: ${reason2}`);
+      await emit({
+        type: "fallback",
+        index: i + 1,
+        total: chain.length,
+        provider: candidate.provider,
+        model: candidate.model,
+        reason: reason2,
+        detail: raw,
+        ...next !== void 0 ? { nextProvider: next.provider, nextModel: next.model } : {}
+      });
       continue;
     }
     const message = cleanMessage(text);
     if (message !== "") {
+      await emit({ type: "result", ok: true, message });
       return { ok: true, message };
     }
-    lastFailure = "the model returned an empty message";
+    const reason = "the model returned an empty message";
+    attempts.push(`${candidate.provider}/${candidate.model}: ${reason}`);
+    await emit({
+      type: "fallback",
+      index: i + 1,
+      total: chain.length,
+      provider: candidate.provider,
+      model: candidate.model,
+      reason,
+      ...next !== void 0 ? { nextProvider: next.provider, nextModel: next.model } : {}
+    });
   }
-  return { ok: false, error: { code: "generate-failed", message: lastFailure ?? "all fallback models failed" } };
+  const error = {
+    code: "generate-failed",
+    message: attempts.length === 0 ? "all fallback models failed" : onEvent !== void 0 ? `\u6240\u6709\u6258\u5E95\u6A21\u578B\u5747\u5931\u8D25\uFF08\u5171 ${attempts.length} \u4E2A\uFF0C\u8BE6\u89C1\u4E0A\u65B9\u9010\u6761\u8BB0\u5F55\uFF09` : `\u6240\u6709\u6258\u5E95\u6A21\u578B\u5747\u5931\u8D25 \u2192 ${attempts.join(" | ")}`
+  };
+  await emit({ type: "result", ok: false, error });
+  return { ok: false, error };
 }
 
 // src/host/routes.ts
@@ -1053,6 +1167,35 @@ async function readJsonBody(req) {
 function json(res, envelope, status = 200) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(envelope));
+}
+function ndjsonStream(res) {
+  res.writeHead(200, {
+    "content-type": "application/x-ndjson; charset=utf-8",
+    "cache-control": "no-store",
+    // 关掉中间层缓冲，确保每帧立刻到达浏览器
+    "x-accel-buffering": "no"
+  });
+  let closed = false;
+  return {
+    write(event) {
+      if (closed) return;
+      try {
+        res.write(`${JSON.stringify(event)}
+`);
+      } catch {
+        closed = true;
+      }
+    },
+    end() {
+      if (closed) return;
+      closed = true;
+      try {
+        res.end();
+      } catch {
+      }
+    },
+    isClosed: () => closed || res.writableEnded === true || res.destroyed === true
+  };
 }
 function field(payload, key) {
   if (typeof payload !== "object" || payload === null) return null;
@@ -1168,8 +1311,17 @@ function route(service, ctx) {
           return;
         }
         case "/git-panel/generate-commit-message": {
-          const value = await generateCommitMessage(ctx, service, root);
-          json(res, value.ok ? { ok: true, value: { message: value.message } } : { ok: false, error: value.error });
+          const stream = ndjsonStream(res);
+          try {
+            const value = await generateCommitMessage(ctx, service, root, (event) => {
+              if (!stream.isClosed()) stream.write(event);
+            });
+            if (!stream.isClosed()) {
+              stream.write(value.ok ? { type: "done", value: { message: value.message } } : { type: "done", error: value.error });
+            }
+          } finally {
+            stream.end();
+          }
           return;
         }
         case "/git-panel/push": {
@@ -1360,6 +1512,13 @@ function route(service, ctx) {
       }
     } catch (error) {
       const gitError = error.gitError ?? { code: "internal", message: String(error instanceof Error ? error.message : error) };
+      if (res.headersSent) {
+        try {
+          res.end();
+        } catch {
+        }
+        return;
+      }
       json(res, { ok: false, error: gitError });
     }
   };

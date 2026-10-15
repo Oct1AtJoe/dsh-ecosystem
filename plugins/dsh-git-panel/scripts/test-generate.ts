@@ -100,8 +100,18 @@ async function main(): Promise<void> {
     // 4) 无可用模型 / LLM 服务不可用 → no-model
     const noModel = await generateCommitMessage(fakeContext({ noLlm: true }), service, repo)
     check('无 LLM 服务报 no-model', !noModel.ok && noModel.error.code === 'no-model', noModel.ok ? noModel.message : noModel.error.code)
-    const emptyCfg = await generateCommitMessage(fakeContext({ provider: '', model: '' }), service, repo)
-    check('模型配置为空报 no-model', !emptyCfg.ok && emptyCfg.error.code === 'no-model', emptyCfg.ok ? emptyCfg.message : emptyCfg.error.code)
+    // 配置为空 = 没配过 → 回退内置默认模型（而非 no-model）。stub 未设 reply 故为空输出。
+    const emptyCfgCapture: Record<string, unknown> = {}
+    await generateCommitMessage(
+      fakeContext({ provider: '', model: '', reply: 'fallback works', captured: emptyCfgCapture }),
+      service,
+      repo,
+    )
+    check(
+      '配置为空时回退内置默认模型',
+      emptyCfgCapture.provider === 'deepseek-official' && emptyCfgCapture.model === 'deepseek-flash',
+      `${String(emptyCfgCapture.provider)}/${String(emptyCfgCapture.model)}`,
+    )
 
     // 5) 默认配置生成：验证默认采用 deepseek 官方 + deepseek-flash + 关闭思考
     const captured: Record<string, unknown> = {}
@@ -122,6 +132,205 @@ async function main(): Promise<void> {
     // 7) 模型返回空 → generate-failed，而不是回填空串
     const blank = await generateCommitMessage(fakeContext({ provider: 'deepseek', model: 'chat', reply: '   ' }), service, repo)
     check('空输出报 generate-failed', !blank.ok && blank.error.code === 'generate-failed', blank.ok ? blank.message : blank.error.code)
+
+    // 8) 流式事件：降级必须在「切换到下一个模型之前」发出 fallback 帧
+    //    构造两级链：第 1 级必失败，第 2 级成功，检查事件序列与顺序。
+    const chainCtx = {
+      get: (name: string) => {
+        if (name === 'settings') {
+          return {
+            get: (ns: string) => {
+              if (ns === 'session-title') {
+                return {
+                  enabled: true,
+                  models: [
+                    { provider: 'p1', model: 'm1', reasoningEffort: '' },
+                    { provider: 'p2', model: 'm2', reasoningEffort: '' },
+                  ],
+                }
+              }
+              return undefined
+            },
+          }
+        }
+        if (name === 'llm') {
+          return {
+            stream(opts: Record<string, unknown>) {
+              const failed = opts.model === 'm1'
+              const chunks: unknown[] = failed
+                ? [{ type: 'finish', reason: { kind: 'error', failure: { message: 'boom on m1' } } }]
+                : [{ type: 'text-delta', index: 0, text: 'feat: ok from m2' }, { type: 'finish', reason: { kind: 'stop' } }]
+              return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+            },
+          }
+        }
+        return undefined
+      },
+    } as unknown as Context
+
+    const events: string[] = []
+    const streamed = await generateCommitMessage(chainCtx, service, repo, (event) => {
+      if (event.type === 'attempt') events.push(`attempt:${event.index}/${event.total}:${event.model}`)
+      else if (event.type === 'fallback') events.push(`fallback:${event.index}:${event.model}->${event.nextModel ?? 'none'}`)
+      else if (event.type === 'effort-retry') events.push(`effort-retry:${event.model}`)
+      else if (event.type === 'result') events.push(`result:${event.ok ? 'ok' : 'fail'}`)
+    })
+
+    check('两级链最终由第二级成功', streamed.ok && streamed.message === 'feat: ok from m2', streamed.ok ? streamed.message : streamed.error.message)
+    check(
+      '事件顺序：attempt1 → fallback(→m2) → attempt2 → result',
+      events.join(' | ') === 'attempt:1/2:m1 | fallback:1:m1->m2 | attempt:2/2:m2 | result:ok',
+      events.join(' | '),
+    )
+    check('fallback 帧确实指向下一个模型', events.some((e) => e === 'fallback:1:m1->m2'))
+    check('终结帧 result 有且仅有一条', events.filter((e) => e.startsWith('result:')).length === 1)
+
+    // 9) 每级失败：终结帧仍只有一条，且带错误
+    const allFailEvents: string[] = []
+    const allFail = await generateCommitMessage(
+      {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return { get: (ns: string) => ns === 'session-title'
+              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }, { provider: 'p2', model: 'm2' }] }
+              : undefined }
+          }
+          if (name === 'llm') {
+            return {
+              stream() {
+                const chunks: unknown[] = [{ type: 'finish', reason: { kind: 'error', failure: { message: 'always boom' } } }]
+                return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+              },
+            }
+          }
+          return undefined
+        },
+      } as unknown as Context,
+      service,
+      repo,
+      (event) => {
+        if (event.type === 'fallback') allFailEvents.push(`fallback:${event.model}->${event.nextModel ?? 'none'}`)
+        else if (event.type === 'result') allFailEvents.push(`result:${event.ok ? 'ok' : 'fail'}`)
+      },
+    )
+    check('全部失败返回 generate-failed', !allFail.ok && allFail.error.code === 'generate-failed')
+    check('全部失败时终结帧仍只有一条', allFailEvents.filter((e) => e.startsWith('result:')).length === 1, allFailEvents.join(' | '))
+    check('最后一级的 fallback 不再指向任何模型', allFailEvents.at(-2) === 'fallback:m2->none', allFailEvents.join(' | '))
+    // 流式路径：明细已由 fallback 帧逐条给出，终结错误只报总结，
+    // 否则红字会与黄字降级记录 100% 重复（曾导致界面噪音翻倍）。
+    check(
+      '流式路径的终结错误为精简总结、不重复明细',
+      !allFail.ok
+        && allFail.error.message.includes('共 2 个')
+        && !allFail.error.message.includes('always boom'),
+      allFail.ok ? '' : allFail.error.message,
+    )
+
+    // 11) 单模型链 + 档位被拒：会产生两条记录（effort-retry + fallback），
+    //     但链上只有 1 个模型。客户端曾拿「记录条数」当模型数，把 1 个说成
+    //     「全部 2 个模型」。这里锁住事件里的 total 始终等于真实链长。
+    const singleEvents: Array<{ type: string; total?: number }> = []
+    const single = await generateCommitMessage(
+      {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return { get: (ns: string) => ns === 'session-title'
+              ? { enabled: true, models: [{ provider: 'p1', model: 'm1', reasoningEffort: 'off' }] }
+              : undefined }
+          }
+          if (name === 'llm') {
+            return {
+              stream() {
+                // 档位被拒：既触发 effort-retry，重试后仍失败再触发 fallback
+                const chunks: unknown[] = [{
+                  type: 'finish',
+                  reason: { kind: 'error', failure: { message: 'the reasoning effort value is not supported by the current model' } },
+                }]
+                return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+              },
+            }
+          }
+          return undefined
+        },
+      } as unknown as Context,
+      service,
+      repo,
+      (event) => {
+        if (event.type === 'attempt') singleEvents.push({ type: 'attempt', total: event.total })
+        else if (event.type === 'fallback') singleEvents.push({ type: 'fallback', total: event.total })
+        else if (event.type === 'effort-retry') singleEvents.push({ type: 'effort-retry' })
+      },
+    )
+    check('单模型链最终失败', !single.ok && single.error.code === 'generate-failed')
+    check(
+      '单模型链同时产生了 effort-retry 与 fallback 两条记录',
+      singleEvents.some((e) => e.type === 'effort-retry') && singleEvents.some((e) => e.type === 'fallback'),
+      JSON.stringify(singleEvents),
+    )
+    check(
+      '事件里的 total 始终为 1（记录条数 ≠ 模型数）',
+      singleEvents.filter((e) => e.total !== undefined).every((e) => e.total === 1),
+      JSON.stringify(singleEvents),
+    )
+    check(
+      '单模型链最后一条 fallback 不再指向任何模型',
+      singleEvents.filter((e) => e.type === 'fallback').length === 1,
+      JSON.stringify(singleEvents),
+    )
+
+    // 12) 不传 onEvent（非流式）：终结错误必须带完整明细，因为它是唯一出口
+    const noHookFail = await generateCommitMessage(
+      {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return { get: (ns: string) => ns === 'session-title'
+              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }] }
+              : undefined }
+          }
+          if (name === 'llm') {
+            return {
+              stream() {
+                const chunks: unknown[] = [{ type: 'finish', reason: { kind: 'error', failure: { message: 'solo boom' } } }]
+                return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+              },
+            }
+          }
+          return undefined
+        },
+      } as unknown as Context,
+      service,
+      repo,
+    )
+    check(
+      '非流式路径的终结错误保留完整明细',
+      !noHookFail.ok && noHookFail.error.message.includes('solo boom'),
+      noHookFail.ok ? '' : noHookFail.error.message,
+    )
+
+    // 11) 不传 onEvent 时行为与旧版一致（向后兼容）
+    const noHook = await generateCommitMessage(
+      {
+        get: (name: string) => {
+          if (name === 'settings') {
+            return { get: (ns: string) => ns === 'session-title'
+              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }] }
+              : undefined }
+          }
+          if (name === 'llm') {
+            return {
+              stream() {
+                const chunks: unknown[] = [{ type: 'text-delta', index: 0, text: 'feat: no hook' }, { type: 'finish', reason: { kind: 'stop' } }]
+                return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+              },
+            }
+          }
+          return undefined
+        },
+      } as unknown as Context,
+      service,
+      repo,
+    )
+    check('省略 onEvent 仍能正常生成', noHook.ok && noHook.message === 'feat: no hook', noHook.ok ? noHook.message : noHook.error.message)
   } finally {
     rmSync(repo, { recursive: true, force: true })
   }

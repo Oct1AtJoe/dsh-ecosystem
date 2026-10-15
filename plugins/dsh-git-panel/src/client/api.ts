@@ -8,15 +8,34 @@ export interface GitError {
 
 export type Envelope<T> = { ok: true; value: T } | { ok: false; error: GitError }
 
-async function post<T>(path: string, payload: unknown): Promise<Envelope<T>> {
+/**
+ * 生成提交信息时服务端推给浏览器的过程事件（NDJSON 帧，终结帧 `done` 除外）。
+ * 与宿主 `GenerateEvent` 同形；这里独立声明，避免客户端 value-import 宿主模块。
+ */
+export type GenerateStreamEvent =
+  | { type: 'attempt'; index: number; total: number; provider: string; model: string; reasoningEffort?: string }
+  | { type: 'fallback'; index: number; total: number; provider: string; model: string; reason: string; detail?: string; nextProvider?: string; nextModel?: string }
+  | { type: 'effort-retry'; index: number; provider: string; model: string; droppedEffort: string }
+
+/** 单帧：过程事件或终结帧。 */
+type GenerateStreamFrame =
+  | GenerateStreamEvent
+  | { type: 'done'; value?: { message: string }; error?: GitError }
+
+async function post<T>(path: string, payload: unknown, signal?: AbortSignal): Promise<Envelope<T>> {
   let response: Response
   try {
     response = await fetch(path, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
+      ...(signal !== undefined ? { signal } : {}),
     })
-  } catch {
+  } catch (error) {
+    // 用户主动取消不是故障：给稳定错误码，由调用方静默处理（不弹错误提示）。
+    if (signal?.aborted === true || (error instanceof DOMException && error.name === 'AbortError')) {
+      return { ok: false, error: { code: 'cancelled', message: 'request cancelled' } }
+    }
     return { ok: false, error: { code: 'internal', message: 'git route unavailable' } }
   }
   try {
@@ -128,9 +147,99 @@ export class GitPanelApi {
     return post<OpResult>('/git-panel/commit', { path, message })
   }
 
-  /** 读取暂存区内容，由当前默认模型生成一条提交信息。 */
-  generateCommitMessage(path: string) {
-    return post<{ message: string }>('/git-panel/generate-commit-message', { path })
+  /** 读取暂存区内容，由当前默认模型生成一条提交信息。传 signal 可中途取消。 */
+  generateCommitMessage(path: string, signal?: AbortSignal) {
+    return post<{ message: string }>('/git-panel/generate-commit-message', { path }, signal)
+  }
+
+  /**
+   * 流式版本：边生成边把托底链的尝试/失败事件回调出来，让「某模型报错 →
+   * 正改用下一个」在切换之前就可见。
+   *
+   * @param path - 工作区路径。
+   * @param onEvent - 每收到一帧即时调用（attempt / fallback / effort-retry）。
+   * @param signal - 取消信号。
+   * @returns 终结结果（成功消息或错误），与 `generateCommitMessage` 同形。
+   */
+  async generateCommitMessageStream(
+    path: string,
+    onEvent: (event: GenerateStreamEvent) => void,
+    signal?: AbortSignal,
+  ): Promise<Envelope<{ message: string }>> {
+    let response: Response
+    try {
+      response = await fetch('/git-panel/generate-commit-message', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path }),
+        ...(signal !== undefined ? { signal } : {}),
+      })
+    } catch (error) {
+      if (signal?.aborted === true || (error instanceof DOMException && error.name === 'AbortError')) {
+        return { ok: false, error: { code: 'cancelled', message: 'request cancelled' } }
+      }
+      return { ok: false, error: { code: 'internal', message: 'git route unavailable' } }
+    }
+
+    if (response.body === null) {
+      return { ok: false, error: { code: 'internal', message: 'response has no body' } }
+    }
+
+    let final: Envelope<{ message: string }> | null = null
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    /** 处理一行 NDJSON；返回 true 表示已收到终结帧。 */
+    const handleLine = (line: string): boolean => {
+      const trimmed = line.trim()
+      if (trimmed === '') return false
+      let frame: GenerateStreamFrame
+      try {
+        frame = JSON.parse(trimmed) as GenerateStreamFrame
+      } catch {
+        return false
+      }
+      if (frame.type === 'done') {
+        final = frame.error !== undefined
+          ? { ok: false, error: frame.error }
+          : { ok: true, value: frame.value ?? { message: '' } }
+        return true
+      }
+      onEvent(frame)
+      return false
+    }
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let nl = buffer.indexOf('\n')
+        while (nl !== -1) {
+          const line = buffer.slice(0, nl)
+          buffer = buffer.slice(nl + 1)
+          if (handleLine(line)) {
+            void reader.cancel()
+            return final ?? { ok: false, error: { code: 'internal', message: 'no result frame' } }
+          }
+          nl = buffer.indexOf('\n')
+        }
+      }
+      // 收尾：最后一行可能没有换行符
+      if (buffer !== '' && handleLine(buffer)) {
+        return final ?? { ok: false, error: { code: 'internal', message: 'no result frame' } }
+      }
+    } catch (error) {
+      if (signal?.aborted === true || (error instanceof DOMException && error.name === 'AbortError')) {
+        return { ok: false, error: { code: 'cancelled', message: 'request cancelled' } }
+      }
+      return { ok: false, error: { code: 'internal', message: error instanceof Error ? error.message : String(error) } }
+    }
+
+    if (final !== null) return final
+    // 流结束却没有终结帧（服务端中断）：按失败处理，避免界面永远转圈
+    return { ok: false, error: { code: 'internal', message: 'stream ended without a result' } }
   }
 
   push(path: string) {

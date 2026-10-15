@@ -93,7 +93,9 @@ export function installFileTreeDecorations(
     for (const tree of trees) {
       const root = tree.getAttribute('data-files-root')
       if (root === null || root === '') continue
-      ensure(root)
+      // 绝不在此主动 ensure(root) 发起网络请求！
+      // 否则只要页面有 DOM 变动（如打字、流式消息），就会触发 MutationObserver
+      // 造成高频死循环请求，拖死整个 Node.js 宿主进程。此处仅做纯粹的静态渲染。
       const view = cache.viewOf(root)
       if (view === undefined) continue
       // 目录聚合：某个目录下只要有改动，就给目录一个圆点（VS Code 行为）。

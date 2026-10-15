@@ -281,10 +281,20 @@ function apply(ctx) {
             messageSeqs: [first.seq],
             model: route,
           }
+          if (i > 0) {
+            // 成功但发生过降级：明确记下最终用的是哪一级，便于排查
+            ctx.logger?.info?.(`[dsh-session-title-custom] 第 ${i + 1}/${chain.length} 级成功：${route.provider}/${route.model}`)
+          }
           break // 某级成功即退出托底链
         } catch (err) {
           lastError = err
-          ctx.logger?.warn?.(`[dsh-session-title-custom] model ${route.provider}/${route.model} failed, fallback to next:`, err?.message ?? err)
+          // 会话命名是后台静默行为，没有前端流式通道，因此把降级过程落到日志：
+          // 明确指出「哪个模型失败 → 正改用哪一个」，否则只会表现为莫名变慢。
+          const next = i + 1 < chain.length ? chain[i + 1] : undefined
+          const nextLabel = next !== undefined ? ` → 正改用 ${next.provider}/${next.model}` : '（已无后备模型）'
+          ctx.logger?.warn?.(
+            `[dsh-session-title-custom] 第 ${i + 1}/${chain.length} 级模型 ${route.provider}/${route.model} 报错：${err?.message ?? err}${nextLabel}`,
+          )
         }
       }
 

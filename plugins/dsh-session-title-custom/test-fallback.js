@@ -11,6 +11,7 @@
  * 运行：node test-fallback.js
  */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import z from 'schemastery'
 import { resolveModelChain } from './lib/index.js'
 
@@ -121,5 +122,21 @@ assert.equal(removeRow(rows, 0).length, 2)
 const five = Array.from({ length: 5 }, (_, i) => ({ id: String(i + 1) }))
 assert.equal(addRow(five, { id: '6' }).length, 5, 'cannot exceed five rows')
 assert.equal(addRow(rows, { id: '4' }).length, 4)
+
+// 7. 思考档位默认值必须是 ''（跟随模型默认），绝不能硬编码 'off'
+// 回归背景：'off' 只是模型可逐个声明的档位之一，并非通用值。早期把它当默认值
+// 硬编码后，写进配置而模型又不支持它，且下拉里不存在该选项 → 用户既选不回
+// 「跟随默认」也改不掉，三行配置全废、提交信息生成直接失败（已踩坑）。
+const clientSrc = readFileSync(new URL('./lib/client.js', import.meta.url), 'utf8')
+const hardcodedOffDefaults = clientSrc.match(/reasoningEffort:\s*'off'/g) ?? []
+assert.equal(
+  hardcodedOffDefaults.length,
+  0,
+  `lib/client.js 不得再出现硬编码的 reasoningEffort: 'off' 默认值，实得 ${hardcodedOffDefaults.length} 处`,
+)
+assert.match(clientSrc, /effortUnsupported/, 'client.js 必须对不受支持的档位给出标红提示')
+
+// 8. 档位下拉必须始终含「跟随模型默认」（空 id），否则用户无法回退
+assert.match(clientSrc, /id:\s*''\s*,\s*name:\s*this\.t\('effortDefault'\)/, '档位下拉必须含空值=跟随模型默认')
 
 console.log('✅ dsh-session-title-custom fallback chain & schema checks passed.')

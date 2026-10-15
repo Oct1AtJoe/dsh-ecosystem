@@ -122,34 +122,47 @@ export function apply(ctx: PanelClientContext): void {
     }
   }
 
-  // 0. 变更清单轮询：装饰与路由门禁共用同一份快照。
+  // 0. 变更清单：切会话或前台激活时按需刷新，绝不在后台以 3 秒高频暴力轮询。
   ctx.inject(['sessions'], () => {
     try {
-      const refresh = (fresh = false): void => {
+      let lastCwd = ''
+      let lastRefreshTime = 0
+
+      const refreshCurrent = (fresh = false): void => {
         const current = ctx.sessions.list.getSnapshot().current
         const cwd = cwdOf(current)
-        if (cwd !== '') void statusCache.ensure(cwd, fresh)
-        // 文件树可能属于其它会话（多会话并行），它们的工作区同样要保活。
-        for (const root of statusCache.roots()) {
-          if (root !== cwd) void statusCache.ensure(root, fresh)
-        }
+        if (!cwd) return
+        const now = Date.now()
+        // 距离上次刷新不足 10 秒且不是强制刷新则跳过，避免高频打垮宿主
+        if (!fresh && cwd === lastCwd && now - lastRefreshTime < 10000) return
+        lastCwd = cwd
+        lastRefreshTime = now
+        void statusCache.ensure(cwd, fresh)
       }
-      refresh()
-      ctx.sessions.list.subscribe(() => refresh(false))
-      const timer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') refresh(false)
-      }, POLL_MS)
+
+      refreshCurrent()
+      // 仅在当前会话切换或当前工作区目录改变时按需触发，绝不随每次会话更新轰炸
+      ctx.sessions.list.subscribe(() => {
+        const current = ctx.sessions.list.getSnapshot().current
+        const cwd = cwdOf(current)
+        if (cwd && cwd !== lastCwd) {
+          refreshCurrent(true)
+        }
+      })
+
       const onFocusOrVisible = (): void => {
-        if (document.visibilityState === 'visible') refresh(true)
+        if (document.visibilityState === 'visible') {
+          refreshCurrent(false)
+        }
       }
       window.addEventListener('focus', onFocusOrVisible)
       document.addEventListener('visibilitychange', onFocusOrVisible)
+
       ctx.effect(() => () => {
-        window.clearInterval(timer)
         window.removeEventListener('focus', onFocusOrVisible)
         document.removeEventListener('visibilitychange', onFocusOrVisible)
       }, 'dsh-git-panel: status poll')
-      ctx.effect(() => installFileTreeDecorations(statusCache, (root) => { void statusCache.ensure(root) }), 'dsh-git-panel: file tree decorations')
+      ctx.effect(() => installFileTreeDecorations(statusCache, () => {}), 'dsh-git-panel: file tree decorations')
     } catch (error) {
       console.warn('dsh-git-panel: status polling setup failed', error)
     }
