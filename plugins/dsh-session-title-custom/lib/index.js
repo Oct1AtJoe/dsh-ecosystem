@@ -12,8 +12,16 @@ const NS = 'session-title'
  * Defaults are the single source of truth: the schema below restates them so a
  * missing settings service still runs the plugin on exactly these values.
  */
+const DEFAULT_MODEL_ITEM = Object.freeze({
+  id: '1',
+  provider: 'xiaomi',
+  model: 'mimo-v2.5',
+  reasoningEffort: 'off',
+})
+
 const DEFAULTS = Object.freeze({
   enabled: true,
+  models: [DEFAULT_MODEL_ITEM],
   provider: 'xiaomi',
   model: 'mimo-v2.5',
   /** '' = follow the model's own default effort; 'off' disables thinking. */
@@ -26,16 +34,51 @@ const DEFAULTS = Object.freeze({
 
 /** Settings schema served to the 会话标题 tab; ranges mirror its client-side validation. */
 function buildSchema() {
+  // 注意：本仓 schemastery 版本的裸 z.string() 即为可选（必填要 .required()），
+  // 且不存在 .optional() 方法——误用会让 settings.register 抛错，进而被下面的
+  // catch 吞掉导致 settingsScope 为 undefined，设置卡片整页空白（已踩坑）。
   return z.object({
     enabled: z.boolean().default(DEFAULTS.enabled),
-    provider: z.string().default(DEFAULTS.provider),
-    model: z.string().default(DEFAULTS.model),
-    reasoningEffort: z.string().default(DEFAULTS.reasoningEffort),
+    models: z.array(z.object({
+      id: z.string(),
+      provider: z.string(),
+      model: z.string(),
+      reasoningEffort: z.string().default('off'),
+    })).default([]),
+    provider: z.string(),
+    model: z.string(),
+    reasoningEffort: z.string(),
     maxTokens: z.number().min(16).max(8192).default(DEFAULTS.maxTokens),
     maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars),
     timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs),
     maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength),
   })
+}
+
+/** 归一化获取多模型托底链（优先读 models 数组，回退单个 provider/model） */
+export function resolveModelChain(config) {
+  if (Array.isArray(config.models) && config.models.length > 0) {
+    const valid = config.models
+      .filter(item => item && typeof item.provider === 'string' && typeof item.model === 'string' && item.provider && item.model)
+      .map(item => ({
+        provider: item.provider,
+        model: item.model,
+        reasoningEffort: typeof item.reasoningEffort === 'string' ? item.reasoningEffort : '',
+      }))
+    if (valid.length > 0) return valid
+  }
+  if (config.provider && config.model) {
+    return [{
+      provider: config.provider,
+      model: config.model,
+      reasoningEffort: typeof config.reasoningEffort === 'string' ? config.reasoningEffort : '',
+    }]
+  }
+  return [{
+    provider: DEFAULTS.provider,
+    model: DEFAULTS.model,
+    reasoningEffort: DEFAULTS.reasoningEffort,
+  }]
 }
 
 const TYPES = ['功能', '设计', '修复', '优化', '发布', '探索', '文档', '研究']
@@ -119,8 +162,10 @@ function apply(ctx) {
   if (settings !== undefined && typeof settings.register === 'function') {
     try {
       settingsScope = settings.register(NS, buildSchema(), { applies: 'live' })
-    } catch {
+    } catch (error) {
       // Duplicate registration or an incompatible composition: DEFAULTS still applied.
+      // 必须打日志：静默吞掉会让「设置卡片整页空白」这类故障无从定位（已踩坑）。
+      ctx.logger?.error?.('[dsh-session-title-custom] settings.register failed; settings card will stay blank:', error)
       settingsScope = undefined
     }
   }
@@ -151,14 +196,10 @@ function apply(ctx) {
       // ② 首条消息文本（截断长度可配）
       const msgText = first.text.slice(0, config.maxInputChars)
 
-      // ③ 模型路由：设置页配置的 provider / model
-      const route = { provider: config.provider, model: config.model }
+      // ③ 多模型优先级托底链
+      const chain = resolveModelChain(config)
 
-      // ④ 超时保护，并与调用方取消信号合并
-      const timeout = AbortSignal.timeout(config.timeoutMs)
-      const signal = incoming === undefined ? timeout : AbortSignal.any([incoming, timeout])
-
-      // ⑤ 调 LLM（Few-Shot 强约束，严禁答题/写代码）
+      // ④ 调 LLM（Few-Shot 强约束，严禁答题/写代码）
       const userPrompt = [
         '根据以下输入，提取对话类型和2-8字核心主题。',
         '只输出一行格式：类型|主题',
@@ -176,59 +217,82 @@ function apply(ctx) {
         '输出：',
       ].join('\n')
 
-      const assembler = new BlockAssembler()
-      for await (const chunk of ctx.llm.stream({
-        provider: route.provider,
-        model: route.model,
-        // 空串 = 跟随模型默认档位（不传该字段）
-        ...config.reasoningEffort === '' ? {} : { reasoningEffort: config.reasoningEffort },
-        system: SYSTEM_PROMPT,
-        messages: [createUserMessage({
-          content: [{ type: 'text', text: userPrompt }],
-          source: { kind: 'plugin', plugin: 'dsh-session-title-custom' },
-        })],
-        maxTokens: config.maxTokens,
-        purpose: 'session-title',
-        signal,
-      })) {
-        assembler.push(chunk)
+      let lastError = null
+      let successResult = null
+
+      for (let i = 0; i < chain.length; i++) {
+        const route = chain[i]
+        incoming?.throwIfAborted()
+        try {
+          const timeout = AbortSignal.timeout(config.timeoutMs)
+          const signal = incoming === undefined ? timeout : AbortSignal.any([incoming, timeout])
+
+          const assembler = new BlockAssembler()
+          for await (const chunk of ctx.llm.stream({
+            provider: route.provider,
+            model: route.model,
+            // 空串 = 跟随模型默认档位（不传该字段）
+            ...route.reasoningEffort === '' ? {} : { reasoningEffort: route.reasoningEffort },
+            system: SYSTEM_PROMPT,
+            messages: [createUserMessage({
+              content: [{ type: 'text', text: userPrompt }],
+              source: { kind: 'plugin', plugin: 'dsh-session-title-custom' },
+            })],
+            maxTokens: config.maxTokens,
+            purpose: 'session-title',
+            signal,
+          })) {
+            assembler.push(chunk)
+          }
+          incoming?.throwIfAborted()
+          if (assembler.finish.kind === 'error' || assembler.finish.kind === 'aborted') {
+            throw (assembler.finish.failure instanceof Error
+              ? assembler.finish.failure
+              : new Error(assembler.finish.failure?.message ?? 'stream failure'))
+          }
+
+          // 提取 LLM 输出并解析
+          const raw = assembler.blocks()
+            .filter(b => b.type === 'text')
+            .map(b => b.text).join(' ')
+            .trim()
+          if (!raw) throw new Error('empty output from model')
+
+          let type, topic
+          try {
+            const parsed = parseLlmOutput(raw)
+            type = parsed.type
+            topic = parsed.topic
+          } catch (err) {
+            ctx.logger?.warn?.('[dsh-session-title-custom] parse failed for raw output:', raw, err)
+            type = '探索'
+            topic = raw.replace(/^[“"'`]+|[”"'`。.！!]+$/g, '').slice(0, 10).trim() || msgText.slice(0, 8)
+          }
+
+          // 组装最终标题：全角统一 MMDD｜类型｜主题
+          const finalTitle = `${mmdd}｜${type}｜${topic}`
+
+          // 安全清洗与截断（长度可配）
+          const title = normalizeSessionTitle(finalTitle, config.maxTitleLength)
+          if (title.length === 0) throw new Error('dsh-session-title-custom: empty after normalize')
+
+          successResult = {
+            title,
+            messageSeqs: [first.seq],
+            model: route,
+          }
+          break // 某级成功即退出托底链
+        } catch (err) {
+          lastError = err
+          ctx.logger?.warn?.(`[dsh-session-title-custom] model ${route.provider}/${route.model} failed, fallback to next:`, err?.message ?? err)
+        }
       }
-      incoming?.throwIfAborted()
-      if (assembler.finish.kind === 'error' || assembler.finish.kind === 'aborted') {
-        throw (assembler.finish.failure instanceof Error
-          ? assembler.finish.failure
-          : new Error(assembler.finish.failure?.message ?? 'stream failure'))
+
+      if (!successResult) {
+        throw (lastError ?? new Error('all fallback models failed'))
       }
 
-      // ⑥ 提取 LLM 输出并解析
-      const raw = assembler.blocks()
-        .filter(b => b.type === 'text')
-        .map(b => b.text).join(' ')
-        .trim()
-
-      let type, topic
-      try {
-        const parsed = parseLlmOutput(raw)
-        type = parsed.type
-        topic = parsed.topic
-      } catch (err) {
-        ctx.logger?.warn?.('[dsh-session-title-custom] parse failed for raw output:', raw, err)
-        type = '探索'
-        topic = raw.replace(/^[“"'`]+|[”"'`。.！!]+$/g, '').slice(0, 10).trim() || msgText.slice(0, 8)
-      }
-
-      // ⑦ 组装最终标题：全角统一 MMDD｜类型｜主题
-      const finalTitle = `${mmdd}｜${type}｜${topic}`
-
-      // 安全清洗与截断（长度可配）
-      const title = normalizeSessionTitle(finalTitle, config.maxTitleLength)
-      if (title.length === 0) throw new Error('dsh-session-title-custom: empty after normalize')
-
-      return {
-        title,
-        messageSeqs: [first.seq],
-        model: route,
-      }
+      return successResult
     },
   })
 }

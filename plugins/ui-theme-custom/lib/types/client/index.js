@@ -2176,6 +2176,7 @@ export function apply(ctx) {
         coldSeat = { stack, element, root };
     }
     let lastHeroState = false;
+    let heroPollTimer = null;
     function syncHeroAttrs() {
         if (typeof document === 'undefined')
             return;
@@ -2189,8 +2190,18 @@ export function apply(ctx) {
         }
         if (hero !== lastHeroState) {
             lastHeroState = hero;
-            if (hero)
+            if (hero) {
                 bookPick = Math.random();
+                if (currentHomeLayout === 'studio') {
+                    homeUsage.load(true);
+                    homeUsage.loadList();
+                    if (heroPollTimer)
+                        clearTimeout(heroPollTimer);
+                    heroPollTimer = setTimeout(() => {
+                        homeUsage.load(true);
+                    }, 1500);
+                }
+            }
             homeUsage.notify();
         }
         syncColdSeat();
@@ -2453,6 +2464,8 @@ export function apply(ctx) {
         return () => {
             observer.disconnect();
             clearInterval(interval);
+            if (heroPollTimer)
+                clearTimeout(heroPollTimer);
             unmountColdSeat();
             homeUsage.stop();
             document.body.removeAttribute('data-dsh-home-layout');

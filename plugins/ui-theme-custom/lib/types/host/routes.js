@@ -1,6 +1,6 @@
 import { createUsage } from "./usage.js";
 const USAGE_PATH = '/ui-theme-custom/usage';
-const USAGE_TTL_MS = 5 * 60 * 1000;
+const USAGE_TTL_MS = 3 * 1000;
 function refusalOf(ctx, req) {
     const connection = ctx.get('connection');
     if (typeof connection?.requestRejection === 'function') {

@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { createUsage } from './usage.ts'
 
 const USAGE_PATH = '/ui-theme-custom/usage'
-const USAGE_TTL_MS = 5 * 60 * 1000
+const USAGE_TTL_MS = 3 * 1000
 
 function refusalOf(ctx: any, req: any): number | undefined {
   const connection = ctx.get('connection')

@@ -887,6 +887,64 @@ var TIMEOUT_MS = 6e4;
 var DEFAULT_PROVIDER = "deepseek-official";
 var DEFAULT_MODEL = "deepseek-flash";
 var DEFAULT_REASONING_EFFORT = "off";
+function resolveCommitModelChain(ctx) {
+  const candidates = [];
+  try {
+    const settings = ctx.get("settings");
+    const titleCfg = settings?.get?.("session-title");
+    if (titleCfg && titleCfg.enabled !== false) {
+      if (Array.isArray(titleCfg.models) && titleCfg.models.length > 0) {
+        for (const m of titleCfg.models) {
+          if (typeof m.provider === "string" && m.provider && typeof m.model === "string" && m.model) {
+            candidates.push({
+              provider: m.provider,
+              model: m.model,
+              reasoningEffort: typeof m.reasoningEffort === "string" && m.reasoningEffort !== "" ? m.reasoningEffort : void 0
+            });
+          }
+        }
+      }
+      if (candidates.length === 0 && typeof titleCfg.provider === "string" && titleCfg.provider && typeof titleCfg.model === "string" && titleCfg.model) {
+        candidates.push({
+          provider: titleCfg.provider,
+          model: titleCfg.model,
+          reasoningEffort: typeof titleCfg.reasoningEffort === "string" && titleCfg.reasoningEffort !== "" ? titleCfg.reasoningEffort : void 0
+        });
+      }
+    }
+    if (candidates.length === 0) {
+      const cfg = settings?.get?.("git-panel");
+      if (cfg && typeof cfg.provider === "string" && cfg.provider && typeof cfg.model === "string" && cfg.model) {
+        candidates.push({
+          provider: cfg.provider,
+          model: cfg.model,
+          reasoningEffort: typeof cfg.reasoningEffort === "string" && cfg.reasoningEffort !== "" ? cfg.reasoningEffort : void 0
+        });
+      }
+    }
+  } catch {
+  }
+  if (candidates.length === 0) {
+    candidates.push({
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      reasoningEffort: DEFAULT_REASONING_EFFORT
+    });
+  }
+  try {
+    const selection = ctx.get("agentDefaultModel")?.currentSelection?.();
+    if (typeof selection?.provider === "string" && typeof selection?.model === "string" && selection.provider && selection.model) {
+      if (!candidates.some((c) => c.provider === selection.provider && c.model === selection.model)) {
+        candidates.push({
+          provider: selection.provider,
+          model: selection.model
+        });
+      }
+    }
+  } catch {
+  }
+  return candidates;
+}
 var SYSTEM = [
   "You write one git commit message for a staged change set.",
   "Match the repository: use the same language, the same prefix convention (e.g. feat/fix/docs/refactor) and the same tone as the recent commit subjects you are given.",
@@ -906,25 +964,8 @@ async function generateCommitMessage(ctx, service, root) {
   if (llm === void 0 || typeof llm.stream !== "function") {
     return { ok: false, error: { code: "no-model", message: "LLM service is unavailable" } };
   }
-  let provider = DEFAULT_PROVIDER;
-  let model = DEFAULT_MODEL;
-  let reasoningEffort = DEFAULT_REASONING_EFFORT;
-  try {
-    const settings = ctx.get("settings");
-    const cfg = settings?.get?.("git-panel");
-    if (cfg !== void 0) {
-      if (typeof cfg.provider === "string") provider = cfg.provider;
-      if (typeof cfg.model === "string") model = cfg.model;
-      if (typeof cfg.reasoningEffort === "string") reasoningEffort = cfg.reasoningEffort;
-    }
-  } catch {
-  }
-  if (provider === "" || model === "") {
-    const selection = ctx.get("agentDefaultModel")?.currentSelection?.();
-    if (typeof selection?.provider === "string") provider = selection.provider;
-    if (typeof selection?.model === "string") model = selection.model;
-  }
-  if (provider === "" || model === "") {
+  const chain = resolveCommitModelChain(ctx);
+  if (chain.length === 0) {
     return { ok: false, error: { code: "no-model", message: "no model selection" } };
   }
   const staged = await service.stagedContext(root);
@@ -941,45 +982,50 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
     "Staged changes (git diff --cached):",
     diff
   ].join("\n");
-  let text = "";
-  let failure = null;
-  try {
-    const stream = llm.stream({
-      provider,
-      model,
-      ...reasoningEffort !== void 0 ? { reasoningEffort } : {},
-      system: SYSTEM,
-      messages: [{
-        id: "dsh-git-panel-commit-message",
-        role: "user",
-        content: [{ type: "text", text: input }],
-        source: { kind: "user" }
-      }],
-      temperature: 0.2,
-      signal: AbortSignal.timeout(TIMEOUT_MS)
-    });
-    for await (const chunk of stream) {
-      const part = chunk;
-      if (part.type === "text-delta" && typeof part.text === "string") {
-        text += part.text;
-        continue;
+  let lastFailure = null;
+  for (let i = 0; i < chain.length; i++) {
+    const candidate = chain[i];
+    let text = "";
+    let failure = null;
+    try {
+      const stream = llm.stream({
+        provider: candidate.provider,
+        model: candidate.model,
+        ...candidate.reasoningEffort !== void 0 ? { reasoningEffort: candidate.reasoningEffort } : {},
+        system: SYSTEM,
+        messages: [{
+          id: "dsh-git-panel-commit-message",
+          role: "user",
+          content: [{ type: "text", text: input }],
+          source: { kind: "user" }
+        }],
+        temperature: 0.2,
+        signal: AbortSignal.timeout(TIMEOUT_MS)
+      });
+      for await (const chunk of stream) {
+        const part = chunk;
+        if (part.type === "text-delta" && typeof part.text === "string") {
+          text += part.text;
+          continue;
+        }
+        if (part.type === "finish" && part.reason?.kind !== void 0 && part.reason.kind !== "stop") {
+          failure = typeof part.reason.failure?.message === "string" ? part.reason.failure.message : String(part.reason.kind);
+        }
       }
-      if (part.type === "finish" && part.reason?.kind !== void 0 && part.reason.kind !== "stop") {
-        failure = typeof part.reason.failure?.message === "string" ? part.reason.failure.message : String(part.reason.kind);
-      }
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
     }
-  } catch (error) {
-    return {
-      ok: false,
-      error: { code: "generate-failed", message: error instanceof Error ? error.message : String(error) }
-    };
+    if (failure !== null) {
+      lastFailure = failure;
+      continue;
+    }
+    const message = cleanMessage(text);
+    if (message !== "") {
+      return { ok: true, message };
+    }
+    lastFailure = "the model returned an empty message";
   }
-  if (failure !== null) return { ok: false, error: { code: "generate-failed", message: failure } };
-  const message = cleanMessage(text);
-  if (message === "") {
-    return { ok: false, error: { code: "generate-failed", message: "the model returned an empty message" } };
-  }
-  return { ok: true, message };
+  return { ok: false, error: { code: "generate-failed", message: lastFailure ?? "all fallback models failed" } };
 }
 
 // src/host/routes.ts

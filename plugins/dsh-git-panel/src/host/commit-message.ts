@@ -38,6 +38,85 @@ interface ModelSelectionLike {
   reasoningEffort?: unknown
 }
 
+interface CandidateModel {
+  provider: string
+  model: string
+  reasoningEffort?: string
+}
+
+/** 解析按优先级排序的多模型托底链（优先读 session-title 设置中的 models 列表） */
+function resolveCommitModelChain(ctx: Context): CandidateModel[] {
+  const candidates: CandidateModel[] = []
+
+  try {
+    const settings = ctx.get('settings') as { get?: (ns: string) => unknown } | undefined
+    const titleCfg = settings?.get?.('session-title') as {
+      enabled?: boolean
+      models?: Array<{ provider?: string; model?: string; reasoningEffort?: string }>
+      provider?: string
+      model?: string
+      reasoningEffort?: string
+    } | undefined
+
+    if (titleCfg && titleCfg.enabled !== false) {
+      if (Array.isArray(titleCfg.models) && titleCfg.models.length > 0) {
+        for (const m of titleCfg.models) {
+          if (typeof m.provider === 'string' && m.provider && typeof m.model === 'string' && m.model) {
+            candidates.push({
+              provider: m.provider,
+              model: m.model,
+              reasoningEffort: typeof m.reasoningEffort === 'string' && m.reasoningEffort !== '' ? m.reasoningEffort : undefined,
+            })
+          }
+        }
+      }
+      if (candidates.length === 0 && typeof titleCfg.provider === 'string' && titleCfg.provider && typeof titleCfg.model === 'string' && titleCfg.model) {
+        candidates.push({
+          provider: titleCfg.provider,
+          model: titleCfg.model,
+          reasoningEffort: typeof titleCfg.reasoningEffort === 'string' && titleCfg.reasoningEffort !== '' ? titleCfg.reasoningEffort : undefined,
+        })
+      }
+    }
+
+    // 尝试读取 git-panel 独立配置
+    if (candidates.length === 0) {
+      const cfg = settings?.get?.('git-panel') as ModelSelectionLike | undefined
+      if (cfg && typeof cfg.provider === 'string' && cfg.provider && typeof cfg.model === 'string' && cfg.model) {
+        candidates.push({
+          provider: cfg.provider,
+          model: cfg.model,
+          reasoningEffort: typeof cfg.reasoningEffort === 'string' && cfg.reasoningEffort !== '' ? cfg.reasoningEffort : undefined,
+        })
+      }
+    }
+  } catch {}
+
+  // 兜底内置默认模型
+  if (candidates.length === 0) {
+    candidates.push({
+      provider: DEFAULT_PROVIDER,
+      model: DEFAULT_MODEL,
+      reasoningEffort: DEFAULT_REASONING_EFFORT,
+    })
+  }
+
+  // 追加全局默认模型作为最终备选（防单一供应商欠费宕机）
+  try {
+    const selection = ctx.get('agentDefaultModel')?.currentSelection?.() as ModelSelectionLike | undefined
+    if (typeof selection?.provider === 'string' && typeof selection?.model === 'string' && selection.provider && selection.model) {
+      if (!candidates.some(c => c.provider === selection.provider && c.model === selection.model)) {
+        candidates.push({
+          provider: selection.provider,
+          model: selection.model,
+        })
+      }
+    }
+  } catch {}
+
+  return candidates
+}
+
 /** 生成结果。 */
 export type GenerateCommitMessageResult =
   | { ok: true; message: string }
@@ -61,7 +140,7 @@ function cleanMessage(raw: string): string {
 }
 
 /**
- * 依据暂存区变更生成一条提交信息。
+ * 依据暂存区变更生成一条提交信息（支持多模型优先级托底）。
  * @param ctx - 宿主上下文，用于按需获取 `llm` 与配置。
  * @param service - git 服务，提供暂存区 diff 与最近提交主题。
  * @param root - 目标工作区路径（由服务层做工作区门禁）。
@@ -77,29 +156,8 @@ export async function generateCommitMessage(
     return { ok: false, error: { code: 'no-model', message: 'LLM service is unavailable' } }
   }
 
-  // 优先读取 settings 的 git-panel 节；未指定时默认使用 deepseek 官方 + deepseek-flash + 关闭思考；若显式留空则报 no-model
-  let provider = DEFAULT_PROVIDER
-  let model = DEFAULT_MODEL
-  let reasoningEffort: string | undefined = DEFAULT_REASONING_EFFORT
-
-  try {
-    const settings = ctx.get('settings') as { get?: (ns: string) => unknown } | undefined
-    const cfg = settings?.get?.('git-panel') as ModelSelectionLike | undefined
-    if (cfg !== undefined) {
-      if (typeof cfg.provider === 'string') provider = cfg.provider
-      if (typeof cfg.model === 'string') model = cfg.model
-      if (typeof cfg.reasoningEffort === 'string') reasoningEffort = cfg.reasoningEffort
-    }
-  } catch {}
-
-  // 允许回退检查 agentDefaultModel（如测试环境或未配置 provider）
-  if (provider === '' || model === '') {
-    const selection = ctx.get('agentDefaultModel')?.currentSelection?.() as ModelSelectionLike | undefined
-    if (typeof selection?.provider === 'string') provider = selection.provider
-    if (typeof selection?.model === 'string') model = selection.model
-  }
-
-  if (provider === '' || model === '') {
+  const chain = resolveCommitModelChain(ctx)
+  if (chain.length === 0) {
     return { ok: false, error: { code: 'no-model', message: 'no model selection' } }
   }
 
@@ -122,51 +180,60 @@ export async function generateCommitMessage(
     diff,
   ].join('\n')
 
-  let text = ''
-  let failure: string | null = null
-  try {
-    const stream = llm.stream({
-      provider,
-      model,
-      ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
-      system: SYSTEM,
-      messages: [{
-        id: 'dsh-git-panel-commit-message',
-        role: 'user',
-        content: [{ type: 'text', text: input }],
-        source: { kind: 'user' },
-      }],
-      temperature: 0.2,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    for await (const chunk of stream) {
-      const part = chunk as {
-        type?: unknown
-        text?: unknown
-        reason?: { kind?: unknown; failure?: { message?: unknown } }
-      }
-      if (part.type === 'text-delta' && typeof part.text === 'string') {
-        text += part.text
-        continue
-      }
-      // 适配器把失败规范化为终止 finish 分片；非 stop 即视为生成失败。
-      if (part.type === 'finish' && part.reason?.kind !== undefined && part.reason.kind !== 'stop') {
-        failure = typeof part.reason.failure?.message === 'string'
-          ? part.reason.failure.message
-          : String(part.reason.kind)
-      }
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      error: { code: 'generate-failed', message: error instanceof Error ? error.message : String(error) },
-    }
-  }
-  if (failure !== null) return { ok: false, error: { code: 'generate-failed', message: failure } }
+  let lastFailure: string | null = null
 
-  const message = cleanMessage(text)
-  if (message === '') {
-    return { ok: false, error: { code: 'generate-failed', message: 'the model returned an empty message' } }
+  // 依次遍历多模型优先级托底链
+  for (let i = 0; i < chain.length; i++) {
+    const candidate = chain[i]!
+    let text = ''
+    let failure: string | null = null
+
+    try {
+      const stream = llm.stream({
+        provider: candidate.provider,
+        model: candidate.model,
+        ...(candidate.reasoningEffort !== undefined ? { reasoningEffort: candidate.reasoningEffort } : {}),
+        system: SYSTEM,
+        messages: [{
+          id: 'dsh-git-panel-commit-message',
+          role: 'user',
+          content: [{ type: 'text', text: input }],
+          source: { kind: 'user' },
+        }],
+        temperature: 0.2,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
+      for await (const chunk of stream) {
+        const part = chunk as {
+          type?: unknown
+          text?: unknown
+          reason?: { kind?: unknown; failure?: { message?: unknown } }
+        }
+        if (part.type === 'text-delta' && typeof part.text === 'string') {
+          text += part.text
+          continue
+        }
+        if (part.type === 'finish' && part.reason?.kind !== undefined && part.reason.kind !== 'stop') {
+          failure = typeof part.reason.failure?.message === 'string'
+            ? part.reason.failure.message
+            : String(part.reason.kind)
+        }
+      }
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error)
+    }
+
+    if (failure !== null) {
+      lastFailure = failure
+      continue
+    }
+
+    const message = cleanMessage(text)
+    if (message !== '') {
+      return { ok: true, message }
+    }
+    lastFailure = 'the model returned an empty message'
   }
-  return { ok: true, message }
+
+  return { ok: false, error: { code: 'generate-failed', message: lastFailure ?? 'all fallback models failed' } }
 }

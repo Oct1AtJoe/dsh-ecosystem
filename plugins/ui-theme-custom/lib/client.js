@@ -5546,6 +5546,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				};
 			}
 			let lastHeroState = false;
+			let heroPollTimer = null;
 			function syncHeroAttrs() {
 				if (typeof document === "undefined") return;
 				const hero = isHeroPhase();
@@ -5553,7 +5554,17 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				else document.body.removeAttribute("data-dsh-home-hero");
 				if (hero !== lastHeroState) {
 					lastHeroState = hero;
-					if (hero) bookPick = Math.random();
+					if (hero) {
+						bookPick = Math.random();
+						if (currentHomeLayout === "studio") {
+							homeUsage.load(true);
+							homeUsage.loadList();
+							if (heroPollTimer) clearTimeout(heroPollTimer);
+							heroPollTimer = setTimeout(() => {
+								homeUsage.load(true);
+							}, 1500);
+						}
+					}
 					homeUsage.notify();
 				}
 				syncColdSeat();
@@ -5783,6 +5794,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				return () => {
 					observer.disconnect();
 					clearInterval(interval);
+					if (heroPollTimer) clearTimeout(heroPollTimer);
 					unmountColdSeat();
 					homeUsage.stop();
 					document.body.removeAttribute("data-dsh-home-layout");

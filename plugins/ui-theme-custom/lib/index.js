@@ -552,7 +552,7 @@ function createUsage(ctx) {
 //#endregion
 //#region lib/types/host/routes.js
 const USAGE_PATH = "/ui-theme-custom/usage";
-const USAGE_TTL_MS = 300 * 1e3;
+const USAGE_TTL_MS = 3 * 1e3;
 function refusalOf(ctx, req) {
 	const connection = ctx.get("connection");
 	if (typeof connection?.requestRejection === "function") return connection.requestRejection(req);

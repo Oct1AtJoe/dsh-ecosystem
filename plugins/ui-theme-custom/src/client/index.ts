@@ -2242,6 +2242,7 @@ export function apply(ctx: Context): void {
   }
 
   let lastHeroState = false
+  let heroPollTimer: any = null
   function syncHeroAttrs() {
     if (typeof document === 'undefined') return
     const hero = isHeroPhase()
@@ -2253,7 +2254,17 @@ export function apply(ctx: Context): void {
     }
     if (hero !== lastHeroState) {
       lastHeroState = hero
-      if (hero) bookPick = Math.random()
+      if (hero) {
+        bookPick = Math.random()
+        if (currentHomeLayout === 'studio') {
+          homeUsage.load(true)
+          homeUsage.loadList()
+          if (heroPollTimer) clearTimeout(heroPollTimer)
+          heroPollTimer = setTimeout(() => {
+            homeUsage.load(true)
+          }, 1500)
+        }
+      }
       homeUsage.notify()
     }
     syncColdSeat()
@@ -2522,6 +2533,7 @@ export function apply(ctx: Context): void {
     return () => {
       observer.disconnect()
       clearInterval(interval)
+      if (heroPollTimer) clearTimeout(heroPollTimer)
       unmountColdSeat()
       homeUsage.stop()
       document.body.removeAttribute('data-dsh-home-layout')
