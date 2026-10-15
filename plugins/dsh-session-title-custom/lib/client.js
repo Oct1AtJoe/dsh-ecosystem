@@ -47,7 +47,7 @@ window.__ModuleLoader__.load({
 
     /** zh is the key-set source of truth for the dictionaries. */
     const zh = {
-      tab: '会话标题',
+      tab: '会话标题与git提交',
       cardTitle: '会话标题与 Git 提交信息',
       cardDescription: '用于会话自动命名及 Git 提交信息生成的共享模型优先级列表与参数。',
       enabled: '启用自定义命名',
@@ -81,7 +81,7 @@ window.__ModuleLoader__.load({
     };
 
     const en = {
-      tab: 'Session title',
+      tab: 'Session title & git commit',
       cardTitle: 'Session title & Git commit',
       cardDescription: 'Shared model priority list and limits for session naming and git commit message generation.',
       enabled: 'Custom naming',
