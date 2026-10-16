@@ -565,13 +565,167 @@ fn quarantine_session_projcache(home: &std::path::Path) -> Option<PathBuf> {
     quarantine_session_projcache_with_threshold(home, DEFAULT_PROJCACHE_MAX_BYTES)
 }
 
+/// 从 Windows 注册表指定项枚举所有字符串类型（REG_SZ / REG_EXPAND_SZ）的环境变量。
+fn read_env_from_key(
+    hroot: windows::Win32::System::Registry::HKEY,
+    subkey: windows::core::PCWSTR,
+) -> std::collections::HashMap<String, String> {
+    use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY, KEY_READ, REG_EXPAND_SZ, REG_SZ,
+    };
+
+    let mut map = std::collections::HashMap::new();
+    unsafe {
+        let mut hkey = HKEY::default();
+        if RegOpenKeyExW(hroot, subkey, 0, KEY_READ, &mut hkey).is_err() {
+            return map;
+        }
+
+        let mut index = 0u32;
+        loop {
+            let mut name_buf = [0u16; 1024];
+            let mut name_len = name_buf.len() as u32;
+            let mut value_type = 0u32;
+            let mut data_buf = [0u8; 32768];
+            let mut data_len = data_buf.len() as u32;
+
+            let res = RegEnumValueW(
+                hkey,
+                index,
+                windows::core::PWSTR(name_buf.as_mut_ptr()),
+                &mut name_len,
+                None,
+                Some(&mut value_type),
+                Some(data_buf.as_mut_ptr()),
+                Some(&mut data_len),
+            );
+
+            if res.is_err() {
+                break;
+            }
+
+            let name = String::from_utf16_lossy(&name_buf[..name_len as usize]);
+
+            if value_type == REG_SZ.0 || value_type == REG_EXPAND_SZ.0 {
+                let u16_slice = std::slice::from_raw_parts(
+                    data_buf.as_ptr() as *const u16,
+                    (data_len as usize) / 2,
+                );
+                let clean_u16 = match u16_slice.iter().position(|&c| c == 0) {
+                    Some(pos) => &u16_slice[..pos],
+                    None => u16_slice,
+                };
+
+                let val_str = if value_type == REG_EXPAND_SZ.0 {
+                    let mut expanded = [0u16; 32768];
+                    let mut src_with_zero: Vec<u16> = clean_u16.to_vec();
+                    src_with_zero.push(0);
+                    let len = ExpandEnvironmentStringsW(
+                        windows::core::PCWSTR(src_with_zero.as_ptr()),
+                        Some(&mut expanded),
+                    );
+                    if len > 0 && (len as usize) <= expanded.len() {
+                        let exp_len = if expanded[(len - 1) as usize] == 0 {
+                            (len - 1) as usize
+                        } else {
+                            len as usize
+                        };
+                        String::from_utf16_lossy(&expanded[..exp_len])
+                    } else {
+                        String::from_utf16_lossy(clean_u16)
+                    }
+                } else {
+                    String::from_utf16_lossy(clean_u16)
+                };
+
+                if !name.is_empty() {
+                    map.insert(name, val_str);
+                }
+            }
+
+            index += 1;
+        }
+
+        let _ = RegCloseKey(hkey);
+    }
+    map
+}
+
+/// 读取并合并 Windows 注册表中的系统环境变量与用户环境变量。
+///
+/// 遵循 Windows 环境变量合并标准：
+/// 1. 用户变量覆盖系统同名变量；
+/// 2. 对于 PATH / Path：系统 PATH 与用户 PATH 进行有序拼接（系统 PATH 在前，用户 PATH 在后）。
+fn load_registry_environment() -> std::collections::HashMap<String, String> {
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+
+    let mut system_env = read_env_from_key(
+        HKEY_LOCAL_MACHINE,
+        windows::core::w!("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"),
+    );
+    let user_env = read_env_from_key(HKEY_CURRENT_USER, windows::core::w!("Environment"));
+
+    let sys_path_key = system_env
+        .keys()
+        .find(|k| k.eq_ignore_ascii_case("PATH"))
+        .cloned();
+    let user_path_key = user_env
+        .keys()
+        .find(|k| k.eq_ignore_ascii_case("PATH"))
+        .cloned();
+
+    let combined_path = match (sys_path_key.as_ref(), user_path_key.as_ref()) {
+        (Some(sk), Some(uk)) => {
+            let sp = system_env.remove(sk).unwrap_or_default();
+            let up = user_env.get(uk).cloned().unwrap_or_default();
+            if sp.is_empty() {
+                Some(up)
+            } else if up.is_empty() {
+                Some(sp)
+            } else {
+                Some(format!("{sp};{up}"))
+            }
+        }
+        (Some(sk), None) => system_env.remove(sk),
+        (None, Some(uk)) => user_env.get(uk).cloned(),
+        (None, None) => None,
+    };
+
+    for (k, v) in user_env {
+        if !k.eq_ignore_ascii_case("PATH") {
+            let existing_key = system_env
+                .keys()
+                .find(|ek| ek.eq_ignore_ascii_case(&k))
+                .cloned();
+            if let Some(ek) = existing_key {
+                system_env.remove(&ek);
+            }
+            system_env.insert(k, v);
+        }
+    }
+
+    if let Some(path_val) = combined_path {
+        system_env.insert("PATH".to_string(), path_val);
+    }
+
+    system_env
+}
+
 /// spawn 后端进程，stdout/stderr 逐行转发日志，并从 stdout 捕获本次启动的 launch token。
 /// CREATE_NO_WINDOW 防闪黑窗。
 fn spawn_child(command: &str, args: &[String], port: u16, extra_envs: &[(&str, &str)]) -> Result<Child, SpawnError> {
     use std::os::windows::process::CommandExt;
     let mut cmd = Command::new(command);
-    cmd.args(args)
-        .env("BROWSER", "none");
+    cmd.args(args);
+
+    // 注入 Windows 注册表最新系统与用户环境变量（解决 Windows 继承陷阱，使外部更新的环境变量无需重启桌面壳即刻对 Node 生效）
+    let reg_envs = load_registry_environment();
+    for (k, v) in reg_envs {
+        cmd.env(k, v);
+    }
+
+    cmd.env("BROWSER", "none");
     for (k, v) in extra_envs {
         cmd.env(k, v);
     }
@@ -792,7 +946,41 @@ fn restart_app(app: &AppHandle) {
         }
     }
     tauri_plugin_single_instance::destroy(app);
-    app.restart();
+
+    // 采用 ShellExecuteW 外部独立拉起新实例，使新进程从 Windows 外壳全新构造环境块（读取注册表），
+    // 达到与用户在桌面手动彻底退出重新打开完全一致的效果。
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    if let Ok(current_exe) = std::env::current_exe() {
+        let exe_wide: Vec<u16> = current_exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let args_str = args.join(" ");
+        let args_wide: Vec<u16> = args_str.encode_utf16().chain(std::iter::once(0)).collect();
+
+        unsafe {
+            let res = ShellExecuteW(
+                None,
+                windows::core::w!("open"),
+                PCWSTR(exe_wide.as_ptr()),
+                if args.is_empty() {
+                    PCWSTR::null()
+                } else {
+                    PCWSTR(args_wide.as_ptr())
+                },
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            );
+            log::info!("已通过 ShellExecuteW 请求外壳拉起新实例，返回值：{:?}", res.0);
+        }
+    } else {
+        log::warn!("未能解析 current_exe，回退调用 app.restart()");
+        app.restart();
+    }
+
+    app.exit(0);
 }
 
 /// 重启后端服务进程（支持安全模式与正常模式切换）。
