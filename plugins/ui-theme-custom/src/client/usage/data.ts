@@ -299,12 +299,14 @@ export function homePanelData(
   } else if (listed !== null) {
     sessions = 0
     activeDays = 0
+    calls = 0
     for (let e = 0; e < listed.entries.length; e++) {
       const item = listed.entries[e]
       if (!item) continue
       if (startMs !== null && item.at < startMs) continue
       tokens += item.tokens
       sessions += 1
+      calls += item.calls || 1
     }
     for (let ld = 0; ld < listed.days.length; ld++) {
       const item = listed.days[ld]
@@ -313,14 +315,29 @@ export function homePanelData(
   }
 
   let hourCounts: number[] | null = null
-  if (ready && start === null && Array.isArray(value.hours)) hourCounts = value.hours
-  else if (ready && start !== null && Array.isArray(value.days)) {
+  if (ready && start === null && Array.isArray(value.hours)) {
+    hourCounts = value.hours
+  } else if (ready && start !== null && Array.isArray(value.days)) {
     for (let hd = 0; hd < value.days.length; hd++) {
       const hourDay = value.days[hd]
       if (!hourDay || !inRange(hourDay.date) || !Array.isArray(hourDay.hours)) continue
       if (hourCounts === null) hourCounts = new Array(24).fill(0)
       for (let dh = 0; dh < 24; dh++) {
         hourCounts[dh] = (hourCounts[dh] ?? 0) + (Number(hourDay.hours[dh]) || 0)
+      }
+    }
+  } else if (listed !== null) {
+    if (start === null && Array.isArray(listed.hours)) {
+      hourCounts = listed.hours
+    } else {
+      for (let e = 0; e < listed.entries.length; e++) {
+        const item = listed.entries[e]
+        if (!item || (startMs !== null && item.at < startMs)) continue
+        if (hourCounts === null) hourCounts = new Array(24).fill(0)
+        const hour = new Date(item.at).getHours()
+        if (hour >= 0 && hour < 24) {
+          hourCounts[hour] = (hourCounts[hour] ?? 0) + (item.calls || 1)
+        }
       }
     }
   }
@@ -437,7 +454,9 @@ export function createHomeUsage(ctx: any) {
           emit()
           return
         }
-        usage.value = body.value ?? null
+        if (body.value !== undefined && body.value !== null) {
+          usage.value = body.value
+        }
         usage.computing = body.computing === true
         usage.error = body.error ?? null
         emit()
@@ -461,6 +480,8 @@ export function createHomeUsage(ctx: any) {
 
   function summarizeSessionList(rows: any[]): ListSummary {
     let tokens = 0
+    let calls = 0
+    const hours = new Array(24).fill(0)
     const dayCount: Record<string, boolean> = {}
     const byDay: Record<string, number> = {}
     const byModel: Record<string, { tokens: number; sessions: number; lastAt: number }> = {}
@@ -481,11 +502,21 @@ export function createHomeUsage(ctx: any) {
       const selection = values.modelSelection
       const picked = selection ? (selection.next || selection.lastUsed) : null
       const id = typeof picked?.model === 'string' ? picked.model : null
-      entries.push({ at: typeof at === 'number' ? at : 0, tokens: total, model: id })
+      const stepCount = Number(values.sessionStats?.steps)
+        || (Array.isArray(values.turnOutline?.turns) ? values.turnOutline.turns.length : 0)
+        || 1
+      calls += stepCount
+
+      entries.push({ at: typeof at === 'number' ? at : 0, tokens: total, model: id, calls: stepCount })
       if (typeof at === 'number') {
-        const day = homeDayKey(new Date(at))
+        const d = new Date(at)
+        const day = homeDayKey(d)
         dayCount[day] = true
         byDay[day] = (byDay[day] || 0) + total
+        const hour = d.getHours()
+        if (hour >= 0 && hour < 24) {
+          hours[hour] = (hours[hour] ?? 0) + stepCount
+        }
       }
       if (id !== null) {
         let cell = byModel[id]
@@ -516,7 +547,7 @@ export function createHomeUsage(ctx: any) {
       const total = byDay[date]
       if (typeof total === 'number') days.push({ date, total })
     }
-    return { tokens, sessions: entries.length, activeDays: Object.keys(dayCount).length, model: favorite, models, days, entries }
+    return { tokens, sessions: entries.length, activeDays: Object.keys(dayCount).length, calls, hours, model: favorite, models, days, entries }
   }
 
   function loadSessionSummary() {

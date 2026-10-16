@@ -1620,7 +1620,7 @@ var STYLE = `
    \u300C\u672A\u6682\u5B58\u300D\u7D27\u8DDF\u5176\u540E\u6E05\u6670\u53EF\u89C1\uFF0C\u7EDD\u4E0D\u53EF\u80FD\u88AB\u6324\u538B\u51FA\u5C4F\u5E55\uFF0C\u4E5F\u7EDD\u4E0D\u4F1A\u584C\u9677\u5168\u7A7A\u3002 */
 .dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:130px; overflow-y:auto; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
-  font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
+  font-size:11px; line-height:1.4; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
 .dsh-gp-changes-item.active { background:var(--hover); font-weight:600; }
 .dsh-gp-changes-groups { display:flex; flex-direction:column; gap:4px; }
@@ -1630,21 +1630,24 @@ var STYLE = `
    \u8BCD\u6C47\u4E0E\u6587\u4EF6\u6811\u88C5\u9970\u4E00\u81F4\uFF08\u540C\u4E00\u4E2A\u6587\u4EF6\u4E24\u5904\u540C\u5B57\u6BCD\uFF09\uFF0C\u914D\u8272\u8D70\u4E3B\u9898\u4EE4\u724C\u4FDD\u8BC1\u6DF1\u6D45\u8272\u53EF\u8BFB\u3002
    \u6CE8\uFF1A\u672C\u6BB5\u5728\u6A21\u677F\u5B57\u7B26\u4E32\u5185\uFF0C\u6CE8\u91CA\u91CC\u7981\u6B62\u4F7F\u7528\u53CD\u5F15\u53F7\u3002 */
 .dsh-gp-changes-code { flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  width:20px; font-weight:700; text-align:center; color:var(--fg); }
+  width:20px; font-weight:700; text-align:center; color:var(--fg); align-self:center; }
 .dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
 .dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
 .dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
-.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  line-height:inherit; align-self:baseline; }
 .dsh-gp-changes-spacer { flex:1; min-width:0; }
-.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:center; gap:3px;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  font-variant-numeric:tabular-nums; line-height:1; user-select:none; margin-left:3px; }
+/* \u589E\u5220\u884C\u6570\u6570\u5B57\uFF1A\u4E0E\u524D\u65B9\u7684\u6587\u4EF6\u540D\u4E25\u683C baseline \u57FA\u7EBF\u5BF9\u9F50\uFF0C\u7EDF\u4E00 line-height\uFF0C\u7EDD\u4E0D\u4E0A\u6D6E\u4E0B\u9519 */
+.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:baseline; gap:3px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10.5px;
+  font-variant-numeric:tabular-nums; line-height:inherit; user-select:none; margin-left:4px;
+  align-self:baseline; }
 .dsh-gp-stat-add { color:var(--current); }
 .dsh-gp-stat-del { color:var(--danger); }
 /* \u53D8\u66F4\u884C\u5C3E\u64CD\u4F5C\u6309\u94AE\uFF1A\u7EDF\u4E00\u56FE\u6807\u6309\u94AE\uFF0C\u60AC\u505C\u51FA\u73B0 + \u5373\u65F6 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
   justify-content:center; border:1px solid transparent; background:transparent; color:var(--muted);
-  cursor:pointer; border-radius:5px; flex:none;
+  cursor:pointer; border-radius:5px; flex:none; align-self:center;
   transition:background .12s ease, color .12s ease, border-color .12s ease, opacity .12s ease; }
 .dsh-gp-changes-item:hover .dsh-gp-act, .dsh-gp-act:focus-visible { opacity:1; }
 .dsh-gp-act:hover { background:var(--panel-bg); border-color:var(--border); color:var(--fg); }
@@ -2636,6 +2639,14 @@ function GitPanel(props) {
         if (file !== "") list.push({ code, file });
       }
       setChanges(list);
+      const viewingFile = diffStateRef.current?.file;
+      if (viewingFile) {
+        void api.diffFile(path, viewingFile).then((res) => {
+          if (res.ok) {
+            setDiffState((prev) => prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev);
+          }
+        });
+      }
     } finally {
       statusInFlightRef.current = false;
     }
@@ -2673,30 +2684,23 @@ function GitPanel(props) {
     if (!statusCache || !path) return void 0;
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return;
-      const now = Date.now();
-      if (now - lastAutoRefreshRef.current < 8e3) return;
-      lastAutoRefreshRef.current = now;
       void refreshStatus();
-      void refreshStash();
-      void load(true);
-      const viewingFile = diffStateRef.current?.file;
-      if (viewingFile) {
-        void api.diffFile(path, viewingFile).then((res) => {
-          if (res.ok) {
-            setDiffState((prev) => prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev);
-          }
-        });
-      }
     });
     return unsubscribe;
-  }, [statusCache, path, busy, refreshStatus, refreshStash, load, api]);
+  }, [statusCache, path, busy, refreshStatus]);
+  (0, import_react4.useEffect)(() => {
+    if (!path) return void 0;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible" && !busy) {
+        void refreshStatus();
+      }
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [path, busy, refreshStatus]);
   (0, import_react4.useEffect)(() => {
     if (!path) return void 0;
     const onFocus = () => {
       if (document.visibilityState === "visible" && !busy) {
-        const now = Date.now();
-        if (now - lastAutoRefreshRef.current < 1e4) return;
-        lastAutoRefreshRef.current = now;
         void refreshStatus();
         void refreshStash();
         void load(true);
@@ -6468,6 +6472,7 @@ function GitGuideIcon(props) {
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
 var DIFF_KIND = "git-diff";
+var POLL_MS = 3e3;
 function apply(ctx) {
   try {
     initI18n(ctx.locale);
@@ -6489,15 +6494,11 @@ function apply(ctx) {
   ctx.inject(["sessions"], () => {
     try {
       let lastCwd = "";
-      let lastRefreshTime = 0;
       const refreshCurrent = (fresh = false) => {
         const current = ctx.sessions.list.getSnapshot().current;
         const cwd = cwdOf(current);
         if (!cwd) return;
-        const now = Date.now();
-        if (!fresh && cwd === lastCwd && now - lastRefreshTime < 1e4) return;
         lastCwd = cwd;
-        lastRefreshTime = now;
         void statusCache.ensure(cwd, fresh);
       };
       refreshCurrent();
@@ -6508,6 +6509,11 @@ function apply(ctx) {
           refreshCurrent(true);
         }
       });
+      const timer = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          refreshCurrent(false);
+        }
+      }, POLL_MS);
       const onFocusOrVisible = () => {
         if (document.visibilityState === "visible") {
           refreshCurrent(false);
@@ -6516,6 +6522,7 @@ function apply(ctx) {
       window.addEventListener("focus", onFocusOrVisible);
       document.addEventListener("visibilitychange", onFocusOrVisible);
       ctx.effect(() => () => {
+        window.clearInterval(timer);
         window.removeEventListener("focus", onFocusOrVisible);
         document.removeEventListener("visibilitychange", onFocusOrVisible);
       }, "dsh-git-panel: status poll");

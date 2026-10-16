@@ -34,6 +34,10 @@ check(
   '变更列表各自独立限高滚动（防止互相挤出且绝不发生 flex 0 高度塌陷）',
   /\.dsh-gp-changes-list\s*\{[^}]*max-height:130px;\s*overflow-y:auto/u.test(src),
 )
+check(
+  '变更文件名与增删行数数字严格 baseline 对齐',
+  /\.dsh-gp-changes-file\s*\{[^}]*align-self:baseline/u.test(src) && /\.dsh-gp-changes-stat\s*\{[^}]*align-self:baseline/u.test(src),
+)
 
 // ---- 2. 严禁后台高频轮询打崩宿主 ----
 check(

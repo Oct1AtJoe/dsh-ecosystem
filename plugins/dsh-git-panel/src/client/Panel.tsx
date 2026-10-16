@@ -202,7 +202,7 @@ const STYLE = `
    「未暂存」紧跟其后清晰可见，绝不可能被挤压出屏幕，也绝不会塌陷全空。 */
 .dsh-gp-changes-list { display:flex; flex-direction:column; gap:2px; max-height:130px; overflow-y:auto; }
 .dsh-gp-changes-item { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px;
-  font-size:11px; color:var(--fg); cursor:pointer; min-width:0; }
+  font-size:11px; line-height:1.4; color:var(--fg); cursor:pointer; min-width:0; }
 .dsh-gp-changes-item:hover { background:var(--hover); }
 .dsh-gp-changes-item.active { background:var(--hover); font-weight:600; }
 .dsh-gp-changes-groups { display:flex; flex-direction:column; gap:4px; }
@@ -212,21 +212,24 @@ const STYLE = `
    词汇与文件树装饰一致（同一个文件两处同字母），配色走主题令牌保证深浅色可读。
    注：本段在模板字符串内，注释里禁止使用反引号。 */
 .dsh-gp-changes-code { flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  width:20px; font-weight:700; text-align:center; color:var(--fg); }
+  width:20px; font-weight:700; text-align:center; color:var(--fg); align-self:center; }
 .dsh-gp-changes-code[data-letter="U"], .dsh-gp-changes-code[data-letter="A"] { color:var(--current); }
 .dsh-gp-changes-code[data-letter="M"], .dsh-gp-changes-code[data-letter="R"] { color:var(--dsh-gp-modified); }
 .dsh-gp-changes-code[data-letter="D"], .dsh-gp-changes-code[data-letter="C"] { color:var(--danger); }
-.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsh-gp-changes-file { flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  line-height:inherit; align-self:baseline; }
 .dsh-gp-changes-spacer { flex:1; min-width:0; }
-.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:center; gap:3px;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px;
-  font-variant-numeric:tabular-nums; line-height:1; user-select:none; margin-left:3px; }
+/* 增删行数数字：与前方的文件名严格 baseline 基线对齐，统一 line-height，绝不上浮下错 */
+.dsh-gp-changes-stat { flex:none; display:inline-flex; align-items:baseline; gap:3px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10.5px;
+  font-variant-numeric:tabular-nums; line-height:inherit; user-select:none; margin-left:4px;
+  align-self:baseline; }
 .dsh-gp-stat-add { color:var(--current); }
 .dsh-gp-stat-del { color:var(--danger); }
 /* 变更行尾操作按钮：统一图标按钮，悬停出现 + 即时 tooltip */
 .dsh-gp-act { opacity:0; width:22px; height:20px; padding:0; display:inline-flex; align-items:center;
   justify-content:center; border:1px solid transparent; background:transparent; color:var(--muted);
-  cursor:pointer; border-radius:5px; flex:none;
+  cursor:pointer; border-radius:5px; flex:none; align-self:center;
   transition:background .12s ease, color .12s ease, border-color .12s ease, opacity .12s ease; }
 .dsh-gp-changes-item:hover .dsh-gp-act, .dsh-gp-act:focus-visible { opacity:1; }
 .dsh-gp-act:hover { background:var(--panel-bg); border-color:var(--border); color:var(--fg); }
@@ -1482,6 +1485,14 @@ export function GitPanel(props: {
         if (file !== '') list.push({ code, file })
       }
       setChanges(list)
+      const viewingFile = diffStateRef.current?.file
+      if (viewingFile) {
+        void api.diffFile(path, viewingFile).then((res) => {
+          if (res.ok) {
+            setDiffState((prev) => (prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev))
+          }
+        })
+      }
     } finally {
       statusInFlightRef.current = false
     }
@@ -1526,38 +1537,32 @@ export function GitPanel(props: {
     await Promise.all([load(false), refreshStatus(), refreshStash()])
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash])
 
-  // 订阅后台 statusCache 变更通知：一旦有文件变动，自动刷新变更、储藏、分支与图谱
-  // 订阅后台 statusCache 变更通知：一旦有文件变动，做节流静默刷新（最少间隔 8 秒）
+  // 订阅后台 statusCache 变更通知：一旦有文件变动，实时触发变更区轻量刷新（仅 status，不查沉重图谱）
   useEffect(() => {
     if (!statusCache || !path) return undefined
     const unsubscribe = statusCache.subscribe(() => {
       if (busy) return
-      const now = Date.now()
-      if (now - lastAutoRefreshRef.current < 8000) return
-      lastAutoRefreshRef.current = now
       void refreshStatus()
-      void refreshStash()
-      void load(true)
-      const viewingFile = diffStateRef.current?.file
-      if (viewingFile) {
-        void api.diffFile(path, viewingFile).then((res) => {
-          if (res.ok) {
-            setDiffState((prev) => (prev && prev.file === viewingFile ? { ...prev, content: res.value.output } : prev))
-          }
-        })
-      }
     })
     return unsubscribe
-  }, [statusCache, path, busy, refreshStatus, refreshStash, load, api])
+  }, [statusCache, path, busy, refreshStatus])
 
-  // 窗口重新获得焦点或切回前台时，至少间隔 10 秒才按需刷新一次
+  // 面板在前台展示时，轻量轮询变更区状态（2.5 秒一次，仅刷新文件变更，绝不拉取昂贵的分支/提交图/抽屉）
+  useEffect(() => {
+    if (!path) return undefined
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !busy) {
+        void refreshStatus()
+      }
+    }, 2500)
+    return () => clearInterval(timer)
+  }, [path, busy, refreshStatus])
+
+  // 窗口切回前台时，立即轻量刷新变更区，并顺带同步分支与抽屉
   useEffect(() => {
     if (!path) return undefined
     const onFocus = (): void => {
       if (document.visibilityState === 'visible' && !busy) {
-        const now = Date.now()
-        if (now - lastAutoRefreshRef.current < 10000) return
-        lastAutoRefreshRef.current = now
         void refreshStatus()
         void refreshStash()
         void load(true)

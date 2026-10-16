@@ -73,6 +73,8 @@ export interface ListSummary {
     tokens: number;
     sessions: number;
     activeDays: number;
+    calls?: number | undefined;
+    hours?: number[] | undefined;
     model: string | null;
     models: ListedModel[];
     days: {
@@ -83,6 +85,7 @@ export interface ListSummary {
         at: number;
         tokens: number;
         model: string | null;
+        calls?: number | undefined;
     }[];
 }
 export interface HeatCell {

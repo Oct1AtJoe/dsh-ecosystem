@@ -2309,12 +2309,14 @@ window.__ModuleLoader__.load({
 			} else if (listed !== null) {
 				sessions = 0;
 				activeDays = 0;
+				calls = 0;
 				for (let e = 0; e < listed.entries.length; e++) {
 					const item = listed.entries[e];
 					if (!item) continue;
 					if (startMs !== null && item.at < startMs) continue;
 					tokens += item.tokens;
 					sessions += 1;
+					calls += item.calls || 1;
 				}
 				for (let ld = 0; ld < listed.days.length; ld++) {
 					const item = listed.days[ld];
@@ -2328,6 +2330,14 @@ window.__ModuleLoader__.load({
 				if (!hourDay || !inRange(hourDay.date) || !Array.isArray(hourDay.hours)) continue;
 				if (hourCounts === null) hourCounts = new Array(24).fill(0);
 				for (let dh = 0; dh < 24; dh++) hourCounts[dh] = (hourCounts[dh] ?? 0) + (Number(hourDay.hours[dh]) || 0);
+			}
+			else if (listed !== null) if (start === null && Array.isArray(listed.hours)) hourCounts = listed.hours;
+			else for (let e = 0; e < listed.entries.length; e++) {
+				const item = listed.entries[e];
+				if (!item || startMs !== null && item.at < startMs) continue;
+				if (hourCounts === null) hourCounts = new Array(24).fill(0);
+				const hour = new Date(item.at).getHours();
+				if (hour >= 0 && hour < 24) hourCounts[hour] = (hourCounts[hour] ?? 0) + (item.calls || 1);
 			}
 			let peakHour = null;
 			if (hourCounts !== null) {
@@ -2429,7 +2439,7 @@ window.__ModuleLoader__.load({
 						emit();
 						return;
 					}
-					usage.value = body.value ?? null;
+					if (body.value !== void 0 && body.value !== null) usage.value = body.value;
 					usage.computing = body.computing === true;
 					usage.error = body.error ?? null;
 					emit();
@@ -2451,6 +2461,8 @@ window.__ModuleLoader__.load({
 			}
 			function summarizeSessionList(rows) {
 				let tokens = 0;
+				let calls = 0;
+				const hours = new Array(24).fill(0);
 				const dayCount = {};
 				const byDay = {};
 				const byModel = {};
@@ -2469,15 +2481,21 @@ window.__ModuleLoader__.load({
 					const selection = values.modelSelection;
 					const picked = selection ? selection.next || selection.lastUsed : null;
 					const id = typeof picked?.model === "string" ? picked.model : null;
+					const stepCount = Number(values.sessionStats?.steps) || (Array.isArray(values.turnOutline?.turns) ? values.turnOutline.turns.length : 0) || 1;
+					calls += stepCount;
 					entries.push({
 						at: typeof at === "number" ? at : 0,
 						tokens: total,
-						model: id
+						model: id,
+						calls: stepCount
 					});
 					if (typeof at === "number") {
-						const day = homeDayKey(new Date(at));
+						const d = new Date(at);
+						const day = homeDayKey(d);
 						dayCount[day] = true;
 						byDay[day] = (byDay[day] || 0) + total;
+						const hour = d.getHours();
+						if (hour >= 0 && hour < 24) hours[hour] = (hours[hour] ?? 0) + stepCount;
 					}
 					if (id !== null) {
 						let cell = byModel[id];
@@ -2524,6 +2542,8 @@ window.__ModuleLoader__.load({
 					tokens,
 					sessions: entries.length,
 					activeDays: Object.keys(dayCount).length,
+					calls,
+					hours,
 					model: favorite,
 					models,
 					days,

@@ -122,26 +122,21 @@ export function apply(ctx: PanelClientContext): void {
     }
   }
 
-  // 0. 变更清单：切会话或前台激活时按需刷新，绝不在后台以 3 秒高频暴力轮询。
+  // 0. 变更清单：轻量轮询当前会话的工作区变更，供左侧文件树装饰与状态缓存使用。
   ctx.inject(['sessions'], () => {
     try {
       let lastCwd = ''
-      let lastRefreshTime = 0
 
       const refreshCurrent = (fresh = false): void => {
         const current = ctx.sessions.list.getSnapshot().current
         const cwd = cwdOf(current)
         if (!cwd) return
-        const now = Date.now()
-        // 距离上次刷新不足 10 秒且不是强制刷新则跳过，避免高频打垮宿主
-        if (!fresh && cwd === lastCwd && now - lastRefreshTime < 10000) return
         lastCwd = cwd
-        lastRefreshTime = now
         void statusCache.ensure(cwd, fresh)
       }
 
       refreshCurrent()
-      // 仅在当前会话切换或当前工作区目录改变时按需触发，绝不随每次会话更新轰炸
+      // 当前会话切换或当前工作区目录改变时立刻刷新
       ctx.sessions.list.subscribe(() => {
         const current = ctx.sessions.list.getSnapshot().current
         const cwd = cwdOf(current)
@@ -149,6 +144,13 @@ export function apply(ctx: PanelClientContext): void {
           refreshCurrent(true)
         }
       })
+
+      // 仅在前台激活时以 3 秒间隔静默更新当前工作区
+      const timer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          refreshCurrent(false)
+        }
+      }, POLL_MS)
 
       const onFocusOrVisible = (): void => {
         if (document.visibilityState === 'visible') {
@@ -159,6 +161,7 @@ export function apply(ctx: PanelClientContext): void {
       document.addEventListener('visibilitychange', onFocusOrVisible)
 
       ctx.effect(() => () => {
+        window.clearInterval(timer)
         window.removeEventListener('focus', onFocusOrVisible)
         document.removeEventListener('visibilitychange', onFocusOrVisible)
       }, 'dsh-git-panel: status poll')
