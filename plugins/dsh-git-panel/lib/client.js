@@ -1458,13 +1458,14 @@ var STYLE = `
 .dsh-gp-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
   border-bottom:1px solid var(--border); font-weight:600; }
 .dsh-gp-head .spacer { flex:1; }
-/* \u64CD\u4F5C\u8FDB\u884C\u4E2D\u7684 loading\uFF1A\u8F6C\u5708 spinner + \u9876\u90E8\u4E0D\u786E\u5B9A\u8FDB\u5EA6\u6761 */
+/* \u64CD\u4F5C\u8FDB\u884C\u4E2D\u7684 loading\uFF1A\u8F6C\u5708 spinner\uFF08\u771F\u5706\u73AF\u8F68\u9053\u5E95\u8272 + \u5355\u5F27\u9AD8\u4EAE\u65CB\u8F6C\uFF09+ \u9876\u90E8\u4E0D\u786E\u5B9A\u8FDB\u5EA6\u6761 */
 @keyframes dsh-gp-spin { to { transform: rotate(360deg); } }
 @keyframes dsh-gp-slide { 0% { left:-40%; width:40%; } 50% { width:60%; } 100% { left:100%; width:40%; } }
-.dsh-gp-spinner { display:inline-block; width:11px; height:11px; flex:none; border-radius:50%;
-  border:1.5px solid currentColor; border-top-color:transparent; animation:dsh-gp-spin .7s linear infinite;
-  vertical-align:-1px; }
-.dsh-gp-spinner.lg { width:13px; height:13px; border-width:2px; }
+.dsh-gp-spinner { display:inline-block; width:12px; height:12px; flex:none; border-radius:50%;
+  border:2px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-top-color:currentColor; animation:dsh-gp-spin .75s linear infinite;
+  vertical-align:-1.5px; box-sizing:border-box; }
+.dsh-gp-spinner.lg { width:16px; height:16px; border-width:2px; }
 .dsh-gp-progress { position:relative; height:2px; overflow:hidden; flex:none;
   background:color-mix(in srgb, var(--accent) 18%, transparent); }
 .dsh-gp-progress::before { content:''; position:absolute; top:0; bottom:0; background:var(--accent);
@@ -1582,7 +1583,7 @@ var STYLE = `
   transition:background .12s ease, color .12s ease, border-color .12s ease; }
 .dsh-gp-input-btn:hover:not(:disabled) { background:var(--hover); border-color:var(--border); color:var(--fg); }
 .dsh-gp-input-btn:disabled { cursor:default; opacity:0.55; }
-.dsh-gp-input-btn .dsh-gp-spinner { width:11px; height:11px; }
+.dsh-gp-input-btn .dsh-gp-spinner { width:12px; height:12px; }
 /* \u751F\u6210\u4E2D\uFF1A\u9ED8\u8BA4\u663E\u793A\u8F6C\u5708\uFF1B\u60AC\u6D6E\u65F6\u8F6C\u5708\u6DE1\u51FA\u3001\u6362\u6210\u300C\u53D6\u6D88\u300D\u7684 \xD7 \u56FE\u6807\uFF0C\u70B9\u51FB\u5373\u4E2D\u6B62\u8BF7\u6C42\u3002
    \u4E24\u5C42\u56FE\u6807\u53E0\u5728\u540C\u4E00\u683C\u5185\u505A\u4EA4\u53C9\u6DE1\u5165\u6DE1\u51FA\uFF0C\u907F\u514D\u60AC\u6D6E\u65F6\u6309\u94AE\u5C3A\u5BF8\u8DF3\u52A8\u3002 */
 .dsh-gp-gen-btn .dsh-gp-gen-spin, .dsh-gp-gen-btn .dsh-gp-gen-cancel {

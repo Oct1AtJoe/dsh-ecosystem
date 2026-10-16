@@ -38,6 +38,10 @@ check(
   '变更文件名与增删行数数字严格 baseline 对齐',
   /\.dsh-gp-changes-file\s*\{[^}]*align-self:baseline/u.test(src) && /\.dsh-gp-changes-stat\s*\{[^}]*align-self:baseline/u.test(src),
 )
+check(
+  'loading spinner 为圆环轨道 + 单弧高亮设计（偶数像素，彻底告别方块感）',
+  /\.dsh-gp-spinner\s*\{[^}]*border-top-color:currentColor/u.test(src) && !/\.dsh-gp-spinner\s*\{[^}]*border-top-color:transparent/u.test(src),
+)
 
 // ---- 2. 严禁后台高频轮询打崩宿主 ----
 check(

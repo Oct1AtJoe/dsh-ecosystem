@@ -40,13 +40,14 @@ const STYLE = `
 .dsh-gp-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
   border-bottom:1px solid var(--border); font-weight:600; }
 .dsh-gp-head .spacer { flex:1; }
-/* 操作进行中的 loading：转圈 spinner + 顶部不确定进度条 */
+/* 操作进行中的 loading：转圈 spinner（真圆环轨道底色 + 单弧高亮旋转）+ 顶部不确定进度条 */
 @keyframes dsh-gp-spin { to { transform: rotate(360deg); } }
 @keyframes dsh-gp-slide { 0% { left:-40%; width:40%; } 50% { width:60%; } 100% { left:100%; width:40%; } }
-.dsh-gp-spinner { display:inline-block; width:11px; height:11px; flex:none; border-radius:50%;
-  border:1.5px solid currentColor; border-top-color:transparent; animation:dsh-gp-spin .7s linear infinite;
-  vertical-align:-1px; }
-.dsh-gp-spinner.lg { width:13px; height:13px; border-width:2px; }
+.dsh-gp-spinner { display:inline-block; width:12px; height:12px; flex:none; border-radius:50%;
+  border:2px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-top-color:currentColor; animation:dsh-gp-spin .75s linear infinite;
+  vertical-align:-1.5px; box-sizing:border-box; }
+.dsh-gp-spinner.lg { width:16px; height:16px; border-width:2px; }
 .dsh-gp-progress { position:relative; height:2px; overflow:hidden; flex:none;
   background:color-mix(in srgb, var(--accent) 18%, transparent); }
 .dsh-gp-progress::before { content:''; position:absolute; top:0; bottom:0; background:var(--accent);
@@ -164,7 +165,7 @@ const STYLE = `
   transition:background .12s ease, color .12s ease, border-color .12s ease; }
 .dsh-gp-input-btn:hover:not(:disabled) { background:var(--hover); border-color:var(--border); color:var(--fg); }
 .dsh-gp-input-btn:disabled { cursor:default; opacity:0.55; }
-.dsh-gp-input-btn .dsh-gp-spinner { width:11px; height:11px; }
+.dsh-gp-input-btn .dsh-gp-spinner { width:12px; height:12px; }
 /* 生成中：默认显示转圈；悬浮时转圈淡出、换成「取消」的 × 图标，点击即中止请求。
    两层图标叠在同一格内做交叉淡入淡出，避免悬浮时按钮尺寸跳动。 */
 .dsh-gp-gen-btn .dsh-gp-gen-spin, .dsh-gp-gen-btn .dsh-gp-gen-cancel {

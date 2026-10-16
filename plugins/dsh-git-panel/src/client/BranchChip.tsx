@@ -26,9 +26,10 @@ const CHIP_STYLE = `
 .dsh-gpc-chip:hover { background:var(--gpc-hover); }
 .dsh-gpc-chip:disabled { cursor:default; opacity:0.65; }
 .dsh-gpc-chip .label { overflow:hidden; text-overflow:ellipsis; }
-.dsh-gpc-spin { width:10px; height:10px; flex:none; border:1.5px solid var(--gpc-muted);
-  border-top-color:transparent; border-radius:50%;
-  animation:dsh-gpc-spin 0.7s linear infinite; }
+.dsh-gpc-spin { width:12px; height:12px; flex:none; border-radius:50%;
+  border:2px solid color-mix(in srgb, var(--gpc-muted) 25%, transparent);
+  border-top-color:var(--gpc-accent);
+  animation:dsh-gpc-spin 0.75s linear infinite; box-sizing:border-box; }
 @keyframes dsh-gpc-spin { to { transform:rotate(360deg) } }
 .dsh-gpc-backdrop { position:fixed; inset:0; z-index:900; }
 .dsh-gpc-pop { position:absolute; top:calc(100% + 6px); left:0; min-width:240px; max-width:320px;
