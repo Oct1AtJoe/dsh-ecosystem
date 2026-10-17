@@ -220,10 +220,10 @@ async function readEvents(ctx, sessionId, logPath) {
 	const query = ctx.get?.("sessionQuery");
 	if (query && typeof query.readSession === "function") try {
 		const snapshot = await query.readSession(sessionId);
-		if (Array.isArray(snapshot?.events)) return snapshot.events;
-	} catch (error) {
-		if (error?.code !== "SESSION_QUERY_CORRUPT_SESSION" && error?.code !== "SESSION_QUERY_SESSION_NOT_FOUND") throw error;
-	}
+		if (Array.isArray(snapshot?.events)) {
+			if (snapshot.events.length > 0) return snapshot.events;
+		}
+	} catch {}
 	if (logPath && existsSync(logPath)) return readEventsFromFile(logPath);
 	return null;
 }

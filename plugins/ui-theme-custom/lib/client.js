@@ -2263,10 +2263,11 @@ window.__ModuleLoader__.load({
 			columns.sort((a, b) => a.date < b.date ? -1 : 1);
 			return columns;
 		}
-		function homePanelData(state, listed, range, bookPick) {
+		function homePanelData(state, listedRaw, range, bookPick) {
 			const value = state.value;
 			const ready = value !== null && value.totals !== void 0;
 			const totals = ready ? value.totals : null;
+			const listed = value === null && state.error === null && state.polls < 15 ? null : listedRaw;
 			const known = ready || listed !== null;
 			let windowDays = 0;
 			for (let r = 0; r < HOME_RANGES.length; r++) {

@@ -1486,6 +1486,12 @@ export function GitPanel(props: {
         if (file !== '') list.push({ code, file })
       }
       setChanges(list)
+      // 工作区已经一个变更都不剩：内联 diff 的锚点（变更清单）随之消失，必须一并
+      // 收掉 diffState。否则 has-diff 模式会把 .dsh-gp-body 整体 display:none，
+      // 分支搜索框与全部分支列表变白屏（用户实测：打开 diff 后提交，切到「分支」
+      // 标签什么都没有，点「图谱」再切回来才恢复）。彻底对齐用 discardAll 里
+      // 早已单独补的 setDiffState(null)，改在唯一的公共刷新出口收口。
+      if (result.ok && list.length === 0) setDiffState(null)
       const viewingFile = diffStateRef.current?.file
       if (viewingFile) {
         void api.diffFile(path, viewingFile).then((res) => {
@@ -1975,7 +1981,11 @@ export function GitPanel(props: {
   }
 
   return (
-    <div className={`dsh-gp${diffState !== null ? ' has-diff' : ''}`} ref={rootRef}>
+    // has-diff 会隐藏整个 .dsh-gp-body（分支搜索框 + 本地/远程分支列表）。而内联
+    // diff 的容器只在 changes 非空时才渲染，因此判据必须同时要求 changes 非空：
+    // 只看 diffState 时，任何「diff 打开、清单变空」的时序都会留下一个既没有
+    // diff、也没有分支列表的白屏面板。
+    <div className={`dsh-gp${diffState !== null && changes.length > 0 ? ' has-diff' : ''}`} ref={rootRef}>
       <div className="dsh-gp-head">
         <span>{t('panel.title')}</span>
         <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11 }}>{repoName}</span>

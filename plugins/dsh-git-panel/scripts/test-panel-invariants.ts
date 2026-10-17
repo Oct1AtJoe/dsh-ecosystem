@@ -67,10 +67,20 @@ check(
   /const generateMessage[\s\S]{0,600}?setFallbackNotes\(\[\]\)/u.test(src),
 )
 
-// ---- 3. 红字不得复述明细（改由黄字逐条承载） ----
+// ---- 4. 红字不得复述明细（改由黄字逐条承载） ----
 check(
   '全部失败的红字为通用总结、不含数量占位',
   /'write\.commit\.allFailed':\s*'[^'{]*'/u.test(i18nSrc),
+)
+
+// ---- 5. 「分支 tab 白屏」回归锁：has-diff 隐藏整个 body，不能只看 diffState ----
+check(
+  'has-diff 判据同时要求 changes 非空（否则留下既无 diff 又无分支列表的白屏）',
+  /diffState !== null && changes\.length > 0 \? ' has-diff' : ''/u.test(src),
+)
+check(
+  '变更清单刷成空时同步清掉陈旧 diffState',
+  /if \(result\.ok && list\.length === 0\) setDiffState\(null\)/u.test(src),
 )
 
 console.log('\nGit 面板不变量自检完成。')

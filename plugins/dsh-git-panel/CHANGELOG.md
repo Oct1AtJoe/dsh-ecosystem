@@ -5,6 +5,23 @@
 ## [Unreleased]
 
 ### Fixed
+- **「分支」标签页整块变白（分支搜索框与全部分支列表消失，点「图谱」再切回才恢复）**：
+  - 根因定位：外层 `.dsh-gp` 的 `has-diff` 类原先只看 `diffState !== null`，而该类名唯一的
+    用途是 `.dsh-gp.has-diff .dsh-gp-body { display:none }`——把整个分支区隐藏掉；同时内联
+    diff 的容器 `.dsh-gp-changes` 只在 `changes.length > 0` 时才渲染。两条规则叠加后，
+    只要出现「diff 已打开、变更清单随后被刷成空」的时序，界面就既没有 diff、也没有分支列表，
+    形成纯白屏；
+  - 触发时序（用户实测）：打开某个文件的 diff → 提交暂存区（或储藏/取消暂存到工作区干净）→
+    `refreshStatus()` 把 `changes` 刷成空，而 `runWrite` 成功分支只刷新状态、不清 `diffState`；
+  - 彻底修复：
+    1. `has-diff` 判据收紧为 `diffState !== null && changes.length > 0`，渲染模式只由
+       「真的有 diff 可看」决定，任何路径下的 `diffState` 残留都不再能把 body 隐藏成空屏；
+    2. `refreshStatus()` 在变更清单刷成空时同步 `setDiffState(null)`，消除 diff 卡片状态
+       跨提交存活的陈旧残留（此前 `confirmDiscardAll` 已局部单独补过同一清理，现收口到唯一
+       的公共刷新出口）；
+  - 新增 `scripts/test-panel-invariants.ts` 两条源文件不变量断言，锁住上述判据与清理逻辑，
+    防止后续调整布局时悄悄推翻。
+
 - **Git 提交流程暂存区隔离缺陷（部分暂存时未暂存文件被一并强制提交）**：
   - 根因定位：原先在 `src/host/git-service.ts` 的 `commit()` 方法中，粗暴执行了 `git add -A`，
     把工作区里所有未暂存的修改和未跟踪文件一网打尽强行加入了暂存区后再执行 `git commit`；

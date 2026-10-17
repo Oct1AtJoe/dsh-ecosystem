@@ -34,7 +34,7 @@ export declare function homeModelDays(value: UsageReport | null, windowDays: num
     date: string;
     models: Record<string, number>;
 }[] | null;
-export declare function homePanelData(state: HomeUsageState, listed: ListSummary | null, range: string, bookPick: number): {
+export declare function homePanelData(state: HomeUsageState, listedRaw: ListSummary | null, range: string, bookPick: number): {
     listed: ListSummary | null;
     known: boolean;
     tokens: number;

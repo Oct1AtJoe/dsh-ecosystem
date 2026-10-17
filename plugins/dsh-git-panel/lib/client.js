@@ -2640,6 +2640,7 @@ function GitPanel(props) {
         if (file !== "") list.push({ code, file });
       }
       setChanges(list);
+      if (result.ok && list.length === 0) setDiffState(null);
       const viewingFile = diffStateRef.current?.file;
       if (viewingFile) {
         void api.diffFile(path, viewingFile).then((res) => {
@@ -3034,286 +3035,357 @@ function GitPanel(props) {
     closeMenu();
     await runOp(t2("op.merge", { branch }), () => api.mergeBranch(path, branch));
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp${diffState !== null ? " has-diff" : ""}`, ref: rootRef, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("panel.title") }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--muted)", fontWeight: 400, fontSize: 11 }, children: repoName }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "spacer" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: loading || busy, onClick: () => void refreshAll(), title: t2("op.refresh"), children: loading || busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": busy && pendingOp === "pull" ? t2("op.pulling") : t2("op.refresh") }) : icon("refresh", 13) })
-    ] }),
-    busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-progress", role: "progressbar", "aria-label": pendingOpLabel ?? t2("op.refresh") }) : null,
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-tabs", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "branches" ? " active" : ""}`, onClick: () => {
-        setDiffState(null);
-        setTab("branches");
-      }, children: t2("tab.branches") }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "div",
-        {
-          className: `dsh-gp-tab${tab === "graph" ? " active" : ""}`,
-          onClick: () => {
-            setDiffState(null);
-            if (tab === "graph" && filterBranch) {
-              setFilterBranch(null);
-            } else {
-              setTab("graph");
-            }
-          },
-          children: t2("tab.graph")
-        }
-      )
-    ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write-row", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-input-wrap", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "textarea",
-            {
-              ref: commitRef,
-              className: "dsh-gp-input dsh-gp-textarea",
-              rows: 1,
-              value: commitMsg,
-              placeholder: t2("write.commit.placeholder"),
-              onChange: (event) => setCommitMsg(event.target.value),
-              onKeyDown: (event) => {
-                if (event.key === "Enter" && !event.shiftKey && commitMsg.trim() !== "") {
-                  event.preventDefault();
-                  void runWrite("commit");
+  return (
+    // has-diff 会隐藏整个 .dsh-gp-body（分支搜索框 + 本地/远程分支列表）。而内联
+    // diff 的容器只在 changes 非空时才渲染，因此判据必须同时要求 changes 非空：
+    // 只看 diffState 时，任何「diff 打开、清单变空」的时序都会留下一个既没有
+    // diff、也没有分支列表的白屏面板。
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp${diffState !== null && changes.length > 0 ? " has-diff" : ""}`, ref: rootRef, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("panel.title") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--muted)", fontWeight: 400, fontSize: 11 }, children: repoName }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: loading || busy, onClick: () => void refreshAll(), title: t2("op.refresh"), children: loading || busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": busy && pendingOp === "pull" ? t2("op.pulling") : t2("op.refresh") }) : icon("refresh", 13) })
+      ] }),
+      busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-progress", role: "progressbar", "aria-label": pendingOpLabel ?? t2("op.refresh") }) : null,
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-tabs", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `dsh-gp-tab${tab === "branches" ? " active" : ""}`, onClick: () => {
+          setDiffState(null);
+          setTab("branches");
+        }, children: t2("tab.branches") }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: `dsh-gp-tab${tab === "graph" ? " active" : ""}`,
+            onClick: () => {
+              setDiffState(null);
+              if (tab === "graph" && filterBranch) {
+                setFilterBranch(null);
+              } else {
+                setTab("graph");
+              }
+            },
+            children: t2("tab.graph")
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-input-wrap", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "textarea",
+              {
+                ref: commitRef,
+                className: "dsh-gp-input dsh-gp-textarea",
+                rows: 1,
+                value: commitMsg,
+                placeholder: t2("write.commit.placeholder"),
+                onChange: (event) => setCommitMsg(event.target.value),
+                onKeyDown: (event) => {
+                  if (event.key === "Enter" && !event.shiftKey && commitMsg.trim() !== "") {
+                    event.preventDefault();
+                    void runWrite("commit");
+                  }
                 }
               }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                type: "button",
+                className: `dsh-gp-input-btn${generating ? " dsh-gp-gen-btn" : ""}`,
+                disabled: busy,
+                "aria-label": generating ? t2("write.commit.cancel") : t2("write.commit.generate"),
+                ...tipProps(generating ? t2("write.commit.cancel") : t2("write.commit.generate")),
+                onClick: () => {
+                  generating ? cancelGenerate() : void generateMessage();
+                },
+                children: generating ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-spin", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": t2("write.commit.generating") }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-cancel", "aria-hidden": "true", children: icon("close", 13) })
+                ] }) : icon("sparkles", 13)
+              }
+            )
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "dsh-gp-btn",
+              disabled: busy || commitMsg.trim() === "",
+              onClick: () => void runWrite("commit"),
+              children: t2("write.commit")
             }
           ),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
             {
-              type: "button",
-              className: `dsh-gp-input-btn${generating ? " dsh-gp-gen-btn" : ""}`,
+              className: "dsh-gp-btn",
               disabled: busy,
-              "aria-label": generating ? t2("write.commit.cancel") : t2("write.commit.generate"),
-              ...tipProps(generating ? t2("write.commit.cancel") : t2("write.commit.generate")),
-              onClick: () => {
-                generating ? cancelGenerate() : void generateMessage();
-              },
-              children: generating ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-spin", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", role: "status", "aria-label": t2("write.commit.generating") }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-gen-cancel", "aria-hidden": "true", children: icon("close", 13) })
-              ] }) : icon("sparkles", 13)
+              onClick: () => void runWrite("push"),
+              children: pendingOp === "push" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                " ",
+                t2("op.pushing")
+              ] }) : t2("write.push")
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "dsh-gp-btn",
+              disabled: busy,
+              onClick: () => void runWrite("sync"),
+              children: pendingOp === "sync" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                " ",
+                t2("op.syncing")
+              ] }) : t2("write.sync")
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy || commitMsg.trim() === "",
-            onClick: () => void runWrite("commit"),
-            children: t2("write.commit")
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy,
-            onClick: () => void runWrite("push"),
-            children: pendingOp === "push" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-              " ",
-              t2("op.pushing")
-            ] }) : t2("write.push")
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy,
-            onClick: () => void runWrite("sync"),
-            children: pendingOp === "sync" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-              " ",
-              t2("op.syncing")
-            ] }) : t2("write.sync")
-          }
-        )
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write-row", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy,
-            ...tipProps(t2("write.stash.tip")),
-            onClick: () => void runWrite("stash-push"),
-            children: t2("write.stash")
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy,
-            ...tipProps(t2("write.stashPop.tip")),
-            onClick: () => void runWrite("stash-pop"),
-            children: t2("write.stashPop")
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "button",
-          {
-            className: "dsh-gp-btn",
-            disabled: busy,
-            ...tipProps(t2("write.status.tip")),
-            onClick: () => {
-              void refreshStatus();
-              void refreshStash();
-            },
-            children: t2("write.status")
-          }
-        ),
-        drawerSummary !== "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-write-status", ...tipProps(drawerSummary), children: drawerSummary }) : null
-      ] }),
-      (() => {
-        if (changes.length === 0) return null;
-        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-title", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-            t2("changes.title"),
-            " (",
-            changes.length,
-            ")"
-          ] }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-groups", children: [
-            conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-conflict-banner", children: [
-              icon("conflict", 13),
-              " ",
-              t2("changes.conflicts", { count: String(conflicts.length) })
-            ] }) : null,
-            conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                "div",
-                {
-                  className: "dsh-gp-changes-group-head",
-                  style: { color: "var(--danger)" },
-                  onClick: () => toggleGroup("conflicts"),
-                  children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["conflicts"] ? "chevronRight" : "chevronDown", 11) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                      t2("changes.conflictsGroup"),
-                      " (",
-                      conflicts.length,
-                      ")"
-                    ] })
-                  ] })
-                }
-              ),
-              !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions })
-              ] }, c.file)) }) : null
-            ] }) : null,
-            staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                "div",
-                {
-                  className: "dsh-gp-changes-group-head",
-                  onClick: () => toggleGroup("staged"),
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["staged"] ? "chevronRight" : "chevronDown", 11) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-write-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "dsh-gp-btn",
+              disabled: busy,
+              ...tipProps(t2("write.stash.tip")),
+              onClick: () => void runWrite("stash-push"),
+              children: t2("write.stash")
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "dsh-gp-btn",
+              disabled: busy,
+              ...tipProps(t2("write.stashPop.tip")),
+              onClick: () => void runWrite("stash-pop"),
+              children: t2("write.stashPop")
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "button",
+            {
+              className: "dsh-gp-btn",
+              disabled: busy,
+              ...tipProps(t2("write.status.tip")),
+              onClick: () => {
+                void refreshStatus();
+                void refreshStash();
+              },
+              children: t2("write.status")
+            }
+          ),
+          drawerSummary !== "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-write-status", ...tipProps(drawerSummary), children: drawerSummary }) : null
+        ] }),
+        (() => {
+          if (changes.length === 0) return null;
+          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-title", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+              t2("changes.title"),
+              " (",
+              changes.length,
+              ")"
+            ] }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-groups", children: [
+              conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-conflict-banner", children: [
+                icon("conflict", 13),
+                " ",
+                t2("changes.conflicts", { count: String(conflicts.length) })
+              ] }) : null,
+              conflicts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "div",
+                  {
+                    className: "dsh-gp-changes-group-head",
+                    style: { color: "var(--danger)" },
+                    onClick: () => toggleGroup("conflicts"),
+                    children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["conflicts"] ? "chevronRight" : "chevronDown", 11) }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                        t2("changes.staged"),
+                        t2("changes.conflictsGroup"),
                         " (",
-                        staged.length,
+                        conflicts.length,
                         ")"
                       ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "minus",
-                        label: t2("changes.unstageAll"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          void runBatchStage(staged.map((c) => c.file), "unstage");
+                    ] })
+                  }
+                ),
+                !collapsedGroups["conflicts"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: conflicts.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions })
+                ] }, c.file)) }) : null
+              ] }) : null,
+              staged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                  "div",
+                  {
+                    className: "dsh-gp-changes-group-head",
+                    onClick: () => toggleGroup("staged"),
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["staged"] ? "chevronRight" : "chevronDown", 11) }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          t2("changes.staged"),
+                          " (",
+                          staged.length,
+                          ")"
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        RowAction,
+                        {
+                          icon: "minus",
+                          label: t2("changes.unstageAll"),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            void runBatchStage(staged.map((c) => c.file), "unstage");
+                          }
+                        }
+                      ) })
+                    ]
+                  }
+                ),
+                !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    RowAction,
+                    {
+                      icon: "copy",
+                      label: t2("changes.copyPath"),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        try {
+                          navigator.clipboard.writeText(c.file);
+                          setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
+                        } catch {
                         }
                       }
-                    ) })
-                  ]
-                }
-              ),
-              !collapsedGroups["staged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: staged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`, onClick: () => void loadDiff(c.file), children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                  RowAction,
-                  {
-                    icon: "copy",
-                    label: t2("changes.copyPath"),
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      try {
-                        navigator.clipboard.writeText(c.file);
-                        setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
-                      } catch {
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    RowAction,
+                    {
+                      icon: "chat",
+                      label: t2("changes.fileToChat"),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        const prompt = t2("prompt.stagedFile", { file: c.file });
+                        if (injectTextToChatInput(prompt)) {
+                          setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
+                        }
                       }
                     }
-                  }
-                ),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                  RowAction,
-                  {
-                    icon: "chat",
-                    label: t2("changes.fileToChat"),
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      const prompt = t2("prompt.stagedFile", { file: c.file });
-                      if (injectTextToChatInput(prompt)) {
-                        setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    RowAction,
+                    {
+                      icon: "minus",
+                      label: t2("changes.unstage"),
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        void runWrite("unstage", c.file);
                       }
                     }
-                  }
-                ),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                  RowAction,
+                  )
+                ] }, c.file)) }) : null
+              ] }) : null,
+              unstaged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                  "div",
                   {
-                    icon: "minus",
-                    label: t2("changes.unstage"),
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      void runWrite("unstage", c.file);
-                    }
-                  }
-                )
-              ] }, c.file)) }) : null
-            ] }) : null,
-            unstaged.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-group", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                "div",
-                {
-                  className: "dsh-gp-changes-group-head",
-                  onClick: () => toggleGroup("unstaged"),
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["unstaged"] ? "chevronRight" : "chevronDown", 11) }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                        t2("changes.unstaged"),
-                        " (",
-                        unstaged.length,
-                        ")"
+                    className: "dsh-gp-changes-group-head",
+                    onClick: () => toggleGroup("unstaged"),
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-title", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-group-chevron", children: icon(collapsedGroups["unstaged"] ? "chevronRight" : "chevronDown", 11) }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                          t2("changes.unstaged"),
+                          " (",
+                          unstaged.length,
+                          ")"
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          RowAction,
+                          {
+                            icon: "plus",
+                            label: t2("changes.stageAll"),
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              void runBatchStage(unstaged.map((c) => c.file), "stage");
+                            }
+                          }
+                        ),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                          RowAction,
+                          {
+                            icon: "undo",
+                            danger: true,
+                            label: t2("changes.discardAll"),
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              setDiscardAllOpen(true);
+                            }
+                          }
+                        )
                       ] })
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-group-actions", onClick: (e) => e.stopPropagation(), children: [
+                    ]
+                  }
+                ),
+                !collapsedGroups["unstaged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                  "div",
+                  {
+                    className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`,
+                    onClick: () => void loadDiff(c.file),
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        RowAction,
+                        {
+                          icon: "copy",
+                          label: t2("changes.copyPath"),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            try {
+                              navigator.clipboard.writeText(c.file);
+                              setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
+                            } catch {
+                            }
+                          }
+                        }
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                        RowAction,
+                        {
+                          icon: "chat",
+                          label: t2("changes.fileToChat"),
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            const prompt = t2("prompt.fileChange", { file: c.file });
+                            if (injectTextToChatInput(prompt)) {
+                              setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
+                            }
+                          }
+                        }
+                      ),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                         RowAction,
                         {
                           icon: "plus",
-                          label: t2("changes.stageAll"),
+                          label: t2("changes.stage"),
                           onClick: (e) => {
                             e.stopPropagation();
-                            void runBatchStage(unstaged.map((c) => c.file), "stage");
+                            void runWrite("stage", c.file);
                           }
                         }
                       ),
@@ -3322,546 +3394,481 @@ function GitPanel(props) {
                         {
                           icon: "undo",
                           danger: true,
-                          label: t2("changes.discardAll"),
+                          label: t2("changes.discard"),
                           onClick: (e) => {
                             e.stopPropagation();
-                            setDiscardAllOpen(true);
+                            setDiscardTarget({ file: c.file, untracked: c.code === "??" });
                           }
                         }
                       )
-                    ] })
+                    ]
+                  },
+                  c.file
+                )) }) : null
+              ] }) : null
+            ] }),
+            diffState !== null ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-diff", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-head", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
+                  t2("changes.diff"),
+                  ": ",
+                  diffState.file
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "dsh-gp-btn",
+                    onClick: () => setDiffState(null),
+                    style: { marginLeft: "auto", fontSize: 11, padding: "0 6px" },
+                    children: icon("close", 13)
+                  }
+                )
+              ] }),
+              diffState.busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-empty", children: "\u2026" }) : diffState.content === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-empty", children: t2("changes.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-pre", children: (() => {
+                let oldNum = 0;
+                let newNum = 0;
+                return diffState.content.slice(0, 3e4).split("\n").map((line, idx) => {
+                  let kind = "";
+                  let numStr = "";
+                  if (line.startsWith("@@")) {
+                    kind = "hunk";
+                    const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                    if (m) {
+                      oldNum = parseInt(m[1], 10);
+                      newNum = parseInt(m[2], 10);
+                    }
+                    numStr = "@@";
+                  } else if (line.startsWith("+") && !line.startsWith("+++")) {
+                    kind = "add";
+                    numStr = String(newNum++);
+                  } else if (line.startsWith("-") && !line.startsWith("---")) {
+                    kind = "del";
+                    numStr = String(oldNum++);
+                  } else if (line.startsWith(" ") || line === "") {
+                    numStr = String(newNum++);
+                    oldNum++;
+                  }
+                  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-diff-line ${kind}`, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-diff-line-num", children: numStr }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-diff-line-text", children: line || " " })
+                  ] }, idx);
+                });
+              })() })
+            ] }) : null
+          ] });
+        })()
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-body", children: [
+        loading && !branches && !graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("loading") }) : null,
+        !loading && message && !branches && !graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-warn", children: message.text }) : null,
+        message && (branches || graph) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-msg ${message.kind}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-msg-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-gp-msg-text", children: [
+              busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", "aria-hidden": "true" }) : null,
+              message.text
+            ] }),
+            busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "button",
+              {
+                type: "button",
+                className: "dsh-gp-cancel",
+                title: t2("panel.cancelOp"),
+                "aria-label": t2("panel.cancelOp"),
+                onClick: () => {
+                  void api.cancel(path);
+                  setPendingOp(null);
+                  setBusy(false);
+                  setMessage({ text: t2("panel.cancelled"), kind: "ok" });
+                },
+                children: [
+                  icon("close", 12),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("menu.cancel") })
+                ]
+              }
+            ) : null
+          ] }),
+          fallbackNotes.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallbacks", children: fallbackNotes.map((note, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallback", title: note.detail ?? note.text, children: note.text }, i)) }) : null,
+          message.showAuthForm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: {
+            background: "rgba(128,128,128,0.12)",
+            padding: 8,
+            borderRadius: 6,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            marginTop: 4
+          }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 5, fontWeight: 600, fontSize: 11 }, children: [
+              icon("key", 13),
+              t2("auth.title")
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                id: "dsh-git-auth-user",
+                className: "dsh-gp-input",
+                placeholder: t2("auth.usernamePlaceholder"),
+                defaultValue: "jaden.tang"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                id: "dsh-git-auth-pass",
+                type: "password",
+                className: "dsh-gp-input",
+                placeholder: t2("auth.passwordPlaceholder")
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: "dsh-gp-btn",
+                  onClick: async () => {
+                    const u = document.getElementById("dsh-git-auth-user")?.value.trim();
+                    const p = document.getElementById("dsh-git-auth-pass")?.value.trim();
+                    if (!u || !p) {
+                      alert(t2("auth.fillBoth"));
+                      return;
+                    }
+                    setMessage({ text: t2("auth.saving"), kind: "ok" });
+                    const res = await api.setCredential(path, "gitlab.sjfood.us", u, p);
+                    if (res.ok) {
+                      setMessage({ text: t2("auth.saved"), kind: "ok" });
+                      void runOp(t2("op.pull"), () => api.pull(path), "pull");
+                    } else {
+                      setMessage({ text: t2("auth.saveFailed", { reason: tError(res.error?.code, res.error?.message ?? String(res)) }), kind: "err" });
+                    }
+                  },
+                  children: [
+                    icon("save", 13),
+                    " ",
+                    t2("auth.saveAndRetry")
                   ]
                 }
               ),
-              !collapsedGroups["unstaged"] ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-list", children: unstaged.map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-                "div",
-                {
-                  className: `dsh-gp-changes-item${diffState?.file === c.file ? " active" : ""}`,
-                  onClick: () => void loadDiff(c.file),
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChangeBadge, { code: c.code }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-file", title: c.file, children: c.file }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileStats, { insertions: c.insertions, deletions: c.deletions }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-changes-spacer" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "copy",
-                        label: t2("changes.copyPath"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          try {
-                            navigator.clipboard.writeText(c.file);
-                            setMessage({ kind: "ok", text: t2("changes.copyPathDone") });
-                          } catch {
-                          }
-                        }
-                      }
-                    ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "chat",
-                        label: t2("changes.fileToChat"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          const prompt = t2("prompt.fileChange", { file: c.file });
-                          if (injectTextToChatInput(prompt)) {
-                            setMessage({ kind: "ok", text: t2("changes.sentSuccess") });
-                          }
-                        }
-                      }
-                    ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "plus",
-                        label: t2("changes.stage"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          void runWrite("stage", c.file);
-                        }
-                      }
-                    ),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                      RowAction,
-                      {
-                        icon: "undo",
-                        danger: true,
-                        label: t2("changes.discard"),
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          setDiscardTarget({ file: c.file, untracked: c.code === "??" });
-                        }
-                      }
-                    )
-                  ]
-                },
-                c.file
-              )) }) : null
-            ] }) : null
-          ] }),
-          diffState !== null ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-diff", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-changes-head", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
-                t2("changes.diff"),
-                ": ",
-                diffState.file
-              ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "button",
                 {
                   type: "button",
                   className: "dsh-gp-btn",
-                  onClick: () => setDiffState(null),
-                  style: { marginLeft: "auto", fontSize: 11, padding: "0 6px" },
-                  children: icon("close", 13)
+                  onClick: () => setMessage(null),
+                  children: t2("menu.cancel")
                 }
               )
-            ] }),
-            diffState.busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-empty", children: "\u2026" }) : diffState.content === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-empty", children: t2("changes.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-changes-pre", children: (() => {
-              let oldNum = 0;
-              let newNum = 0;
-              return diffState.content.slice(0, 3e4).split("\n").map((line, idx) => {
-                let kind = "";
-                let numStr = "";
-                if (line.startsWith("@@")) {
-                  kind = "hunk";
-                  const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-                  if (m) {
-                    oldNum = parseInt(m[1], 10);
-                    newNum = parseInt(m[2], 10);
-                  }
-                  numStr = "@@";
-                } else if (line.startsWith("+") && !line.startsWith("+++")) {
-                  kind = "add";
-                  numStr = String(newNum++);
-                } else if (line.startsWith("-") && !line.startsWith("---")) {
-                  kind = "del";
-                  numStr = String(oldNum++);
-                } else if (line.startsWith(" ") || line === "") {
-                  numStr = String(newNum++);
-                  oldNum++;
-                }
-                return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-diff-line ${kind}`, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-diff-line-num", children: numStr }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-diff-line-text", children: line || " " })
-                ] }, idx);
-              });
-            })() })
+            ] })
           ] }) : null
-        ] });
-      })()
-    ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-body", children: [
-      loading && !branches && !graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("loading") }) : null,
-      !loading && message && !branches && !graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-warn", children: message.text }) : null,
-      message && (branches || graph) ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `dsh-gp-msg ${message.kind}`, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-msg-row", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-gp-msg-text", children: [
-            busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner", "aria-hidden": "true" }) : null,
-            message.text
-          ] }),
-          busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-            "button",
-            {
-              type: "button",
-              className: "dsh-gp-cancel",
-              title: t2("panel.cancelOp"),
-              "aria-label": t2("panel.cancelOp"),
-              onClick: () => {
-                void api.cancel(path);
-                setPendingOp(null);
-                setBusy(false);
-                setMessage({ text: t2("panel.cancelled"), kind: "ok" });
-              },
-              children: [
-                icon("close", 12),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("menu.cancel") })
-              ]
-            }
-          ) : null
-        ] }),
-        fallbackNotes.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallbacks", children: fallbackNotes.map((note, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-fallback", title: note.detail ?? note.text, children: note.text }, i)) }) : null,
-        message.showAuthForm ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: {
-          background: "rgba(128,128,128,0.12)",
-          padding: 8,
-          borderRadius: 6,
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          marginTop: 4
-        }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 5, fontWeight: 600, fontSize: 11 }, children: [
-            icon("key", 13),
-            t2("auth.title")
-          ] }),
+        ] }) : null,
+        tab === "branches" && branches ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "input",
             {
-              id: "dsh-git-auth-user",
-              className: "dsh-gp-input",
-              placeholder: t2("auth.usernamePlaceholder"),
-              defaultValue: "jaden.tang"
+              className: "dsh-gp-branch-search",
+              value: branchSearch,
+              placeholder: t2("branches.search"),
+              onChange: (e) => setBranchSearch(e.target.value)
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "input",
-            {
-              id: "dsh-git-auth-pass",
-              type: "password",
-              className: "dsh-gp-input",
-              placeholder: t2("auth.passwordPlaceholder")
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-              "button",
-              {
-                type: "button",
-                className: "dsh-gp-btn",
-                onClick: async () => {
-                  const u = document.getElementById("dsh-git-auth-user")?.value.trim();
-                  const p = document.getElementById("dsh-git-auth-pass")?.value.trim();
-                  if (!u || !p) {
-                    alert(t2("auth.fillBoth"));
-                    return;
-                  }
-                  setMessage({ text: t2("auth.saving"), kind: "ok" });
-                  const res = await api.setCredential(path, "gitlab.sjfood.us", u, p);
-                  if (res.ok) {
-                    setMessage({ text: t2("auth.saved"), kind: "ok" });
-                    void runOp(t2("op.pull"), () => api.pull(path), "pull");
-                  } else {
-                    setMessage({ text: t2("auth.saveFailed", { reason: tError(res.error?.code, res.error?.message ?? String(res)) }), kind: "err" });
-                  }
+          (() => {
+            const q = branchSearch.trim().toLowerCase();
+            const match = (name) => q === "" || name.toLowerCase().includes(q);
+            const localFiltered = branches.local.filter((r) => match(r.name) || r.subject && r.subject.toLowerCase().includes(q));
+            const remoteFiltered = branches.remote.filter((r) => match(r.name) || r.subject && r.subject.toLowerCase().includes(q));
+            return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-section", children: [
+                t2("section.local"),
+                " (",
+                localFiltered.length,
+                ")"
+              ] }),
+              localFiltered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("empty.local") }) : null,
+              localFiltered.map((row) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                BranchRowView,
+                {
+                  row,
+                  isRemote: false,
+                  current: branches.current,
+                  busy,
+                  onSelect: (branch) => {
+                    setFilterBranch(branch);
+                    setTab("graph");
+                  },
+                  onActivate: activateLocal,
+                  onPull: () => void runOp(t2("op.pull"), () => api.pull(path), "pull"),
+                  onContextMenu: openMenu
                 },
-                children: [
-                  icon("save", 13),
-                  " ",
-                  t2("auth.saveAndRetry")
-                ]
+                row.name
+              )),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-section", children: [
+                t2("section.remote"),
+                " (",
+                remoteFiltered.length,
+                ")"
+              ] }),
+              remoteFiltered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("empty.remote") }) : null,
+              remoteFiltered.map((row) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                BranchRowView,
+                {
+                  row,
+                  isRemote: true,
+                  current: branches.current,
+                  busy,
+                  onActivate: activateRemote,
+                  onContextMenu: openMenu
+                },
+                row.name
+              ))
+            ] });
+          })(),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: 8 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: busy, onClick: () => void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch"), children: t2("fetch.all") }) })
+        ] }) : null,
+        tab === "graph" && graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          GraphViewComponent,
+          {
+            graph,
+            width,
+            branches,
+            path,
+            sessionId,
+            filterBranch,
+            onClearFilter: () => setFilterBranch(null),
+            onCherryPick: (sha) => void runOp(t2("op.cherryPick"), () => api.cherryPick(path, sha)),
+            onRevert: (sha) => void runOp(t2("op.revert"), () => api.revertCommit(path, sha)),
+            onCopyHash: (sha) => {
+              setMessage({ text: `${t2("graph.menu.copyHash.done")}: ${sha}`, kind: "ok" });
+            }
+          }
+        ) : null
+      ] }),
+      menu ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: "dsh-gp-menu-backdrop",
+            onClick: closeMenu,
+            onContextMenu: (event) => {
+              event.preventDefault();
+              closeMenu();
+            }
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: menu.x, top: menu.y }, children: menuMode === "rename" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: t2("menu.title.rename", { name: menu.row.name }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "input",
+            {
+              className: "dsh-gp-menu-input",
+              value: renameValue,
+              autoFocus: true,
+              onChange: (event) => setRenameValue(event.target.value),
+              onKeyDown: (event) => {
+                if (event.key === "Enter") void confirmRename();
+                if (event.key === "Escape") setMenuMode("main");
               }
-            ),
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => void confirmRename(), children: t2("menu.confirm") }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
+          ] })
+        ] }) : menuMode === "confirm-delete" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: menu.isRemote ? t2("menu.title.deleteRemote", { name: menu.row.name }) : t2("menu.title.delete", { name: menu.row.name }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               "button",
               {
-                type: "button",
                 className: "dsh-gp-btn",
-                onClick: () => setMessage(null),
-                children: t2("menu.cancel")
+                style: { color: "var(--danger)" },
+                onClick: () => void confirmDelete(),
+                children: t2("menu.delete")
               }
-            )
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
           ] })
-        ] }) : null
-      ] }) : null,
-      tab === "branches" && branches ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            className: "dsh-gp-branch-search",
-            value: branchSearch,
-            placeholder: t2("branches.search"),
-            onChange: (e) => setBranchSearch(e.target.value)
-          }
-        ),
-        (() => {
-          const q = branchSearch.trim().toLowerCase();
-          const match = (name) => q === "" || name.toLowerCase().includes(q);
-          const localFiltered = branches.local.filter((r) => match(r.name) || r.subject && r.subject.toLowerCase().includes(q));
-          const remoteFiltered = branches.remote.filter((r) => match(r.name) || r.subject && r.subject.toLowerCase().includes(q));
-          return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-section", children: [
-              t2("section.local"),
-              " (",
-              localFiltered.length,
-              ")"
-            ] }),
-            localFiltered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("empty.local") }) : null,
-            localFiltered.map((row) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-              BranchRowView,
-              {
-                row,
-                isRemote: false,
-                current: branches.current,
-                busy,
-                onSelect: (branch) => {
-                  setFilterBranch(branch);
-                  setTab("graph");
-                },
-                onActivate: activateLocal,
-                onPull: () => void runOp(t2("op.pull"), () => api.pull(path), "pull"),
-                onContextMenu: openMenu
-              },
-              row.name
-            )),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-section", children: [
-              t2("section.remote"),
-              " (",
-              remoteFiltered.length,
-              ")"
-            ] }),
-            remoteFiltered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-empty", children: t2("empty.remote") }) : null,
-            remoteFiltered.map((row) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-              BranchRowView,
-              {
-                row,
-                isRemote: true,
-                current: branches.current,
-                busy,
-                onActivate: activateRemote,
-                onContextMenu: openMenu
-              },
-              row.name
-            ))
-          ] });
-        })(),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: 8 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", disabled: busy, onClick: () => void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch"), children: t2("fetch.all") }) })
-      ] }) : null,
-      tab === "graph" && graph ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        GraphViewComponent,
-        {
-          graph,
-          width,
-          branches,
-          path,
-          sessionId,
-          filterBranch,
-          onClearFilter: () => setFilterBranch(null),
-          onCherryPick: (sha) => void runOp(t2("op.cherryPick"), () => api.cherryPick(path, sha)),
-          onRevert: (sha) => void runOp(t2("op.revert"), () => api.revertCommit(path, sha)),
-          onCopyHash: (sha) => {
-            setMessage({ text: `${t2("graph.menu.copyHash.done")}: ${sha}`, kind: "ok" });
-          }
-        }
-      ) : null
-    ] }),
-    menu ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "div",
-        {
-          className: "dsh-gp-menu-backdrop",
-          onClick: closeMenu,
-          onContextMenu: (event) => {
-            event.preventDefault();
-            closeMenu();
-          }
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: menu.x, top: menu.y }, children: menuMode === "rename" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: t2("menu.title.rename", { name: menu.row.name }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "input",
-          {
-            className: "dsh-gp-menu-input",
-            value: renameValue,
-            autoFocus: true,
-            onChange: (event) => setRenameValue(event.target.value),
-            onKeyDown: (event) => {
-              if (event.key === "Enter") void confirmRename();
-              if (event.key === "Escape") setMenuMode("main");
-            }
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => void confirmRename(), children: t2("menu.confirm") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
-        ] })
-      ] }) : menuMode === "confirm-delete" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: menu.isRemote ? t2("menu.title.deleteRemote", { name: menu.row.name }) : t2("menu.title.delete", { name: menu.row.name }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "button",
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+          !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "div",
             {
-              className: "dsh-gp-btn",
-              style: { color: "var(--danger)" },
-              onClick: () => void confirmDelete(),
-              children: t2("menu.delete")
+              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+              onClick: () => {
+                if (busy) return;
+                const targetBranch = menu.row.name;
+                const isRemote = menu.isRemote;
+                closeMenu();
+                if (isRemote) {
+                  void runOp(t2("op.checkout"), () => api.switchBranch(path, targetBranch));
+                } else {
+                  void runOp(t2("op.switch"), () => api.switchBranch(path, targetBranch));
+                }
+              },
+              children: busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                menuIcon("branch"),
+                menu.isRemote ? t2("menu.checkout") : t2("menu.switch")
+              ] })
+            }
+          ) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => {
+            if (navigator?.clipboard?.writeText) {
+              void navigator.clipboard.writeText(menu.row.name);
+              setMessage({ text: `${t2("menu.copyName.done")}: ${menu.row.name}`, kind: "ok" });
+            }
+            closeMenu();
+          }, children: t2("menu.copyName") }),
+          menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "div",
+            {
+              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+              onClick: () => {
+                if (busy) return;
+                closeMenu();
+                void runOp(t2("op.pull"), () => api.pull(path), "pull");
+              },
+              children: busy && pendingOp === "pull" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                " ",
+                t2("op.pulling")
+              ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                menuIcon("arrowDown"),
+                t2("menu.pull")
+              ] })
+            }
+          ) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "div",
+            {
+              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+              onClick: () => {
+                if (busy) return;
+                closeMenu();
+                void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch");
+              },
+              children: busy && pendingOp === "fetch" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                " ",
+                t2("op.fetching")
+              ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                menuIcon("fetch"),
+                t2("menu.fetchAll")
+              ] })
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
-        ] })
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-        !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "div",
-          {
-            className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-            style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-            onClick: () => {
-              if (busy) return;
-              const targetBranch = menu.row.name;
-              const isRemote = menu.isRemote;
-              closeMenu();
-              if (isRemote) {
-                void runOp(t2("op.checkout"), () => api.switchBranch(path, targetBranch));
-              } else {
-                void runOp(t2("op.switch"), () => api.switchBranch(path, targetBranch));
-              }
-            },
-            children: busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              menuIcon("branch"),
-              menu.isRemote ? t2("menu.checkout") : t2("menu.switch")
-            ] })
-          }
-        ) : null,
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => {
-          if (navigator?.clipboard?.writeText) {
-            void navigator.clipboard.writeText(menu.row.name);
-            setMessage({ text: `${t2("menu.copyName.done")}: ${menu.row.name}`, kind: "ok" });
-          }
-          closeMenu();
-        }, children: t2("menu.copyName") }),
-        menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "div",
-          {
-            className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-            style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-            onClick: () => {
-              if (busy) return;
-              closeMenu();
-              void runOp(t2("op.pull"), () => api.pull(path), "pull");
-            },
-            children: busy && pendingOp === "pull" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-              " ",
-              t2("op.pulling")
-            ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              menuIcon("arrowDown"),
-              t2("menu.pull")
-            ] })
-          }
-        ) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => setMenuMode("rename"), children: t2("menu.rename") }),
+          !menu.isCurrent && !menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.delete") }) : null,
+          menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.deleteRemote") }) : null,
+          !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => void mergeInto(), children: t2("menu.merge") }) : null
+        ] }) })
+      ] }) : null,
+      discardTarget && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "div",
           {
-            className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-            style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-            onClick: () => {
-              if (busy) return;
-              closeMenu();
-              void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch");
+            className: "dsh-gp-modal-backdrop",
+            onClick: () => setDiscardTarget(null),
+            onKeyDown: (event) => {
+              if (event.key === "Enter") void confirmDiscard();
             },
-            children: busy && pendingOp === "fetch" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-              " ",
-              t2("op.fetching")
-            ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-              menuIcon("fetch"),
-              t2("menu.fetchAll")
-            ] })
+            children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "div",
+              {
+                className: "dsh-gp-modal",
+                role: "alertdialog",
+                "aria-modal": "true",
+                "aria-labelledby": "dsh-gp-discard-title",
+                "aria-describedby": "dsh-gp-discard-desc",
+                onClick: (event) => event.stopPropagation(),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-title", className: "dsh-gp-modal-title", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discard") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardConfirm", { file: discardTarget.file }) }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        className: "dsh-gp-modal-btn",
+                        onClick: () => setDiscardTarget(null),
+                        children: t2("menu.cancel")
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        className: "dsh-gp-modal-btn danger",
+                        autoFocus: true,
+                        onClick: () => void confirmDiscard(),
+                        children: t2("changes.discard")
+                      }
+                    )
+                  ] })
+                ]
+              }
+            )
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => setMenuMode("rename"), children: t2("menu.rename") }),
-        !menu.isCurrent && !menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.delete") }) : null,
-        menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.deleteRemote") }) : null,
-        !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => void mergeInto(), children: t2("menu.merge") }) : null
-      ] }) })
-    ] }) : null,
-    discardTarget && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "div",
-        {
-          className: "dsh-gp-modal-backdrop",
-          onClick: () => setDiscardTarget(null),
-          onKeyDown: (event) => {
-            if (event.key === "Enter") void confirmDiscard();
-          },
-          children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-            "div",
-            {
-              className: "dsh-gp-modal",
-              role: "alertdialog",
-              "aria-modal": "true",
-              "aria-labelledby": "dsh-gp-discard-title",
-              "aria-describedby": "dsh-gp-discard-desc",
-              onClick: (event) => event.stopPropagation(),
-              children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-title", className: "dsh-gp-modal-title", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discard") })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardConfirm", { file: discardTarget.file }) }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "button",
-                    {
-                      type: "button",
-                      className: "dsh-gp-modal-btn",
-                      onClick: () => setDiscardTarget(null),
-                      children: t2("menu.cancel")
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "button",
-                    {
-                      type: "button",
-                      className: "dsh-gp-modal-btn danger",
-                      autoFocus: true,
-                      onClick: () => void confirmDiscard(),
-                      children: t2("changes.discard")
-                    }
-                  )
-                ] })
-              ]
-            }
-          )
-        }
-      ),
-      document.body
-    ) : null,
-    discardAllOpen && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "div",
-        {
-          className: "dsh-gp-modal-backdrop",
-          onClick: () => setDiscardAllOpen(false),
-          onKeyDown: (event) => {
-            if (event.key === "Enter") void confirmDiscardAll();
-          },
-          children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-            "div",
-            {
-              className: "dsh-gp-modal",
-              role: "alertdialog",
-              "aria-modal": "true",
-              "aria-labelledby": "dsh-gp-discard-all-title",
-              "aria-describedby": "dsh-gp-discard-all-desc",
-              onClick: (event) => event.stopPropagation(),
-              children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-all-title", className: "dsh-gp-modal-title", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discardAll") })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-all-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardAllConfirm", { count: String(unstaged.length) }) }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "button",
-                    {
-                      type: "button",
-                      className: "dsh-gp-modal-btn",
-                      onClick: () => setDiscardAllOpen(false),
-                      children: t2("menu.cancel")
-                    }
-                  ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                    "button",
-                    {
-                      type: "button",
-                      className: "dsh-gp-modal-btn danger",
-                      autoFocus: true,
-                      onClick: () => void confirmDiscardAll(),
-                      children: t2("changes.discardAll")
-                    }
-                  )
-                ] })
-              ]
-            }
-          )
-        }
-      ),
-      document.body
-    ) : null
-  ] });
+        document.body
+      ) : null,
+      discardAllOpen && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: "dsh-gp-modal-backdrop",
+            onClick: () => setDiscardAllOpen(false),
+            onKeyDown: (event) => {
+              if (event.key === "Enter") void confirmDiscardAll();
+            },
+            children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "div",
+              {
+                className: "dsh-gp-modal",
+                role: "alertdialog",
+                "aria-modal": "true",
+                "aria-labelledby": "dsh-gp-discard-all-title",
+                "aria-describedby": "dsh-gp-discard-all-desc",
+                onClick: (event) => event.stopPropagation(),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: "dsh-gp-discard-all-title", className: "dsh-gp-modal-title", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--danger)", display: "inline-flex" }, children: icon("undo", 15) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: t2("changes.discardAll") })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "dsh-gp-discard-all-desc", className: "dsh-gp-modal-desc", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t2("changes.discardAllConfirm", { count: String(unstaged.length) }) }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-modal-actions", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        className: "dsh-gp-modal-btn",
+                        onClick: () => setDiscardAllOpen(false),
+                        children: t2("menu.cancel")
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                      "button",
+                      {
+                        type: "button",
+                        className: "dsh-gp-modal-btn danger",
+                        autoFocus: true,
+                        onClick: () => void confirmDiscardAll(),
+                        children: t2("changes.discardAll")
+                      }
+                    )
+                  ] })
+                ]
+              }
+            )
+          }
+        ),
+        document.body
+      ) : null
+    ] })
+  );
 }
 
 // src/client/GitTab.tsx

@@ -226,10 +226,18 @@ export function homeModelDays(value, windowDays) {
     columns.sort((a, b) => (a.date < b.date ? -1 : 1));
     return columns;
 }
-export function homePanelData(state, listed, range, bookPick) {
+export function homePanelData(state, listedRaw, range, bookPick) {
     const value = state.value;
     const ready = value !== null && value.totals !== undefined;
     const totals = ready ? value.totals : null;
+    // While the host is still folding the real report, the coarse session-list
+    // fallback is NOT a usable stand-in: it pins a whole session's lifetime
+    // tokens on its last-activity day, so "今天" flashes ~692M before dropping
+    // to the true ~75M once the fold lands. Hold the skeleton instead, and fall
+    // back to the list only when the real report is genuinely unreachable
+    // (route error or poll budget exhausted) so the panel never strands.
+    const pending = value === null && state.error === null && state.polls < HOME_POLL_MAX;
+    const listed = pending ? null : listedRaw;
     const known = ready || listed !== null;
     let windowDays = 0;
     for (let r = 0; r < HOME_RANGES.length; r++) {

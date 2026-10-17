@@ -216,11 +216,14 @@ export async function readEvents(ctx: any, sessionId: string, logPath?: string):
   if (query && typeof query.readSession === 'function') {
     try {
       const snapshot = await query.readSession(sessionId)
-      if (Array.isArray(snapshot?.events)) return snapshot.events
-    } catch (error: any) {
-      if (error?.code !== 'SESSION_QUERY_CORRUPT_SESSION' && error?.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') {
-        throw error
+      if (Array.isArray(snapshot?.events)) {
+        // ponytail: replay-validation failures (e.g. seeded fork prefix
+        // mismatch) fall through to the raw log instead of aborting the fold.
+        if (snapshot.events.length > 0) return snapshot.events
       }
+    } catch {
+      // Any sessionQuery failure degrades to the on-disk generation below:
+      // one unreadable log must never void the whole usage report.
     }
   }
   if (logPath && existsSync(logPath)) {
