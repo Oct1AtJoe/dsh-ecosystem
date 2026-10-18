@@ -547,8 +547,7 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
      ④ 虚化半径 blur(40px) saturate(180%)，彻底抚平滑入背后的文字；
      ⑤ 四角圆角严格对齐输入框卡片 20px（border-radius: 20px），保持上下曲率一致；
      ⑥ 通用规则覆盖其余自定义主题，确保全主题文字清晰绝不重叠。 */
-body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
-body[data-ds-custom-theme="sequoia"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has([data-composer-stat]),
 body[data-ds-custom-theme="sequoia"] [data-composer-stats],
 body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"],
 body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
@@ -566,8 +565,7 @@ body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > 
   padding: 4px 16px !important;
   margin: 2px auto 0 !important;
 }
-body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"])::before,
-body[data-ds-custom-theme="sequoia"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"])::before,
+body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has([data-composer-stat])::before,
 body[data-ds-custom-theme="sequoia"] [data-composer-stats]::before,
 body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"]::before,
 body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
@@ -581,8 +579,7 @@ body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > 
   -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
 }
 
-body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
-body[data-ds-custom-theme="sonoma"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has([data-composer-stat]),
 body[data-ds-custom-theme="sonoma"] [data-composer-stats],
 body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"],
 body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
@@ -600,8 +597,7 @@ body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [
   padding: 4px 16px !important;
   margin: 2px auto 0 !important;
 }
-body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"])::before,
-body[data-ds-custom-theme="sonoma"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"])::before,
+body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has([data-composer-stat])::before,
 body[data-ds-custom-theme="sonoma"] [data-composer-stats]::before,
 body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"]::before,
 body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
@@ -616,8 +612,7 @@ body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [
 }
 
 /* 其余主题通用防穿透底色 */
-body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
-body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-dock]:has([data-composer-stat]),
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-stats],
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [class*="_MG5Va_root"],
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-slot="conversation.composer.dock"] > [class*="_root"] {

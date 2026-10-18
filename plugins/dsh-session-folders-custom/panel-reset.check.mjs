@@ -134,12 +134,22 @@ console.log('ok: settings launcher shadows the account More menu')
 // Selection: the list snapshot has no `current` field on current hosts, so the
 // selected Session must come from the `mainView` retention count. Without it
 // the quote menu entry (and the row highlight) never appeared.
-const selection = await import('node:module').then(() => null).catch(() => null)
-void selection
 assert.match(source, /function currentSessionId\(list\)/, 'selection helper exists')
 assert.match(source, /retainedBy\?\.mainView \?\? 0\) > 0/, 'selection falls back to the mainView retention count')
 assert.doesNotMatch(source, /summary\.id === list\.current/, 'rows no longer compare against the removed field')
 assert.match(source, /currentId !== void 0 && summary\.id !== currentId \? \[\{ id: "quote"/, 'quote entry needs a selected Session')
 
 console.log('ok: selected session resolves through mainView retention')
+
+// Blank sessions: a blank session must remain visible while currently open or while
+// holding unsubmitted draft text/references in localStorage. It must not be completely
+// hidden by a raw `!session.blank` filter, which was causing draft text to disappear
+// when switching away and back.
+assert.match(source, /function sessionHasDraft\(sessionId\)/, 'sessionHasDraft helper checks localStorage')
+assert.match(source, /currentId !== void 0 && session\.id === currentId/, 'current blank session is visible')
+assert.match(source, /return sessionHasDraft\(session\.id\)/, 'draft-holding blank session is preserved')
+assert.doesNotMatch(source, /!session\.blank;/, 'sessionVisible no longer completely filters out blank sessions')
+assert.match(source, /summary\.blank \? \(summary\.title \|\| t\("session\.new"\)\)/, 'blank row displays new session label')
+
+console.log('ok: blank session visibility and draft preservation checked')
 

@@ -156,6 +156,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.waitingAnswer": "等待回答",
 			"status.completed": "已完成",
 			"settings.launcher": "设置",
+			"session.new": "新会话",
 			"time.now": "刚刚",
 			"time.minutes": "{n}分钟",
 			"time.hours": "{n}小时",
@@ -252,6 +253,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.waitingAnswer": "Waiting for answer",
 			"status.completed": "Completed",
 			"settings.launcher": "Settings",
+			"session.new": "New session",
 			"time.now": "now",
 			"time.minutes": "{n}m",
 			"time.hours": "{n}h",
@@ -963,8 +965,36 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		* @param archived - archived id set.
 		* @returns whether the session participates in any list.
 		*/
-		function sessionVisible(session, archived) {
-			return session.origin !== "subagent" && !archived.has(session.id) && !session.blank;
+		/** Check if a session has unsubmitted draft text or structured references in localStorage. */
+		function sessionHasDraft(sessionId) {
+			if (typeof localStorage === "undefined" || !sessionId) return false;
+			try {
+				const raw = localStorage.getItem("dsh.conversation." + sessionId);
+				if (!raw) return false;
+				const stored = JSON.parse(raw);
+				if (!stored || typeof stored !== "object" || !("draft" in stored)) return false;
+				const d = stored.draft;
+				if (typeof d === "string") return d.trim().length > 0;
+				if (typeof d === "object" && d !== null) {
+					if (typeof d.text === "string" && d.text.trim().length > 0) return true;
+					if (Array.isArray(d.references) && d.references.length > 0) return true;
+				}
+				return false;
+			} catch {
+				return false;
+			}
+		}
+		/**
+		 * Visible sessions: subagents and archived are excluded. A blank session
+		 * is visible while it is the currently selected session (mirrors the
+		 * official `sessionVisible`), or while it retains an unsent local draft,
+		 * so switching sessions and coming back does not lose or hide the draft.
+		 */
+		function sessionVisible(session, archived, currentId) {
+			if (session.origin === "subagent" || archived.has(session.id)) return false;
+			if (!session.blank) return true;
+			if (currentId !== void 0 && session.id === currentId) return true;
+			return sessionHasDraft(session.id);
 		}
 		/**
 		 * The Session shown in the center column.
@@ -1021,13 +1051,16 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		*/
 		function deriveOrderedSessions(sessionIds, pinnedIds, list, visible, withPending) {
 			const pinnedSet = /* @__PURE__ */ new Set(pinnedIds);
+			const unpinned = sessionIds
+				.map((id) => withPending(list.byId[id]))
+				.filter(visible)
+				.filter((summary) => !pinnedSet.has(summary.id));
+			const blanks = unpinned.filter((s) => s.blank);
+			const rest = unpinned.filter((s) => !s.blank).sort(byRecency);
 			return [
+				...blanks,
 				...pinnedIds.map((id) => withPending(list.byId[id])).filter(visible),
-				...sessionIds
-					.map((id) => withPending(list.byId[id]))
-					.filter(visible)
-					.filter((summary) => !pinnedSet.has(summary.id))
-					.sort(byRecency)
+				...rest
 			];
 		}
 		/**
@@ -1095,7 +1128,8 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		* @returns the derived view.
 		*/
 		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose, statusBySession) {
-			const visible = (summary) => summary !== void 0 && sessionVisible(summary, archived);
+			const currentId = currentSessionId(list);
+			const visible = (summary) => summary !== void 0 && sessionVisible(summary, archived, currentId);
 			/**
 			* One session row with the runtime's status folded in. Every summary
 			* this derivation hands out goes through here, so the status dot, its
@@ -1173,13 +1207,16 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					for (const session of folder.sessions) inFolder.add(session.id);
 				}
 				const loosePinnedIds = (pinnedLoose ?? {})[workspace.workspaceId] ?? [];
+				const visibleLoose = workspace.sessionIds
+					.map((id) => withPending(list.byId[id]))
+					.filter(visible)
+					.filter((summary) => !inFolder.has(summary.id) && !loosePinnedIds.includes(summary.id));
+				const blankLoose = visibleLoose.filter((s) => s.blank);
+				const normalLoose = visibleLoose.filter((s) => !s.blank).sort(byRecency);
 				const loose = [
+					...blankLoose,
 					...loosePinnedIds.map((id) => withPending(list.byId[id])).filter(visible).filter((summary) => !inFolder.has(summary.id)),
-					...workspace.sessionIds
-						.map((id) => withPending(list.byId[id]))
-						.filter(visible)
-						.filter((summary) => !inFolder.has(summary.id) && !loosePinnedIds.includes(summary.id))
-						.sort(byRecency)
+					...normalLoose
 				];
 				groups.push({
 					key: workspace.workspaceId,
@@ -1225,7 +1262,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			const ordered = [];
 			const included = /* @__PURE__ */ new Set();
 			const include = (summary) => {
-				if (summary === void 0 || !sessionVisible(summary, archived) || included.has(summary.id)) return;
+				if (summary === void 0 || summary.blank || !sessionVisible(summary, archived) || included.has(summary.id)) return;
 				included.add(summary.id);
 				ordered.push(summary);
 			};
@@ -1504,7 +1541,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			const recentSessions = react.useMemo(() => {
 				const bucket = [];
 				for (const summary of view.visibleSessions) {
-					if (!view.sessionWorkspace.has(summary.id)) continue;
+					if (!view.sessionWorkspace.has(summary.id) || summary.blank) continue;
 					bucket.push(summary);
 				}
 				bucket.sort(byRecency);
@@ -2010,16 +2047,17 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						? e(primitives.StateDot, { state: status, size: 10 })
 						: isSessionPinned(summary) ? pinIcon(false, 10) : null),
 					editingSession
-						? inlineRenameInput("session", summary.id, summary.displayTitle)
+						? inlineRenameInput("session", summary.id, summary.blank ? (summary.title || t("session.new")) : summary.displayTitle)
 						: e("span", {
 							className: "dsh-ff__title",
 							onDoubleClick: (event) => {
 								event.stopPropagation();
+								if (summary.blank) return;
 								setInlineEdit({ kind: "session", id: summary.id });
 							}
-						}, summary.displayTitle),
+						}, summary.blank ? (summary.title || t("session.new")) : summary.displayTitle),
 					e("span", { className: "dsh-ff__time-area" },
-						e("span", { className: "dsh-ff__time" }, timeText),
+						e("span", { className: "dsh-ff__time" }, summary.blank ? "" : timeText),
 						e("button", {
 							type: "button",
 							className: "dsh-ff__row-copy-id",
@@ -2419,7 +2457,12 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						title: t("actions.newSession.aria", { name: group.title }),
 						onClick: (event) => {
 							event.stopPropagation();
-							if (startSession !== void 0) startSession(group.workspaceId);
+							const existingBlank = group.loose.find((s) => s.blank) ?? group.folders.flatMap((f) => f.sessions).find((s) => s.blank);
+							if (existingBlank !== void 0) {
+								open(existingBlank.id);
+							} else if (startSession !== void 0) {
+								startSession(group.workspaceId);
+							}
 						}
 					}, e(primitives.IconPlusOutlineRegular, {}))
 				);
