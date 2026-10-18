@@ -109,6 +109,15 @@
 | C3 | `[role="tooltip"]` | `.bubble`（`position:fixed; z-index:100`） | 小 | 已接入统一配方 |
 | C4 | `[role="presentation"]`（遮罩层） | `GLea6a_overlay` | 1600×950, z9500 ✅ | **无需处理**（透明遮罩） |
 | C5 | `[class*="toast"]` | `.toast`（z 1100，深色实底） | — | **刻意排除**：官方是强调提示，改半透明会削弱力度（用户确认保持实底） |
+| C7 | `[role="dialog"] [class*="cm-section"]` | `.cm-section`（dsh-cost-meter 费用页根容器） | 弹窗内容区 | **背景设为 `transparent`**，让 C1 弹窗玻璃底透上来 |
+
+> 🚨 **C7 实测坑（用户反馈「cost-meter 设置页背景色不对，应与弹窗统一」）**：
+> cost-meter 自带 `background: rgb(from var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #fff)) r g b / 1)`。
+> 尾部 `/ 1` 把 alpha **强制成 1**（不透明）。弹窗内 `--dsw-alias-bg-layer-2` 被本主题覆写成
+> `rgba(255,255,255,0.48)`，取 RGB 后 alpha 钉死为 1 → 计算成 `color(srgb 1 1 1)` **纯白**；
+> 而弹窗本体是 `rgba(255,255,255,0.54)` 半透明玻璃叠在灰底上 → 右侧内容区明显更白。
+> 修法：只把该根容器设为 `transparent`，子级卡片（`.cm-card` 等）仍走半透明 token，层次不变。
+> 门禁见 `tests/sequoia-neutral-check.mjs` 的 C7 组。
 
 ---
 

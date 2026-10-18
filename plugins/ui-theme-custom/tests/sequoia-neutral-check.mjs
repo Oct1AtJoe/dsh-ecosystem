@@ -176,6 +176,21 @@ check(
   !/body\[data-ds-dark-theme\] \[class\*="sidebarCol"\] > \* > \[class\*="root"\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(/.test(indexSrc),
 )
 
+// ── C7. dsh-cost-meter 费用页背景融合（用户反馈「设置页背景色不对，应与弹窗统一」）──
+// 根因：cost-meter 的 .cm-section 用 `rgb(from var(--dsw-alias-bg-layer-2) r g b / 1)`
+// 把 alpha 钉死成 1，弹窗内该 token 被覆写成 rgba(255,255,255,.48)，取 RGB 后变纯白；
+// 而弹窗本体是半透明玻璃，于是内容区比弹窗底色更白。修法：根容器 transparent。
+console.log('\n=== C7. cost-meter 费用页背景融合 ===')
+check(
+  '费用页：弹窗内 .cm-section 背景设为 transparent（让弹窗玻璃底透上来）',
+  /\[role="dialog"\]\s+\[class\*="cm-section"\][\s\S]{0,80}?background:\s*transparent\s*!important/.test(indexSrc),
+)
+check(
+  '费用页：门控覆盖两个玻璃主题（sequoia + sonoma）',
+  /body\[data-ds-custom-theme="sequoia"\] \[role="dialog"\] \[class\*="cm-section"\]/.test(indexSrc)
+  && /body\[data-ds-custom-theme="sonoma"\] \[role="dialog"\] \[class\*="cm-section"\]/.test(indexSrc),
+)
+
 // ── C5. 浮层可读性 + 嵌套 backdrop root 规避（用户实测反馈）──
 // 用户反馈「对话框里权限展开的选择面板透明度太高、没有背景高斯模糊」。
 // 实测该菜单的 computed backdrop-filter 确实是 blur(92px)，却看不出模糊。两个根因：

@@ -1039,6 +1039,21 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="navCell"]{
   border-radius:12px !important;
   transition:background 0.15s ease, color 0.15s ease !important;
 }
+
+/* dsh-cost-meter 费用页根容器（.cm-section）背景归零，与设置弹窗玻璃底统一。
+   🚨 实测根因：cost-meter 自带 background: rgb(from var(--dsw-alias-bg-layer-2,
+   var(--dsw-alias-bg-base, #fff)) r g b / 1) —— 尾部 / 1 把 alpha 强制成 1（不透明）。
+   弹窗内 --dsw-alias-bg-layer-2 被本主题覆写为 rgba(255,255,255,0.48)，
+   取 RGB 后 alpha 钉死为 1 → 计算成 color(srgb 1 1 1) 纯白，
+   而弹窗本体是 rgba(255,255,255,0.54) 半透明玻璃叠在灰底上，
+   于是右侧内容区比弹窗底色明显更白，读作「背景色不统一」。
+   修法：只把该根容器设为 transparent，让弹窗自身的玻璃底透上来；
+   子级卡片（.cm-card 等）仍走半透明 token，层次不变。 */
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="cm-section"],
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="cm-section"]{
+  background:transparent !important;
+}
+
 /* 主题/外观选项卡片晶体化 */
 body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="themeCube"]{
   background:rgba(255, 255, 255, 0.35) !important;
