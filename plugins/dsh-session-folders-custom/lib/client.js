@@ -2830,9 +2830,23 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		//#region registration
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-session-folders-custom: dictionaries");
+			/**
+			 * Select a Session and return the center column to its Conversation.
+			 *
+			 * `sessions.open()` only changes the selected Session — the center column
+			 * keeps whichever global main panel is active, and dshmarket registers one
+			 * to `main`. Upstream ui-workspace pairs both calls in
+			 * UiWorkspaceService.openSession for exactly this reason; this fork
+			 * predates main panels, so it must pair them too or the panel outlives the
+			 * click. `ctx.get` keeps the call optional on a host without a layout.
+			 */
+			const activate = (sessionId) => {
+				ctx.sessions.open(sessionId);
+				ctx.get("layout")?.selectPanel(null);
+			};
 			/** Entry inject: session/workspace actions behind the kit surface. */
 			const injected = () => ({
-				open: (sessionId) => { ctx.sessions.open(sessionId); },
+				open: (sessionId) => { activate(sessionId); },
 				searchSessions: async (query, signal) => {
 					const result = await ctx.sessions.search(query, signal);
 					if (result.ok !== true) throw new Error(result.error.message);
@@ -2848,7 +2862,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				forkSession: (sessionId) => {
 					ctx.sessions.fork({ sessionId, increaseTitle: true }).then((result) => {
 						const childId = typeof result === "string" ? result : result?.value?.sessionId;
-						if (childId !== void 0) ctx.sessions.open(childId);
+						if (childId !== void 0) activate(childId);
 					}).catch(() => {});
 				},
 				renameWorkspace: async (workspaceId, title) => { await ctx.workspaces.rename(workspaceId, title); },
