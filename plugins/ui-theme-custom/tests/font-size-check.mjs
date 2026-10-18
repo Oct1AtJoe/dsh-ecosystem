@@ -32,10 +32,16 @@ const check = (name, ok, detail = '') => {
 // ── Fix 1：字号意图防护必须真的接进 theme/change 链路 ──
 check('Fix1：存在字号意图记录（setFontSize 包装）', clientSrc.includes('recordFontSizeIntent'))
 check('Fix1：存在回滚检测与重新断言函数', clientSrc.includes('assertFontSizeIntent'))
-check('Fix1：theme/change 中优先断言字号意图', /assertFontSizeIntent\(snapshot\.fontSize\)/.test(clientSrc))
+check('Fix1：theme/change 中优先断言字号意图', /assertFontSizeIntent\(snapshot\.fontSizes\)/.test(clientSrc))
 check(
   'Fix1：断言命中回滚时用原函数重发（不会递归包装自身）',
-  /originalSetFontSize\.call\(theme, pendingFontSize\)/.test(clientSrc),
+  // 0.2.1 起 setFontSize 按 (role, px) 定位，重发必须带 role。
+  /originalSetFontSize\.call\(theme, role, px\)/.test(clientSrc),
+)
+check(
+  'Fix1：意图按 role 定位（0.2.1 的 setFontSize(role, px)）',
+  /pendingFontSize\s*=\s*\{\s*role,\s*px\s*\}/.test(clientSrc)
+    && /theme\.setFontSize\s*=\s*function \(this: ThemeRuntime, role: FontRole, px: number\)/.test(clientSrc),
 )
 check('Fix1：意图最终会清除（有静默窗口计时器）', clientSrc.includes('pendingFontSizeSettle'))
 check('Fix1：效果随 fiber 释放（restore setFontSize wrapper）', clientSrc.includes('restore setFontSize wrapper'))

@@ -119,11 +119,11 @@ check(
 )
 check(
   '融合：右侧栏面板带顶部同色融合屏障（sonoma）',
-  /body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(22,\s*24,\s*30\)\s*0/.test(indexSrc),
+  /body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\](?::not\(\[aria-hidden="true"\]\))?\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(22,\s*24,\s*30\)\s*0/.test(indexSrc),
 )
 check(
   '融合：右侧栏面板带顶部同色融合屏障（sequoia）',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(245,\s*245,\s*247\)\s*0/.test(indexSrc),
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\](?::not\(\[aria-hidden="true"\]\))?\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*rgb\(245,\s*245,\s*247\)\s*0/.test(indexSrc),
 )
 // 反向约束：侧栏与右栏面板严禁带「顶部 inset 白色亮线」——
 // 它画在内容层 y=0（= 壳顶栏正下方），会在顶栏下方形成一条横贯亮线。
@@ -133,7 +133,7 @@ check(
 )
 check(
   '融合：右侧栏面板无顶部 inset 白色亮线（sonoma）',
-  !/body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,500}?inset 0 1px 1px/.test(indexSrc),
+  !/body\[data-ds-custom-theme="sonoma"\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\](?::not\(\[aria-hidden="true"\]\))?\s*\{[\s\S]{0,500}?inset 0 1px 1px/.test(indexSrc),
 )
 
 // 【新增·实测修复】其余四个主题（void/jade/solar/parchment）走的是**通用**深浅分支，
@@ -153,11 +153,22 @@ check(
 )
 check(
   '融合：深色通用分支的右栏面板带 bg-base 融合屏障',
-  /body\[data-ds-dark-theme\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
+  /body\[data-ds-dark-theme\] \[class\*="rightbarCol"\] \[data-sidebar-right-panel\](?::not\(\[aria-hidden="true"\]\))?\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
 )
 check(
   '融合：浅色通用分支的右栏面板带 bg-base 融合屏障',
-  /body:not\(\[data-ds-dark-theme\]\) \[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
+  /body:not\(\[data-ds-dark-theme\]\) \[class\*="rightbarCol"\] \[data-sidebar-right-panel\](?::not\(\[aria-hidden="true"\]\))?\s*\{[\s\S]{0,400}?linear-gradient\(180deg,\s*var\(--dsw-alias-bg-base\)\s*0/.test(indexSrc),
+)
+// 【新增·实测回归】面板壳只在「展开」时上色。
+// 官方 .panel 是 absolute，折叠时列宽为 0 但面板壳仍以自身宽度悬挂在中栏
+// 右侧，只有内部 [data-dockkit-host='dock'] 被 translateX + visibility:hidden
+// 移走 —— 壳本身在官方设计里是透明的。给它灌背景后，折叠态会在中栏右侧留
+// 一块擦不掉的空白，并把 conversation header 右端的展开按钮盖住
+// （用户实测：右侧栏「不显示了」且「有空白元素一直显示」）。
+// 判据：任何给右栏面板上色的规则都必须带 :not([aria-hidden="true"]) 守卫。
+check(
+  '融合：右栏面板上色必须带展开守卫（折叠态不得留空白壳）',
+  !/\[class\*="rightbarCol"\] \[data-sidebar-right-panel\]\s*\{[\s\S]{0,200}?background:/.test(indexSrc),
 )
 // 屏障必须用 bg-base 变量而非写死某主题色，否则又退化成「只对一个主题有效」。
 check(

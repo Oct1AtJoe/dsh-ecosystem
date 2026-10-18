@@ -41,9 +41,17 @@ interface PanelClientContext {
   }
   sessions: {
     list: {
-      getSnapshot(): { current?: string; byId: Record<string, { cwd?: string }> }
+      getSnapshot(): { byId: Record<string, { cwd?: string }> }
       subscribe(fn: () => void): () => void
     }
+  }
+  /**
+   * 「当前在看哪个会话」的唯一来源。0.2.1 的 session 列表快照只有
+   * `{ ids, byId, phase, projectionsBySession }`，**没有 `current`**；
+   * 当前绑定由 ui-session 的 scope adapter 持有。
+   */
+  uiSession?: {
+    adapter: { current: { getSnapshot(): { key?: string } | undefined } }
   }
   slots: {
     inject(name: string, factory: () => unknown): () => void
@@ -123,13 +131,16 @@ export function apply(ctx: PanelClientContext): void {
   }
 
   // 0. 变更清单：轻量轮询当前会话的工作区变更，供左侧文件树装饰与状态缓存使用。
-  ctx.inject(['sessions'], () => {
+  ctx.inject(['sessions', 'uiSession'], (scope: any) => {
     try {
       let lastCwd = ''
 
+      /** 当前绑定的会话 id：只在 ui-session 的 scope adapter 上，列表快照没有它。 */
+      const currentSessionId = (): string | undefined =>
+        scope.uiSession?.adapter?.current?.getSnapshot()?.key
+
       const refreshCurrent = (fresh = false): void => {
-        const current = ctx.sessions.list.getSnapshot().current
-        const cwd = cwdOf(current)
+        const cwd = cwdOf(currentSessionId())
         if (!cwd) return
         lastCwd = cwd
         void statusCache.ensure(cwd, fresh)
@@ -137,12 +148,15 @@ export function apply(ctx: PanelClientContext): void {
 
       refreshCurrent()
       // 当前会话切换或当前工作区目录改变时立刻刷新
-      ctx.sessions.list.subscribe(() => {
-        const current = ctx.sessions.list.getSnapshot().current
-        const cwd = cwdOf(current)
+      const unsubscribeList = ctx.sessions.list.subscribe(() => {
+        const cwd = cwdOf(currentSessionId())
         if (cwd && cwd !== lastCwd) {
           refreshCurrent(true)
         }
+      })
+      // 切会话不一定改列表快照，绑定的切换要看 ui-session 自己的来源。
+      const unsubscribeCurrent = scope.uiSession?.adapter?.current?.subscribe?.(() => {
+        refreshCurrent(true)
       })
 
       // 仅在前台激活时以 3 秒间隔静默更新当前工作区
@@ -164,6 +178,8 @@ export function apply(ctx: PanelClientContext): void {
         window.clearInterval(timer)
         window.removeEventListener('focus', onFocusOrVisible)
         document.removeEventListener('visibilitychange', onFocusOrVisible)
+        unsubscribeList()
+        unsubscribeCurrent?.()
       }, 'dsh-git-panel: status poll')
       ctx.effect(() => installFileTreeDecorations(statusCache, () => {}), 'dsh-git-panel: file tree decorations')
     } catch (error) {

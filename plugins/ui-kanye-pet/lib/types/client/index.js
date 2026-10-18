@@ -5,16 +5,16 @@ import { en, zh } from "./locales.js";
 /** Dictionary namespace owned by this plugin. */
 export const NS = 'kanye-pet';
 /** Services required by the kanye-pet tab. */
-export const inject = ['slots', 'locale', 'settingsScope'];
+export const inject = ['slots', 'locale', 'configForms'];
 /**
  * Contribute the kanye-pet tab to the Plugins settings section. The tab reads and
  * writes the `kanye-pet` settings namespace; the renderer consumes it through
- * settingsScope and the tab owns its own card.
+ * configForms and the tab owns its own card.
  */
 export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-kanye-pet: dictionaries');
     const t = ctx.locale.bind(NS);
-    const controller = new KanyeCardController(ctx.settingsScope.bind({ namespace: KANYE_NS }));
+    const controller = new KanyeCardController(ctx.configForms.get(KANYE_NS));
     ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
         name: 'settings.plugins.tab',
         id: 'pet',
@@ -31,10 +31,18 @@ export function apply(ctx) {
             const sessionId = event.detail?.sessionId;
             if (typeof sessionId !== 'string' || sessionId === '')
                 return;
-            // Client-side Session Controller (same service ui-chat/ui-workspace use);
-            // resolved lazily at click time — unknown ids fail loud inside open().
-            const sessions = ctx.get('sessions');
+            // Navigation belongs to the view owner: current hosts dropped
+            // `sessions.open()`, and ui-workspace's openSession retains the Session
+            // plus returns the main area to the Conversation (layout.selectPanel).
+            // Resolved lazily at click time; unknown ids fail loud inside openSession.
             try {
+                const workspace = ctx.get('uiWorkspace');
+                if (typeof workspace?.openSession === 'function') {
+                    workspace.openSession(sessionId);
+                    return;
+                }
+                // Legacy hosts only: ISessions lost `open`, so this is a no-op there.
+                const sessions = ctx.get('sessions');
                 sessions?.open?.(sessionId);
             }
             catch (error) {

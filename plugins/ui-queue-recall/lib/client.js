@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-queue-recall\src\client\QueueDock.module.css.mjs
-		const css = "._1hb8UG_dock{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));max-width:calc(var(--dsh-composer-card-max-width) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));margin:0 auto calc(0px - var(--dsh-composer-stack-gap) - 3px);padding:0 var(--dsh-composer-dock-inset);flex:none}._1hb8UG_panel{background:var(--dsw-specific-tip);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border-radius:12px 12px 0 0;width:100%;padding:2px 0;position:relative;overflow:hidden}._1hb8UG_panel:after{border:.5px solid var(--dsw-alias-border-l1);border-radius:inherit;content:\"\";pointer-events:none;border-bottom:none;position:absolute;inset:0}._1hb8UG_header{box-sizing:border-box;width:100%;height:36px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:none;border-radius:8px;align-items:center;gap:10px;padding:4px 12px;display:flex}._1hb8UG_header:focus-visible{outline:2px solid var(--dsw-alias-label-tertiary);outline-offset:-2px}._1hb8UG_header:disabled{cursor:default}._1hb8UG_lead{color:var(--dsw-alias-label-tertiary);flex:none;place-items:center;display:grid}._1hb8UG_count{min-width:0;font-family:Inter, var(--dsw-font-family);flex:auto;font-size:13px;font-weight:500;line-height:24px}._1hb8UG_chevron{width:14px;height:14px;color:var(--dsw-alias-label-tertiary);flex:none;place-items:center;display:grid}._1hb8UG_list{max-height:180px;margin:0;padding:0;list-style:none;overflow-y:auto}._1hb8UG_row{box-sizing:border-box;border-radius:8px;align-items:center;gap:10px;width:100%;height:36px;padding:4px 5px 4px 12px;display:flex}._1hb8UG_row+._1hb8UG_row{box-shadow:inset 0 1px 0 var(--dsw-alias-border-l1)}._1hb8UG_attachments{flex:none;gap:4px;min-width:0;max-width:55%;display:flex;overflow:hidden}._1hb8UG_pendingRow ._1hb8UG_attachments{flex-shrink:1}._1hb8UG_file{border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-sizing:border-box;border-radius:6px;flex:0 180px;align-items:center;gap:4px;min-width:74px;height:24px;padding:0 6px;display:inline-flex;overflow:hidden}._1hb8UG_fileIcon{flex:none;width:16px;height:16px;display:inline-flex}._1hb8UG_fileName{min-width:0;color:var(--dsw-alias-label-primary-dimmed);font:var(--dsw-font-xs-13);text-overflow:ellipsis;white-space:nowrap;overflow:hidden}._1hb8UG_fileSize{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;font-size:10px}._1hb8UG_thumb{border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);object-fit:cover;border-radius:4px;width:24px;height:24px}._1hb8UG_preview,._1hb8UG_editor{min-width:0;font:var(--dsw-font-xs-13);font-family:Inter, var(--dsw-font-family);flex:auto}._1hb8UG_preview{color:var(--dsw-alias-label-primary-dimmed);text-overflow:ellipsis;white-space:nowrap;word-break:break-word;overflow:hidden}._1hb8UG_editor{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-base);height:28px;color:var(--dsw-alias-label-primary);border-radius:6px;outline:none;padding:0 8px}._1hb8UG_editor:focus{border-color:var(--dsw-alias-state-business-primary)}._1hb8UG_actions{flex:none;align-items:center;gap:10px;display:flex}._1hb8UG_status{color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xs-13);white-space:nowrap;flex:none}._1hb8UG_action{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;flex:none;place-items:center;padding:0;display:grid}._1hb8UG_action:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}._1hb8UG_action:focus-visible{outline:2px solid var(--dsw-alias-label-tertiary);outline-offset:-2px}._1hb8UG_action:disabled{cursor:default;opacity:.45}";
+		const css = "._1hb8UG_dock{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));max-width:calc(var(--dsh-composer-card-max-width) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));margin:0 auto calc(0px - var(--dsh-composer-stack-gap) - 3px);padding:0 var(--dsh-composer-dock-inset);flex:none}._1hb8UG_panel{isolation:isolate;border-radius:var(--dsw-radius-lg) var(--dsw-radius-lg) 0 0;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);width:100%;padding:2px 0;position:relative;overflow:hidden}._1hb8UG_panel:before{z-index:-1;border-radius:inherit;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);content:\"\";pointer-events:none;position:absolute;inset:0}._1hb8UG_panel:after{border:.5px solid var(--dsw-alias-border-l1);border-radius:inherit;content:\"\";pointer-events:none;border-bottom:none;position:absolute;inset:0}._1hb8UG_header{box-sizing:border-box;border-radius:var(--dsw-radius-md);width:100%;height:36px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:10px;padding:4px 12px;display:flex}._1hb8UG_header:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}._1hb8UG_header:disabled{cursor:default}._1hb8UG_lead{color:var(--dsw-alias-label-tertiary);flex:none;place-items:center;display:grid}._1hb8UG_count{min-width:0;font-family:Inter, var(--dsw-font-family);flex:auto;font-size:13px;font-weight:500;line-height:24px}._1hb8UG_chevron{width:14px;height:14px;color:var(--dsw-alias-label-tertiary);flex:none;place-items:center;display:grid}._1hb8UG_list{max-height:180px;margin:0;padding:0;list-style:none;overflow-y:auto}._1hb8UG_row{box-sizing:border-box;border-radius:var(--dsw-radius-md);align-items:center;gap:10px;width:100%;min-height:36px;padding:4px 5px 4px 12px;display:flex}._1hb8UG_row+._1hb8UG_row{box-shadow:inset 0 1px 0 var(--dsw-alias-border-l1)}._1hb8UG_attachments{flex:none;gap:4px;min-width:0;max-width:55%;display:flex;overflow:hidden}._1hb8UG_pendingRow ._1hb8UG_attachments{flex-shrink:1}._1hb8UG_file{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-base);box-sizing:border-box;flex:0 180px;align-items:center;gap:4px;min-width:74px;height:24px;padding:0 6px;display:inline-flex;overflow:hidden}._1hb8UG_fileIcon{flex:none;width:16px;height:16px;display:inline-flex}._1hb8UG_fileName{min-width:0;color:var(--dsw-alias-label-primary-dimmed);font:var(--dsw-font-xs-13);text-overflow:ellipsis;white-space:nowrap;overflow:hidden}._1hb8UG_fileSize{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;font-size:10px}._1hb8UG_thumb{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-base);object-fit:cover;width:24px;height:24px}._1hb8UG_preview{min-width:0;font:var(--dsw-font-xs-13);font-family:Inter, var(--dsw-font-family);color:var(--dsw-alias-label-primary-dimmed);flex:auto}._1hb8UG_actions{flex:none;align-items:center;gap:10px;display:flex}._1hb8UG_status{color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xs-13);white-space:nowrap;flex:none}._1hb8UG_action{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;flex:none;place-items:center;padding:0;display:grid}._1hb8UG_action:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}._1hb8UG_action:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}._1hb8UG_action:disabled{cursor:default;opacity:.45}";
 		const tagId = "@deepseek-ai/dsh-client-ui-queue-recall/QueueDock.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -24,7 +24,6 @@ window.__ModuleLoader__.load({
 			"chevron": "_1hb8UG_chevron",
 			"count": "_1hb8UG_count",
 			"dock": "_1hb8UG_dock",
-			"editor": "_1hb8UG_editor",
 			"file": "_1hb8UG_file",
 			"fileIcon": "_1hb8UG_fileIcon",
 			"fileName": "_1hb8UG_fileName",
@@ -41,10 +40,29 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region src/client/QueueDock.tsx
+		const EMPTY_QUEUE = [];
 		/**
-		* Durable references carried by one queued row. Queue frames are wire data
-		* despite their typed face, so an image or file block without a reference is skipped
-		* rather than trusted.
+		* Facts applied to the queue preview. The composer's own user-text widget
+		* carries the full chip/mention rendering, so the dock reuses it instead of
+		* re-implementing a text projection.
+		*/
+		const QUEUE_TEXT_FACTS = {
+			collapseWhitespace: true,
+			trimWhitespace: true
+		};
+		/**
+		* Plain text of one queued row, or `null` when it carries non-text blocks.
+		* Recall merges the text into the composer draft, so an image-only row has
+		* nothing to hand over and keeps the action disabled.
+		*/
+		function textOf(content) {
+			if (!content.every((block) => block.type === "text")) return null;
+			return content.map((block) => block.text).join("");
+		}
+		/**
+		* Durable references carried by one queued row. Inbox projections are wire
+		* data despite their typed face, so an image or file block without a
+		* reference is skipped rather than trusted.
 		*/
 		function queueAttachments(content) {
 			const attachments = [];
@@ -114,16 +132,26 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/**
-		* Custom Queue dock: one item renders directly; multiple items default to a
-		* collapsible count header; an empty queue renders nothing.
-		* Clicking the edit button directly recalls the message to the composer draft.
+		* Queue strip: one item renders directly; multiple items default to a
+		* collapsible count header; an empty queue renders nothing. Local queued
+		* submissions show sending status and disabled actions until their Host queue
+		* rows arrive.
+		*
+		* Divergence from the shipped dock: the edit action recalls the row into the
+		* composer draft (existing draft preserved, joined with a newline) and removes
+		* it from the queue, instead of editing it in place. Recalling lets a user
+		* merge queued text with new input before sending; in-place editing cannot.
 		*/
-		function QueueDock({ useSession, useInput, inputActions, updateQueue, notify, loadImage, t }) {
-			const inbox = useSession((s) => s.queue);
-			const queue = (0, react.useMemo)(() => inbox.filter((row) => row.placement === "queued"), [inbox]);
+		function QueueDock({ useSession, useInput, useProjection, inputActions, updateQueue, notify, loadImage, renderFactorySlot, t }) {
+			const inbox = useProjection("inbox");
 			const pendingSubmissions = useSession((s) => s.pendingSubmissions);
+			const queue = (0, react.useMemo)(() => {
+				const rows = inbox?.["next-turn"] ?? EMPTY_QUEUE;
+				const inChat = new Set(pendingSubmissions.filter((item) => item.placement === "transcript").map((item) => item.requestId));
+				return inChat.size === 0 ? rows : rows.filter(({ source }) => source.kind !== "user" || !("rpcId" in source) || !inChat.has(source.rpcId));
+			}, [inbox, pendingSubmissions]);
 			const pendingQueue = (0, react.useMemo)(() => {
-				const admitted = new Set(queue.flatMap((row) => row.rpcId === void 0 ? [] : [row.rpcId]));
+				const admitted = new Set(queue.flatMap(({ source }) => source.kind === "user" && "rpcId" in source ? [source.rpcId] : []));
 				return pendingSubmissions.filter((submission) => submission.placement === "queued" && !admitted.has(submission.requestId));
 			}, [pendingSubmissions, queue]);
 			const rowCount = queue.length + pendingQueue.length;
@@ -152,11 +180,16 @@ window.__ModuleLoader__.load({
 					setBusy((current) => current === itemId ? null : current);
 				}
 			};
+			/**
+			* Hand one queued row back to the composer. The draft is replaced first so a
+			* refused removal still leaves the text recoverable in the input; the queue
+			* row then leaves through the same remove action the delete button uses.
+			*/
 			const handleRecall = async (row) => {
-				if (row.text === null) return;
+				const text = textOf(row.content);
+				if (text === null) return;
 				const currentDraft = (draft ?? "").trim();
-				const nextDraft = currentDraft === "" ? row.text : `${currentDraft}\n${row.text}`;
-				inputActions.setDraft(nextDraft);
+				inputActions.setDraft(currentDraft === "" ? text : `${currentDraft}\n${text}`);
 				await applyAction(row.id, { kind: "remove" }, t("queue.recallFailed"));
 			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -177,7 +210,7 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: QueueDock_module_css_default.lead,
 								"aria-hidden": true,
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutline14, {})
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutlineRegular, {})
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: QueueDock_module_css_default.count,
@@ -191,7 +224,7 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: QueueDock_module_css_default.chevron,
 								"aria-hidden": true,
-								children: expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, {}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, {})
+								children: expanded ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {})
 							})
 						]
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
@@ -200,13 +233,14 @@ window.__ModuleLoader__.load({
 						hidden: !listVisible,
 						children: [listVisible && queue.map((row) => {
 							const attachments = queueAttachments(row.content);
+							const text = textOf(row.content);
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 								className: QueueDock_module_css_default.row,
 								children: [
 									rowCount === 1 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.lead,
 										"aria-hidden": true,
-										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutline14, {})
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutlineRegular, {})
 									}),
 									attachments.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.attachments,
@@ -221,29 +255,36 @@ window.__ModuleLoader__.load({
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.preview,
-										children: (0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(row.preview, [])
+										children: renderFactorySlot("conversation.user.text", {
+											text: row.content.filter((block) => block.type === "text").map((block) => block.text).join(""),
+											facts: QUEUE_TEXT_FACTS,
+											interactive: false,
+											ellipsis: true
+										})
 									}),
 									queueMutable && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: QueueDock_module_css_default.actions,
 										children: [
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+												portal: true,
 												label: t("queue.recall"),
 												side: "bottom",
 												delayMs: 500,
-												disabled: row.text === null,
+												disabled: text === null,
 												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 													type: "button",
 													className: QueueDock_module_css_default.action,
 													"aria-label": t("queue.recall"),
-													title: row.text === null ? t("queue.recall.unsupported") : void 0,
-													disabled: busy !== null || row.text === null,
+													title: text === null ? t("queue.recall.unsupported") : void 0,
+													disabled: busy !== null || text === null,
 													onClick: () => {
 														handleRecall(row);
 													},
-													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutline16, { size: 14 })
+													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 })
 												})
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+												portal: true,
 												label: t("queue.remove"),
 												side: "bottom",
 												delayMs: 500,
@@ -255,10 +296,11 @@ window.__ModuleLoader__.load({
 													onClick: () => {
 														applyAction(row.id, { kind: "remove" }, t("queue.removeFailed"));
 													},
-													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutline16, { size: 14 })
+													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 })
 												})
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+												portal: true,
 												label: t("queue.steer"),
 												side: "bottom",
 												delayMs: 500,
@@ -272,7 +314,7 @@ window.__ModuleLoader__.load({
 													onClick: () => {
 														applyAction(row.id, { kind: "steer" }, t("queue.steerFailed"));
 													},
-													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSendOutline14, {})
+													children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSendOutlineRegular, {})
 												})
 											})
 										]
@@ -280,7 +322,6 @@ window.__ModuleLoader__.load({
 								]
 							}, row.id);
 						}), listVisible && pendingQueue.map((submission) => {
-							const attachments = submission.attachments ?? [];
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
 								className: `${QueueDock_module_css_default.row} ${QueueDock_module_css_default.pendingRow}`,
 								"data-submission-echo": "",
@@ -288,11 +329,11 @@ window.__ModuleLoader__.load({
 									rowCount === 1 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.lead,
 										"aria-hidden": true,
-										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutline14, {})
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconQueueOutlineRegular, {})
 									}),
-									attachments.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									submission.attachments.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.attachments,
-										children: attachments.map((attachment, index) => attachment.type === "image" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
+										children: submission.attachments.map((attachment, index) => attachment.type === "image" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
 											className: QueueDock_module_css_default.thumb,
 											src: attachment.value.previewUrl,
 											alt: t("queue.image")
@@ -303,7 +344,12 @@ window.__ModuleLoader__.load({
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.preview,
-										children: (0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(submission.text, [])
+										children: renderFactorySlot("conversation.user.text", {
+											text: submission.text,
+											facts: QUEUE_TEXT_FACTS,
+											interactive: false,
+											ellipsis: true
+										})
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 										className: QueueDock_module_css_default.status,
@@ -319,7 +365,7 @@ window.__ModuleLoader__.load({
 												"aria-label": t("queue.recall"),
 												title: t("queue.sending"),
 												disabled: true,
-												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutline16, { size: 14 })
+												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 })
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 												type: "button",
@@ -327,7 +373,7 @@ window.__ModuleLoader__.load({
 												"aria-label": t("queue.remove"),
 												title: t("queue.sending"),
 												disabled: true,
-												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutline16, { size: 14 })
+												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 })
 											}),
 											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 												type: "button",
@@ -335,7 +381,7 @@ window.__ModuleLoader__.load({
 												"aria-label": t("queue.steer"),
 												title: t("queue.sending"),
 												disabled: true,
-												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSendOutline14, {})
+												children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSendOutlineRegular, {})
 											})
 										]
 									})
@@ -387,139 +433,17 @@ window.__ModuleLoader__.load({
 			"locale"
 		];
 		/**
-		* Reconstruct time of the first token delta from compact stream records without full expansion.
+		* Shadow the shipped queue strip with the recall variant.
+		*
+		* Same slot id and order as `@deepseek-ai/dsh-client-ui-conversation`'s own
+		* `conversation-queue-dock`, with a negative priority so this entry wins the
+		* list-slot shadow: the shipped entry registers at the default 0.
 		*/
-		function assistantStreamFirstTokenTime(stream) {
-			if (!Array.isArray(stream)) return void 0;
-			for (const record of stream) {
-				if (!record || typeof record !== "object") continue;
-				if (record.type === "chunk") {
-					const chunk = record.chunk;
-					if ((chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && chunk.text !== "" || chunk?.type === "tool-call-delta" && (chunk.argumentsDelta !== "" || chunk.name !== void 0)) return record.time;
-				} else {
-					if (record.type === "tool-call-chunks" && record.name !== void 0) return record.time0;
-					const fragments = record.type === "tool-call-chunks" ? record.args : record.texts;
-					if (Array.isArray(fragments)) {
-						let time = typeof record.time0 === "number" ? record.time0 : 0;
-						for (let i = 0; i < fragments.length; i++) {
-							if (i > 0 && Array.isArray(record.dt)) time += typeof record.dt[i - 1] === "number" ? record.dt[i - 1] : 0;
-							if (fragments[i] !== "") return time;
-						}
-					}
-				}
-			}
-		}
-		function patchAssistantDefinition(def) {
-			if (!def || def._tpsPatched) return;
-			def._tpsPatched = true;
-			const origUpdate = def.update;
-			def.update = (context, match) => {
-				const nextState = origUpdate ? origUpdate(context, match) : context.state;
-				if (match.event?.type === "assistant/message" && match.event.data?.stream) {
-					const firstToken = assistantStreamFirstTokenTime(match.event.data.stream);
-					if (firstToken !== void 0) return {
-						...nextState,
-						firstTokenTime: nextState?.firstTokenTime ?? firstToken
-					};
-				}
-				return nextState;
-			};
-			const origBuildLocationData = def.buildLocationData;
-			def.buildLocationData = (context, scope) => {
-				const result = origBuildLocationData ? origBuildLocationData(context, scope) : null;
-				if (scope === "step" && result && result.key === "assistant-step") {
-					const finalNode = result.value?.finalNode;
-					if (finalNode?.timing && finalNode.timing.firstTokenTime === null) {
-						const msgMatch = context.matches?.find((m) => m.event?.type === "assistant/message");
-						if (msgMatch?.event?.data?.stream) {
-							const firstToken = assistantStreamFirstTokenTime(msgMatch.event.data.stream);
-							if (firstToken !== void 0) finalNode.timing.firstTokenTime = firstToken;
-						}
-					}
-				}
-				return result;
-			};
-		}
-		function installTpsPatch(ctx) {
-			const events = ctx.uiConversation?.events;
-			if (!events) return;
-			const existing = events.definitions?.get("assistant-step");
-			if (existing) {
-				patchAssistantDefinition(existing);
-				events.refresh?.();
-			}
-			const origRegister = events.register?.bind(events);
-			if (origRegister && !events._tpsRegisterHooked) {
-				events._tpsRegisterHooked = true;
-				events.register = (definition) => {
-					if (definition?.kind === "assistant-step") patchAssistantDefinition(definition);
-					return origRegister(definition);
-				};
-			}
-		}
-		/**
-		* Filter pseudo-queue control items produced by host inbox-first dispatch
-		* while the session is idle. This keeps optimistic submission echoes rendered
-		* uninterrupted in the transcript until durable user/messages arrive, and prevents
-		* QueueDock from flickering or displacing the message for 2 seconds.
-		*/
-		function installQueuePatch(ctx) {
-			const sessions = ctx.sessions;
-			if (!sessions || sessions._queuePatchInstalled) return;
-			sessions._queuePatchInstalled = true;
-			const origHandleControlFrame = sessions.handleControlFrame?.bind(sessions);
-			if (!origHandleControlFrame) return;
-			sessions.handleControlFrame = (frame) => {
-				if (frame?.type === "queue" && Array.isArray(frame.items) && frame.items.length > 0) {
-					const sessionId = frame.sessionId;
-					const pending = (sessions.binding?.(sessionId)?.session ?? sessions.manager?.sessions?.get(sessionId))?.getSnapshot?.()?.pendingSubmissions;
-					if (Array.isArray(pending) && pending.length > 0) {
-						const transcriptRpcIds = new Set(pending.filter((s) => s.placement === "transcript").map((s) => s.requestId));
-						if (transcriptRpcIds.size > 0) {
-							const filteredItems = frame.items.filter((item) => {
-								return !item.rpcId || !transcriptRpcIds.has(item.rpcId);
-							});
-							if (filteredItems.length !== frame.items.length) return origHandleControlFrame({
-								...frame,
-								items: filteredItems
-							});
-						}
-					}
-				} else if (frame?.type === "baseline" && frame.value?.queues) {
-					let changed = false;
-					const queues = { ...frame.value.queues };
-					for (const [sessionId, items] of Object.entries(queues)) {
-						if (!Array.isArray(items) || items.length === 0) continue;
-						const pending = (sessions.binding?.(sessionId)?.session ?? sessions.manager?.sessions?.get(sessionId))?.getSnapshot?.()?.pendingSubmissions;
-						if (Array.isArray(pending) && pending.length > 0) {
-							const transcriptRpcIds = new Set(pending.filter((s) => s.placement === "transcript").map((s) => s.requestId));
-							if (transcriptRpcIds.size > 0) {
-								const filtered = items.filter((item) => !item.rpcId || !transcriptRpcIds.has(item.rpcId));
-								if (filtered.length !== items.length) {
-									queues[sessionId] = filtered;
-									changed = true;
-								}
-							}
-						}
-					}
-					if (changed) return origHandleControlFrame({
-						...frame,
-						value: {
-							...frame.value,
-							queues
-						}
-					});
-				}
-				return origHandleControlFrame(frame);
-			};
-		}
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
 			}), "ui-queue-recall: dictionaries");
-			installTpsPatch(ctx);
-			installQueuePatch(ctx);
 			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
 				name: "conversation.input.dock",
 				id: "queue",

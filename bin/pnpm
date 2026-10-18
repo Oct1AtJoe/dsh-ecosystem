@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "/c/Users/Administrator/.local/bin/nodejs24/node.exe" "/c/Users/Administrator/AppData/Local/node/corepack/v1/pnpm/11.28.5/bin/pnpm.cjs" "$@"

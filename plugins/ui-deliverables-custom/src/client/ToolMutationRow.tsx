@@ -1,7 +1,7 @@
 import { useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  DisclosureRow, IconEditOutline16, IconInspectOutline12, StateDot,
+  DisclosureRow, IconEditOutlineRegular, IconInspectOutlineRegular, StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { DiffBlock, type DiffHunk } from './DiffBlock.tsx'
@@ -150,7 +150,7 @@ export function ToolMutationRow({
         leadingClassName={css.leading}
         titleClassName={css.title}
         chevronClassName={css.chevron}
-        icon={leadingFor(state, <IconEditOutline16 size={14} />)}
+        icon={leadingFor(state, <IconEditOutlineRegular size={14} />)}
         title={title}
         open={open}
         expandable={expandable}
@@ -195,7 +195,7 @@ export function ToolMutationRow({
           ) : null}
           {inspect !== undefined && (
             <button type="button" className={css.inspectButton} onClick={inspect}>
-              <IconInspectOutline12 size={12} />
+              <IconInspectOutlineRegular size={12} />
               <span>{t === undefined ? '查看' : t('row.inspect' as never)}</span>
             </button>
           )}

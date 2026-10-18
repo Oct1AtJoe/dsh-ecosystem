@@ -5,7 +5,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * 交互：数字输入框（直接键入）+ 上下步进微调（±1%）。键入非法值在 blur 时夹取回合法值。
  */
 import { useState } from 'react';
-import { IconChevronDownOutline14, IconChevronUpOutline14, } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconChevronDownOutlineRegular, IconChevronUpOutlineRegular, } from '@deepseek-ai/dsh-client-ui-primitives';
 import { RIGHTBAR_RATIO_MAX, RIGHTBAR_RATIO_MIN, normalizeRightbarRatio } from "./rightbar-width.js";
 import css from './RightbarWidthRow.module.css';
 /**
@@ -47,6 +47,6 @@ export function RightbarWidthRow({ t, setRightbarRatio, useStore }) {
             commit(v === '' ? ratio : Number.parseInt(v, 10));
         }
     };
-    return (_jsxs("div", { className: css.row, children: [_jsxs("div", { className: css.rowText, children: [_jsx("div", { className: css.title, children: t('rightbar-width.title') }), _jsx("div", { className: css.desc, children: t('rightbar-width.description') })] }), _jsxs("div", { className: css.control, children: [_jsxs("div", { className: css.stepper, children: [_jsx("input", { className: css.value, type: "text", inputMode: "numeric", "aria-label": t('rightbar-width.title'), value: draft ?? String(ratio), onChange: onInput, onBlur: onBlur, onKeyDown: onKeyDown }), _jsxs("span", { className: css.arrows, children: [_jsx("button", { type: "button", className: css.arrow, "aria-label": t('rightbar-width.increase'), disabled: ratio >= RIGHTBAR_RATIO_MAX, onClick: () => { commit(ratio + 1); }, children: _jsx(IconChevronUpOutline14, { size: 9 }) }), _jsx("button", { type: "button", className: css.arrow, "aria-label": t('rightbar-width.decrease'), disabled: ratio <= RIGHTBAR_RATIO_MIN, onClick: () => { commit(ratio - 1); }, children: _jsx(IconChevronDownOutline14, { size: 9 }) })] })] }), _jsx("span", { className: css.unit, children: t('rightbar-width.unit') })] })] }));
+    return (_jsxs("div", { className: css.row, children: [_jsxs("div", { className: css.rowText, children: [_jsx("div", { className: css.title, children: t('rightbar-width.title') }), _jsx("div", { className: css.desc, children: t('rightbar-width.description') })] }), _jsxs("div", { className: css.control, children: [_jsxs("div", { className: css.stepper, children: [_jsx("input", { className: css.value, type: "text", inputMode: "numeric", "aria-label": t('rightbar-width.title'), value: draft ?? String(ratio), onChange: onInput, onBlur: onBlur, onKeyDown: onKeyDown }), _jsxs("span", { className: css.arrows, children: [_jsx("button", { type: "button", className: css.arrow, "aria-label": t('rightbar-width.increase'), disabled: ratio >= RIGHTBAR_RATIO_MAX, onClick: () => { commit(ratio + 1); }, children: _jsx(IconChevronUpOutlineRegular, { size: 9 }) }), _jsx("button", { type: "button", className: css.arrow, "aria-label": t('rightbar-width.decrease'), disabled: ratio <= RIGHTBAR_RATIO_MIN, onClick: () => { commit(ratio - 1); }, children: _jsx(IconChevronDownOutlineRegular, { size: 9 }) })] })] }), _jsx("span", { className: css.unit, children: t('rightbar-width.unit') })] })] }));
 }
 //# sourceMappingURL=RightbarWidthRow.js.map

@@ -1,9 +1,11 @@
-﻿// Runnable check for the center-column panel reset in lib/client.js.
+// Runnable check for Session navigation in lib/client.js.
 //
-// The sidebar row click must select the Session AND return the center column
-// to the Conversation. dshmarket registers a `main` panel (the market page),
-// so a bare sessions.open() leaves the market on screen. This loads the real
-// shipped bundle with stubbed platform modules and drives the injected face.
+// Current hosts dropped `sessions.open()`: navigation belongs to the view owner,
+// and ui-workspace pairs "retain the Session" with `layout.selectPanel(null)` in
+// UiWorkspaceService.openSession. The sidebar row click must call that owner, or
+// the click selects nothing. Legacy hosts keep the old pair as a fallback. This
+// loads the real shipped bundle with stubbed platform modules and drives the
+// injected face.
 //
 // Run: node panel-reset.check.mjs
 import assert from 'node:assert/strict'
@@ -22,16 +24,21 @@ const passthrough = new Proxy(function () {}, {
   construct: () => passthrough,
 })
 
-const calls = { open: [], selectPanel: [] }
+const calls = { openSession: [], open: [], selectPanel: [] }
 let registration
+let uiWorkspace = { openSession: (id) => { calls.openSession.push(id) } }
 
 const ctx = {
   effect: (fn) => { fn(); return () => {} },
-  get: (name) => (name === 'layout'
-    ? { selectPanel: (id) => { calls.selectPanel.push(id) } }
-    : undefined),
+  get: (name) => {
+    if (name === 'layout') return { selectPanel: (id) => { calls.selectPanel.push(id) } }
+    if (name === 'uiWorkspace') return uiWorkspace
+    return undefined
+  },
   locale: { register: () => () => {}, bind: () => (key) => key, subscribe: () => () => {} },
   sessions: {
+    // Legacy API: current hosts no longer provide it, and it must stay unused
+    // while ui-workspace is present.
     open: (id) => { calls.open.push(id) },
     search: async () => ({ ok: true, value: { rows: [] } }),
     searchResultLimit: 20,
@@ -77,21 +84,48 @@ ctx.slots.inject = (_name, callback) => {
 ctx.slots.register = (meta) => { captured.push(meta); return () => {} }
 plugin.apply(ctx)
 
-assert.equal(captured.length, 1, 'one sidebar.workspaces registration')
-const face = captured[0].inject()
+assert.equal(captured.length, 2, 'sidebar.workspaces plus the settings launcher')
+const workspaces = captured.find(entry => entry.name === 'sidebar.workspaces')
+assert.ok(workspaces, 'sidebar.workspaces registration')
+const face = workspaces.inject()
 assert.equal(typeof face.open, 'function', 'injected face exposes open')
 
-// The behaviour under test: a row click selects the session AND leaves the panel.
+// Current host: the ui-workspace owner selects the Session and reveals the
+// Conversation (it calls layout.selectPanel(null) itself).
 face.open('session-7')
-assert.deepEqual(calls.open, ['session-7'], 'session selected')
-assert.deepEqual(calls.selectPanel, [null], 'center column returned to the conversation')
+assert.deepEqual(calls.openSession, ['session-7'], 'ui-workspace owns navigation')
+assert.deepEqual(calls.open, [], 'legacy sessions.open stays unused')
 
 // Fork must land in the conversation too, not in whatever panel was open.
-calls.open.length = 0
-calls.selectPanel.length = 0
+calls.openSession.length = 0
 face.forkSession('session-7')
 await new Promise((resolve) => setTimeout(resolve, 0))
-assert.deepEqual(calls.open, ['child-1'], 'forked child selected')
-assert.deepEqual(calls.selectPanel, [null], 'fork also returns to the conversation')
+assert.deepEqual(calls.openSession, ['child-1'], 'forked child selected')
 
-console.log('ok: open/forkSession reset the center column panel')
+// Legacy host without ui-workspace: fall back to the old pair.
+uiWorkspace = undefined
+calls.open.length = 0
+calls.selectPanel.length = 0
+face.open('session-8')
+assert.deepEqual(calls.open, ['session-8'], 'legacy session selected')
+assert.deepEqual(calls.selectPanel, [null], 'legacy center column returned to the conversation')
+
+console.log('ok: open/forkSession navigate through ui-workspace, legacy pair as fallback')
+
+// Pending interaction: the row dot must read ui-session's status map through
+// the standard `useSessionStatus` prop. The removed `useSessionPendingInteraction`
+// prop left the map empty, so a parked run kept spinning (the reported bug).
+assert.match(source, /useSessionStatus/, 'bundle binds the standard status hook')
+assert.match(source, /statusBySession\.get\(summary\.id\)\?\.pendingInteraction\?\.kind/, 'row status folds the pending kind from the status map')
+assert.doesNotMatch(source, /useSessionPendingInteraction/, 'removed host prop must not come back')
+
+console.log('ok: pending interaction reads useSessionStatus')
+
+// Sidebar foot: a negative-priority settings launcher shadows the account
+// "More" popover, so the shipped Settings entry shows again.
+const launcher = captured.find(entry => entry.name === 'settings.launcher')
+assert.ok(launcher, 'settings.launcher registration')
+assert.ok(typeof launcher.priority === 'number' && launcher.priority < 0, 'launcher outranks the account entry')
+
+console.log('ok: settings launcher shadows the account More menu')
+

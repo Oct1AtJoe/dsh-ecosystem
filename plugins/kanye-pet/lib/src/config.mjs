@@ -48,40 +48,50 @@ export const DEFAULTS = Object.freeze({
   },
 })
 
-/** schemastery schema（settings.register 用；默认值= DEFAULTS，防双源漂移）。 */
+/**
+ * 插件 Config schema（默认值 = DEFAULTS，防双源漂移）。
+ *
+ * 0.2.1 起宿主不再有 `settings.register`：设置页由「loader 条目 id + 本插件导出的
+ * Config」直接投影（packages/settings/settings/src/index.ts 的 SettingsForms.describe），
+ * 且只有 `.volatile()` 字段出现在表单与可写路径里。字段路径必须固定为对象成员，
+ * volatile 不能落在数组/联合的元素内部（schemastery validateVolatileSchema 会抛错）。
+ */
 export function buildSchema() {
   return z.object({
-    enabled: z.boolean().default(DEFAULTS.enabled),
-    desktopPetEnabled: z.boolean().default(DEFAULTS.desktopPetEnabled),
-    desktopNotificationEnabled: z.boolean().default(DEFAULTS.desktopNotificationEnabled),
-    size: z.number().min(100).max(300).default(150),
-    opacity: z.number().min(0.2).max(1).default(DEFAULTS.opacity),
-    character: z.string().default(DEFAULTS.character),
+    enabled: z.boolean().default(DEFAULTS.enabled).volatile(),
+    desktopPetEnabled: z.boolean().default(DEFAULTS.desktopPetEnabled).volatile(),
+    desktopNotificationEnabled: z.boolean().default(DEFAULTS.desktopNotificationEnabled).volatile(),
+    size: z.number().min(100).max(300).default(150).volatile(),
+    opacity: z.number().min(0.2).max(1).default(DEFAULTS.opacity).volatile(),
+    character: z.string().default(DEFAULTS.character).volatile(),
     walk: z.object({
-        enabled: z.boolean().default(DEFAULTS.walk.enabled),
-        minWaitMs: z.number().min(0).max(300000).default(DEFAULTS.walk.minWaitMs),
-        maxWaitMs: z.number().min(0).max(300000).default(DEFAULTS.walk.maxWaitMs),
-        minMs: z.number().min(0).max(60000).default(DEFAULTS.walk.minMs),
-        maxMs: z.number().min(0).max(60000).default(DEFAULTS.walk.maxMs),
-        speedPxPerSec: z.number().min(10).max(300).default(DEFAULTS.walk.speedPxPerSec),
+        enabled: z.boolean().default(DEFAULTS.walk.enabled).volatile(),
+        minWaitMs: z.number().min(0).max(300000).default(DEFAULTS.walk.minWaitMs).volatile(),
+        maxWaitMs: z.number().min(0).max(300000).default(DEFAULTS.walk.maxWaitMs).volatile(),
+        minMs: z.number().min(0).max(60000).default(DEFAULTS.walk.minMs).volatile(),
+        maxMs: z.number().min(0).max(60000).default(DEFAULTS.walk.maxMs).volatile(),
+        speedPxPerSec: z.number().min(10).max(300).default(DEFAULTS.walk.speedPxPerSec).volatile(),
       }),
-      sleepAfterMs: z.number().min(5000).max(600000).default(DEFAULTS.sleepAfterMs),
-      pollMs: z.number().min(1000).max(30000).default(DEFAULTS.pollMs),
-      bubbleMs: z.number().min(500).max(10000).default(DEFAULTS.bubbleMs),
-      welcomeMs: z.number().min(0).max(30000).default(DEFAULTS.welcomeMs),
-      celebrateMs: z.number().min(0).max(30000).default(DEFAULTS.celebrateMs),
-      errorMs: z.number().min(0).max(15000).default(DEFAULTS.errorMs),
-      disappointedMs: z.number().min(0).max(15000).default(DEFAULTS.disappointedMs),
+      sleepAfterMs: z.number().min(5000).max(600000).default(DEFAULTS.sleepAfterMs).volatile(),
+      pollMs: z.number().min(1000).max(30000).default(DEFAULTS.pollMs).volatile(),
+      bubbleMs: z.number().min(500).max(10000).default(DEFAULTS.bubbleMs).volatile(),
+      welcomeMs: z.number().min(0).max(30000).default(DEFAULTS.welcomeMs).volatile(),
+      celebrateMs: z.number().min(0).max(30000).default(DEFAULTS.celebrateMs).volatile(),
+      errorMs: z.number().min(0).max(15000).default(DEFAULTS.errorMs).volatile(),
+      disappointedMs: z.number().min(0).max(15000).default(DEFAULTS.disappointedMs).volatile(),
       replies: z.object({
-        feed: z.array(z.string()).default(DEFAULTS.replies.feed),
-        play: z.array(z.string()).default(DEFAULTS.replies.play),
+        feed: z.array(z.string()).default(DEFAULTS.replies.feed).volatile(),
+        play: z.array(z.string()).default(DEFAULTS.replies.play).volatile(),
       }),
       sound: z.object({
-        enabled: z.boolean().default(DEFAULTS.sound.enabled),
-        volume: z.number().min(0).max(1).default(DEFAULTS.sound.volume),
+        enabled: z.boolean().default(DEFAULTS.sound.enabled).volatile(),
+        volume: z.number().min(0).max(1).default(DEFAULTS.sound.volume).volatile(),
       }),
     })
 }
+
+/** 宿主 loader 读取的插件 Config（导出名固定为 `Config`）。 */
+export const Config = buildSchema()
 
 /** 跨字段校验（schema 表达不了的成对约束；settings.register 的 validate 用）。 */
 export function validateConfig(value) {

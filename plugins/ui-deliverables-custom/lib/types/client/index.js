@@ -1,8 +1,8 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store';
-import { ProducedFiles } from "./ProducedFiles.js";
+import { ProducedFilesTail } from "./ProducedFiles.js";
 import { ToolMutationRow } from "./ToolMutationRow.js";
 import { en, NS, zh } from "./locales.js";
-import { deliverablesDefinition, producedFileMentions, producedForClosing, selectProducedFiles, } from "./turn-deliverables.js";
+import { deliverablesDefinition, producedFileMentions, producedForClosing, } from "./turn-deliverables.js";
 export { ProducedFiles } from "./ProducedFiles.js";
 export { ToolMutationRow } from "./ToolMutationRow.js";
 export { producedForClosing } from "./turn-deliverables.js";
@@ -133,11 +133,9 @@ export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-deliverables-custom: dictionaries');
     ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
         name: 'conversation.chat.turnTail',
-        select: selectProducedFiles,
-        // Chain order is ascending priority: dsh-better-sidebar claims the same
-        // produced-files turn at -1, so this fork must try earlier to render at
-        // all, while staying behind ui-resend-failed-round (-10), whose failed-
-        // round entry keeps precedence on failed turns.
+        // 0.2.x 把该槽从 chain 改成 list：注册要 id，排序靠 priority/order，
+        // 原先的 select 选举移进 ProducedFilesTail 自己完成。
+        id: '@deepseek-ai/dsh-client-ui-deliverables-custom',
         priority: -5,
         locale: NS,
         inject: (sessionId) => ({
@@ -147,7 +145,7 @@ export function apply(ctx) {
             hooks: { workspacePathOpen },
             resolveFileLine: (requested, path, snippet) => resolveFileLine(ctx.get('remote.workspaceFiles') ?? ctx.remote?.workspaceFiles, requested || sessionId, path, snippet),
         }),
-    }, ProducedFiles));
+    }, ProducedFilesTail));
     ctx.slots.inject('tool.call.toolview', function* () {
         yield ctx.slots.register({
             name: 'tool.call.toolview',

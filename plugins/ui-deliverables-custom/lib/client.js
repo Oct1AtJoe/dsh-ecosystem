@@ -446,9 +446,11 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../../node_modules/@deepseek-ai/dsh-session/lib/types/surface.js
+		//#region E:/vibeCoding/deepseek-harness/packages/core/session/lib/types/surface.js
 		/** Runtime counterpart of the message-producing event union. */
 		const SURFACE_EVENT_TYPES = new Set([
+			"system/message",
+			"developer/message",
 			"user/message",
 			"assistant/message",
 			"tool/result"
@@ -686,7 +688,7 @@ window.__ModuleLoader__.load({
 					hunks: mutationHunks(event.data.name, event.data.arguments)
 				});
 				else if (event.type === "tool/result" && isAppendSurfaceEvent(event) && "message" in event.data) {
-					if (event.data.message.content[0].isError === true) continue;
+					if (event.data.message.isError === true) continue;
 					const callId = String(event.data.message.source.callId);
 					const call = calls.get(callId);
 					const path = call?.path;
@@ -753,7 +755,7 @@ window.__ModuleLoader__.load({
 					};
 				}
 				if (match.event.type !== "tool/result") return context.state;
-				if (match.event.data.message.content[0].isError === true) return context.state;
+				if (match.event.data.message.isError === true) return context.state;
 				const callId = String(match.event.data.message.source.callId);
 				const call = context.state.calls.get(callId);
 				const path = call?.path;
@@ -880,6 +882,23 @@ window.__ModuleLoader__.load({
 		//#region src/client/ProducedFiles.tsx
 		/** Fold threshold: up to 3 chips are shown by default; more are folded behind a toggle chip. */
 		const COLLAPSED_LIMIT = 3;
+		/** Matched paths plus the opener, locale, and injected Host capability. */
+		/**
+		* Turn-tail entry for produced files.
+		*
+		* 0.2.x declares `conversation.chat.turnTail` a list slot and renders every
+		* entry, so the election a 0.1 chain expressed with `select` has to happen in
+		* the entry itself: an empty turn renders nothing.
+		* @param props - closing Turn plus the injected opener face and copy.
+		* @returns the produced-files row, or null when this Turn declares none.
+		*/
+		function ProducedFilesTail(props) {
+			const matched = selectProducedFiles(props);
+			return matched === null ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ProducedFiles, {
+				...props,
+				matched
+			});
+		}
 		function moreLabel(t, count) {
 			return count === 1 ? t("produced.moreOne") : t("produced.more", { count: String(count) });
 		}
@@ -960,7 +979,7 @@ window.__ModuleLoader__.load({
 							className: ProducedFiles_module_css_default.diffCollapse,
 							"aria-label": t("produced.collapsePanel"),
 							onClick: close,
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 12 })
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, { size: 12 })
 						})
 					]
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DiffBlock, {
@@ -1027,7 +1046,7 @@ window.__ModuleLoader__.load({
 						onClick: () => {
 							setExpandedPath(open ? null : path);
 						},
-						children: open ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 12 }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 12 })
+						children: open ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, { size: 12 }) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 12 })
 					})] })]
 				}, path);
 			};
@@ -1047,10 +1066,10 @@ window.__ModuleLoader__.load({
 							"aria-expanded": isExpandedAll,
 							"aria-label": t(isExpandedAll ? "produced.collapseFilesAria" : "produced.expandFilesAria", { count: String(hiddenCount) }),
 							onClick: handleToggleExpandAll,
-							children: isExpandedAll ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("produced.collapseFiles") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, {
+							children: isExpandedAll ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("produced.collapseFiles") }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {
 								size: 12,
 								className: ProducedFiles_module_css_default.moreIcon
-							})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: moreLabel(t, hiddenCount) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, {
+							})] }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: moreLabel(t, hiddenCount) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
 								size: 12,
 								className: ProducedFiles_module_css_default.moreIcon
 							})] })
@@ -1196,7 +1215,7 @@ window.__ModuleLoader__.load({
 					leadingClassName: ToolMutationRow_module_css_default.leading,
 					titleClassName: ToolMutationRow_module_css_default.title,
 					chevronClassName: ToolMutationRow_module_css_default.chevron,
-					icon: leadingFor(state, /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutline16, { size: 14 })),
+					icon: leadingFor(state, /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 })),
 					title,
 					open,
 					expandable,
@@ -1239,7 +1258,7 @@ window.__ModuleLoader__.load({
 							type: "button",
 							className: ToolMutationRow_module_css_default.inspectButton,
 							onClick: inspect,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutline12, { size: 12 }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t === void 0 ? "查看" : t("row.inspect") })]
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, { size: 12 }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t === void 0 ? "查看" : t("row.inspect") })]
 						})]
 					})
 				})
@@ -1385,7 +1404,7 @@ window.__ModuleLoader__.load({
 			}), "ui-deliverables-custom: dictionaries");
 			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
 				name: "conversation.chat.turnTail",
-				select: selectProducedFiles,
+				id: "@deepseek-ai/dsh-client-ui-deliverables-custom",
 				priority: -5,
 				locale: NS,
 				inject: (sessionId) => ({
@@ -1397,7 +1416,7 @@ window.__ModuleLoader__.load({
 					hooks: { workspacePathOpen },
 					resolveFileLine: (requested, path, snippet) => resolveFileLine(ctx.get("remote.workspaceFiles") ?? ctx.remote?.workspaceFiles, requested || sessionId, path, snippet)
 				})
-			}, ProducedFiles));
+			}, ProducedFilesTail));
 			ctx.slots.inject("tool.call.toolview", function* () {
 				yield ctx.slots.register({
 					name: "tool.call.toolview",

@@ -9,10 +9,10 @@
 import clsx from 'clsx'
 import type { ComponentType } from 'react'
 import {
-  IconAgentPresetOutline16,
-  IconBrowseOutline16,
-  IconGoalOutline16,
-  IconListPenOutline16,
+  IconAgentPresetOutlineRegular,
+  IconBrowseOutlineRegular,
+  IconGoalOutlineRegular,
+  IconListPenOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the settings section's SlotMap entry behind PropsRuntime.
@@ -61,10 +61,10 @@ export type TechThemeRowProps =
 const CUBES: readonly { id: string; labelKey: TechThemeKey; Icon: ComponentType<{ size?: number; className?: string }> }[] = [
   { id: 'sequoia', labelKey: 'tech-theme.sequoia', Icon: IconLiquid16 },
   { id: 'sonoma', labelKey: 'tech-theme.sonoma', Icon: IconObsidian16 },
-  { id: 'void', labelKey: 'tech-theme.void', Icon: IconAgentPresetOutline16 },
-  { id: 'jade', labelKey: 'tech-theme.jade', Icon: IconBrowseOutline16 },
-  { id: 'solar', labelKey: 'tech-theme.solar', Icon: IconGoalOutline16 },
-  { id: 'parchment', labelKey: 'tech-theme.parchment', Icon: IconListPenOutline16 },
+  { id: 'void', labelKey: 'tech-theme.void', Icon: IconAgentPresetOutlineRegular },
+  { id: 'jade', labelKey: 'tech-theme.jade', Icon: IconBrowseOutlineRegular },
+  { id: 'solar', labelKey: 'tech-theme.solar', Icon: IconGoalOutlineRegular },
+  { id: 'parchment', labelKey: 'tech-theme.parchment', Icon: IconListPenOutlineRegular },
 ]
 
 /**

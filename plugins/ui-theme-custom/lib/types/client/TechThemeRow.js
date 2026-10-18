@@ -8,7 +8,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * settings scope because `THEME_PREFERENCES` includes them.
  */
 import clsx from 'clsx';
-import { IconAgentPresetOutline16, IconBrowseOutline16, IconGoalOutline16, IconListPenOutline16, } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconAgentPresetOutlineRegular, IconBrowseOutlineRegular, IconGoalOutlineRegular, IconListPenOutlineRegular, } from '@deepseek-ai/dsh-client-ui-primitives';
 import css from './TechThemeRow.module.css';
 /** 液态 (Liquid Frost) 主题专有图标：透光液态水滴，带镜面反射微弧 */
 function IconLiquid16({ size = 16, className }) {
@@ -24,10 +24,10 @@ export const SETTINGS_NS = 'settings.theme.custom';
 const CUBES = [
     { id: 'sequoia', labelKey: 'tech-theme.sequoia', Icon: IconLiquid16 },
     { id: 'sonoma', labelKey: 'tech-theme.sonoma', Icon: IconObsidian16 },
-    { id: 'void', labelKey: 'tech-theme.void', Icon: IconAgentPresetOutline16 },
-    { id: 'jade', labelKey: 'tech-theme.jade', Icon: IconBrowseOutline16 },
-    { id: 'solar', labelKey: 'tech-theme.solar', Icon: IconGoalOutline16 },
-    { id: 'parchment', labelKey: 'tech-theme.parchment', Icon: IconListPenOutline16 },
+    { id: 'void', labelKey: 'tech-theme.void', Icon: IconAgentPresetOutlineRegular },
+    { id: 'jade', labelKey: 'tech-theme.jade', Icon: IconBrowseOutlineRegular },
+    { id: 'solar', labelKey: 'tech-theme.solar', Icon: IconGoalOutlineRegular },
+    { id: 'parchment', labelKey: 'tech-theme.parchment', Icon: IconListPenOutlineRegular },
 ];
 /**
  * Render the tech-theme row.

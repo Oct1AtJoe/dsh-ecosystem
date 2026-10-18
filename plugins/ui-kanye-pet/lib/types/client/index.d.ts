@@ -16,7 +16,7 @@ export declare const inject: string[];
 /**
  * Contribute the kanye-pet tab to the Plugins settings section. The tab reads and
  * writes the `kanye-pet` settings namespace; the renderer consumes it through
- * settingsScope and the tab owns its own card.
+ * configForms and the tab owns its own card.
  */
 export declare function apply(ctx: ClientContext): void;
 //# sourceMappingURL=index.d.ts.map

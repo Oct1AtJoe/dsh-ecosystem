@@ -83,7 +83,7 @@ window.__ModuleLoader__.load({
 					onClick: () => {
 						send(target);
 					},
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutline16, {}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: label })]
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, {}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: label })]
 				})
 			});
 		}
@@ -96,22 +96,6 @@ window.__ModuleLoader__.load({
 		const zh = { "action.resend": "重新发起" };
 		/** English dictionary (same key set). */
 		const en = { "action.resend": "Re-run" };
-		//#endregion
-		//#region src/client/slots.ts
-		/**
-		* Elect the entry on a turn that ended terminally. Pure over the owner
-		* props: the turn/end reason rides the tail owner's TurnLocation. Whether
-		* this is still the latest failed round, and the round's user text, are the
-		* component's chat-snapshot scan.
-		* @param owner - tail owner currency for the closing turn.
-		* @returns the elected reason, or null to decline.
-		*/
-		const resendSelect = (owner) => {
-			const end = owner.turn.end;
-			if (end === void 0) return null;
-			const reason = end.data.reason;
-			return reason.kind === "error" || reason.kind === "max-tokens" ? { reason: reason.kind } : null;
-		};
 		//#endregion
 		//#region src/client/index.ts
 		/** Required services: the slot registry, the session scope index, and the copy. */
@@ -131,8 +115,8 @@ window.__ModuleLoader__.load({
 			}), "ui-resend-failed-round: dictionaries");
 			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
 				name: "conversation.chat.turnTail",
+				id: "@deepseek-ai/dsh-client-ui-resend-failed-round",
 				priority: -10,
-				select: resendSelect,
 				locale: NS,
 				inject: (sessionId) => ({ send: (text) => {
 					const conversation = ctx.sessions.scope(sessionId)?.get("conversation");

@@ -10,7 +10,7 @@
  */
 import { useState, type ChangeEvent } from 'react'
 import {
-  IconChevronDownOutline14, IconChevronUpOutline14,
+  IconChevronDownOutlineRegular, IconChevronUpOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -93,7 +93,7 @@ export function SidebarFontRow({ t, setSidebarFont, useStore }: SidebarFontRowPr
               disabled={size >= SIDEBAR_FONT_MAX}
               onClick={() => { commit(size + 1) }}
             >
-              <IconChevronUpOutline14 size={9} />
+              <IconChevronUpOutlineRegular size={9} />
             </button>
             <button
               type="button"
@@ -102,7 +102,7 @@ export function SidebarFontRow({ t, setSidebarFont, useStore }: SidebarFontRowPr
               disabled={size <= SIDEBAR_FONT_MIN}
               onClick={() => { commit(size - 1) }}
             >
-              <IconChevronDownOutline14 size={9} />
+              <IconChevronDownOutlineRegular size={9} />
             </button>
           </span>
         </div>

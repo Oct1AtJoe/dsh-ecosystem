@@ -8,10 +8,10 @@
 
 import { useEffect, useState } from 'react'
 import type { HostObservable, InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, IconChevronUpOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DiffBlock } from './DiffBlock.tsx'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { basename, diffStats, dirname, type ProducedFileMatch } from './turn-deliverables.ts'
+import { basename, diffStats, dirname, selectProducedFiles, type ProducedFileMatch } from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
 import css from './ProducedFiles.module.css'
 
@@ -71,6 +71,22 @@ export interface ProducedFilesInjected {
 }
 
 /** Matched paths plus the opener, locale, and injected Host capability. */
+/**
+ * Turn-tail entry for produced files.
+ *
+ * 0.2.x declares `conversation.chat.turnTail` a list slot and renders every
+ * entry, so the election a 0.1 chain expressed with `select` has to happen in
+ * the entry itself: an empty turn renders nothing.
+ * @param props - closing Turn plus the injected opener face and copy.
+ * @returns the produced-files row, or null when this Turn declares none.
+ */
+export function ProducedFilesTail(
+  props: TurnTailOwnerProps & PropsLocale<typeof NS> & InjectFace<ProducedFilesInjected>,
+) {
+  const matched = selectProducedFiles(props)
+  return matched === null ? null : <ProducedFiles {...props} matched={matched} />
+}
+
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: readonly ProducedFileMatch[]
   sessionId?: string | undefined
@@ -148,7 +164,7 @@ function ChangePanel({
           aria-label={t('produced.collapsePanel')}
           onClick={close}
         >
-          <IconChevronUpOutline14 size={12} />
+          <IconChevronUpOutlineRegular size={12} />
         </button>
       </div>
       <DiffBlock
@@ -230,7 +246,7 @@ export function ProducedFiles({
                 aria-label={t(open ? 'produced.collapse' : 'produced.expand', { name: path })}
                 onClick={() => { setExpandedPath(open ? null : path) }}
               >
-                {open ? <IconChevronUpOutline14 size={12} /> : <IconChevronDownOutline14 size={12} />}
+                {open ? <IconChevronUpOutlineRegular size={12} /> : <IconChevronDownOutlineRegular size={12} />}
               </button>
             )}
           </>
@@ -255,12 +271,12 @@ export function ProducedFiles({
             {isExpandedAll ? (
               <>
                 <span>{t('produced.collapseFiles')}</span>
-                <IconChevronUpOutline14 size={12} className={css.moreIcon} />
+                <IconChevronUpOutlineRegular size={12} className={css.moreIcon} />
               </>
             ) : (
               <>
                 <span>{moreLabel(t, hiddenCount)}</span>
-                <IconChevronDownOutline14 size={12} className={css.moreIcon} />
+                <IconChevronDownOutlineRegular size={12} className={css.moreIcon} />
               </>
             )}
           </button>

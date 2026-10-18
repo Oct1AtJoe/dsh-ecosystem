@@ -22,5 +22,20 @@ export function apply(ctx) {
             },
         }),
     }, SubagentComposerAction));
+    ctx.inject(['inputTriggers'], (scope) => {
+        const inputTriggers = scope.get('inputTriggers');
+        if (inputTriggers && !inputTriggers.live?.sources?.some((s) => s.name === 'reference')) {
+            scope.effect(() => inputTriggers.registerSource({
+                trigger: '@',
+                name: 'reference',
+                showGroupTitle: false,
+                candidates: () => Promise.resolve([]),
+                codec: {
+                    clipboardText: (ref) => ref,
+                    serialize: (ref) => Promise.resolve(ref),
+                },
+            }), 'ui-subagent-custom: compat reference serializer');
+        }
+    });
 }
 //# sourceMappingURL=index.js.map

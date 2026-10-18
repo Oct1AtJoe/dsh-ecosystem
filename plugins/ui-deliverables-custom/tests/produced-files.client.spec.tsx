@@ -30,7 +30,6 @@ import {
   type DeliverablesTurnData,
 } from '../src/client/turn-deliverables.ts'
 import { apply, inject } from '../src/client/index.ts'
-import { apply as applyInvariant } from '../src/invariant.ts'
 import { en, zh } from '../src/client/locales.ts'
 
 /**
@@ -200,7 +199,10 @@ function result(seq: number, callId: string, isError = false, turn = 1): Session
     step: 1,
     message: {
       source: { kind: 'tool', callId },
-      content: [{ type: 'tool-result', callId, content: [], isError }],
+      // 0.2.1: the failure flag lives on the tool-role message, not on a
+      // content block (`ContentBlock` has no `isError`).
+      content: [{ type: 'tool-result', callId, content: [] }],
+      ...isError ? { isError: true } : {},
     },
   })
 }
@@ -721,20 +723,6 @@ describe('producedFileMentions resolver', () => {
     expect(basename('a\\b\\c.txt')).toBe('c.txt')
     expect(dirname('a\\b\\c.txt')).toBe('a\\b')
     expect(dirname('flat.txt')).toBe('')
-  })
-})
-
-describe('package shells', () => {
-  it('the invariant companion registers ownership', async () => {
-    const registered: string[] = []
-    const ctx = new Context()
-    ctx.provide('invariants')
-    ctx.set('invariants', {
-      register: (pkg: string) => { registered.push(pkg); return () => {} },
-    } as never)
-    const dispose = await applyInvariant(ctx)
-    expect(registered).toEqual(['@deepseek-ai/dsh-client-ui-deliverables-custom'])
-    expect(dispose).toBeTypeOf('function')
   })
 })
 

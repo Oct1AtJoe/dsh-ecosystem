@@ -155,6 +155,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.planReview": "计划待审",
 			"status.waitingAnswer": "等待回答",
 			"status.completed": "已完成",
+			"settings.launcher": "设置",
 			"time.now": "刚刚",
 			"time.minutes": "{n}分钟",
 			"time.hours": "{n}小时",
@@ -250,6 +251,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.planReview": "Plan awaiting review",
 			"status.waitingAnswer": "Waiting for answer",
 			"status.completed": "Completed",
+			"settings.launcher": "Settings",
 			"time.now": "now",
 			"time.minutes": "{n}m",
 			"time.hours": "{n}h",
@@ -827,6 +829,48 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
   position: static !important;
   display: block !important;
 }
+/* Sidebar settings launcher: restores the shipped Settings entry in place of
+   the account "More" menu. Geometry mirrors the host's own footer trigger. */
+.dsh-ff__settings-launcher {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: 42px;
+  margin: 0;
+  padding: 0 10px 0 8px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--dsw-radius-md, 12px);
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.dsh-ff__settings-launcher:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06));
+}
+.dsh-ff__settings-launcher:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #4f6ef7);
+  outline-offset: 1px;
+}
+.dsh-ff__settings-launcher--rail {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+.dsh-ff__settings-launcher-label {
+  overflow: hidden;
+  white-space: nowrap;
+}
 `;
 		/** Inject the stylesheet once per page load. */
 		function injectStyle() {
@@ -1030,18 +1074,18 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		* @param pinnedLoose - server-stored loose-bucket pin lists per workspace ({} while unknown).
 		* @returns the derived view.
 		*/
-		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose, pendingBySession) {
+		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose, statusBySession) {
 			const visible = (summary) => summary !== void 0 && sessionVisible(summary, archived);
 			/**
 			* One session row with its pending interaction folded in. Every summary
 			* this derivation hands out goes through here, so the status dot, its
 			* tooltip, and search rows all read the same fact without the callers
-			* knowing the runtime's pending map exists. Sessions with nothing
+			* knowing the runtime's status map exists. Sessions with nothing
 			* pending keep their stored summary by identity.
 			*/
 			const withPending = (summary) => {
 				if (summary === void 0) return void 0;
-				const kind = pendingBySession.get(summary.id)?.kind;
+				const kind = statusBySession.get(summary.id)?.pendingInteraction?.kind;
 				if (kind === void 0 || !PENDING_KINDS.includes(kind)) return summary;
 				return { ...summary, pendingInteraction: kind };
 			};
@@ -1232,27 +1276,59 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		* createWorkspace, pickDirectory) + sidebar slot inject (startSession,
 		* toggleSidebar — unused here) + owner props (wide, expandSidebar).
 		*/
+		/**
+		 * Sidebar settings launcher.
+		 *
+		 * The account feature registers `settings.launcher` to fold Settings into
+		 * its "More" popover, so the sidebar foot no longer shows a Settings entry.
+		 * This entry registers in the same single hole below that account entry
+		 * (negative priority shadows it, per the slot rules) and renders the shipped
+		 * trigger: icon plus label in the wide column, icon alone on the rail. The
+		 * host's SettingsRoot owns the row, the dialog and the shortcut; a click
+		 * only calls the injected `openSettings`.
+		 */
+		function SettingsLauncher(props) {
+			const { wide, settingsOpen, settingsShortcut, openSettings, t } = props;
+			const label = t("settings.launcher");
+			const keys = settingsShortcut === void 0 || settingsShortcut.keys.length === 0
+				? void 0
+				: settingsShortcut.keys.join("+");
+			return e("button", {
+				type: "button",
+				className: "dsh-ff__settings-launcher" + (wide ? "" : " dsh-ff__settings-launcher--rail"),
+				"aria-label": label,
+				"aria-haspopup": "dialog",
+				"aria-expanded": settingsOpen === true,
+				...(settingsShortcut?.aria === void 0 ? {} : { "aria-keyshortcuts": settingsShortcut.aria }),
+				title: keys === void 0 ? label : label + " (" + keys + ")",
+				onClick: () => openSettings()
+			},
+				e(primitives.IconSettingsOutlineMedium, { size: wide ? 16 : 18 }),
+				wide && e("span", { className: "dsh-ff__settings-launcher-label" }, label)
+			);
+		}
 		function FeatureFoldersBrowser(props) {
 			injectStyle();
 			const { wide, expandSidebar } = props;
-			const { useSessions, useWorkspaces, useStore, useSessionPendingInteraction, actions, t } = props;
+			const { useSessions, useWorkspaces, useStore, useSessionStatus, actions, t } = props;
 			const { open, searchSessions, searchResultLimit, renameSession, forkSession, renameWorkspace, deleteWorkspace, archiveSession, createWorkspace, pickDirectory, refreshWorkspaces, startSession, connectWorkspace, openWorkspaceFolder, quoteSession } = props;
 			const list = useSessions((state) => state);
 			const workspaces = useWorkspaces((state) => state.items);
 			const archivedSessionIds = useWorkspaces((state) => state.archivedSessionIds);
 			/**
-			* Pending UI interaction per session, from the runtime's own root source
-			* (ui-session's `sessionPendingInteraction`, bound by the renderer into
-			* this selector hook). Session summaries carry no such field, so without
-			* it a run parked on an approval or an answer is indistinguishable from
-			* one that is working, and its row keeps spinning. The selector yields
-			* the same map identity while nothing changes, so the derivation below
-			* memoizes cleanly. Guarded: if the source is not bound in a given
-			* composition, the section loses one fact instead of the whole sidebar.
+			* Unified Session status per session, from the runtime's own root source
+			* (ui-session's `sessionStatus`, bound by the renderer into this selector
+			* hook as `useSessionStatus`). Session summaries carry no pending field,
+			* so without it a run parked on an approval, a plan review, or a
+			* question is indistinguishable from one that is working, and its row
+			* keeps spinning. The selector yields the same map identity while
+			* nothing changes, so the derivation below memoizes cleanly. Guarded: if
+			* the source is not bound in a given composition, the section loses one
+			* fact instead of the whole sidebar.
 			*/
-			const pendingBySession = useSessionPendingInteraction === void 0
-				? EMPTY_PENDING
-				: useSessionPendingInteraction((state) => state ?? EMPTY_PENDING);
+			const statusBySession = typeof useSessionStatus === "function"
+				? useSessionStatus((state) => state ?? EMPTY_PENDING)
+				: EMPTY_PENDING;
 			const collapsedGroups = useStore((state) => state.collapsedGroups);
 			const collapsedFolders = useStore((state) => state.collapsedFolders);
 			const archiveShown = useStore((state) => state.archiveShown ?? {});
@@ -1365,7 +1441,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			//#endregion
 			//#region derivation
 			const archivedSet = react.useMemo(() => new Set(archivedSessionIds), [archivedSessionIds]);
-			const view = react.useMemo(() => deriveView(list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, pendingBySession), [list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, pendingBySession]);
+			const view = react.useMemo(() => deriveView(list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, statusBySession), [list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, statusBySession]);
 			/** The current session's workspace and folder (accent highlight). */
 			const currentWorkspaceId = view.sessionWorkspace.get(list.current)?.workspaceId;
 			const currentFolderId = view.folderOf.get(list.current)?.id ?? null;
@@ -1705,14 +1781,14 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				e("path", { key: "line2", d: "M4.5 8h4.5" })
 			);
 			const groupMenuItems = (group) => [
-				{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutline16, {}) },
-				{ id: "delete", label: t("delete.workspace"), danger: true, icon: e(primitives.IconTrashOutline16, {}) },
-				{ id: "new-folder", label: t("menu.newFolder"), icon: e(primitives.IconPlusOutline16, {}) },
+				{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutlineRegular, {}) },
+				{ id: "delete", label: t("delete.workspace"), danger: true, icon: e(primitives.IconTrashOutlineRegular, {}) },
+				{ id: "new-folder", label: t("menu.newFolder"), icon: e(primitives.IconPlusOutlineRegular, {}) },
 				{ id: "focus", label: t(focusedWorkspaceId === group.workspaceId ? "action.unfocus" : "action.focus"), icon: targetIcon() }
 			];
 			const folderMenuItems = () => [
-				{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutline16, {}) },
-				{ id: "delete", label: t("delete.folder"), danger: true, icon: e(primitives.IconTrashOutline16, {}) }
+				{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutlineRegular, {}) },
+				{ id: "delete", label: t("delete.folder"), danger: true, icon: e(primitives.IconTrashOutlineRegular, {}) }
 			];
 			/** Whether a session sits in a pinned list (folder or loose bucket). */
 			const isSessionPinned = (summary) => {
@@ -1733,26 +1809,26 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				// workspace, so the move submenu stays enabled even with zero folders.
 				const moveDisabled = workspace === void 0;
 				return [
-					{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutline16, {}) },
-					{ id: "auto-rename", label: t("menu.autoRename"), icon: e(primitives.IconSparkle16, {}) },
+					{ id: "rename", label: t("menu.rename"), icon: e(primitives.IconEditOutlineRegular, {}) },
+					{ id: "auto-rename", label: t("menu.autoRename"), icon: e(primitives.IconSparkleRegular, {}) },
 					isPinned
 						? { id: "unpin", label: t("menu.unpin"), icon: pinIcon(true) }
 						: { id: "pin", label: t("menu.pin"), disabled: workspace === void 0, icon: pinIcon(false) },
-					{ id: "fork", label: t("menu.fork"), icon: e(primitives.IconBranchOutline16, {}) },
+					{ id: "fork", label: t("menu.fork"), icon: e(primitives.IconBranchOutlineRegular, {}) },
 					...(list.current !== void 0 && summary.id !== list.current ? [{ id: "quote", label: t("menu.quoteSession"), icon: quoteIcon() }] : []),
-					{ id: "copy-path", label: t("menu.copySessionPath"), icon: e(primitives.IconBrowseOutline16, {}) },
+					{ id: "copy-path", label: t("menu.copySessionPath"), icon: e(primitives.IconBrowseOutlineRegular, {}) },
 					{
 						id: "move",
 						label: t("menu.moveToFolder"),
 						disabled: moveDisabled,
-						icon: e(primitives.IconFolderOpenOutline16, {}),
+						icon: e(primitives.IconFolderOpenOutlineRegular, {}),
 						submenu: [
-							{ id: "move-inbox", label: t("move.inbox"), icon: e(primitives.IconPanelLeftOutline16, {}) },
+							{ id: "move-inbox", label: t("move.inbox"), icon: e(primitives.IconPanelLeftOutlineRegular, {}) },
 							...folderOptions.map((candidate) => ({ id: "move-folder:" + candidate.id, label: candidate.name })),
-							{ id: "move-new-folder", label: t("menu.moveNewFolder"), icon: e(primitives.IconPlusOutline16, {}) }
+							{ id: "move-new-folder", label: t("menu.moveNewFolder"), icon: e(primitives.IconPlusOutlineRegular, {}) }
 						]
 					},
-					{ id: "archive", label: t("menu.archiveSession"), icon: e(primitives.IconArchiveOutline20, {}) }
+					{ id: "archive", label: t("menu.archiveSession"), icon: e(primitives.IconArchiveOutlineMedium, {}) }
 				];
 			};
 			//#endregion
@@ -1935,7 +2011,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 									setNotice({ kind: "error", text: error.message ?? t("error.actionFailed") });
 								});
 							}
-						}, e(primitives.IconArchiveOutline20, { size: 14 }))
+						}, e(primitives.IconArchiveOutlineMedium, { size: 14 }))
 					)
 				);
 			};
@@ -2071,7 +2147,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						onDragOver: reorderHandlers.dragOver,
 						onDrop: reorderHandlers.drop
 					},
-						e("span", { className: "dsh-ff__folder-icon" + (currentFolderId === folder.id ? " dsh-ff__icon-accent" : "") }, expanded ? e(primitives.IconFolderOpen16, {}) : e(primitives.IconFolderClose16, {})),
+						e("span", { className: "dsh-ff__folder-icon" + (currentFolderId === folder.id ? " dsh-ff__icon-accent" : "") }, expanded ? e(primitives.IconFolderOpenRegular, {}) : e(primitives.IconFolderCloseRegular, {})),
 					e("span", { className: "dsh-ff__title" }, folder.name),
 						e("button", {
 							type: "button",
@@ -2086,7 +2162,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 										setNotice({ kind: "error", text: folderErrorText(error.message ?? "request-failed", t) });
 									});
 							}
-						}, e(primitives.IconPlusOutline16, { size: 12 })),
+						}, e(primitives.IconPlusOutlineRegular, { size: 12 })),
 						folder.sessions.length > ARCHIVE_ROW_LIMIT && !moreShown.has(folder.id) && e("span", { className: "dsh-ff__folder-count" }, String(folder.sessions.length))
 					),
 					expanded && (moreShown.has(folder.id) ? folder.sessions : folder.sessions.slice(0, ARCHIVE_ROW_LIMIT)).map((summary, index, all) => {
@@ -2189,7 +2265,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						onClick: () => actions.setFolderCollapsed(targetKey, !expanded),
 						onContextMenu: (event) => event.preventDefault()
 					},
-						e("span", { className: "dsh-ff__folder-icon" }, e(primitives.IconArchiveOutline20, { size: 16 })),
+						e("span", { className: "dsh-ff__folder-icon" }, e(primitives.IconArchiveOutlineMedium, { size: 16 })),
 						e("span", { className: "dsh-ff__title" }, t("archive.folder")),
 						sessions.length > ARCHIVE_ROW_LIMIT && !moreShown.has("archive:" + workspaceId) && e("span", { className: "dsh-ff__folder-count" }, String(sessions.length))
 					),
@@ -2261,7 +2337,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					onDragOver: reorderHandlers.dragOver,
 					onDrop: reorderHandlers.drop
 				},
-					e("span", { className: "dsh-ff__folder-icon" + (expanded && group.workspaceId === currentWorkspaceId ? " dsh-ff__icon-accent" : "") }, expanded ? e(primitives.IconFolderOpen16, {}) : e(primitives.IconFolderClose16, {})),
+					e("span", { className: "dsh-ff__folder-icon" + (expanded && group.workspaceId === currentWorkspaceId ? " dsh-ff__icon-accent" : "") }, expanded ? e(primitives.IconFolderOpenRegular, {}) : e(primitives.IconFolderCloseRegular, {})),
 					e("span", { className: "dsh-ff__title" }, group.title),
 					!isUngrouped && e("button", {
 						type: "button",
@@ -2300,7 +2376,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 								setNotice({ kind: "error", text: error.message ?? t("error.actionFailed") });
 							});
 						}
-					}, e(primitives.IconFolderOpen16, { size: 14 })),
+					}, e(primitives.IconFolderOpenRegular, { size: 14 })),
 					!isUngrouped && e("button", {
 						type: "button",
 						className: "dsh-ff__icon-button",
@@ -2310,7 +2386,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 							event.stopPropagation();
 							if (startSession !== void 0) startSession(group.workspaceId);
 						}
-					}, e(primitives.IconPlusOutline16, {}))
+					}, e(primitives.IconPlusOutlineRegular, {}))
 				);
 			};
 			const renderGroup = (group) => {
@@ -2329,7 +2405,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			//#endregion
 			//#region header
 			const searchBox = e("div", { className: "dsh-ff__search" },
-				e(primitives.IconSearchOutline16, {}),
+				e(primitives.IconSearchOutlineRegular, {}),
 				e("input", {
 					ref: searchInput,
 					className: "dsh-ff__search-input",
@@ -2344,7 +2420,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					className: "dsh-ff__icon-button",
 					"aria-label": t("search.clear"),
 					onClick: () => { setQuery(""); setSearchExpanded(false); }
-				}, e(primitives.IconCloseFill14, {}))
+				}, e(primitives.IconCloseFillRegular, {}))
 			);
 			const openSearch = (event) => {
 				openingClick.current = event === void 0 ? null : event.nativeEvent;
@@ -2430,14 +2506,14 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					"aria-label": t("search.aria"),
 					title: t("search.aria"),
 					onClick: (event) => openSearch(event)
-				}, e(primitives.IconSearchOutline16, {}))),
+				}, e(primitives.IconSearchOutlineRegular, {}))),
 				e("button", {
 					type: "button",
 					className: "dsh-ff__icon-button",
 					"aria-label": t("menu.newWorkspace"),
 					title: t("menu.newWorkspace"),
 					onClick: handleNewWorkspace
-				}, e(primitives.IconProjectAddOutline16, {}))
+				}, e(primitives.IconProjectAddOutlineRegular, {}))
 			);
 			//#endregion
 			//#region list
@@ -2449,7 +2525,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					"aria-label": t("notice.dismiss"),
 					title: t("notice.dismiss"),
 					onClick: () => { setNotice(null); setFoldersError(null); }
-				}, e(primitives.IconCloseFill14, {}))
+				}, e(primitives.IconCloseFillRegular, {}))
 			);
 			/** Pinned Recent section: it sits in the column between the workspace
 			 * header and the scrolling list, so it stays visible while only the
@@ -2810,14 +2886,14 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						"aria-label": t("search.aria"),
 						title: t("search.aria"),
 						onClick: (event) => openSearch(event)
-					}, e(primitives.IconSearchOutline16, { size: 18 })),
+					}, e(primitives.IconSearchOutlineRegular, { size: 18 })),
 					e("button", {
 						type: "button",
 						className: "dsh-ff__rail-search",
 						"aria-label": t("menu.newWorkspace"),
 						title: t("menu.newWorkspace"),
 						onClick: handleNewWorkspace
-					}, e(primitives.IconProjectAddOutline16, { size: 18 }))
+					}, e(primitives.IconProjectAddOutlineRegular, { size: 18 }))
 				),
 				noticeBar,
 				wide && recentBlock,
@@ -2833,15 +2909,20 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			/**
 			 * Select a Session and return the center column to its Conversation.
 			 *
-			 * `sessions.open()` only changes the selected Session — the center column
-			 * keeps whichever global main panel is active, and dshmarket registers one
-			 * to `main`. Upstream ui-workspace pairs both calls in
-			 * UiWorkspaceService.openSession for exactly this reason; this fork
-			 * predates main panels, so it must pair them too or the panel outlives the
-			 * click. `ctx.get` keeps the call optional on a host without a layout.
+			 * Current hosts removed `sessions.open()`: navigation belongs to the view
+			 * owner, and ui-workspace pairs "retain the Session" with
+			 * `layout.selectPanel(null)` in UiWorkspaceService.openSession. Call that
+			 * owner first; the legacy pair stays as a fallback for old hosts (and for
+			 * a host where ui-workspace is not loaded), both services looked up lazily
+			 * because the plugin may apply before they are provided.
 			 */
 			const activate = (sessionId) => {
-				ctx.sessions.open(sessionId);
+				const workspaceUi = ctx.get("uiWorkspace");
+				if (typeof workspaceUi?.openSession === "function") {
+					workspaceUi.openSession(sessionId);
+					return;
+				}
+				if (typeof ctx.sessions?.open === "function") ctx.sessions.open(sessionId);
 				ctx.get("layout")?.selectPanel(null);
 			};
 			/** Entry inject: session/workspace actions behind the kit surface. */
@@ -2926,6 +3007,17 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				children: {},
 				inject: injected
 			}, FeatureFoldersBrowser));
+			/**
+			 * The sidebar foot's Settings entry. The account feature claims the same
+			 * single hole to fold Settings into its "More" popover; a negative
+			 * priority outranks that entry and keeps a direct Settings button, which
+			 * is what the row was before the account takeover.
+			 */
+			ctx.slots.inject("settings.launcher", () => ctx.slots.register({
+				name: "settings.launcher",
+				priority: -5,
+				locale: NS
+			}, SettingsLauncher));
 		}
 		//#endregion
 		module.exports = { name, inject, apply };

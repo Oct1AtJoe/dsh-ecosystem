@@ -276,8 +276,9 @@ function rebuildDeliverablesState(context) {
             });
         }
         else if (event.type === 'tool/result' && isAppendSurfaceEvent(event) && 'message' in event.data) {
-            const result = event.data.message.content[0];
-            if (result.isError === true)
+            // 0.2.1: the failure flag lives on the tool-role message, not on a content
+            // block (`ContentBlock` has no `isError`).
+            if (event.data.message.isError === true)
                 continue;
             const callId = String(event.data.message.source.callId);
             const call = calls.get(callId);
@@ -336,8 +337,8 @@ export const deliverablesDefinition = {
         }
         if (match.event.type !== 'tool/result')
             return context.state;
-        const result = match.event.data.message.content[0];
-        if (result.isError === true)
+        // 0.2.1: the failure flag lives on the tool-role message, not on a content block.
+        if (match.event.data.message.isError === true)
             return context.state;
         const callId = String(match.event.data.message.source.callId);
         const call = context.state.calls.get(callId);

@@ -3899,11 +3899,9 @@ function GitPanel(props) {
 }
 
 // src/client/GitTab.tsx
-function readPath(sessions) {
-  if (!sessions) return "";
-  const snapshot = sessions.list.getSnapshot();
-  const sessionId = snapshot.current;
-  const cwd = sessionId === void 0 ? void 0 : snapshot.byId[sessionId]?.cwd;
+function readPath(sessions, sessionId) {
+  if (!sessions || sessionId === void 0 || sessionId === "") return "";
+  const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd;
   return typeof cwd === "string" ? cwd : "";
 }
 function addressOf(sessionId, relative) {
@@ -3911,22 +3909,20 @@ function addressOf(sessionId, relative) {
   return `dsh-resource://file/session/${encodeURIComponent(sessionId)}/${encoded}`;
 }
 function GitTabBody(props) {
-  const { sessions, statusCache } = props;
+  const { sessions, statusCache, sessionId: injectedSessionId } = props;
   const [api] = (0, import_react5.useState)(() => props.api ?? new GitPanelApi());
-  const [path, setPath] = (0, import_react5.useState)(() => props.path ?? readPath(sessions));
-  const [sessionId, setSessionId] = (0, import_react5.useState)(() => sessions?.list.getSnapshot().current ?? "");
+  const [path, setPath] = (0, import_react5.useState)(() => props.path ?? readPath(sessions, injectedSessionId));
+  const uuid = injectedSessionId ?? "";
   const info = props.useTabInfo?.();
   (0, import_react5.useEffect)(() => {
     if (!sessions) return void 0;
     let prevRunning = false;
     const update = () => {
       const snapshot = sessions.list.getSnapshot();
-      const current = snapshot.current;
-      setSessionId(current ?? "");
-      const currentSession = current !== void 0 ? snapshot.byId[current] : void 0;
+      const currentSession = uuid === "" ? void 0 : snapshot.byId[uuid];
       const newPath = typeof currentSession?.cwd === "string" ? currentSession.cwd : "";
       setPath(newPath);
-      const isRunning = Boolean(currentSession && currentSession.running);
+      const isRunning = Boolean(currentSession?.running);
       if (prevRunning && !isRunning && newPath !== "") {
         if (statusCache !== void 0) void statusCache.ensure(newPath, true);
       }
@@ -3934,23 +3930,21 @@ function GitTabBody(props) {
     };
     update();
     return sessions.list.subscribe(update);
-  }, [sessions, statusCache]);
+  }, [sessions, statusCache, uuid]);
   const openDiff = (0, import_react5.useCallback)((relative) => {
-    const snapshot = sessions?.list.getSnapshot();
-    const sessionId2 = snapshot?.current;
-    if (sessionId2 === void 0 || relative === "") return false;
+    if (uuid === "" || relative === "") return false;
     try {
-      info?.tab.actions.openResource(addressOf(sessionId2, relative), { kind: "git-diff" });
+      info?.tab.actions.openResource(addressOf(uuid, relative), { kind: "git-diff" });
       return true;
     } catch (error) {
       console.warn("dsh-git-panel: open diff failed", error);
       return false;
     }
-  }, [info, sessions]);
+  }, [info, uuid]);
   const refreshStatus = (0, import_react5.useCallback)(() => {
     if (statusCache !== void 0 && path !== "") void statusCache.ensure(path, true);
   }, [statusCache, path]);
-  return (0, import_react5.createElement)(GitPanel, { path, api, sessionId, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
+  return (0, import_react5.createElement)(GitPanel, { path, api, sessionId: uuid, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
 }
 
 // src/client/GitDiffView.tsx
@@ -6526,23 +6520,25 @@ function apply(ctx) {
       return "";
     }
   };
-  ctx.inject(["sessions"], () => {
+  ctx.inject(["sessions", "uiSession"], (scope) => {
     try {
       let lastCwd = "";
+      const currentSessionId = () => scope.uiSession?.adapter?.current?.getSnapshot()?.key;
       const refreshCurrent = (fresh = false) => {
-        const current = ctx.sessions.list.getSnapshot().current;
-        const cwd = cwdOf(current);
+        const cwd = cwdOf(currentSessionId());
         if (!cwd) return;
         lastCwd = cwd;
         void statusCache.ensure(cwd, fresh);
       };
       refreshCurrent();
-      ctx.sessions.list.subscribe(() => {
-        const current = ctx.sessions.list.getSnapshot().current;
-        const cwd = cwdOf(current);
+      const unsubscribeList = ctx.sessions.list.subscribe(() => {
+        const cwd = cwdOf(currentSessionId());
         if (cwd && cwd !== lastCwd) {
           refreshCurrent(true);
         }
+      });
+      const unsubscribeCurrent = scope.uiSession?.adapter?.current?.subscribe?.(() => {
+        refreshCurrent(true);
       });
       const timer = window.setInterval(() => {
         if (document.visibilityState === "visible") {
@@ -6560,6 +6556,8 @@ function apply(ctx) {
         window.clearInterval(timer);
         window.removeEventListener("focus", onFocusOrVisible);
         document.removeEventListener("visibilitychange", onFocusOrVisible);
+        unsubscribeList();
+        unsubscribeCurrent?.();
       }, "dsh-git-panel: status poll");
       ctx.effect(() => installFileTreeDecorations(statusCache, () => {
       }), "dsh-git-panel: file tree decorations");

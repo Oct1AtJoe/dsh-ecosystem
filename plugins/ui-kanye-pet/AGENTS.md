@@ -15,7 +15,7 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
 - **typeRoots 必须覆盖**（已写入 tsconfig.json）：生态 base `tsconfig.base.client.json` 声明 `types: ["client-build-environment"]`，但该类型库在 E 盘 repo `scripts/types`，生态根没有——不覆盖直接 TS2688。
 - **`ctx.slots` 需要 `import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'`**：Context 的 `slots` 增强由 ui-renderer 提供，缺失则 TS2339（typeRoots 修好后才暴露，此前 tsc 在 TS2688 就死了没走到语义检查）。
 
-## 点击跳转监听（2026-09-04 新增）
+## 点击跳转监听（2026-09-04 新增；2026-10-18 修正）
 
 桌宠气泡/Windows toast 点击后，Tauri 壳（`pet_open_session` / `open_session`）在主窗口 eval 派发：
 
@@ -23,11 +23,13 @@ env -u NODE_OPTIONS node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dis
 window.dispatchEvent(new CustomEvent('dsh:open-session', { detail: { sessionId } }))
 ```
 
-本插件 apply 里注册 `dsh:open-session` 监听，懒取 `ctx.get('sessions')` 调 `open(id)`——rc.1 client 侧 Session Controller，与官方 ui-chat/ui-workspace 同一接口。
+本插件 apply 里注册 `dsh:open-session` 监听，懒取 **`ctx.get('uiWorkspace')` 调 `openSession(id)`**——导航归 view owner（ui-workspace 会 retain Session 并 `layout.selectPanel(null)` 把主区域切回 Conversation）。`ctx.get('sessions')` 的 `open()` 兜底只对旧宿主有意义。
 
+- **⚠️ 2026-10-18 根因**：当前宿主 `ISessions` 已删除 `open()`（只剩 list/retain/using/create/fork…）。旧代码 `sessions?.open?.(sessionId)` 的可选链把缺失静默吞成 no-op——气泡点击只弹窗、不切会话，无任何报错。
 - **历史**：监听者原是 dsh-notification-custom（0.1.1），rc.1 起源码残缺停用并于 2026-09-04 退役归档，导致跳转失效；监听职责移交本插件。
-- **未知 id 会 fail loud**（`ISessions.open` 契约），已用 try/catch 包裹并 `console.warn('[ui-kanye-pet] open session … failed')`。
+- **未知 id 会 fail loud**（ui-workspace `openSession` 契约），已用 try/catch 包裹并 `console.warn('[ui-kanye-pet] open session … failed')`。
 - 会话 id 来自 kanye-pet host 通知（host `session.id`），与 client Session Controller 同一 id 空间。
+- **回归检查**：`node tests/jump-check.mjs`（加载真实 `lib/client.js`，断言走 ui-workspace、legacy 兜底、未知 id 被吞、空 id 忽略）。
 
 ## 验证方法
 

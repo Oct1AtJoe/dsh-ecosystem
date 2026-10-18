@@ -55,7 +55,12 @@ Copy-Item "C:\dsh-ecosystem\plugins\ui-deliverables-custom\lib\client.js" `
 ### 4. 构建注意
 
 - `tsconfig.json` 已加 `typeRoots` 覆盖：`["E:/vibeCoding/deepseek-harness/scripts/types", "../../node_modules/@types"]`——生态 base 声明的 `client-build-environment` 类型库在 E 盘 repo，生态根没有。
-- `tsc` 有 2 个**既有**环境性类型报错（`index.ts:49` 隐式 any、`index.ts:61` connection/reset 事件类型），是 api-remotes 类型解析问题，emit 不受影响，构建链照常走：tsc 出 `lib/types` → tsdown 出 `lib/client.js`。
+- ~~`tsc` 有 2 个**既有**环境性类型报错（`index.ts:49` 隐式 any、`index.ts:61` connection/reset 事件类型），是 api-remotes 类型解析问题，emit 不受影响，构建链照常走~~
+  - **2026-10-18 已修复**：根因是 `plugins/node_modules/@deepseek-ai/cordis` 缺 junction，
+    `@deepseek-ai/cordis` 被解析成生态根旧快照（4.0.2）与 harness `.d.ts`（4.0.5）两份互不相认的模块，
+    `declare module` 类型增强无法合并。补上 junction 后 **tsc exit=0、errors=0**。
+    详见生态根 `AGENTS.md` §4.3「依赖解析必须单实例」。
+  - 现在 `tsc` 必须 exit 0：不允许以「有报错但 emit 了」为由放行（tsdown 不做类型检查，错误会静默存活）。
 - 构建命令（不走 profile node_modules 的坏 junction）：
 
 ```sh

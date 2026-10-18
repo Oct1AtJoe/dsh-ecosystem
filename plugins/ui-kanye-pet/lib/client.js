@@ -420,12 +420,12 @@ window.__ModuleLoader__.load({
 		const inject = [
 			"slots",
 			"locale",
-			"settingsScope"
+			"configForms"
 		];
 		/**
 		* Contribute the kanye-pet tab to the Plugins settings section. The tab reads and
 		* writes the `kanye-pet` settings namespace; the renderer consumes it through
-		* settingsScope and the tab owns its own card.
+		* configForms and the tab owns its own card.
 		*/
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, {
@@ -433,7 +433,7 @@ window.__ModuleLoader__.load({
 				en
 			}), "ui-kanye-pet: dictionaries");
 			const t = ctx.locale.bind(NS);
-			const controller = new KanyeCardController(ctx.settingsScope.bind({ namespace: KANYE_NS }));
+			const controller = new KanyeCardController(ctx.configForms.get(KANYE_NS));
 			ctx.slots.inject("settings.plugins.tab", () => ctx.slots.register({
 				name: "settings.plugins.tab",
 				id: "pet",
@@ -446,9 +446,13 @@ window.__ModuleLoader__.load({
 				const onOpenSession = (event) => {
 					const sessionId = event.detail?.sessionId;
 					if (typeof sessionId !== "string" || sessionId === "") return;
-					const sessions = ctx.get("sessions");
 					try {
-						sessions?.open?.(sessionId);
+						const workspace = ctx.get("uiWorkspace");
+						if (typeof workspace?.openSession === "function") {
+							workspace.openSession(sessionId);
+							return;
+						}
+						ctx.get("sessions")?.open?.(sessionId);
 					} catch (error) {
 						console.warn(`[ui-kanye-pet] open session ${sessionId} failed:`, error);
 					}

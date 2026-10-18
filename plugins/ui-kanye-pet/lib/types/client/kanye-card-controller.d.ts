@@ -1,5 +1,5 @@
 /** The kanye-pet card's form over the `kanye-pet` settings namespace. */
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client';
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client';
 import { type SnapshotStore } from '@deepseek-ai/dsh-client-store';
 /** Namespace of the kanye-pet capability (matches the host plugin). */
 export declare const KANYE_NS = "kanye-pet";
@@ -61,7 +61,7 @@ export declare class KanyeCardController {
     private saving;
     private characters;
     private charactersLoaded;
-    constructor(scope: SettingsScope<KanyeSettings>);
+    constructor(scope: ConfigForm<KanyeSettings>);
     private loadCharacters;
     private snapshot;
     private value;

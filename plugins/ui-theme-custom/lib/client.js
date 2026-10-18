@@ -1072,22 +1072,22 @@ window.__ModuleLoader__.load({
 			{
 				id: "void",
 				labelKey: "tech-theme.void",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconAgentPresetOutline16
+				Icon: _deepseek_ai_dsh_client_ui_primitives.IconAgentPresetOutlineRegular
 			},
 			{
 				id: "jade",
 				labelKey: "tech-theme.jade",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconBrowseOutline16
+				Icon: _deepseek_ai_dsh_client_ui_primitives.IconBrowseOutlineRegular
 			},
 			{
 				id: "solar",
 				labelKey: "tech-theme.solar",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconGoalOutline16
+				Icon: _deepseek_ai_dsh_client_ui_primitives.IconGoalOutlineRegular
 			},
 			{
 				id: "parchment",
 				labelKey: "tech-theme.parchment",
-				Icon: _deepseek_ai_dsh_client_ui_primitives.IconListPenOutline16
+				Icon: _deepseek_ai_dsh_client_ui_primitives.IconListPenOutlineRegular
 			}
 		];
 		/**
@@ -1215,7 +1215,7 @@ window.__ModuleLoader__.load({
 								onClick: () => {
 									commit(size + 1);
 								},
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 9 })
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, { size: 9 })
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: SidebarFontRow_module_css_default.arrow,
@@ -1224,7 +1224,7 @@ window.__ModuleLoader__.load({
 								onClick: () => {
 									commit(size - 1);
 								},
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 9 })
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 9 })
 							})]
 						})]
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -1389,7 +1389,7 @@ window.__ModuleLoader__.load({
 								onClick: () => {
 									commit(ratio + 1);
 								},
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutline14, { size: 9 })
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, { size: 9 })
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 								type: "button",
 								className: RightbarWidthRow_module_css_default.arrow,
@@ -1398,7 +1398,7 @@ window.__ModuleLoader__.load({
 								onClick: () => {
 									commit(ratio - 1);
 								},
-								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 9 })
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 9 })
 							})]
 						})]
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -2832,7 +2832,7 @@ window.__ModuleLoader__.load({
 		//#region src/client/usage/HomeUsagePanel.tsx
 		function checkHeroPhase() {
 			if (typeof document === "undefined") return false;
-			return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null || document.querySelector("[class*=\"_headline\"]") !== null;
+			return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null;
 		}
 		function checkLayout() {
 			try {
@@ -4226,7 +4226,14 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
 }
 /* 右栏面板同样补「顶部同色融合屏障」（六主题通用，与左侧栏一致）。
    缺失时其顶部会直接暴露半透明填充与光斑，与顶栏形成亮度断层。 */
-body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
+/* :not([aria-hidden="true"]) —— 面板壳只在「展开」时上色。
+   官方 .panel 是 absolute 且 rightbarCol 不裁剪：折叠时列宽为 0，面板壳仍以
+   自身 378px 宽悬挂在中栏右侧，只有内部 [data-dockkit-host='dock'] 被
+   translateX + visibility:hidden 移走。壳本身在官方设计里是透明的，一旦给它
+   灌背景，折叠态就会在中栏右侧留下一块擦不掉的空白，并把 header 右端的
+   展开按钮盖住。aria-hidden 正是官方的「折叠且无浮动面板」判据，浮动面板
+   场景自动保留上色。 */
+body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]){
   background:
     linear-gradient(180deg,
       var(--dsw-alias-bg-base) 0,
@@ -4244,7 +4251,7 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
   /* 去掉顶部 inset 亮线（会在顶栏正下方形成横贯亮线） */
   box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04) !important;
 }
-body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]{
+body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]){
   background:
     linear-gradient(180deg,
       var(--dsw-alias-bg-base) 0,
@@ -4953,7 +4960,7 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] 
    ⚠️ 同样补上**顶部同色融合屏障**：右栏面板是独立绘制的 surface，
    缺屏障时其顶部会直接暴露半透明填充与光斑，与顶栏形成断层
    （与左侧栏同一根因，用户反馈「左右侧边栏跟顶部边栏反差太大」）。 */
-body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]) {
   background:
     linear-gradient(180deg,
       rgb(245, 245, 247) 0,
@@ -4963,7 +4970,7 @@ body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-
     rgba(245, 245, 247, 0.68) !important;
   box-shadow: none !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]) {
   background:
     linear-gradient(180deg,
       rgb(22, 24, 30) 0,
@@ -5422,14 +5429,17 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 			let pendingFontSize = null;
 			let pendingFontSizeSettle;
 			const originalSetFontSize = theme.setFontSize;
-			const recordFontSizeIntent = (px) => {
-				pendingFontSize = px;
+			const recordFontSizeIntent = (role, px) => {
+				pendingFontSize = {
+					role,
+					px
+				};
 				if (pendingFontSizeSettle !== void 0) clearTimeout(pendingFontSizeSettle);
 				pendingFontSizeSettle = void 0;
 			};
-			theme.setFontSize = function(px) {
-				recordFontSizeIntent(px);
-				originalSetFontSize.call(this, px);
+			theme.setFontSize = function(role, px) {
+				recordFontSizeIntent(role, px);
+				originalSetFontSize.call(this, role, px);
 			};
 			ctx.effect(() => () => {
 				theme.setFontSize = originalSetFontSize;
@@ -5439,9 +5449,10 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 			* 若快照里的字号被旧镜像回滚，重新断言用户意图。
 			* @returns true 表示已重新断言（调用方应中止本次后续处理）。
 			*/
-			const assertFontSizeIntent = (snapshotFontSize) => {
+			const assertFontSizeIntent = (snapshotFontSizes) => {
 				if (pendingFontSize === null) return false;
-				if (snapshotFontSize === pendingFontSize) {
+				const { role, px } = pendingFontSize;
+				if (snapshotFontSizes[role] === px) {
 					if (pendingFontSizeSettle === void 0) pendingFontSizeSettle = setTimeout(() => {
 						pendingFontSize = null;
 						pendingFontSizeSettle = void 0;
@@ -5453,7 +5464,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 					pendingFontSizeSettle = void 0;
 				}
 				try {
-					originalSetFontSize.call(theme, pendingFontSize);
+					originalSetFontSize.call(theme, role, px);
 				} catch {}
 				return true;
 			};
@@ -5496,7 +5507,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 			};
 			applyDesired();
 			ctx.on("theme/change", (snapshot) => {
-				if (assertFontSizeIntent(snapshot.fontSize)) return;
+				if (assertFontSizeIntent(snapshot.fontSizes)) return;
 				applyDesired();
 				bound?.sync(snapshot.preference, snapshot.revision);
 			});
@@ -5533,7 +5544,7 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 			const homeUsage = createHomeUsage(ctx);
 			function isHeroPhase() {
 				if (typeof document === "undefined") return false;
-				return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null || document.querySelector("[class*=\"_headline\"]") !== null;
+				return document.querySelector("[data-phase=\"hero\"]") !== null || document.querySelector("[class*=\"_composerHero\"]") !== null || document.querySelector("[class*=\"composerHero\"]") !== null;
 			}
 			let coldSeat = null;
 			function unmountColdSeat() {

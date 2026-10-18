@@ -85,7 +85,6 @@ const exact = [
   // aliases above once it is inlined (see `test.server.deps.inline`). Aliasing it
   // to source instead drags the whole harness source graph in.
   ['@deepseek-ai/dsh-client-store', src('packages/client/store/src/index.ts')],
-  ['@deepseek-ai/dsh-invariants', src('packages/runtime-diagnostics/invariants/src/index.ts')],
   ['@deepseek-ai/dsh-typert-protocol/types', src('packages/typert/protocol/src/types.ts')],
   ['@deepseek-ai/dsh-typert-protocol', src('packages/typert/protocol/src/index.ts')],
   ['@deepseek-ai/schemastery', src('vendor/schemastery/src/index.ts')],
@@ -101,8 +100,10 @@ const exact = [
   ['react/jsx-runtime', store('react@18.3.1') + '/react/jsx-runtime.js'],
   ['react/jsx-dev-runtime', store('react@18.3.1') + '/react/jsx-dev-runtime.js'],
   ['react', store('react@18.3.1') + '/react/index.js'],
-  ['@testing-library/dom', store('@testing-library+dom@10.4.1') + '/@testing-library/dom/dist/index.js'],
-  ['@testing-library/react', store('@testing-library+react@16.3_b0bbe147884ef4cbbf95e64a97c782e8') + '/@testing-library/react/dist/index.js'],
+  // Hoisted at the harness root, so no pnpm store hash is involved — the
+  // version-pinned store paths above rot whenever a reinstall changes the hash.
+  ['@testing-library/dom', `${H}/node_modules/@testing-library/dom/dist/index.js`],
+  ['@testing-library/react', `${H}/node_modules/@testing-library/react/dist/index.js`],
 ]
 
 const aliases = groups

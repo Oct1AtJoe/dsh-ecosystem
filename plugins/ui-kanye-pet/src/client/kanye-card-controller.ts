@@ -1,6 +1,6 @@
 /** The kanye-pet card's form over the `kanye-pet` settings namespace. */
 
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
 /** Namespace of the kanye-pet capability (matches the host plugin). */
@@ -71,7 +71,7 @@ export class KanyeCardController {
   private characters: KanyeCharacterOption[] = []
   private charactersLoaded = false
 
-  constructor(private readonly scope: SettingsScope<KanyeSettings>) {
+  constructor(private readonly scope: ConfigForm<KanyeSettings>) {
     this.store = createSnapshotStore(this.projection())
     scope.subscribe(() => { this.store.set(this.projection()) })
     void this.loadCharacters()
@@ -91,7 +91,7 @@ export class KanyeCardController {
     }
   }
 
-  private snapshot(): SettingsScopeSnapshot<KanyeSettings> {
+  private snapshot(): ConfigFormSnapshot<KanyeSettings> {
     return this.scope.getSnapshot()
   }
 

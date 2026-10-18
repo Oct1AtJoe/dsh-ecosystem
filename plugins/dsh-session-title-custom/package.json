@@ -4,16 +4,26 @@
   "type": "module",
   "main": "lib/index.js",
   "exports": {
-    ".": { "default": "./lib/index.js" },
-    "./client": { "default": "./lib/client.js" },
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["lib", "cordis.patch.yml"],
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-store",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-plugins",
         "@deepseek-ai/dsh-api-remotes"
@@ -22,11 +32,15 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-session-title": ">=0.1.0",
-    "@deepseek-ai/dsh-llm": ">=0.1.0",
+    "@deepseek-ai/dsh-session-title": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/schemastery": ">=3.18.0 <4.0.0",
     "@deepseek-ai/cordis": ">=4.0.0",
-    "@deepseek-ai/dsh-client-store": ">=0.1.0",
+    "@deepseek-ai/dsh-client-store": ">=0.1.2-rc.1 <0.3.0",
     "react": "^18.2.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "dsh": ">=0.1.2-rc.1 <0.3.0"
+  }
 }

@@ -43,7 +43,10 @@ function toolResult(seq: number, callId: string, isError = false) {
     step: 1,
     message: {
       source: { kind: 'tool', callId },
-      content: [{ type: 'tool-result', callId, content: [], isError }],
+      // 0.2.1: the failure flag lives on the tool-role message, not on a
+      // content block (`ContentBlock` has no `isError`).
+      content: [{ type: 'tool-result', callId, content: [] }],
+      ...isError ? { isError: true } : {},
     },
   })
 }

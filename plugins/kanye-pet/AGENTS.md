@@ -70,29 +70,47 @@ Tauri pet.js → pollState() → showBubble() → 气泡显示 8s
     ↓
 pet_open_session (Tauri command) → show_main + open_session
     ↓ eval `dsh:open-session` CustomEvent
-    ↓ ui-kanye-pet 客户端监听 → ctx.sessions.open(id)
+    ↓ ui-kanye-pet 客户端监听 → ctx.uiWorkspace.openSession(id)
+      （宿主已删 sessions.open，导航归 ui-workspace view owner）
 ```
 
 ---
 
 ## 二、配置系统
 
-### 2.1 Zod Schema（Host 端，权威）
+### 2.1 Config Schema（Host 端，权威；0.2.1 起由 loader 直接投影成设置页）
 
-`packages/desktop/kanye-pet/lib/src/config.mjs`：
+`lib/src/config.mjs`（导出名固定为 `Config`）：
 
 ```javascript
 export function buildSchema() {
   return z.object({
-    enabled: z.boolean().default(true),
-    desktopPetEnabled: z.boolean().default(true),
-    size: z.number().min(100).max(300).default(150),  // ← 这里改范围/默认值
-    opacity: z.number().min(0.2).max(1).default(1),
-    character: z.string().default('kanye'),
-    walk: z.object({ /* ... */ }),
+    enabled: z.boolean().default(true).volatile(),
+    desktopPetEnabled: z.boolean().default(true).volatile(),
+    size: z.number().min(100).max(300).default(150).volatile(),  // ← 这里改范围/默认值
+    opacity: z.number().min(0.2).max(1).default(1).volatile(),
+    character: z.string().default('kanye').volatile(),
+    walk: z.object({ /* 子字段同样逐个 .volatile() */ }),
   })
 }
+
+export const Config = buildSchema()   // lib/index.mjs 里 `export { Config }`
 ```
+
+> **0.2.1 机制（2026-10-18 实证）**：设置页 = **loader 条目 id + 插件导出的 `Config`**。
+> `SettingsForms.describe()` 以 `entry.options.id` 出条目、以 `entry.fiber.runtime.Config` 取 schema，
+> 只投影 `.volatile()` 字段（`volatileForm`）。**`settings.register()` 已被删除**——旧代码里
+> `typeof settings.register === 'function'` 的守卫会静默跳过 → 命名空间永不出现 → 客户端
+> `configForms` 快照恒为 `unavailable` → 自定义卡片 `if (!state.available) return null` →
+> **tab 还在、内容整块空白、零报错**（§七 #40）。写入落点是 profile 的 `cordis.patch.yml`
+> （`- id: <entryId>` + `config`，**整体替换、不做深合并**）。
+> 字段路径必须是固定对象成员：volatile 不能放进数组/联合的元素内部（schemastery 会抛错）。
+>
+> ⚠️ **volatile 是「稳定引用」，不是一次性值**（2026-10-18 实测）：写入设置时 cordis 只把新值
+> 写进 apply 收到的那个 ref（`cosmokit` 的 `createVolatile` / `updateVolatile`），**不会重跑 apply**。
+> 所以必须每次读 `cfg()` 重新 `.get()`。在 apply 里 `{ ...DEFAULTS, ...unwrapConfig(config) }`
+> 快照成普通对象会永远停在启动时的配置——症状极具迷惑性：设置页显示已改、UI 开关变、patch 文件
+> 也写对了，但 `/config` 仍返回旧值、桌宠行为不变，全程零报错（§七 #40）。
 
 > **坑点**：Zod schema 是保存时的**最后一道关卡**。即使前端校验通过，host 端校验失败也会拒绝写入并回滚。
 
@@ -425,7 +443,7 @@ new Notification(...)
 | 通知队列 | 单槽 `petNotification`（最新覆盖旧），60s TTL 防残留 |
 | tag 去重 | pet.js `lastNotifTag` 防轮询重复显示 |
 | 气泡时长 | 8s 自动消失 |
-| 点击跳转 | `pet_open_session`(Tauri command) → `show_main` + `open_session` → eval `dsh:open-session` CustomEvent → **ui-kanye-pet client 监听 → `ctx.sessions.open(id)`**（rc.1 client Session Controller；2026-09-04 起由 ui-kanye-pet 承担，原提供方 dsh-notification-custom 已退役）；点击后气泡立即消失 |
+| 点击跳转 | `pet_open_session`(Tauri command) → `show_main` + `open_session` → eval `dsh:open-session` CustomEvent → **ui-kanye-pet client 监听 → `ctx.uiWorkspace.openSession(id)`**（导航归 view owner；宿主已删除 `ctx.sessions.open()`，旧调用是静默 no-op，2026-10-18 修正；2026-09-04 起由 ui-kanye-pet 承担，原提供方 dsh-notification-custom 已退役）；点击后气泡立即消失 |
 | 会话标题兜底链 | `resolveSessionTitle` → `session.label` → `session.id`（启动初期标题未就绪时兜底） |
 | 延迟 | turn/end 写入 log 后，下一条 session/event 到来时检测（通常毫秒级） |
 
@@ -687,6 +705,7 @@ Remove-Item "$env:LOCALAPPDATA\ai.deepseek.harness.desktop\EBWebView" -Recurse -
 | 37 | ⚠️ 子代理子任务完成也弹气泡（一个对话任务里刷一串通知） | 三条检测路径原本对所有会话生效，子代理子会话（`session.header.origin === 'subagent'`）的 turn/end / 审批 / 提问全部照发。修复：`setPetNotification()` 首行按 `origin === 'subagent'` 拦截（2026-09-10）。判定字段实证自会话日志 header：`{"parentSession":"session-…","origin":"subagent","delegationDepth":1}`；`parentSession` 单独存在 = fork 世系，仍算主会话，**不能**用它当子代理判据 |
 | 38 | ⚠️ 子代理跑一轮，宠物就庆祝一次（动画刷屏） | 庆祝窗口有三个写入点，全部对子代理照发：① turn/end → `turnCompletedUntil`；② `onJobDone` 完成 → `celebrateUntil` + `celebrate` 信号；③ `activity()` 里 job 翻转派生的 celebrate burst（客户端 `burst` 行取 `activity.name` 播 celebrate 状态）。修复（2026-09-10）：① 读 `session.header.origin`；②③ 读 `JobSnapshot.ownerSession` 查 `subagentSessions`（事件流首见登记，`JobSnapshot` 无 header 只能归属查表）。**只静音表现层**——账本 XP/称号/回忆、`working`/`think` 陪伴、等待姿态一律不变 |
 | 39 | ⚠️ §1.2「Web GUI 浮宠已禁用」与线上不符 | `lib/client/index.mjs`（源码 8-27 14:25）确有禁用早退，但构建产物 `lib/client.js`（8-27 14:08）**早于该改动**，仍带完整浮宠：`apply` 无早退、CSS 全在、`STATE_TABLE` 的 `burst`/`celebrate`/`think` 行都在 → 网页里那个会庆祝的宠物就是它。**别顺手 `npm run build:client`**（那会真的把用户的宠物关掉）；改表现层语义请改 host `/state` 字段（本表 #38 即此路线） |
+| 40 | ⚠️ 设置页「桌宠」「会话标题与 git 提交」两个 tab 整块空白（零报错） | 0.2.1 删除了 `settings.register()`：设置在 host 端改由 **loader 条目 id + 插件导出的 `Config`** 投影（`SettingsForms.describe`，只取 `.volatile()` 字段）。旧代码的 `typeof settings.register === 'function'` 守卫静默跳过 → 命名空间不出现 → 客户端 `configForms` 快照恒 `unavailable` → 卡片 `if (!state.available) return null`。修复三处：① `lib/index.mjs` 里 `export { Config }`（schema 全字段 `.volatile()`）；② `apply(ctx, config)` 读第二参数（volatile 值需 `.get()`，用递归 unwrap）；③ client 侧 `ctx.configForms.get('<loader 条目 id>')`——不是自定的 locale 名。另 `settings.configure({ auto: false })` 抑制「插件列表」里的自动生成页。旧 `settings.yaml` 的节要手工迁到 profile `cordis.patch.yml` 的 `- id: <entryId>` + `config:`（整体替换、不深合并；`session-title` 节名与条目 id 不同，自动导入必失败；`reasoningEffort: off` 必须加引号，否则 YAML 解析成布尔） |
 
 ---
 
@@ -774,7 +793,7 @@ dbg.textContent = 'debug info'
 | 桌宠气泡不出现 | `curl http://127.0.0.1:3080/kanye-pet/state` 看 notification 字段；DSH 日志查 `[kanye-pet] notify <id>: "<标题>"`（发出时必打）；只有 `/state` DEBUG 行而无 notify 行 = 检测路径失效（§七 #35） |
 | 通知内容不对 | 检查 turn/end 的 `reason.kind` 映射；标题兜底链是否命中 |
 | Windows 通知和气泡同时弹 | ShimNotification 是否误走 `fire()`；`/kanye-pet/notify` 端点是否残留 |
-| 点击气泡不跳转 | 窗口弹出但不切会话 = 主窗口缺 `dsh:open-session` 监听器（原由 dsh-notification-custom 提供，退役后由 ui-kanye-pet client 承担——确认其 client.js 含 `dsh:open-session` 且页面硬刷加载了新 bundle）；DSH 日志查 `会话跳转事件派发失败` |
+| 点击气泡不跳转 | 窗口弹出但不切会话 = 主窗口缺 `dsh:open-session` 监听器（原由 dsh-notification-custom 提供，退役后由 ui-kanye-pet client 承担——确认其 client.js 含 `dsh:open-session` 且页面硬刷加载了新 bundle）；**若监听存在仍不切会话，查是否还在调已删除的 `sessions.open()`——必须走 `ctx.uiWorkspace.openSession(id)`**（2026-10-18 修复，回归检查 `node tests/jump-check.mjs`）；DSH 日志查 `会话跳转事件派发失败` |
 | 桌宠透明 | manifest.json 是否 200；`loadManifest` 重试是否生效 |
 | 改动不生效 | ① 清 WebView 缓存 ② 杀 node 重启 exe ③ 删 build 产物重编（6.3） |
 

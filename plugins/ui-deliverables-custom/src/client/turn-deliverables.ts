@@ -341,8 +341,9 @@ function rebuildDeliverablesState(context: ConversationNodeContext<DeliverablesS
         hunks: mutationHunks(event.data.name, event.data.arguments),
       })
     } else if (event.type === 'tool/result' && isAppendSurfaceEvent(event) && 'message' in event.data) {
-      const result = event.data.message.content[0]
-      if (result.isError === true) continue
+      // 0.2.1: the failure flag lives on the tool-role message, not on a content
+      // block (`ContentBlock` has no `isError`).
+      if (event.data.message.isError === true) continue
       const callId = String(event.data.message.source.callId)
       const call = calls.get(callId)
       const path = call?.path
@@ -396,8 +397,8 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       return { ...context.state, calls }
     }
     if (match.event.type !== 'tool/result') return context.state
-    const result = match.event.data.message.content[0]
-    if (result.isError === true) return context.state
+    // 0.2.1: the failure flag lives on the tool-role message, not on a content block.
+    if (match.event.data.message.isError === true) return context.state
     const callId = String(match.event.data.message.source.callId)
     const call = context.state.calls.get(callId)
     const path = call?.path

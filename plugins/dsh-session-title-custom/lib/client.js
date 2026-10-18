@@ -22,8 +22,16 @@ window.__ModuleLoader__.load({
 
     const e = react.createElement;
 
-    /** Settings namespace owned by this plugin (matches the host half). */
+    /** Locale namespace owned by this plugin (tab copy dictionaries). */
     const NS = 'session-title';
+
+    /**
+     * Settings entry served by `ctx.configForms`. 0.2.1 keys forms by the Host
+     * loader entry id (`SettingsForms.describe` reports `entry.options.id`), not
+     * by a plugin-chosen namespace — using the old `session-title` name there
+     * leaves the form permanently `unavailable` and the tab blank.
+     */
+    const SETTINGS_NS = 'dsh-session-title-custom';
 
     /** <style> tag id so the stylesheet injects once. */
     const STYLE_ID = 'dsh-session-title-custom-style';
@@ -686,14 +694,15 @@ window.__ModuleLoader__.load({
     /** Client plugin identity. */
     const name = 'dsh-session-title-custom/client';
     /** Services consumed by this tab. */
-    const inject = ['slots', 'locale', 'remote', 'remote.session', 'settingsScope'];
+    // 0.2.x: settingsScope 已改名为 configForms（get(namespace) 取代 bind({namespace})）
+    const inject = ['slots', 'locale', 'remote', 'remote.session', 'configForms'];
 
     function apply(ctx) {
       injectStyle();
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-session-title-custom: dictionaries');
 
       const t = ctx.locale.bind(NS);
-      const controller = new TitleCardController(ctx.settingsScope.bind({ namespace: NS }), ctx);
+      const controller = new TitleCardController(ctx.configForms.get(SETTINGS_NS), ctx);
       ctx.effect(() => () => { controller.dispose(); }, 'dsh-session-title-custom: card controller');
 
       // order 60 keeps this tab right after the 桌宠 tab (order 50).

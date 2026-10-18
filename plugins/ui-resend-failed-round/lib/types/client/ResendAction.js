@@ -9,7 +9,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * @module @deepseek-ai/dsh-client-ui-resend-failed-round/client/ResendAction
  */
 import { useMemo } from 'react';
-import { IconRefreshOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconRefreshOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import css from './ResendAction.module.css';
 /**
  * The failed round's re-send text: the last user message preceding this
@@ -62,6 +62,6 @@ export function ResendAction({ turn, send, t, useChat }) {
     if (target === null)
         return null;
     const label = t('action.resend');
-    return (_jsx(Tooltip, { label: label, side: "top", delayMs: 500, children: _jsxs("button", { type: "button", className: css.button, "aria-label": label, onClick: () => { send(target); }, children: [_jsx(IconRefreshOutline16, {}), _jsx("span", { children: label })] }) }));
+    return (_jsx(Tooltip, { label: label, side: "top", delayMs: 500, children: _jsxs("button", { type: "button", className: css.button, "aria-label": label, onClick: () => { send(target); }, children: [_jsx(IconRefreshOutlineRegular, {}), _jsx("span", { children: label })] }) }));
 }
 //# sourceMappingURL=ResendAction.js.map

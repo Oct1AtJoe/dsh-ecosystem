@@ -11,7 +11,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { FontRole, FontSizes, ThemeDefinition, ThemeRuntime, ThemeTokens } from '@deepseek-ai/dsh-client-ui-theme/client'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale), the
@@ -798,7 +798,14 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
 }
 /* 右栏面板同样补「顶部同色融合屏障」（六主题通用，与左侧栏一致）。
    缺失时其顶部会直接暴露半透明填充与光斑，与顶栏形成亮度断层。 */
-body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
+/* :not([aria-hidden="true"]) —— 面板壳只在「展开」时上色。
+   官方 .panel 是 absolute 且 rightbarCol 不裁剪：折叠时列宽为 0，面板壳仍以
+   自身 378px 宽悬挂在中栏右侧，只有内部 [data-dockkit-host='dock'] 被
+   translateX + visibility:hidden 移走。壳本身在官方设计里是透明的，一旦给它
+   灌背景，折叠态就会在中栏右侧留下一块擦不掉的空白，并把 header 右端的
+   展开按钮盖住。aria-hidden 正是官方的「折叠且无浮动面板」判据，浮动面板
+   场景自动保留上色。 */
+body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]){
   background:
     linear-gradient(180deg,
       var(--dsw-alias-bg-base) 0,
@@ -816,7 +823,7 @@ body[data-ds-dark-theme] [class*="rightbarCol"] [data-sidebar-right-panel]{
   /* 去掉顶部 inset 亮线（会在顶栏正下方形成横贯亮线） */
   box-shadow: inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.04) !important;
 }
-body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]{
+body:not([data-ds-dark-theme]) [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]){
   background:
     linear-gradient(180deg,
       var(--dsw-alias-bg-base) 0,
@@ -1525,7 +1532,7 @@ body[data-ds-custom-theme="sonoma"] [class*="sidebarCol"] > * > [class*="root"] 
    ⚠️ 同样补上**顶部同色融合屏障**：右栏面板是独立绘制的 surface，
    缺屏障时其顶部会直接暴露半透明填充与光斑，与顶栏形成断层
    （与左侧栏同一根因，用户反馈「左右侧边栏跟顶部边栏反差太大」）。 */
-body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]) {
   background:
     linear-gradient(180deg,
       rgb(245, 245, 247) 0,
@@ -1535,7 +1542,7 @@ body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-
     rgba(245, 245, 247, 0.68) !important;
   box-shadow: none !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel] {
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]) {
   background:
     linear-gradient(180deg,
       rgb(22, 24, 30) 0,
@@ -2044,27 +2051,24 @@ export function apply(ctx: Context): void {
   }, 'ui-theme-custom: restore setTheme wrapper')
 
   // ── 字号持久化意图保护 ──────────────────────────────────────────────
-  // 官方 ThemeRuntime.setFontSize 是「先乐观改本地 fontSize → void host.set() 异步写盘」，
-  // 而 adopt() 每次收到 settings 镜像变更就**无条件**用镜像值覆盖本地 fontSize
-  // （见 ui-theme/src/client/index.ts 的 setFontSize 与 adopt）。
-  // 于是在写入飞行窗口内，任何镜像抖动（其他命名空间落盘、document-updated、
-  // connection/reset）都会把刚改的字号回滚成旧值——表现为「改完几秒自动弹回」。
-  //
-  // 官方已为 preference 用 liveBuiltinPick 防住同类竞态，字号却没有。这里补上等价防护：
-  // 记住用户显式提交的值，一旦发现快照被旧镜像回滚就重新断言，直到写盘落地后静默。
-  // ponytail: 以「静默窗口」判定写盘落地，不引入 settingsScope 依赖；若日后官方
-  // 暴露 setFontSize 的写盘 Promise，应改为 await 该 Promise 精确清除意图。
-  let pendingFontSize: number | null = null
+  // 官方 ThemeRuntime.setFontSize(role, px) 先乐观改本地 fontSizes[role]，
+  // 再 void host.set() 异步写盘；adopt() 收到 settings 镜像就覆盖本地 fontSizes。
+  // 0.2.1 的 write() 已在 finally 里 adopt()、adopt() 又用 pendingWrites 守住飞行
+  // 窗口，但仍留有缝隙：写盘 resolve 后镜像快照尚未推达时，adopt() 会读到旧值。
+  // 这里记住用户显式提交的 (role, px)，发现被旧镜像回滚就重新断言，落地后静默。
+  // ponytail: 以「静默窗口」判定落地，不引入 settingsScope 依赖；若日后官方暴露
+  // setFontSize 的写盘 Promise，应改为 await 该 Promise 精确清除意图。
+  let pendingFontSize: { role: FontRole; px: number } | null = null
   let pendingFontSizeSettle: ReturnType<typeof setTimeout> | undefined
   const originalSetFontSize = theme.setFontSize
-  const recordFontSizeIntent = (px: number): void => {
-    pendingFontSize = px
+  const recordFontSizeIntent = (role: FontRole, px: number): void => {
+    pendingFontSize = { role, px }
     if (pendingFontSizeSettle !== undefined) clearTimeout(pendingFontSizeSettle)
     pendingFontSizeSettle = undefined
   }
-  theme.setFontSize = function (this: ThemeRuntime, px: number): void {
-    recordFontSizeIntent(px)
-    originalSetFontSize.call(this, px)
+  theme.setFontSize = function (this: ThemeRuntime, role: FontRole, px: number): void {
+    recordFontSizeIntent(role, px)
+    originalSetFontSize.call(this, role, px)
   }
   ctx.effect(() => () => {
     theme.setFontSize = originalSetFontSize
@@ -2075,9 +2079,10 @@ export function apply(ctx: Context): void {
    * 若快照里的字号被旧镜像回滚，重新断言用户意图。
    * @returns true 表示已重新断言（调用方应中止本次后续处理）。
    */
-  const assertFontSizeIntent = (snapshotFontSize: number): boolean => {
+  const assertFontSizeIntent = (snapshotFontSizes: FontSizes): boolean => {
     if (pendingFontSize === null) return false
-    if (snapshotFontSize === pendingFontSize) {
+    const { role, px } = pendingFontSize
+    if (snapshotFontSizes[role] === px) {
       // 已追上用户意图：再观察一个静默窗口，确认写盘落地后清除意图
       if (pendingFontSizeSettle === undefined) {
         pendingFontSizeSettle = setTimeout(() => {
@@ -2093,8 +2098,8 @@ export function apply(ctx: Context): void {
       pendingFontSizeSettle = undefined
     }
     try {
-      originalSetFontSize.call(theme, pendingFontSize)
-    } catch { /* 超出 12..17 时忽略，保持当前渲染 */ }
+      originalSetFontSize.call(theme, role, px)
+    } catch { /* 超出该 role 的区间时忽略，保持当前渲染 */ }
     return true
   }
 
@@ -2150,7 +2155,7 @@ export function apply(ctx: Context): void {
     // 字号意图保护必须在其它处理之前：若快照被旧镜像回滚，先重新断言用户的字号，
     // 再走主题恢复逻辑。重新断言会再次触发 theme/change，但此时快照已等于意图，
     // 第二轮只登记静默计时器即返回，递归自然终止。
-    if (assertFontSizeIntent(snapshot.fontSize)) return
+    if (assertFontSizeIntent(snapshot.fontSizes)) return
     applyDesired()
     bound?.sync(snapshot.preference, snapshot.revision)
   })
@@ -2199,10 +2204,15 @@ export function apply(ctx: Context): void {
 
   function isHeroPhase(): boolean {
     if (typeof document === 'undefined') return false
+    // `_composerHero` (and the phase attribute) are the authoritative signals:
+    // the composer stack carries that class only in the hero tree. Do NOT probe
+    // `[class*="_headline"]` — unrelated popovers use a `…_headline` class too
+    // (the context-usage dialog renders `<span class="…_headline">上下文已用</span>`),
+    // which flipped this predicate on an ordinary conversation and made the
+    // usage panel appear when that popover opened.
     return document.querySelector('[data-phase="hero"]') !== null
       || document.querySelector('[class*="_composerHero"]') !== null
       || document.querySelector('[class*="composerHero"]') !== null
-      || document.querySelector('[class*="_headline"]') !== null
   }
 
   let coldSeat: { stack: Element; element: HTMLElement; root: ReactDOM.Root } | null = null

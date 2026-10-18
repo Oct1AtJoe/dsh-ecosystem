@@ -6,10 +6,13 @@ import { OverviewView } from "./overview.js";
 function checkHeroPhase() {
     if (typeof document === 'undefined')
         return false;
+    // Same authoritative signals as the host-side probe. A `[class*="_headline"]`
+    // fallback must NOT be used here: the context-usage popover renders its own
+    // `<span class="…_headline">`, which falsely reported hero on a normal
+    // conversation and let this panel render behind that popover.
     return document.querySelector('[data-phase="hero"]') !== null
         || document.querySelector('[class*="_composerHero"]') !== null
-        || document.querySelector('[class*="composerHero"]') !== null
-        || document.querySelector('[class*="_headline"]') !== null;
+        || document.querySelector('[class*="composerHero"]') !== null;
 }
 function checkLayout() {
     try {

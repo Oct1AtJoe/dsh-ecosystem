@@ -20,12 +20,14 @@ import { parseTurnEvent } from './src/session-events.mjs'
 import { createSessionView, applySessionView, titleFromLog } from './src/sessions.mjs'
 import { normalizeState, serializeState } from './src/persistence.mjs'
 import { createSignals } from './src/signals.mjs'
-import { NAMESPACE, DEFAULTS, buildSchema, validateConfig } from './src/config.mjs'
+import { DEFAULTS, Config } from './src/config.mjs'
 import { SNAPSHOT_API_VERSION, TURN_COMPLETED_MS, turnCompletionSnapshot } from './src/snapshot.mjs'
 import { PRESENCE_TTL_MS, pokePresence, companionOnline } from './src/presence.mjs'
 
 export const name = 'kanye-pet'
-export const inject = ['jobs', 'agents', 'sessions', 'settings', 'webServer']
+export const inject = ['jobs', 'agents', 'sessions', 'webServer']
+// 设置页 schema：宿主 loader 读本导出（0.2.1 起设置页 = loader 条目 id + 本 Config）。
+export { Config }
 // 路由端点 re-export（来源 src/routes.mjs；保持既有导出面）。
 import { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH } from './src/routes.mjs'
 export { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH }
@@ -33,7 +35,7 @@ export { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRES
 export const BODY_LIMIT = 1024
 
 // 瞬发窗口时长现由配置（L1 体验层）提供：errorMs/disappointedMs/welcomeMs/celebrateMs，
-// 见 src/config.mjs 的 DEFAULTS。消费处统一读 configRef，不再用模块级常量（防双源漂移）。
+// 见 src/config.mjs 的 DEFAULTS。消费处统一经 cfg() 读（volatile ref 每次 .get()），不再用模块级常量（防双源漂移）。
 // 默认值：error 4s → disappointed 6s（总负面 10s，任务失败与请求错误统一）；欢迎 6s；庆祝 6s
 // （与 deriveActivity 的 BURST_MS 同长：事件路径与轮询路径取 max 不叠加延长）。
 /** 状态文件：<dshHome>/data/whale-girl/state.json（不放插件目录——uninstall 会删）。 */
@@ -115,28 +117,39 @@ async function readBody(req, limit = BODY_LIMIT) {
   return data
 }
 
-export function apply(ctx) {
+/** loader 交给 apply 的 Config 是 volatile 包装（取值要 `.get()`）；展开成普通对象。 */
+function unwrapConfig(value) {
+  if (value !== null && typeof value === 'object' && typeof value.get === 'function') {
+    return unwrapConfig(value.get())
+  }
+  if (Array.isArray(value)) return value.map(unwrapConfig)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, unwrapConfig(child)]))
+  }
+  return value
+}
+
+export function apply(ctx, config) {
   let state = loadState() ?? { ...INITIAL_STATE, updatedAt: Date.now() }
-  // 配置（L1 体验层）：settings 服务条件接入——web 组合有 provider，CLI/headless
-  // 可能缺失；缺失时回退 DEFAULTS（插件照常跑，只是无用户配置面）。
-  // configRef 是消费端唯一读取面（Node half 的窗口时长等）；configRevision 随
-  // /state 下发，客户端以此门控「配置变化才重应用」。
-  let configRef = { ...DEFAULTS }
-  let configRevision = 0
-  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
-  const applyConfig = (next) => {
-    configRef = next
-    configRevision += 1
+  // 配置（L1 体验层）：0.2.1 起宿主不再有 settings.register，配置由 loader 按本插件的
+  // Config schema 解析后作为 apply 的第二参数给出；未配置的字段走 schema 默认值。
+  // ⚠️ 热更新语义：cordis 的 volatile 字段是**稳定引用**（createVolatile/updateVolatile），
+  // 设置写入时只改 ref 的值、**不重跑 apply**。所以每次读取都必须重新 `.get()`；
+  // 在 apply 里快照成普通对象会永远停在启动时的值（实测量：设置页改完、patch 写对、
+  // /config 仍返回旧值 —— 2026-10-18 踩坑）。
+  const cfg = () => ({ ...DEFAULTS, ...unwrapConfig(config) })
+  // /state 下发的版本号：配置内容哈希，客户端据此判断是否需要重应用（ref 变化无事件）。
+  const revisionOf = (value) => {
+    const text = JSON.stringify(value)
+    let hash = 0
+    for (let index = 0; index < text.length; index += 1) hash = (hash * 31 + text.charCodeAt(index)) | 0
+    return hash
   }
-  if (settings !== undefined && typeof settings.register === 'function') {
-    try {
-      const scope = settings.register(NAMESPACE, buildSchema(), { applies: 'live', validate: validateConfig })
-      applyConfig(scope.get())
-      scope.watch((next) => applyConfig(next))
-    } catch {
-      // register 失败（如重复注册）→ 保持 DEFAULTS
-    }
-  }
+  // 设置页已自带自定义卡片：抑制宿主为同一 loader 条目自动生成的通用表单，
+  // 否则「插件列表」里会出现第二份编辑同一配置的面。
+  ctx.inject?.(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
   // 落盘防抖：事件记账时触发（任务完成/失败/会话/活跃时长）。
   let saveTimer = null
   const scheduleSave = () => {
@@ -317,7 +330,7 @@ export function apply(ctx) {
   const activity = () => {
     const now = Date.now()
     const tasks = collectTasks(ctx, subagentSessions)
-    const derived = deriveActivity({ tasks, nowMs: now, known, wasWorking, errorMs: configRef.errorMs })
+    const derived = deriveActivity({ tasks, nowMs: now, known, wasWorking, errorMs: cfg().errorMs })
     wasWorking = derived.wasWorking
     // 子代理自有 job 的完成不庆祝（§5.1「子代理不触发」，与 turn/end 窗口同规则）：
     // 翻转的 job 全是子代理自有时抑制 celebrate burst；混合/无法归属时照旧庆祝（不误杀用户自己的活）。
@@ -337,7 +350,7 @@ export function apply(ctx) {
     // 窗口取 max：同一窗口内多次失败/错误只延长不缩短（越挫越勇不因并发被吞）。
   if (derived.burst?.name === 'error') {
       errorUntil = Math.max(errorUntil, derived.burst.until)
-      disappointedUntil = Math.max(disappointedUntil, derived.burst.until + configRef.disappointedMs)
+      disappointedUntil = Math.max(disappointedUntil, derived.burst.until + cfg().disappointedMs)
     }
     // burst 级联：welcome > error > disappointed > celebrate > working > idle。
     // welcome 不打断进行中的 error/disappointed 尾段（失败失落不该被新会话欢迎盖掉）。
@@ -378,6 +391,36 @@ export function apply(ctx) {
   // 通道），不再由 entry 注入页面（0811 bundle 形态）。
   const webServer = typeof ctx.get === 'function' ? ctx.get('webServer') : undefined
   ctx.effect(() => {
+    // 事件驱动记账（F1）：任务终态恰回调一次，与浏览器轮询解耦——
+    // GUI 关闭期间完成/失败的任务也入账（此前靠轮询观察 running 翻转，漏记窗口大）。
+    // killed（用户取消）中性：不计 XP、不记失败、不写回忆（F4 语义）。
+    // 0.2.1 起 `ctx.jobs.onJobDone` 已移除，终态改由会话日志的 `job/settled`
+    // 事件承载（见下方 session/event 分支），这里保留同一份记账逻辑。
+    const recordJobOutcome = (snapshot) => {
+      const now = Date.now()
+      if (snapshot.status === 'completed') {
+        const result = recordTaskCompleted(state, snapshot.label ?? '未命名任务', now)
+        state = result.state
+        // 子代理自有 job：账本照记（XP/称号/回忆——活确实干完了），但不开庆祝窗口、
+        // 不发 celebrate 信号（§5.1「子代理不触发」，与 turn/end 窗口同一规则）。
+        const fromSubagent = typeof snapshot.ownerSession === 'string' && subagentSessions.has(snapshot.ownerSession)
+        // F3：账本与庆祝同源——记账即开庆祝窗口。页面关闭期间完成任务（轮询缺席、
+        // deriveActivity 看不到翻转）时，重开后首次轮询仍能看到本窗口，同样庆祝；
+        // 与轮询翻转的 celebrate 取 max 不叠加（CELEBRATE_MS 同 BURST_MS）。
+        if (!fromSubagent) {
+  celebrateUntil = Math.max(celebrateUntil, now + cfg().celebrateMs)
+          emitSignal('celebrate', { label: snapshot.label ?? '未命名任务', level: state.level })
+        }
+        scheduleSave()
+        if (result.leveledUp) emitSignal('levelUp', { level: state.level })
+      } else if (snapshot.status === 'failed') {
+        state = recordFailure(state, now).state
+        scheduleSave()
+        emitSignal('failure', { level: state.level })
+      }
+      broadcastEvent() // 任务终态 → 即时告知 client（庆祝/失落的窗口即刻生效）
+    }
+
     const disposers = [
       // pet 服务（开放性窄缝）：只读快照 + 信号订阅。其他插件 inject ['whale-girl.pet']
       // 消费；服务缺席时消费方应容忍（whale-girl 自己处理 sessions 缺席即先例）。
@@ -389,41 +432,14 @@ export function apply(ctx) {
         snapshot: () => ({ pet: state, activity: activity() }),
         onSignal: (fn) => signals.subscribe(fn),
       }),
-      // 事件驱动记账（F1）：任务终态恰回调一次，与浏览器轮询解耦——
-      // GUI 关闭期间完成/失败的任务也入账（此前靠轮询观察 running 翻转，漏记窗口大）。
-      // killed（用户取消）中性：不计 XP、不记失败、不写回忆（F4 语义）。
-  ctx.jobs.onJobDone((snapshot) => {
-        const now = Date.now()
-        if (snapshot.status === 'completed') {
-          const result = recordTaskCompleted(state, snapshot.label ?? '未命名任务', now)
-          state = result.state
-          // 子代理自有 job：账本照记（XP/称号/回忆——活确实干完了），但不开庆祝窗口、
-          // 不发 celebrate 信号（§5.1「子代理不触发」，与 turn/end 窗口同一规则）。
-          const fromSubagent = typeof snapshot.ownerSession === 'string' && subagentSessions.has(snapshot.ownerSession)
-          // F3：账本与庆祝同源——记账即开庆祝窗口。页面关闭期间完成任务（轮询缺席、
-          // deriveActivity 看不到翻转）时，重开后首次轮询仍能看到本窗口，同样庆祝；
-          // 与轮询翻转的 celebrate 取 max 不叠加（CELEBRATE_MS 同 BURST_MS）。
-          if (!fromSubagent) {
-    celebrateUntil = Math.max(celebrateUntil, now + configRef.celebrateMs)
-            emitSignal('celebrate', { label: snapshot.label ?? '未命名任务', level: state.level })
-          }
-          scheduleSave()
-          if (result.leveledUp) emitSignal('levelUp', { level: state.level })
-        } else if (snapshot.status === 'failed') {
-          state = recordFailure(state, now).state
-          scheduleSave()
-          emitSignal('failure', { level: state.level })
-        }
-        broadcastEvent() // 任务终态 → 即时告知 client（庆祝/失落的窗口即刻生效）
-      }),
       ctx.on('agent/request-error', () => {
         // 请求错误（LLM API 抖动，重试后可能成功）只触发 error/disappointed 情绪，
         // 不记入 stats.failures / 回忆——「任务失败」计数只认任务状态翻转（deriveActivity），
         // 避免一次坏任务多次请求错误刷出「越挫越勇」称号、回忆里出现虚假的「任务失败」。
         // 窗口与任务失败统一：error(ERROR_MS) → disappointed(尾段)。
   const now = Date.now()
-        errorUntil = Math.max(errorUntil, now + configRef.errorMs)
-        disappointedUntil = Math.max(disappointedUntil, now + configRef.errorMs + configRef.disappointedMs)
+        errorUntil = Math.max(errorUntil, now + cfg().errorMs)
+        disappointedUntil = Math.max(disappointedUntil, now + cfg().errorMs + cfg().disappointedMs)
         broadcastEvent() // 请求错误 → 惊吓窗口即刻生效
       }),
       ctx.on('agent/session-start', (payload) => {
@@ -432,7 +448,7 @@ export function apply(ctx) {
         // 新会话 +5 + 计数 + welcome；续接 +2 不计数不 welcome（避免切换即欢迎的噪音）。
   if (payload.source === 'startup') {
           state = recordSession(state, now).state
-          welcomeUntil = now + configRef.welcomeMs
+          welcomeUntil = now + cfg().welcomeMs
           emitSignal('session', { kind: 'new', level: state.level })
         } else {
           state = recordSessionResume(state, now).state
@@ -447,6 +463,11 @@ export function apply(ctx) {
   ctx.on('session/event', (session, event) => {
         const id = typeof session?.id === 'string' ? session.id : null
         if (id === null) return
+        // 任务终态 → 记账（宿主 0.2.1 的 job/settled 事件替代了已移除的 jobs.onJobDone）
+        if (event?.type === 'job/settled') {
+          const data = event.data ?? {}
+          recordJobOutcome({ status: data.status, label: data.label, ownerSession: data.owner })
+        }
         // 子代理子会话登记（job 侧庆祝归属用；事件流首见即登记，早于该会话发起的 job 终态）
         if (isSubagentSession(session)) subagentSessions.add(id)
         // 每会话活动账本（/sessions 端点数据源）：turn/start → thinking、
@@ -459,7 +480,7 @@ export function apply(ctx) {
         const view = applySessionView(base, event)
         if (known === undefined || view !== known) sessionViews.set(id, view)
         // ---- 扫描 event log 中未通知过的 turn/end ----
-        if (configRef.desktopPetEnabled !== false) {
+        if (cfg().desktopPetEnabled !== false) {
           const events = typeof session?.snapshotEvents === 'function' ? session.snapshotEvents() : []
           if (!lastTurnEndNotif.has(id)) {
             let lastSeq = -1
@@ -482,7 +503,7 @@ export function apply(ctx) {
         }
         // ---- 检测 pending interaction 事件（这些不产生 turn/end blocked）----
         // 仅在会话初始化完成后处理，防事件重放期间误发通知
-        if (configRef.desktopPetEnabled !== false && sessionInitialized.has(id)) {
+        if (cfg().desktopPetEnabled !== false && sessionInitialized.has(id)) {
           // 审批请求（工具扩权等）
           if (event?.type === 'approval/asked') {
             setPetNotification(id, 'approval', session, 'approval')
@@ -531,6 +552,7 @@ export function apply(ctx) {
             }
             // 轮询端点：禁缓存，防止启发式缓存读到冻结状态。
             // 先跑 activity()（有记账副作用），再读 state——响应里的 pet 才是记账后的值。
+  const currentConfig = cfg()
   const act = activity()
             // 过期清理通知
             if (petNotification !== null && petNotification.expiresAt < Date.now()) {
@@ -538,10 +560,10 @@ export function apply(ctx) {
               petNotification = null
             }
             // ---- 调试：打印当前状态 ----
-            console.log(`[kanye-pet] DEBUG /state: desktopPetEnabled=${configRef.desktopPetEnabled}, petNotification=${petNotification !== null ? petNotification.title : 'null'}, sessionsSvc=${typeof sessionsSvc?.list}`)
+            console.log(`[kanye-pet] DEBUG /state: desktopPetEnabled=${cfg().desktopPetEnabled}, petNotification=${petNotification !== null ? petNotification.title : 'null'}, sessionsSvc=${typeof sessionsSvc?.list}`)
             // ---- 轮询兜底：扫描所有会话中未通知的 blocked turn/end ----
             // 仅扫已初始化的会话（sessionInitialized），防事件重放前的误判
-            if (petNotification === null && configRef.desktopPetEnabled !== false
+            if (petNotification === null && cfg().desktopPetEnabled !== false
               && sessionsSvc !== undefined && typeof sessionsSvc.list === 'function') {
               try {
                 for (const s of sessionsSvc.list()) {
@@ -579,10 +601,10 @@ export function apply(ctx) {
               pet: state,
               activity: act,
               notification: notifPayload,
-              configRevision,
+              configRevision: revisionOf(currentConfig),
               companionOnline: companionOnline(companionUntil, Date.now()),
               _debug: {
-                desktopPetEnabled: configRef.desktopPetEnabled,
+                desktopPetEnabled: currentConfig.desktopPetEnabled,
                 hasNotification: petNotification !== null,
                 notifTitle: petNotification?.title ?? null,
                 sessionsSvc: typeof sessionsSvc?.list === 'function' ? 'available' : 'unavailable',
@@ -604,7 +626,7 @@ export function apply(ctx) {
             }
             // 只读配置端点：返回解析后的体验层配置（客户端按 configRevision 拉取）。
             // 写路径只有用户设置（settings 服务/文件）——插件不自建写面。
-  json(res, 200, { config: configRef, revision: configRevision }, { 'cache-control': 'no-store' })
+  json(res, 200, { config: cfg(), revision: revisionOf(cfg()) }, { 'cache-control': 'no-store' })
           } catch (error) {
             json(res, 500, { error: error instanceof Error ? error.message : String(error) })
           }
@@ -640,7 +662,7 @@ export function apply(ctx) {
               json(res, 400, { error: 'body must be a JSON object' })
               return
             }
-            const result = applyAction(state, body.action, configRef.replies)
+            const result = applyAction(state, body.action, cfg().replies)
             json(res, result.status, result.body, { 'cache-control': 'no-store' })
           } catch (error) {
             json(res, 500, { error: error instanceof Error ? error.message : String(error) })

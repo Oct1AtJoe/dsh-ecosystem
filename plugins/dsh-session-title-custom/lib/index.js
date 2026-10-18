@@ -1,12 +1,9 @@
 import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'
 import { normalizeSessionTitle } from '@deepseek-ai/dsh-session-title'
-import z from 'schemastery'
+import z from '@deepseek-ai/schemastery'
 
 const name = 'dsh-session-title-custom'
-const inject = ['sessionTitle', 'llm', 'sessions', 'settings']
-
-/** Settings namespace edited by the "会话标题" settings tab. */
-const NS = 'session-title'
+const inject = ['sessionTitle', 'llm', 'sessions']
 
 /**
  * Defaults are the single source of truth: the schema below restates them so a
@@ -35,25 +32,30 @@ const DEFAULTS = Object.freeze({
 /** Settings schema served to the 会话标题 tab; ranges mirror its client-side validation. */
 function buildSchema() {
   // 注意：本仓 schemastery 版本的裸 z.string() 即为可选（必填要 .required()），
-  // 且不存在 .optional() 方法——误用会让 settings.register 抛错，进而被下面的
-  // catch 吞掉导致 settingsScope 为 undefined，设置卡片整页空白（已踩坑）。
+  // 且不存在 .optional() 方法——误用会让 schema 解析抛错，进而让设置卡片整页空白（已踩坑）。
+  // 0.2.1 起宿主不再有 settings.register：设置页由「loader 条目 id + 本插件导出的
+  // Config」直接投影（SettingsForms.describe），只有 .volatile() 字段会出现在表单里，
+  // 且 volatile 不能落在数组/联合的元素内部（只放在字段本身上）。
   return z.object({
-    enabled: z.boolean().default(DEFAULTS.enabled),
+    enabled: z.boolean().default(DEFAULTS.enabled).volatile(),
     models: z.array(z.object({
       id: z.string(),
       provider: z.string(),
       model: z.string(),
       reasoningEffort: z.string().default('off'),
-    })).default([]),
-    provider: z.string(),
-    model: z.string(),
-    reasoningEffort: z.string(),
-    maxTokens: z.number().min(16).max(8192).default(DEFAULTS.maxTokens),
-    maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars),
-    timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs),
-    maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength),
+    })).default([]).volatile(),
+    provider: z.string().volatile(),
+    model: z.string().volatile(),
+    reasoningEffort: z.string().volatile(),
+    maxTokens: z.number().min(16).max(8192).default(DEFAULTS.maxTokens).volatile(),
+    maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars).volatile(),
+    timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs).volatile(),
+    maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength).volatile(),
   })
 }
+
+/** 宿主 loader 读取的插件 Config（导出名固定为 `Config`）。 */
+export const Config = buildSchema()
 
 /** 归一化获取多模型托底链（优先读 models 数组，回退单个 provider/model） */
 export function resolveModelChain(config) {
@@ -144,31 +146,30 @@ function parseLlmOutput(raw) {
   throw new Error(`dsh-session-title-custom: cannot parse title from "${raw}"`)
 }
 
-/** Registered settings scope; stays undefined when the composition serves none. */
-let settingsScope
-
-/** Effective settings; falls back to DEFAULTS when the settings service is absent. */
-function currentConfig() {
-  try {
-    return settingsScope?.get?.() ?? DEFAULTS
-  } catch {
-    return DEFAULTS
+/** loader 交给 apply 的 Config 是 volatile 包装（取值要 `.get()`）；展开成普通对象。 */
+function unwrapConfig(value) {
+  if (value !== null && typeof value === 'object' && typeof value.get === 'function') {
+    return unwrapConfig(value.get())
   }
+  if (Array.isArray(value)) return value.map(unwrapConfig)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, unwrapConfig(child)]))
+  }
+  return value
 }
 
-function apply(ctx) {
-  // Settings are optional: a headless composition may not serve them.
-  const settings = typeof ctx.get === 'function' ? ctx.get('settings') : undefined
-  if (settings !== undefined && typeof settings.register === 'function') {
-    try {
-      settingsScope = settings.register(NS, buildSchema(), { applies: 'live' })
-    } catch (error) {
-      // Duplicate registration or an incompatible composition: DEFAULTS still applied.
-      // 必须打日志：静默吞掉会让「设置卡片整页空白」这类故障无从定位（已踩坑）。
-      ctx.logger?.error?.('[dsh-session-title-custom] settings.register failed; settings card will stay blank:', error)
-      settingsScope = undefined
-    }
-  }
+function apply(ctx, config) {
+  // 0.2.1 起宿主不再有 settings.register：配置由 loader 按本插件导出的 Config 解析后
+  // 作为 apply 的第二参数给出（写面落在 profile 的 cordis.patch.yml 的 config 字段）。
+  // ⚠️ volatile 字段是**稳定引用**：设置写入只改 ref 的值、不重跑 apply，所以每次取值
+  // 都要重新 `.get()`。apply 时快照成普通对象会永远停在启动时的配置（2026-10-18 踩坑）。
+  // 未配置的字段回退 DEFAULTS，headless 组合不服务设置页也照常工作。
+  const currentConfig = () => ({ ...DEFAULTS, ...unwrapConfig(config) })
+
+  // 设置页已自带自定义卡片：抑制宿主为同一 loader 条目自动生成的通用表单。
+  ctx.inject?.(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 
   ctx.sessionTitle.register({
     id: 'dsh-session-title-custom', // 必填：未传会导致 validateProvider 抛错

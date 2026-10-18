@@ -32,6 +32,16 @@ export interface ProducedFilesInjected {
     resolveFileLine?: ((sessionId: string | undefined, path: string, snippet: string) => Promise<number | null>) | undefined;
 }
 /** Matched paths plus the opener, locale, and injected Host capability. */
+/**
+ * Turn-tail entry for produced files.
+ *
+ * 0.2.x declares `conversation.chat.turnTail` a list slot and renders every
+ * entry, so the election a 0.1 chain expressed with `select` has to happen in
+ * the entry itself: an empty turn renders nothing.
+ * @param props - closing Turn plus the injected opener face and copy.
+ * @returns the produced-files row, or null when this Turn declares none.
+ */
+export declare function ProducedFilesTail(props: TurnTailOwnerProps & PropsLocale<typeof NS> & InjectFace<ProducedFilesInjected>): import("react").JSX.Element | null;
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
     matched: readonly ProducedFileMatch[];
     sessionId?: string | undefined;

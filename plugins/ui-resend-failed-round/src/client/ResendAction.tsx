@@ -8,7 +8,7 @@
  * @module @deepseek-ai/dsh-client-ui-resend-failed-round/client/ResendAction
  */
 import { useMemo } from 'react'
-import { IconRefreshOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconRefreshOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNode, ChatNodeStore } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ResendActionProps } from './slots.ts'
 import css from './ResendAction.module.css'
@@ -66,7 +66,7 @@ export function ResendAction({ turn, send, t, useChat }: ResendActionProps) {
   return (
     <Tooltip label={label} side="top" delayMs={500}>
       <button type="button" className={css.button} aria-label={label} onClick={() => { send(target) }}>
-        <IconRefreshOutline16 />
+        <IconRefreshOutlineRegular />
         <span>{label}</span>
       </button>
     </Tooltip>

@@ -64,14 +64,14 @@
     "test": "bash scripts/test-e2e.sh"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-client-locale": ">=0.1.0-rc.6 <0.3.0",
-    "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.6 <0.3.0",
-    "@deepseek-ai/dsh-host-webserver": ">=0.1.0-rc.6 <0.3.0",
-    "@deepseek-ai/dsh-subprocess": ">=0.1.0-rc.6 <0.3.0",
-    "@deepseek-ai/dsh-workspace": ">=0.1.0-rc.6 <0.3.0",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-subprocess": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-workspace": ">=0.1.2-rc.1 <0.3.0",
     "react": ">=16.8.0 <20.0.0",
-    "@deepseek-ai/dsh-client-ui-sidebar-right": ">=0.1.5-alpha.1 <0.3.0",
-    "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": ">=0.1.5-alpha.1 <0.3.0"
+    "@deepseek-ai/dsh-client-ui-sidebar-right": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": ">=0.1.2-rc.1 <0.3.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": {
@@ -80,12 +80,12 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-subprocess": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-workspace": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-subprocess": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-workspace": ">=0.1.2-rc.1 <0.3.0",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
@@ -93,5 +93,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.6.0"
+  },
+  "engines": {
+    "dsh": ">=0.1.2-rc.1 <0.3.0"
   }
 }

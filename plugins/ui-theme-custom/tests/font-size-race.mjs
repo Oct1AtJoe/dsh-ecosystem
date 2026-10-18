@@ -20,7 +20,8 @@ const src = readFileSync(join(here, '..', 'src', 'client', 'index.ts'), 'utf8')
 // 然后用等价的受控实现重放时序（源码是 TS/模块，无法直接 vm 执行）。
 const hasRecord = src.includes('recordFontSizeIntent')
 const hasAssert = src.includes('assertFontSizeIntent')
-const assertsBeforeTheme = /if \(assertFontSizeIntent\(snapshot\.fontSize\)\) return/.test(src)
+// 0.2.1 起快照按 role 暴露（fontSizes 表），断言入口随之改为整表比对。
+const assertsBeforeTheme = /if \(assertFontSizeIntent\(snapshot\.fontSizes\)\) return/.test(src)
 if (!hasRecord || !hasAssert || !assertsBeforeTheme) {
   throw new Error('未能从源码抽取字号意图防护 —— 实现可能被改写')
 }

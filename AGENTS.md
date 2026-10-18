@@ -164,6 +164,69 @@ node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfi
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
 ```
 
+> 🚨 **`tsc` 必须 exit 0，不许「有报错但 emit 了就当通过」**。
+> `tsdown` 不做类型检查，`tsc` 报错时它照样打包成功——于是类型错误可以静默存活很久，
+> 直到某次真实契约变更才暴露。判据只看 `$LASTEXITCODE`，不看产物是否生成。
+
+### 4.3 依赖解析必须「单实例」（核心坑点）
+
+> 🚨 **同一符号被解析成两个物理文件，TypeScript 的类型增强就合并不了。**
+
+本生态的依赖实际由两处提供：
+
+| 位置 | 内容 |
+|---|---|
+| `C:\dsh-ecosystem\plugins\node_modules\@deepseek-ai\*` | **junction → `E:\vibeCoding\deepseek-harness\packages\*`**（权威） |
+| `C:\dsh-ecosystem\node_modules\@deepseek-ai\*` | 真实目录，9 月 3 日安装的旧快照（`0.1.2-rc.1`） |
+
+解析优先命中的是 `plugins/node_modules`，**所以任何 harness 包都必须在 `plugins/node_modules/@deepseek-ai/` 下有 junction**。
+一旦缺失，解析会回落到生态根那份旧快照，与 harness 的 `.d.ts` 形成两份互不相认的模块：
+
+- `declare module '@deepseek-ai/cordis' { interface Context { slots/theme/locale } }` 写进 A 份，
+- 插件 `import type { Context }` 拿到 B 份，
+- 结果：`Property 'slots' does not exist on type 'Context'` 之类假报错铺满整个文件。
+
+**已踩过的两个实例（2026-10-18 修复）**：
+
+| 缺失/错指的 junction | 症状 |
+|---|---|
+| `@deepseek-ai/cordis` 缺失 | 全生态 4 插件报 `ctx.slots` / `ctx.theme` / `ctx.locale` 不存在（cordis 4.0.2 vs 4.0.5） |
+| `@deepseek-ai/dsh-llm` 指向 profiles 的 pnpm 副本 | `MessageId` 等 branded 类型「缺少 `[BRAND]` 属性」 |
+
+**修复范式**（junction 一律指向 harness 源，与其余 24 个包保持一致）：
+
+```powershell
+$link   = "C:\dsh-ecosystem\plugins\node_modules\@deepseek-ai\<包名>"
+$target = "E:\vibeCoding\deepseek-harness\packages\<路径>"
+if (Test-Path $link) { cmd /c rmdir "$link" }
+cmd /c mklink /J "$link" "$target"
+```
+
+**排查手法**（比读报错快得多）：
+
+```powershell
+cd C:\dsh-ecosystem\plugins\<包名>
+node "...\typescript\bin\tsc" -p tsconfig.json --traceResolution > trace.txt 2>&1
+Select-String -Path trace.txt -Pattern "Module name '<包>' was successfully resolved" |
+  ForEach-Object { ($_.Line -split "resolved to '")[1] -split "'" | Select-Object -First 1 } |
+  Sort-Object -Unique
+```
+
+**只要输出超过一行，就是重复解析**，先修 junction，不要动业务代码。
+
+### 4.4 harness 升级后的契约适配
+
+`tsc` 报错里要区分两类：
+
+- **重复解析**（4.3）——先修 junction，往往一次消掉几十条；
+- **真实契约变更**——签名/字段真的变了，必须改代码。已发生的：
+
+| 变更 | 适配 |
+|---|---|
+| `ThemeRuntime.setFontSize(px)` → `setFontSize(role, px)`；快照 `fontSize` → `fontSizes: Record<'text'\|'code'\|'terminal', number>` | 字号意图保护改按 `(role, px)` 记录与重发 |
+| `ToolResultMessage.content[].isError` → 标志上移到 `message.isError` | `tool/result` 判定改读 `event.data.message.isError` |
+| `conversation.chat.turnTail` 由 `chain` 改 `list` | 注册需 `id`，原 `select` 选举逻辑移进组件（不满足自返 `null`） |
+
 ---
 
 ## 5. Profile 挂载与生效验证流程

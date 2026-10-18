@@ -10,7 +10,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * 因此不会出现空值或越界持久化。
  */
 import { useState } from 'react';
-import { IconChevronDownOutline14, IconChevronUpOutline14, } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconChevronDownOutlineRegular, IconChevronUpOutlineRegular, } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SIDEBAR_FONT_MAX, SIDEBAR_FONT_MIN, normalizeSidebarFont } from "./sidebar-font.js";
 import css from './SidebarFontRow.module.css';
 /**
@@ -49,6 +49,6 @@ export function SidebarFontRow({ t, setSidebarFont, useStore }) {
             commit(v === '' ? size : Number.parseInt(v, 10));
         }
     };
-    return (_jsxs("div", { className: css.row, children: [_jsxs("div", { className: css.rowText, children: [_jsx("div", { className: css.title, children: t('sidebar-font.title') }), _jsx("div", { className: css.desc, children: t('sidebar-font.description') })] }), _jsxs("div", { className: css.control, children: [_jsxs("div", { className: css.stepper, children: [_jsx("input", { className: css.value, type: "text", inputMode: "numeric", "aria-label": t('sidebar-font.title'), value: draft ?? String(size), onChange: onInput, onBlur: onBlur, onKeyDown: onKeyDown }), _jsxs("span", { className: css.arrows, children: [_jsx("button", { type: "button", className: css.arrow, "aria-label": t('sidebar-font.increase'), disabled: size >= SIDEBAR_FONT_MAX, onClick: () => { commit(size + 1); }, children: _jsx(IconChevronUpOutline14, { size: 9 }) }), _jsx("button", { type: "button", className: css.arrow, "aria-label": t('sidebar-font.decrease'), disabled: size <= SIDEBAR_FONT_MIN, onClick: () => { commit(size - 1); }, children: _jsx(IconChevronDownOutline14, { size: 9 }) })] })] }), _jsx("span", { className: css.unit, children: t('sidebar-font.unit') })] })] }));
+    return (_jsxs("div", { className: css.row, children: [_jsxs("div", { className: css.rowText, children: [_jsx("div", { className: css.title, children: t('sidebar-font.title') }), _jsx("div", { className: css.desc, children: t('sidebar-font.description') })] }), _jsxs("div", { className: css.control, children: [_jsxs("div", { className: css.stepper, children: [_jsx("input", { className: css.value, type: "text", inputMode: "numeric", "aria-label": t('sidebar-font.title'), value: draft ?? String(size), onChange: onInput, onBlur: onBlur, onKeyDown: onKeyDown }), _jsxs("span", { className: css.arrows, children: [_jsx("button", { type: "button", className: css.arrow, "aria-label": t('sidebar-font.increase'), disabled: size >= SIDEBAR_FONT_MAX, onClick: () => { commit(size + 1); }, children: _jsx(IconChevronUpOutlineRegular, { size: 9 }) }), _jsx("button", { type: "button", className: css.arrow, "aria-label": t('sidebar-font.decrease'), disabled: size <= SIDEBAR_FONT_MIN, onClick: () => { commit(size - 1); }, children: _jsx(IconChevronDownOutlineRegular, { size: 9 }) })] })] }), _jsx("span", { className: css.unit, children: t('sidebar-font.unit') })] })] }));
 }
 //# sourceMappingURL=SidebarFontRow.js.map
