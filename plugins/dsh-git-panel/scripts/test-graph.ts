@@ -124,7 +124,33 @@ function main(): void {
   check('行 3 继承父链分支 dev-f3', branchMap.get(3)?.branch === 'dev-f3' && branchMap.get(3)?.isTip === false)
   check('行 4 主干祖先继承当前主分支 dev', branchMap.get(4)?.branch === 'dev' && branchMap.get(4)?.isTip === false)
 
-  // 7. 日期紧凑展示格式化测试
+  // 7. 搜索裁剪后分支列不得空白（回归：搜索命中不含分支 tip 的历史提交）
+  const searchFull: GraphCommit[] = [
+    { sha: 's4', parents: ['s3'], author: 'Dev', date: '2026-09-24', subject: 'feat: tip of main' },
+    { sha: 's3', parents: ['s2'], author: 'Dev', date: '2026-09-23', subject: 'fix: middle' },
+    { sha: 's2', parents: ['s1'], author: 'Dev', date: '2026-09-22', subject: 'chore: older' },
+    { sha: 's1', parents: [],     author: 'Dev', date: '2026-09-21', subject: 'chore: root' },
+  ]
+  const searchTips = { main: 's4' }
+  // 搜索 "middle" 只命中 s3，layout 被裁剪成单行且不含 tip
+  const croppedLayout = layoutGraph(searchFull.filter((c) => c.subject.includes('middle')))
+  const croppedMap = resolveBranchInfoByRow(croppedLayout, searchTips, 'main', searchFull)
+  check('搜索裁剪后仍能显示分支名（不空白）', croppedMap.get(0)?.branch === 'main',
+    `实际=${croppedMap.get(0)?.branch ?? '(空)'}`)
+
+  // 分支 tip 不在当前图谱窗口内时，按可达性回退补齐
+  const reachCommits: GraphCommit[] = [
+    { sha: 'r3', parents: ['r2'], author: 'Dev', date: '2026-09-24', subject: 'side tip' },
+    { sha: 'r2', parents: ['r1'], author: 'Dev', date: '2026-09-23', subject: 'side mid' },
+    { sha: 'r1', parents: [],     author: 'Dev', date: '2026-09-22', subject: 'shared root' },
+  ]
+  const reachLayout = layoutGraph([reachCommits[2]])
+  const reachMap = resolveBranchInfoByRow(reachLayout, { side: 'r3' }, 'main', reachCommits)
+  check('分支 tip 不在窗口内时按可达性补齐分支名', reachMap.get(0)?.branch === 'side',
+    `实际=${reachMap.get(0)?.branch ?? '(空)'}`)
+  check('补齐的行标记为非 Tip', reachMap.get(0)?.isTip === false)
+
+  // 8. 日期紧凑展示格式化测试
   check('formatCommitDate 正常解析标准带时区时间', formatCommitDate('2026-10-11 08:45:12 +0800') === '10-11 08:45')
   check('formatCommitDate 正常解析 ISO 字符串', formatCommitDate('2026-10-11T08:45:12+08:00') === '10-11 08:45')
   check('formatCommitDate 兼容仅日期字符串', formatCommitDate('2026-10-11') === '10-11')

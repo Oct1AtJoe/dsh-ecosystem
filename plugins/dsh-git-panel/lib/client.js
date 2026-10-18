@@ -1974,12 +1974,12 @@ function formatCommitDate(raw) {
   }
   return raw.slice(0, 11);
 }
-function resolveBranchInfoByRow(layout, tips, currentBranch) {
+function resolveBranchInfoByRow(layout, tips, currentBranch, allCommits) {
+  const full = allCommits && allCommits.length > 0 ? allCommits : layout;
   const bySha = /* @__PURE__ */ new Map();
-  for (const c of layout) bySha.set(c.sha, c);
-  const tipBranches = Object.entries(tips).filter(([, sha]) => bySha.has(sha));
+  for (const c of full) bySha.set(c.sha, c);
   const branchBySha = /* @__PURE__ */ new Map();
-  const sorted = [...tipBranches].sort(([a], [b]) => {
+  const sorted = Object.entries(tips).filter(([, sha]) => bySha.has(sha)).sort(([a], [b]) => {
     const aCur = a === currentBranch ? 0 : 1;
     const bCur = b === currentBranch ? 0 : 1;
     return aCur - bCur || a.localeCompare(b);
@@ -1999,6 +1999,33 @@ function resolveBranchInfoByRow(layout, tips, currentBranch) {
         branchBySha.set(pSha, { branch, isTip: false });
       }
       curr = p;
+    }
+  }
+  const unresolved = layout.filter((c) => !branchBySha.has(c.sha));
+  if (unresolved.length > 0) {
+    const reachByBranch = [];
+    for (const [branch, sha] of sorted) {
+      const reach = /* @__PURE__ */ new Set();
+      const queue = [sha];
+      while (queue.length > 0) {
+        const cur = queue.pop();
+        if (reach.has(cur)) continue;
+        reach.add(cur);
+        const commit = bySha.get(cur);
+        if (!commit) continue;
+        for (const p of commit.parents) {
+          if (!reach.has(p) && bySha.has(p)) queue.push(p);
+        }
+      }
+      reachByBranch.push({ branch, reach });
+    }
+    for (const c of unresolved) {
+      for (const entry of reachByBranch) {
+        if (entry.reach.has(c.sha)) {
+          branchBySha.set(c.sha, { branch: entry.branch, isTip: false });
+          break;
+        }
+      }
     }
   }
   const byRow = /* @__PURE__ */ new Map();
@@ -2070,8 +2097,8 @@ var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
     [graph.tips, bySha]
   );
   const branchInfoByRow = (0, import_react4.useMemo)(
-    () => resolveBranchInfoByRow(layout, graph.tips, graph.current),
-    [layout, graph.tips, graph.current]
+    () => resolveBranchInfoByRow(layout, graph.tips, graph.current, graph.commits),
+    [layout, graph.tips, graph.current, graph.commits]
   );
   const subjects = (0, import_react4.useMemo)(
     () => new Map(layout.map((c) => [c.sha, fitByWidth(c.subject, commitWidth - 2)])),

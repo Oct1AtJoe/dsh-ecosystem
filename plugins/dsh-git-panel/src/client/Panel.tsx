@@ -635,25 +635,41 @@ export function formatCommitDate(raw?: string): string {
   return raw.slice(0, 11)
 }
 
+/** 单行的分支归属信息。 */
+export interface BranchRowInfo {
+  branch: string
+  isTip: boolean
+  isCurrentTip: boolean
+}
+
 /**
  * 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支。
+ *
+ * @param layout - 当前实际渲染的行（可能已被搜索 / 分支筛选裁剪）。
+ * @param tips - 分支指针映射。
+ * @param currentBranch - 当前检出分支名，用于高亮。
+ * @param allCommits - 未裁剪的完整提交集合。分支继承必须建立在完整历史上，
+ *   否则搜索结果里不含任何分支 tip 时继承链断裂，分支列会整列空白。
  */
 export function resolveBranchInfoByRow(
   layout: LayoutCommit[],
   tips: Record<string, string>,
   currentBranch: string,
-): Map<number, { branch: string; isTip: boolean; isCurrentTip: boolean }> {
-  const bySha = new Map<string, LayoutCommit>()
-  for (const c of layout) bySha.set(c.sha, c)
+  allCommits?: GraphCommit[],
+): Map<number, BranchRowInfo> {
+  const full: readonly GraphCommit[] = allCommits && allCommits.length > 0 ? allCommits : layout
+  const bySha = new Map<string, GraphCommit>()
+  for (const c of full) bySha.set(c.sha, c)
 
-  const tipBranches = Object.entries(tips).filter(([, sha]) => bySha.has(sha))
   const branchBySha = new Map<string, { branch: string; isTip: boolean }>()
 
-  const sorted = [...tipBranches].sort(([a], [b]) => {
-    const aCur = a === currentBranch ? 0 : 1
-    const bCur = b === currentBranch ? 0 : 1
-    return aCur - bCur || a.localeCompare(b)
-  })
+  const sorted = Object.entries(tips)
+    .filter(([, sha]) => bySha.has(sha))
+    .sort(([a], [b]) => {
+      const aCur = a === currentBranch ? 0 : 1
+      const bCur = b === currentBranch ? 0 : 1
+      return aCur - bCur || a.localeCompare(b)
+    })
 
   // 1. 优先记录所有精确 Tip
   for (const [branch, sha] of sorted) {
@@ -676,7 +692,38 @@ export function resolveBranchInfoByRow(
     }
   }
 
-  const byRow = new Map<number, { branch: string; isTip: boolean; isCurrentTip: boolean }>()
+  // 3. 回退：命中行不在任何分支的主父链上（搜索命中的历史提交、合并的次级父链、
+  //    或视图里根本没有分支 tip）时，按「分支可达性」补齐所属分支，
+  //    否则分支列会整列空白。仅在确有缺口时计算，无缺口零开销。
+  const unresolved = layout.filter((c) => !branchBySha.has(c.sha))
+  if (unresolved.length > 0) {
+    const reachByBranch: Array<{ branch: string; reach: Set<string> }> = []
+    for (const [branch, sha] of sorted) {
+      const reach = new Set<string>()
+      const queue = [sha]
+      while (queue.length > 0) {
+        const cur = queue.pop() as string
+        if (reach.has(cur)) continue
+        reach.add(cur)
+        const commit = bySha.get(cur)
+        if (!commit) continue
+        for (const p of commit.parents) {
+          if (!reach.has(p) && bySha.has(p)) queue.push(p)
+        }
+      }
+      reachByBranch.push({ branch, reach })
+    }
+    for (const c of unresolved) {
+      for (const entry of reachByBranch) {
+        if (entry.reach.has(c.sha)) {
+          branchBySha.set(c.sha, { branch: entry.branch, isTip: false })
+          break
+        }
+      }
+    }
+  }
+
+  const byRow = new Map<number, BranchRowInfo>()
   for (const c of layout) {
     const info = branchBySha.get(c.sha)
     if (info) {
@@ -784,10 +831,12 @@ const GraphSvg = memo(function GraphSvg(props: {
     () => Object.entries(graph.tips).filter(([, sha]) => bySha.has(sha)),
     [graph.tips, bySha],
   )
-  // 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支
+  // 综合计算每行的分支信息：Tip 提交显示精确分支头，下级提交沿主父链继承所属分支。
+  // 必须传入未裁剪的 graph.commits：搜索结果通常不含分支 tip，
+  // 只在裁剪后的 layout 上推导会让分支列整列空白。
   const branchInfoByRow = useMemo(
-    () => resolveBranchInfoByRow(layout, graph.tips, graph.current),
-    [layout, graph.tips, graph.current],
+    () => resolveBranchInfoByRow(layout, graph.tips, graph.current, graph.commits),
+    [layout, graph.tips, graph.current, graph.commits],
   )
 
   // 缓存截断结果：仅在列宽真正变化时重新计算。
