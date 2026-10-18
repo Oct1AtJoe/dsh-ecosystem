@@ -44,10 +44,10 @@
 | A3 | `[class*="dsh-recall-bubble"]` | `dsh-recall-bubble` | 470×44, r22 | 中央区 | `rgba(255,255,255,.93)` |
 | A4 | `[class*="cm-footer-stack"]` | `cm-footer-stack` | 256×140, r10 | 左侧栏 | `rgba(255,255,255,.88)` |
 | A5 | `[class*="_bannerWrap"]` | `_bannerWrap_rsn9u_24` | 845×36, sticky z6 | 中央区 | `rgb(245,245,247)` |
-| A8 | `[data-composer-stats]` / `[class*="_MG5Va_root"]` | `_MG5Va_root` | 845×28, r20 | 输入区底部 | `rgba(245,245,247,.88)` + `blur(40px)` |
+| A8 | `[data-composer-dock]` / `[class*="_dock"]` / `[data-composer-stats]` | `QwfZkG_dock` / `_MG5Va_root` | 845×28, r20 | 输入区底部 | `rgba(245,245,247,.88)` + `blur(40px)` |
 
 > **A6 代码块 · A7 回底按钮：用户确认排除**（可读性/辨识度优先，见 §D 组说明）。
-> **A8 状态药丸栏（StatsPills）：已实施**（用户反馈「_MG5Va_root 透明度太高导致上滑后与正文重合」，采用高遮光 .88/.90 + 40px 高斯模糊 ::before 底衬防穿透，四角圆角 r20 严格对齐输入框）。
+> **A8 状态药丸栏（StatsPills / data-composer-dock）：已实施并适配 0.2.1-rc.2 新宿主**（宿主升级后将统计条目拆分为 ActivityPill/UsagePill，容器改为 InputBar 的 `data-composer-dock`；规则采用 `:has(button, [data-composer-stat], [class*="_anchor"])` 确保仅在有条目时呈现高遮光 .88/.90 + 40px 高斯模糊 ::before 底衬防穿透，四角圆角 r20 严格对齐输入框）。
 > **会话行：实施期从 A 组降级到 B 组**（性能，见上文修正说明）。
 
 ---

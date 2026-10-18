@@ -526,23 +526,30 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
   z-index:9500 !important;
 }
 
-/* ── 输入坞底部状态药丸栏（StatsPills / _MG5Va_root）防透与毛玻璃 ───────────
-   组件源码 StatsPills.module.css 的 .root（哈希形如 _MG5Va_root），带 [data-composer-stats]，
-   挂载于 [data-slot="conversation.composer.dock"]，处于输入框卡片正下方。
+/* ── 输入坞底部状态药丸栏（StatsPills / data-composer-dock）防透与毛玻璃 ──
+   宿主 0.2.1-rc.2 架构重构：删除了 _MG5Va_root 与 [data-composer-stats]，将统计条目拆分为
+   ActivityPill / UsagePill（[data-composer-stat]），外层统一由 InputBar 的
+   <div className={css.dock} data-composer-dock> 承载。
    原官方在 composerSeat 上有实色压底渐变，但 sequoia/sonoma 为实现输入框毛玻璃
-   移除了该压底，导致处于底部的 StatsPills 完全透明（alpha=0）。
+   移除了该压底，导致处于底部的 dock 槽位完全透明（alpha=0）。
    当对话流向上滚动时，正文文字滑入输入区下方，直接与状态药丸（77.7M tok 等）文字重合叠印。
    修法：
-     ① 贯彻「内容可读性优先」原则，采用高不透明度半透明底衬（浅色 .88 / 深色 .90）；
-     ② 将 backdrop-filter 挂于 ::before 伪元素，杜绝嵌套 backdrop root 风险；
-     ③ 虚化半径 blur(40px) saturate(180%)，彻底抚平滑入背后的文字；
-     ④ 四角圆角严格对齐输入框卡片 20px（border-radius: 20px），保持上下曲率一致；
-     ⑤ 通用规则覆盖其余自定义主题，确保全主题文字清晰绝不重叠。 */
+     ① 适配 0.2.1 新宿主 [data-composer-dock]:has(...) 并双向兼容 0.1.5 旧宿主；
+     ② 贯彻「内容可读性优先」原则，采用高不透明度半透明底衬（浅色 .88 / 深色 .90）；
+     ③ 将 backdrop-filter 挂于 ::before 伪元素，杜绝嵌套 backdrop root 风险；
+     ④ 虚化半径 blur(40px) saturate(180%)，彻底抚平滑入背后的文字；
+     ⑤ 四角圆角严格对齐输入框卡片 20px（border-radius: 20px），保持上下曲率一致；
+     ⑥ 通用规则覆盖其余自定义主题，确保全主题文字清晰绝不重叠。 */
+body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme="sequoia"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
 body[data-ds-custom-theme="sequoia"] [data-composer-stats],
 body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"],
 body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
   position: relative !important;
   z-index: 0 !important;
+  max-width: var(--dsh-chat-content-width) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   background: var(--dsh-glass-sheen), rgba(245, 245, 247, 0.88) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -552,6 +559,8 @@ body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > 
   padding: 4px 16px !important;
   margin: 2px auto 0 !important;
 }
+body[data-ds-custom-theme="sequoia"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"])::before,
+body[data-ds-custom-theme="sequoia"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"])::before,
 body[data-ds-custom-theme="sequoia"] [data-composer-stats]::before,
 body[data-ds-custom-theme="sequoia"] [class*="_MG5Va_root"]::before,
 body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
@@ -565,11 +574,16 @@ body[data-ds-custom-theme="sequoia"] [data-slot="conversation.composer.dock"] > 
   -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
 }
 
+body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme="sonoma"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
 body[data-ds-custom-theme="sonoma"] [data-composer-stats],
 body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"],
 body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"] {
   position: relative !important;
   z-index: 0 !important;
+  max-width: var(--dsh-chat-content-width) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   background: var(--dsh-glass-sheen), rgba(22, 24, 30, 0.90) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -579,6 +593,8 @@ body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [
   padding: 4px 16px !important;
   margin: 2px auto 0 !important;
 }
+body[data-ds-custom-theme="sonoma"] [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"])::before,
+body[data-ds-custom-theme="sonoma"] [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"])::before,
 body[data-ds-custom-theme="sonoma"] [data-composer-stats]::before,
 body[data-ds-custom-theme="sonoma"] [class*="_MG5Va_root"]::before,
 body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [class*="_root"]::before {
@@ -593,16 +609,25 @@ body[data-ds-custom-theme="sonoma"] [data-slot="conversation.composer.dock"] > [
 }
 
 /* 其余主题通用防穿透底色 */
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-dock]:has(button, [data-composer-stat], [class*="_anchor"]),
+body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [class*="_dock"]:has(button, [data-composer-stat], [class*="_anchor"]),
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-composer-stats],
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [class*="_MG5Va_root"],
 body[data-ds-custom-theme]:not([data-ds-custom-theme="sequoia"]):not([data-ds-custom-theme="sonoma"]) [data-slot="conversation.composer.dock"] > [class*="_root"] {
   background: var(--dsw-alias-bg-base) !important;
+  max-width: var(--dsh-chat-content-width) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   border-radius: 20px !important;
   padding: 4px 16px !important;
   margin: 2px auto 0 !important;
 }
 
 /* 状态药丸文字对比度提升：次级文字从 tertiary 升级至 secondary，字迹更清晰 */
+body[data-ds-custom-theme] [data-composer-dock] [class*="pill"],
+body[data-ds-custom-theme] [data-composer-dock] [class*="_anchor"],
+body[data-ds-custom-theme] [data-composer-dock] button,
+body[data-ds-custom-theme] [data-composer-stat],
 body[data-ds-custom-theme] [data-composer-stats] [class*="pill"],
 body[data-ds-custom-theme] [class*="_MG5Va_root"] [class*="pill"] {
   color: var(--dsw-alias-label-secondary) !important;

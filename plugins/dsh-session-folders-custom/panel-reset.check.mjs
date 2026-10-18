@@ -116,8 +116,10 @@ console.log('ok: open/forkSession navigate through ui-workspace, legacy pair as 
 // the standard `useSessionStatus` prop. The removed `useSessionPendingInteraction`
 // prop left the map empty, so a parked run kept spinning (the reported bug).
 assert.match(source, /useSessionStatus/, 'bundle binds the standard status hook')
-assert.match(source, /statusBySession\.get\(summary\.id\)\?\.pendingInteraction\?\.kind/, 'row status folds the pending kind from the status map')
+assert.match(source, /const status = statusBySession\.get\(summary\.id\)/, 'row status reads the status map')
+assert.match(source, /status\?\.pendingInteraction\?\.kind/, 'row status folds the pending kind from the status map')
 assert.doesNotMatch(source, /useSessionPendingInteraction/, 'removed host prop must not come back')
+assert.match(source, /status\?\.completionUnread === true/, 'done dot reads completionUnread from the status map')
 
 console.log('ok: pending interaction reads useSessionStatus')
 

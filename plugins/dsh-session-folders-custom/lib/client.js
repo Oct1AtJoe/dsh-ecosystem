@@ -1077,17 +1077,31 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		function deriveView(list, workspaces, archived, folders, workspaceOrder, pinnedLoose, statusBySession) {
 			const visible = (summary) => summary !== void 0 && sessionVisible(summary, archived);
 			/**
-			* One session row with its pending interaction folded in. Every summary
+			* One session row with the runtime's status folded in. Every summary
 			* this derivation hands out goes through here, so the status dot, its
-			* tooltip, and search rows all read the same fact without the callers
-			* knowing the runtime's status map exists. Sessions with nothing
-			* pending keep their stored summary by identity.
+			* tooltip, and search rows all read the same facts without the callers
+			* knowing the runtime's status map exists.
+			*
+			* Two facts live only in that map:
+			* - the pending interaction kind (approval / plan review / question), so
+			*   a run parked on the user shows the warning dot instead of spinning;
+			* - `completionUnread`, the finished-but-unseen mark the built-in browser
+			*   paints as the green done dot. The list summary has no `completed`
+			*   field, so without this mapping a finished session shows nothing.
+			* Sessions with neither fact keep their stored summary by identity.
 			*/
 			const withPending = (summary) => {
 				if (summary === void 0) return void 0;
-				const kind = statusBySession.get(summary.id)?.pendingInteraction?.kind;
-				if (kind === void 0 || !PENDING_KINDS.includes(kind)) return summary;
-				return { ...summary, pendingInteraction: kind };
+				const status = statusBySession.get(summary.id);
+				const rawKind = status?.pendingInteraction?.kind;
+				const kind = rawKind !== void 0 && PENDING_KINDS.includes(rawKind) ? rawKind : void 0;
+				const completed = status?.completionUnread === true;
+				if (kind === void 0 && !completed) return summary;
+				return {
+					...summary,
+					...(kind === void 0 ? {} : { pendingInteraction: kind }),
+					...(completed ? { completed: true } : {})
+				};
 			};
 			const folderOf = /* @__PURE__ */ new Map();
 			const sessionWorkspace = /* @__PURE__ */ new Map();
