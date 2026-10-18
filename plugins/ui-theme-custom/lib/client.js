@@ -3586,6 +3586,13 @@ body[data-ds-custom-theme]{
      后者会把 background 改成 transparent，连官方原有底衬一起抹掉，属于破坏而非还原。 */
   --dsh-glass-blur:blur(92px) saturate(180%);
 
+  /* ── 浮层底衬不透明化（Windows 无 vibrancy）────────────────────────────
+     官方 --dsw-specific-menu 在非 macOS 上取 --dsw-menu-surface-fill（浅 0.58 / 深 0.45），
+     前提是官方 MenuSurface 自带的 backdrop-filter。第三方插件自绘的 popover
+     （如 git-graph 分支弹层）只写 background: var(--dsw-specific-menu)，没有模糊层，
+     背后文字会直接透出来。这里按主题底色派生一个近实心填充：仍走 token，不写死颜色。 */
+  --dsw-specific-menu: color-mix(in srgb, var(--dsw-alias-bg-base) 97%, transparent);
+
   /* 两个玻璃主题各自的取值（sequoia 浅 / sonoma 深，各自独立、不共用） */
   --dsh-glass-fill:rgba(255,255,255,0.38);
   --dsh-glass-sheen:linear-gradient(180deg,
@@ -4085,17 +4092,17 @@ body[data-ds-custom-theme] [class*="_MG5Va_root"] [class*="pill"] {
    会自动上移到全部元素之上，永不遮挡。
    右侧预留 48px 避让宽度为 34px 的回到底部按钮（.toBottom），彻底避免重叠与点击冲突。 */
 [data-dsh-pet-anchor="stack"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 48px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 68px) !important;
   bottom: 100% !important;
 }
 /* 替代面板（授权确认 / 提问面板）接管输入卡片时 */
 [data-dsh-pet-anchor="panel"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 48px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 68px) !important;
   bottom: calc(100% - 7px) !important;
 }
 /* 首页新会话卡片 / 兜底卡片 */
 [data-dsh-pet-anchor="card"] > .dsh-composer-pet {
-  right: 48px !important;
+  right: 68px !important;
   bottom: 100% !important;
 }
 
@@ -4899,9 +4906,18 @@ body[data-ds-custom-theme="sonoma"] [class*="userStack"] > [class$="_bubble"] * 
      · sequoia：已按「方案 B」恢复极淡冷调光晕，特征点落在内容列内 → 可透出 ✅
    若某主题把 bg-app-image 设为 none，则卡片背后恒为纯色，模糊纯色仍是纯色，
    此时只能呈现「顶部光学反光 + 轻微明度差」，不会有明显通透感（物理限制）。
-   ⚠️ 只给顶部高光与底部回光两道单向光，**不给闭合 rim**（避免包边）。 */
-body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:has([class*="_markdown_"]),
-body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:has([class*="_markdown_"]) {
+   ⚠️ 只给顶部高光与底部回光两道单向光，**不给闭合 rim**（避免包边）。
+
+   🚨 实测回归（用户反馈「回答正文上方有一长串空白圆角条」）：
+   0.2.1-rc.2 宿主把思考过程与工具调用也渲染成 flowItem，并带
+   hidden="until-found" + data-turn-process-hidden="true"（默认折叠，实测 74 个
+   assistant-step + 99 个 tool-call）。旧选择器 :has([class*="_markdown_"]) 命中这些
+   隐藏成员，其 padding: 16px 20px 在内容不可见时把盒子撑成 32px 高的空玻璃条，
+   连成一排「空白圆角卡片」。
+   修法：排除 [hidden]（含 until-found）与 [data-turn-process-member]（思考/工具成员），
+   只对真正的可见回复卡施加卡面。 */
+body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]),
+body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) {
   background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;

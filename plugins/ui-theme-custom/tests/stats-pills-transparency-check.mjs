@@ -34,7 +34,11 @@ assert(sonomaMatch, '必须存在 sonoma 下的 stats pills 容器样式')
 const sonomaBody = sonomaMatch[1]
 assert(sonomaBody.includes('rgba(22, 24, 30, 0.90)') || sonomaBody.includes('0.90'), 'sonoma 背景必须为深色且不透明度 >= 0.90')
 
-// 5. 产物 bundle 验证
+// 5. 队列坞不得被本规则命中（用户反馈「队列消息双层边框」根因）
+assert(!/\[class\*="_dock"\]/.test(src), '禁止使用 [class*="_dock"] 通配：它命中队列坞 _1hb8UG_dock，与队列 panel::after 边框叠成双层')
+assert(!bundle.includes('_dock"]'), '产物 bundle 不得残留 [class*="_dock"] 通配选择器')
+
+// 6. 产物 bundle 验证
 assert(bundle.includes('data-composer-dock'), '产物 bundle 必须包含 data-composer-dock 规则')
 assert(bundle.includes('data-composer-stats'), '产物 bundle 必须包含 data-composer-stats 规则')
 assert(bundle.includes('_MG5Va_root'), '产物 bundle 必须包含 _MG5Va_root 规则')

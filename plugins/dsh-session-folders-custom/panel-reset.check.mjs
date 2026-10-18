@@ -131,3 +131,15 @@ assert.ok(typeof launcher.priority === 'number' && launcher.priority < 0, 'launc
 
 console.log('ok: settings launcher shadows the account More menu')
 
+// Selection: the list snapshot has no `current` field on current hosts, so the
+// selected Session must come from the `mainView` retention count. Without it
+// the quote menu entry (and the row highlight) never appeared.
+const selection = await import('node:module').then(() => null).catch(() => null)
+void selection
+assert.match(source, /function currentSessionId\(list\)/, 'selection helper exists')
+assert.match(source, /retainedBy\?\.mainView \?\? 0\) > 0/, 'selection falls back to the mainView retention count')
+assert.doesNotMatch(source, /summary\.id === list\.current/, 'rows no longer compare against the removed field')
+assert.match(source, /currentId !== void 0 && summary\.id !== currentId \? \[\{ id: "quote"/, 'quote entry needs a selected Session')
+
+console.log('ok: selected session resolves through mainView retention')
+

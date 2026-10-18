@@ -117,6 +117,12 @@ DSH 页面在导航前注入 4 条独立 `initialization_script`，**绝不拼�
 
 - `start_notify_server` 起本地 TCP 通知服务器，端口/token 经 `bridge_init_script` 注入页面。
 - 通知点击跳会话、主题变化上报等均走该桥；任务完成提醒由 `inject_task_notifier` 轮询空闲翻转实现。
+- **`window.__dshHostShell` 是给插件的窄接口**：只暴露 `restart()`，内部转调 `__dshNotifyBridge.shellAction('restart')`。
+  桥的其余成员（`port`/`token`/`fire`/`setTheme`）不对外复用 —— 插件要的只是「让壳重启」，
+  拿到 token 就等于拿到通知桥的完整能力，没必要给。
+- 插件市场（dshmarket）的「立即重启」优先检测这个全局：有就走壳，没有才走它自己的
+  `POST /dsh-market/restart`（detached helper 重拉进程）。两套生命周期抢一个端口，
+  所以必须由壳做。对应上游 PR：dsh-market/dsh-market#924。
 
 ## 11. 部署流程（硬规则）
 

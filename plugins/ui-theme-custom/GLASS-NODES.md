@@ -79,7 +79,15 @@
 
 | 选择器 | 实测 | 处理 |
 | --- | --- | --- |
-| `[data-slot="main.conversation"] [class*="flowItem"]:has([class*="_markdown_"])` | `kdtA_a_flowItem`，845×1342 ✅ | 接入统一配方（`blur(92px)` + `.38` 填充） |
+| `[data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"])` | `kdtA_a_flowItem`，845×1342 ✅ | 接入统一配方（`blur(92px)` + `.38` 填充） |
+
+> 🚨 **修正（0.2.1-rc.2 回归：用户反馈「回答正文上方一长串空白圆角条」）**：
+> 新宿主把**思考过程与工具调用**也渲染成 flowItem，带 `hidden="until-found"` +
+> `data-turn-process-hidden="true"` / `data-turn-process-member`（实测 74 个 assistant-step
+> + 99 个 tool-call）。旧选择器 `:has([class*="_markdown_"])` 命中这些隐藏成员，
+> 其 `padding: 16px 20px` 在内容不可见时把盒子撑成 **32px 高的空玻璃条**，连成一排。
+> 修法：三重排除 `[hidden]` / `[data-turn-process-hidden]` / `[data-turn-process-member]`，
+> 只对真正的可见回复卡施加卡面（门禁见 `tests/sequoia-neutral-check.mjs`）。
 
 > 🚨 **修正（用户反馈「浅色主题跟实色一样，深色才有玻璃质感」）**：
 > 原规则**没有 `backdrop-filter`** 且填充 `.80` 近乎不透明 → 就是一块白色板。

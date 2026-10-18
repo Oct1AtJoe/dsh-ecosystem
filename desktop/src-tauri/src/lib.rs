@@ -2622,6 +2622,14 @@ fn bridge_init_script(port: u16, token: &str) -> String {
     }
   };
 
+  // 中性别名：插件市场（dshmarket）在「立即重启」里优先检测 window.__dshHostShell.restart，
+  // 检测到就交给壳重启（停子进程 + ShellExecuteW 拉新实例），不再走市场自带的
+  // detached helper —— 否则一个端口上会有两套生命周期互相竞争。
+  // 只暴露这一个能力，桥的其余成员（port/token/fire/setTheme）不对外复用。
+  window.__dshHostShell = {
+    restart: function() { window.__dshNotifyBridge.shellAction('restart'); }
+  };
+
   // 自动监听并同步 DSH 官方与定制主题深浅色切换：
   // 官方 DSH 在深色模式下给 body 挂 data-ds-dark-theme，浅色模式下移除该属性。
   function syncThemeFromDom() {

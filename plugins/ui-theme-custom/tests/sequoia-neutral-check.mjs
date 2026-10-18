@@ -263,6 +263,13 @@ check(
   '毛玻璃：输入区实色压底已清除（结构层前提，否则 A1/A2 全部白做）',
   /\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\][\s\S]{0,120}?background-image:none\s*!important;/.test(indexSrc),
 )
+// 回归守卫（用户反馈「回答正文上方一长串空白圆角条」）：0.2.1 把思考/工具调用也渲染成
+// flowItem（hidden="until-found" + data-turn-process-hidden/member），旧选择器命中它们后
+// padding 把不可见内容撑成 32px 空玻璃条。AI 卡片规则必须排除隐藏与过程成员。
+check(
+  '毛玻璃：AI 回复卡选择器排除隐藏思考/工具成员（防空玻璃条回归）',
+  /\[class\*="flowItem"\]:not\(\[hidden\]\):not\(\[data-turn-process-hidden="true"\]\):not\(\[data-turn-process-member\]\)/.test(indexSrc),
+)
 // A 组：背后有内容滚过 → 必须带 blur。
 for (const [name, re] of [
   ['A1 输入坞', /\[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/],

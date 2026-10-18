@@ -966,6 +966,26 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		function sessionVisible(session, archived) {
 			return session.origin !== "subagent" && !archived.has(session.id) && !session.blank;
 		}
+		/**
+		 * The Session shown in the center column.
+		 *
+		 * Current hosts dropped the `current` field from the Session list
+		 * snapshot: selection is local retention, and the row the main view holds
+		 * is the one with a positive `mainView` count. The shipped browser reads
+		 * it exactly this way (`mainSessionId` in ui-workspace's tree.ts), so a
+		 * list without that field used to read as "no Session selected" — the
+		 * quote menu entry vanished and no row ever highlighted.
+		 * @param list - session list snapshot.
+		 * @returns the selected Session id, or undefined when nothing is held.
+		 */
+		function currentSessionId(list) {
+			if (list.current !== void 0) return list.current;
+			for (const id of list.ids) {
+				const summary = list.byId[id];
+				if (summary !== void 0 && (summary.retainedBy?.mainView ?? 0) > 0) return id;
+			}
+			return void 0;
+		}
 		/** Recency comparator: newest first, id as the deterministic tiebreak. */
 		function byRecency(a, b) {
 			if (b.updatedAt !== a.updatedAt) return b.updatedAt - a.updatedAt;
@@ -1457,8 +1477,9 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			const archivedSet = react.useMemo(() => new Set(archivedSessionIds), [archivedSessionIds]);
 			const view = react.useMemo(() => deriveView(list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, statusBySession), [list, workspaces, archivedSet, folders, workspaceOrder, pinnedLoose, statusBySession]);
 			/** The current session's workspace and folder (accent highlight). */
-			const currentWorkspaceId = view.sessionWorkspace.get(list.current)?.workspaceId;
-			const currentFolderId = view.folderOf.get(list.current)?.id ?? null;
+			const currentId = currentSessionId(list);
+			const currentWorkspaceId = view.sessionWorkspace.get(currentId)?.workspaceId;
+			const currentFolderId = view.folderOf.get(currentId)?.id ?? null;
 			/** Focus survives only while the workspace exists in the list. */
 			const effectiveFocus = focusedWorkspaceId !== null && view.groups.some((group) => group.workspaceId === focusedWorkspaceId) ? focusedWorkspaceId : null;
 			const toggleWorkspaceFocus = (workspaceId) => setFocusedWorkspaceId((current) => (current === workspaceId ? null : workspaceId));
@@ -1829,7 +1850,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 						? { id: "unpin", label: t("menu.unpin"), icon: pinIcon(true) }
 						: { id: "pin", label: t("menu.pin"), disabled: workspace === void 0, icon: pinIcon(false) },
 					{ id: "fork", label: t("menu.fork"), icon: e(primitives.IconBranchOutlineRegular, {}) },
-					...(list.current !== void 0 && summary.id !== list.current ? [{ id: "quote", label: t("menu.quoteSession"), icon: quoteIcon() }] : []),
+					...(currentId !== void 0 && summary.id !== currentId ? [{ id: "quote", label: t("menu.quoteSession"), icon: quoteIcon() }] : []),
 					{ id: "copy-path", label: t("menu.copySessionPath"), icon: e(primitives.IconBrowseOutlineRegular, {}) },
 					{
 						id: "move",
@@ -1869,7 +1890,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				}
 				else if (id === "fork") forkSession(summary.id);
 				else if (id === "quote") {
-					if (list.current === void 0 || !quoteSession(list.current, summary.id, summary.displayTitle)) {
+					if (currentId === void 0 || !quoteSession(currentId, summary.id, summary.displayTitle)) {
 						setNotice({ kind: "error", text: t("error.actionFailed") });
 					}
 				}
@@ -1953,7 +1974,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				const status = rowStatusDot(summary, summary.pendingInteraction);
 				const statusText = statusAria(summary.pendingInteraction, status, t);
 				const timeText = timeLabel(summary.updatedAt, now, t);
-				const selected = summary.id === list.current;
+				const selected = summary.id === currentId;
 				const editingSession = inlineEdit !== null && inlineEdit.kind === "session" && inlineEdit.id === summary.id;
 				const workspaceId = view.sessionWorkspace.get(summary.id)?.workspaceId;
 				return e("div", {
@@ -2032,7 +2053,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			const renderSearchRow = (row) => {
 				const status = rowStatusDot(row, row.pendingInteraction);
 				const statusText = statusAria(row.pendingInteraction, status, t);
-				const selected = row.id === list.current;
+				const selected = row.id === currentId;
 				return e("div", {
 					key: row.id,
 					role: "treeitem",
@@ -2196,7 +2217,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				const status = rowStatusDot(summary, summary.pendingInteraction);
 				const statusText = statusAria(summary.pendingInteraction, status, t);
 				const timeText = timeLabel(summary.updatedAt, now, t);
-				const selected = summary.id === list.current;
+				const selected = summary.id === currentId;
 				return e("div", {
 					key: summary.id,
 					role: "treeitem",
