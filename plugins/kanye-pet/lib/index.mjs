@@ -553,14 +553,17 @@ export function apply(ctx, config) {
             // 轮询端点：禁缓存，防止启发式缓存读到冻结状态。
             // 先跑 activity()（有记账副作用），再读 state——响应里的 pet 才是记账后的值。
   const currentConfig = cfg()
-  const act = activity()
+  // 桌宠关闭时 Tauri 的 pet.js 依旧每 2 秒轮询（为了让重新打开开关能恢复，不能挂起
+  // WebView）。此时没有任何可见消费者：跳过 jobs 遍历与活跃时长写盘，只回空活动态。
+  const act = currentConfig.desktopPetEnabled === false
+    ? { working: false, burst: null, completed: [], failed: [], known: null, wasWorking: false }
+    : activity()
             // 过期清理通知
             if (petNotification !== null && petNotification.expiresAt < Date.now()) {
               console.log(`[kanye-pet] /state: petNotification expired, clearing`)
               petNotification = null
             }
             // ---- 调试：打印当前状态 ----
-            console.log(`[kanye-pet] DEBUG /state: desktopPetEnabled=${cfg().desktopPetEnabled}, petNotification=${petNotification !== null ? petNotification.title : 'null'}, sessionsSvc=${typeof sessionsSvc?.list}`)
             // ---- 轮询兜底：扫描所有会话中未通知的 blocked turn/end ----
             // 仅扫已初始化的会话（sessionInitialized），防事件重放前的误判
             if (petNotification === null && cfg().desktopPetEnabled !== false
