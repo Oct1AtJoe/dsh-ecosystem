@@ -1,0 +1,20 @@
+diff --git a/packages/client/ui-chat/src/client/chat/ChatView.module.css b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+index 6696330f0a..64af1cd024 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatView.module.css
++++ b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+@@ -62,6 +62,15 @@
+   flex-direction: column;
+ }
+ 
++/* Long transcripts only paint the rows near the scrollport. The browser keeps
++   every top-level row in the DOM, so scroll anchoring, the turn rail and the
++   fold policies still read the same tree; off-screen rows just skip layout and
++   paint, estimated by `contain-intrinsic-size` until they come back. */
++:is(.column, :global([data-slot="conversation.chat.flow"])) > [data-chat-anchor-key] {
++  content-visibility: auto;
++  contain-intrinsic-size: auto 96px;
++}
++
+ /* The flow slot's display:contents anchor preserves layout but not selector ancestry.
+    `hidden="until-found"` retains a searchable zero-height box; hidden and empty
+    Seats do not contribute spacing. */
