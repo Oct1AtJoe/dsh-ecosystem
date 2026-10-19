@@ -1,8 +1,9 @@
 {
   "name": "@deepseek-ai/dsh-kanye-pet",
-  "version": "0.1.1-rc.2",
+  "version": "0.1.1-rc.3",
   "type": "module",
-  "description": "DSH 内置桌面宠物（kanye-pet，源自 whale-girl）",
+  "description": "DSH 桌面互动宠物核心：支持状态感知、气泡对话、动作表情与桌面窗口悬浮互动。",
+  "icon": "./icon.svg",
   "main": "lib/index.mjs",
   "files": [
     "lib/index.mjs",
@@ -12,12 +13,16 @@
     "lib/assets/characters",
     "lib/assets/manifest.json",
     "lib/assets/sounds",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
   ],
   "exports": {
     ".": "./lib/index.mjs",
     "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "dsh": {

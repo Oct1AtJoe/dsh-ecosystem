@@ -1,7 +1,8 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-resend-failed-round",
-  "description": "Failed-round resend surface: re-run the last failed turn from the chat turn tail",
-  "version": "0.1.0-rc.2",
+  "description": "失败轮次快速重发：在对话流尾部提供失败轮次一键重发入口，无需手动重新输入。",
+  "version": "0.1.0-rc.3",
+  "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
   },
@@ -23,6 +24,8 @@
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -71,7 +74,9 @@
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
   ],
   "engines": {
     "dsh": ">=0.2.1-rc.1 <0.3.0-0"

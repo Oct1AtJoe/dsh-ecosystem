@@ -73,17 +73,46 @@ export function verifyTarball(tgz) {
   const mainRel = 'package/' + (pkg.main ?? 'index.js')
   if (!has(mainRel)) problems.push('main ' + mainRel)
 
+  if (!has('package/icon.svg')) problems.push('no icon.svg')
+  if (!has('package/locale/en.json')) problems.push('no locale/en.json')
+  if (!has('package/locale/zh.json')) problems.push('no locale/zh.json')
+
   return { pkg, problems }
+}
+
+function resolvePnpm() {
+  const candidates = [
+    process.env.PNPM_EXE,
+    path.join(process.env.USERPROFILE || '', '.dsh', 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'),
+    path.join(repoRoot, 'bin', 'pnpm.cmd'),
+    path.join(repoRoot, 'bin', 'pnpm'),
+  ]
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c
+  }
+  return 'pnpm'
 }
 
 function packOne(dir) {
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
   const before = new Set(fs.readdirSync(distDir))
-  // pnpm resolves to a .ps1 shim on Windows, which execFileSync cannot launch.
-  execFileSync('cmd.exe', ['/c', 'pnpm', 'pack', '--pack-destination', distDir], {
-    cwd: dir,
-    stdio: 'pipe',
-  })
+  const pnpm = resolvePnpm()
+  if (pnpm.endsWith('.mjs') || pnpm.endsWith('.js')) {
+    execFileSync(process.execPath, [pnpm, 'pack', '--pack-destination', distDir], {
+      cwd: dir,
+      stdio: 'pipe',
+    })
+  } else if (process.platform === 'win32') {
+    execFileSync('cmd.exe', ['/c', pnpm, 'pack', '--pack-destination', distDir], {
+      cwd: dir,
+      stdio: 'pipe',
+    })
+  } else {
+    execFileSync(pnpm, ['pack', '--pack-destination', distDir], {
+      cwd: dir,
+      stdio: 'pipe',
+    })
+  }
   const produced = fs.readdirSync(distDir).filter((f) => !before.has(f) && f.endsWith('.tgz'))
   if (produced.length !== 1) throw new Error(`pack produced ${produced.length} tarballs for ${pkg.name}`)
 

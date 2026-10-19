@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "会话标题生成 (dsh-session-title-custom)",
+    "description": "智能会话标题生成：首条消息意图识别提取「MMDD｜类型｜主题」，支持多模型优先级托底链与思考预算保护。"
+  }
+}

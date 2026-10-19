@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Failed Round Resend (ui-resend-failed-round)",
+    "description": "One-click resend surface at the chat turn tail to re-run the last failed turn."
+  }
+}

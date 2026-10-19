@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "失败轮次重发 (ui-resend-failed-round)",
+    "description": "失败轮次快速重发：在对话流尾部提供失败轮次一键重发入口，无需手动重新输入。"
+  }
+}

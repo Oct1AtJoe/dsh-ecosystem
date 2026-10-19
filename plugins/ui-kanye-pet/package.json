@@ -1,7 +1,8 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-kanye-pet",
-  "description": "kanye-pet settings card in the Plugins settings tab",
-  "version": "0.1.1",
+  "description": "桌面宠物设置面板：在插件设置中提供桌宠开关、角色、大小透明度与互动行为配置卡片。",
+  "version": "0.1.2",
+  "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
   },
@@ -23,6 +24,8 @@
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -67,7 +70,9 @@
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
   ],
   "engines": {
     "dsh": ">=0.2.1-rc.1 <0.3.0-0"

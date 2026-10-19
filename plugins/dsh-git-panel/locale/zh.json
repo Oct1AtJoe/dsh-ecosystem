@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 面板 (dsh-git-panel)",
+    "description": "DSH 侧栏 Git 面板：分支管理、提交历史图谱、VS Code 风格双栏 Diff 对比与冲突解决、工作区文件树变更标记。"
+  }
+}

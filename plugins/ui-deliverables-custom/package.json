@@ -1,7 +1,8 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-deliverables-custom",
-  "description": "Produced-files turn tail and clickable final-response file references for Web (local customisation: multi-line wrap, +/- history badge, DiffBlock local fork)",
-  "version": "0.1.0-rc.2",
+  "description": "交付物展示定制：在对话流尾部清晰呈现生成的文件、多行折叠展示、历史差异对比与快速打开。",
+  "version": "0.1.0-rc.3",
+  "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
   },
@@ -23,6 +24,8 @@
       "default": "./lib/client.js"
     },
     "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -81,7 +84,9 @@
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
   ],
   "engines": {
     "dsh": ">=0.2.1-rc.1 <0.3.0-0"

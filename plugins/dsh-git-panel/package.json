@@ -1,7 +1,8 @@
 {
   "name": "dsh-git-panel",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "DSH web GUI git panel: branch management, commit graph, VS Code-style side-by-side diff with merge-conflict resolution, and workspace file-tree change badges.",
+  "icon": "./icon.svg",
   "license": "MIT",
   "author": "Jaden Tang <jaden.tang@sjfood.com>",
   "repository": {
@@ -33,11 +34,15 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
     "cordis.patch.yml",
+    "locale",
+    "icon.svg",
     "README.md",
     "README.en.md",
     "README.es.md",
