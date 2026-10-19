@@ -1096,6 +1096,21 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="cm-section"]{
   background:transparent !important;
 }
 
+/* dsh-cost-meter 计费统计 tab（.cm-stat）与上面 .cm-section 同一病因，但走的是
+   另一套样式块（client.statistics.js），所以上面那条选择器盖不到它。
+   🚨 该根容器写了两条 background 声明，必须一起压掉：
+     1) background: var(--cm-opaque-base, #fff) —— 前置回退声明，本主题下
+        --cm-opaque-base 无人定义，回退到纯白；
+     2) background: rgb(from var(--dsw-alias-bg-layer-2, ...) r g b / 1) ——
+        尾部 / 1 把 alpha 钉死为 1，本主题覆写的半透明 layer-2 只贡献 RGB。
+   只压第 2 条时，引擎一旦不支持 rgb(from ...) 就落回第 1 条的纯白，仍露白底。
+   修法：根容器置透明，让宿主设置弹窗的玻璃底透上来；子级卡片（.cm-* 内部
+   面板）继续走半透明 token，层次与实际 .cm-section 修法保持一致。 */
+body[data-ds-custom-theme="sequoia"] [class*="cm-stat"],
+body[data-ds-custom-theme="sonoma"] [class*="cm-stat"]{
+  background:transparent !important;
+}
+
 /* 主题/外观选项卡片晶体化 */
 body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="themeCube"]{
   background:rgba(255, 255, 255, 0.35) !important;
