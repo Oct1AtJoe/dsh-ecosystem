@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-theme-custom",
   "description": "极光 (Aurora) 与星云 (Nebula) 毛玻璃科技感主题：高质感深色玻璃质感令牌、渐变流光动效与自定义设置。",
-  "version": "0.1.0-rc.8",
+  "version": "0.1.0-rc.9",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
