@@ -10,7 +10,7 @@
 //   C. 玻璃属性（backdrop-filter + 半透明填充）必须保留 —— 去的是色差不是玻璃。
 //
 // 运行：node plugins/ui-theme-custom/tests/sequoia-neutral-check.mjs
-import { readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -18,7 +18,13 @@ const here = dirname(fileURLToPath(import.meta.url))
 const bundle = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8')
 const themeSrc = readFileSync(join(here, '..', 'src', 'client', 'sequoia.ts'), 'utf8')
 const indexSrc = readFileSync(join(here, '..', 'src', 'client', 'index.ts'), 'utf8')
-const profile = 'C:/Users/Administrator/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-theme-custom/lib/client.js'
+// profile 产物路径：插件在本机装在 desktop profile（web profile 未装），
+// 因此按「候选列表取第一个存在的」探测，避免把「换 profile 安装」误报成门禁失败。
+const PROFILE_CANDIDATES = [
+  'C:/Users/Administrator/.dsh/profiles/desktop/node_modules/@deepseek-ai/dsh-client-ui-theme-custom/lib/client.js',
+  'C:/Users/Administrator/.dsh/profiles/web/node_modules/@deepseek-ai/dsh-client-ui-theme-custom/lib/client.js',
+]
+const profile = PROFILE_CANDIDATES.find(p => existsSync(p)) ?? PROFILE_CANDIDATES[0]
 
 let failed = 0
 const check = (name, ok, extra = '') => {
@@ -199,29 +205,32 @@ check(
 //   ② 菜单沿用了输入坞的 .38 填充，承载可读文字太透。
 // 修法：卡片 blur 移到 ::before 伪元素（伪元素不是菜单祖先）；浮层单列填充档。
 console.log('\n=== C5. 浮层可读性 + 嵌套 backdrop root 规避 ===')
+// ⚠️ 输入坞卡片的锚定用官方自带的 [data-composer-card]，不是 [class$="_card"]：
+// 回答选择面板的卡片类名同样以 _card 结尾且同样挂在 composerSeat 内，
+// 用后缀通配会把 0.38 的玻璃填充误加到它身上（见 panel-opacity-check.mjs）。
 check(
   '浮层：输入坞卡片**自身不得带** backdrop-filter（否则建立 backdrop root，内部浮层 blur 失效）',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,220}?backdrop-filter:none\s*!important/.test(indexSrc),
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[data-composer-card\][\s\S]{0,220}?backdrop-filter:none\s*!important/.test(indexSrc),
 )
 check(
   '浮层：输入坞卡片 blur 已迁移到 ::before 伪元素',
   // 注意 ::before 规则是双主题选择器列表（以逗号结尾），故不能要求 ::before 后紧跟 {
-  /\[class\$="_card"\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc),
+  /\[data-composer-card\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc),
 )
 check(
   '浮层：卡片 ::before 有 z-index:-1（需卡片自身建立 stacking context 才可见）',
-  /\[class\*="composerSeat"\] \[class\$="_card"\]::before\s*\{[\s\S]{0,300}?z-index:-1/.test(indexSrc),
+  /\[class\*="composerSeat"\] \[data-composer-card\]::before\s*\{[\s\S]{0,300}?z-index:-1/.test(indexSrc),
 )
 check(
   '浮层：卡片含菜单时抬层（:has([role="menu"]) → z-index:9500）',
-  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
+  /\[class\*="composerSeat"\] \[data-composer-card\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
 )
 // 上下文占用弹窗（官方 ContextMeter，role="dialog"）也是卡片内浮层：卡片自身
 // z-index:0 建了 stacking context，弹窗的 z-index:100 出不去，会被同层的挂件
 // `.dsh-composer-pet`（z-index:50）压住。含弹窗时同样抬卡片。
 check(
   '浮层：卡片含上下文弹窗时抬层（:has([role="dialog"][class$="_panel"]) → z-index:9500，须高于挂件 50）',
-  /\[class\*="composerSeat"\] \[class\$="_card"\]:has\(\[role="dialog"\]\[class\$="_panel"\]\)[\s\S]{0,200}?z-index:9500/.test(indexSrc),
+  /\[class\*="composerSeat"\] \[data-composer-card\]:has\(\[role="dialog"\]\[class\$="_panel"\]\)[\s\S]{0,200}?z-index:9500/.test(indexSrc),
 )
 check(
   '浮层：指令面板纳入 C 组统一毛玻璃',
@@ -287,7 +296,7 @@ check(
 )
 // A 组：背后有内容滚过 → 必须带 blur。
 for (const [name, re] of [
-  ['A1 输入坞', /\[class\*="composerSeat"\] \[class\$="_card"\][\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/],
+  ['A1 输入坞', /\[class\*="composerSeat"\] \[data-composer-card\][\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/],
   ['A3 撤回气泡', /\[class\*="dsh-recall-bubble"\][\s\S]{0,600}?backdrop-filter:var\(--dsh-glass-blur/],
 ]) {
   check(`毛玻璃：${name} 已接入统一配方`, re.test(indexSrc.replace(/\n/g, ' ')))
@@ -318,19 +327,19 @@ check(
 // 即 :has([role="menu"]) 抬层规则必须与 ::before 迁移规则同时存在（成对出现）。
 check(
   '推广：::before 迁移与 :has 抬层成对存在（缺一即漏修）',
-  /\[class\$="_card"\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc)
-  && /\[class\$="_card"\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
+  /\[data-composer-card\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc)
+  && /\[data-composer-card\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
 )
 // ── 适用范围收窄（用户实测确认）──
 // 玻璃材质**只服务 sequoia 与 sonoma**。本组断言防止它重新扩散到其余四主题。
 console.log('\n=== C4. 玻璃适用范围（仅液态 + 曜黑）===')
 check(
   '范围：材质规则带 sequoia 门控',
-  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[class\$="_card"\]/.test(indexSrc),
+  /body\[data-ds-custom-theme="sequoia"\] \[class\*="composerSeat"\] \[data-composer-card\]/.test(indexSrc),
 )
 check(
   '范围：材质规则带 sonoma 门控',
-  /body\[data-ds-custom-theme="sonoma"\] \[class\*="composerSeat"\] \[class\$="_card"\]/.test(indexSrc),
+  /body\[data-ds-custom-theme="sonoma"\] \[class\*="composerSeat"\] \[data-composer-card\]/.test(indexSrc),
 )
 // 其余四个主题不得出现在任何材质规则的主题门控里。
 for (const id of ['void', 'jade', 'solar', 'parchment']) {

@@ -245,6 +245,102 @@ SVG feTurbulence(type=fractalNoise, baseFrequency=0.85, numOctaves=4, stitchTile
 
 ---
 
+## 3.1 浮层「透明度太高」的四类真因（先判类型，再动手）
+
+用户反馈「某个浮层/面板/吸顶条透明度太高」时，**不要直接去调填充 alpha**。
+本生态已实测出四类完全不同的真因，判错就会白改：
+
+### 类型 A：借用会被弹窗玻璃改写的 token（改 token 来源即可）
+
+症状：设置弹窗内的浮层（如 dsh-market 的「任务」悬浮窗 `.opPanel`）背后文字清晰可读。
+
+真因链：
+1. 第三方插件写 `background: var(--dsw-alias-bg-layer-1)`；
+2. 本主题为弹窗玻璃把 `[role="dialog"]` 内的 `layer-1` 改写成
+   `rgba(255,255,255,0.36)`（深色 `0.04`）；
+3. 该 token 在弹窗外是近实心的，**一进弹窗就变成 36%** —— 插件本身没做错。
+
+**修法**：把该浮层改走 `--dsw-alias-bg-overlay`（各主题定义的近实心浮层档）。
+**严禁**去调高弹窗内的 `layer-1` —— 那会同时毁掉弹窗内部的卡片层次。
+
+### 类型 B：两态设计依赖宿主永不输出的标记（必须补状态，加填充没用）
+
+症状：滚动后吸顶条（如 dsh-market 的 `.stickyHead` 筛选区）仍透明，卡片从下面穿过。
+
+真因链：
+1. 本主题把吸顶条设计成两态：未吸顶 `transparent` / 吸顶给填充；
+2. 吸顶态选择器是 `[data-stuck="true"]` / `[class*="Stuck"]`；
+3. **但宿主根本不输出这两个标记**（实测 dsh-market 1.66 的 `client.js` 中
+   `data-stuck` 出现 **0 次**，`Stuck` 只出现在源码注释里）。
+
+**修法**：由 `src/client/market-sticky.ts` 观测宿主**自己渲染的哨兵节点**
+（`MarketSection.tsx` 在 stickyHead 前渲染的 `<div ref={setCatsSentinel} />`），
+按 `head.top - sentinel.bottom > 1` 判定吸顶并补出 `data-stuck`。
+**判据只用宿主已有的 DOM 与几何关系，禁止猜类名、禁止硬编码偏移量。**
+
+> 🚨 滚动路径必须**同步**执行，不要套 rAF 节流：晚一帧就等于让用户看见一帧穿透。
+> 判据只读 2 个 rect，成本可忽略。只有 `MutationObserver` 路径才需要 rAF 节流。
+
+> ⚠️ 吸顶条的 `::before` 是宿主用 `bottom:100%` 画在**上方 14px** 的补白带，
+> 必须一起上色（`background: inherit`），否则吸顶条上方留一条透明的「漏字缝」。
+
+> 门禁：`tests/market-sticky-check.mjs`（含两条负向对照）。
+
+### 类型 B 的通用排查手法（任何「状态类选择器不生效」都适用）
+
+```powershell
+# 在第三方插件产物里直接数标记出现次数 —— 0 次就是「宿主不输出」，加样式永远没用
+$t = Get-Content "<plugin>\client\client.js" -Raw
+([regex]::Matches($t, 'data-stuck')).Count
+```
+
+### 类型 C：本主题的选择器**误命中别人的卡片**（改锚点，不改填充）
+
+症状：回答选择面板（ui-user-questions 的 QuestionComposer）整块半透明，
+选项文字与背后对话叠印。
+
+真因链：
+1. 输入坞的玻璃规则用 `[class*="composerSeat"] [class$="_card"]` 锚定；
+2. **回答面板也是 `conversation.composer` 链的一个 takeover**，它的卡片类名
+   同样以 `_card` 结尾（实测 `H0yVCG_card`），且**同样挂在 composerSeat 内**；
+3. 于是后缀通配把它一起命中，把输入坞专属的 0.38 玻璃填充强加上去 ——
+   而回答面板自带 `background: var(--dsw-specific-input-major)`（0.93 近实心），
+   它是**承载可读文字的整块卡片**，不是浮在内容之上的玻璃条。
+
+**修法**：改用官方输入坞**自带的 `data-composer-card` 属性**锚定
+（`InputBar.tsx:398`），回答面板没有这个属性，天然被排除。
+
+> 🚨 **硬规则**：`composerSeat` 作用域内**禁用任何 `[class$="_card"]` 后缀通配**。
+> 需要区分卡片时，一律用宿主自带的 `data-*` 属性。
+> 这条同时修好了「回答面板被加输入坞聚焦环」的第二个症状。
+
+> 门禁：`tests/panel-opacity-check.mjs` A 组（含负向对照）。
+
+### 类型 D：同一填充在两种布局下含义相反（按状态值分支）
+
+症状：文件 diff 悬浮面板（dsh-git-panel 的 `GitDiffView`，注册在
+`sidebar.right.pane.tab` 槽位）里，对话正文与代码 diff 叠印，两者都读不清。
+
+真因链：
+1. 右栏面板在 **push 态**停在对话右侧的窄栏，背后是页面底色，
+   0.68 的半透明填充读作「玻璃侧栏」，是**设计意图**；
+2. 但在 **fullscreen 态**（`data-sidebar-right-panel="fullscreen"`，
+   官方 `SidebarRight.tsx:313`）面板铺满 100vw，**直接压在对话正文之上** ——
+   此时同一个 0.68 填充就变成正文透光的纱窗。
+
+**修法**：用**属性值** `[data-sidebar-right-panel="fullscreen"]` 分支，
+fullscreen 态改实心；push 态**保持原样**（不能一起改成实心，否则玻璃侧栏就没了）。
+
+> 🚨🚨 **特异性陷阱（实测踩到）**：通栏规则带 `:not([aria-hidden="true"])`，
+> 特异性是 (0,4,1)；fullscreen 规则若只写 `[data-sidebar-right-panel="fullscreen"]`
+> 则只有 (0,3,1) —— **即使把它写在后面也赢不了**，实测计算值仍停在 0.68。
+> 故 fullscreen 规则必须带**同样的 `:not()` 守卫**，把特异性拉平到 (0,4,1)，
+> 再靠「源序在后」取胜。
+
+> 门禁：`tests/panel-opacity-check.mjs` B 组（含特异性负向对照）。
+
+---
+
 ## 4. 如何做一个「纯色 / 纯净无光斑」的主题（以【缃素】为例）
 
 当需求要求「纯色、温润护眼、不要任何光晕/白斑点」时，必须**两端联动修改**：

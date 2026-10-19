@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
 			}
 			return to;
 		};
-		var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", {
+		var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
 			value: mod,
 			enumerable: true
 		}) : target, mod));
@@ -966,7 +966,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region ../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
 			var t, f, n = "";
 			if ("string" == typeof e || "number" == typeof e) n += e;
@@ -981,8 +981,8 @@ window.__ModuleLoader__.load({
 			return n;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\VibeCoding\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css$4 = ".hJtr0G_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.hJtr0G_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.hJtr0G_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.hJtr0G_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.hJtr0G_themeCube:hover:not(.hJtr0G_selected){background:var(--dsw-alias-interactive-bg-hover)}.hJtr0G_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.hJtr0G_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
+		const css$4 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
 		const tagId$4 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
@@ -992,11 +992,11 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
-			"cubeRow": "hJtr0G_cubeRow",
-			"group": "hJtr0G_group",
-			"selected": "hJtr0G_selected",
-			"themeCube": "hJtr0G_themeCube",
-			"title": "hJtr0G_title"
+			"cubeRow": "bNLuYa_cubeRow",
+			"group": "bNLuYa_group",
+			"selected": "bNLuYa_selected",
+			"themeCube": "bNLuYa_themeCube",
+			"title": "bNLuYa_title"
 		};
 		//#endregion
 		//#region src/client/TechThemeRow.tsx
@@ -1117,8 +1117,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\VibeCoding\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css$3 = ".SYRjNW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.SYRjNW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.SYRjNW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.SYRjNW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.SYRjNW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.SYRjNW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.SYRjNW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.SYRjNW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.SYRjNW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.SYRjNW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.SYRjNW_stepper:hover .SYRjNW_arrows,.SYRjNW_stepper:focus-within .SYRjNW_arrows{opacity:1}.SYRjNW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.SYRjNW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.SYRjNW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
+		const css$3 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
 		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1128,16 +1128,16 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var SidebarFontRow_module_css_default = {
-			"arrow": "SYRjNW_arrow",
-			"arrows": "SYRjNW_arrows",
-			"control": "SYRjNW_control",
-			"desc": "SYRjNW_desc",
-			"row": "SYRjNW_row",
-			"rowText": "SYRjNW_rowText",
-			"stepper": "SYRjNW_stepper",
-			"title": "SYRjNW_title",
-			"unit": "SYRjNW_unit",
-			"value": "SYRjNW_value"
+			"arrow": "LcL5XW_arrow",
+			"arrows": "LcL5XW_arrows",
+			"control": "LcL5XW_control",
+			"desc": "LcL5XW_desc",
+			"row": "LcL5XW_row",
+			"rowText": "LcL5XW_rowText",
+			"stepper": "LcL5XW_stepper",
+			"title": "LcL5XW_title",
+			"unit": "LcL5XW_unit",
+			"value": "LcL5XW_value"
 		};
 		//#endregion
 		//#region src/client/SidebarFontRow.tsx
@@ -1164,8 +1164,7 @@ window.__ModuleLoader__.load({
 				setDraft(null);
 			};
 			const onInput = (e) => {
-				const v = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
-				setDraft(v);
+				setDraft(e.target.value.replace(/[^\d]/g, "").slice(0, 2));
 			};
 			const onBlur = () => {
 				if (draft === null) return;
@@ -1236,8 +1235,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\VibeCoding\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
-		const css$2 = ".FRyauG_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.FRyauG_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.FRyauG_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.FRyauG_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.FRyauG_control{flex:none;align-items:center;gap:8px;display:inline-flex}.FRyauG_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}.FRyauG_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}.FRyauG_switch:disabled{cursor:default;opacity:.5}.FRyauG_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.FRyauG_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}.FRyauG_switch[aria-checked=true] .FRyauG_thumb{transform:translate(16px)}";
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
+		const css$2 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
 		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1247,13 +1246,13 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var MascotRow_module_css_default = {
-			"control": "FRyauG_control",
-			"desc": "FRyauG_desc",
-			"row": "FRyauG_row",
-			"rowText": "FRyauG_rowText",
-			"switch": "FRyauG_switch",
-			"thumb": "FRyauG_thumb",
-			"title": "FRyauG_title"
+			"control": "_6MUgPW_control",
+			"desc": "_6MUgPW_desc",
+			"row": "_6MUgPW_row",
+			"rowText": "_6MUgPW_rowText",
+			"switch": "_6MUgPW_switch",
+			"thumb": "_6MUgPW_thumb",
+			"title": "_6MUgPW_title"
 		};
 		//#endregion
 		//#region src/client/MascotRow.tsx
@@ -1292,8 +1291,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\VibeCoding\dsh-ecosystem\plugins\ui-theme-custom\src\client\RightbarWidthRow.module.css.mjs
-		const css$1 = ".s57iEa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.s57iEa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.s57iEa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.s57iEa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.s57iEa_control{flex:none;align-items:center;gap:8px;display:inline-flex}.s57iEa_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.s57iEa_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.s57iEa_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.s57iEa_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.s57iEa_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.s57iEa_stepper:hover .s57iEa_arrows,.s57iEa_stepper:focus-within .s57iEa_arrows{opacity:1}.s57iEa_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.s57iEa_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.s57iEa_arrow:disabled{opacity:.35;cursor:not-allowed}";
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\RightbarWidthRow.module.css.mjs
+		const css$1 = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
 		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1303,16 +1302,16 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RightbarWidthRow_module_css_default = {
-			"arrow": "s57iEa_arrow",
-			"arrows": "s57iEa_arrows",
-			"control": "s57iEa_control",
-			"desc": "s57iEa_desc",
-			"row": "s57iEa_row",
-			"rowText": "s57iEa_rowText",
-			"stepper": "s57iEa_stepper",
-			"title": "s57iEa_title",
-			"unit": "s57iEa_unit",
-			"value": "s57iEa_value"
+			"arrow": "cxaz6q_arrow",
+			"arrows": "cxaz6q_arrows",
+			"control": "cxaz6q_control",
+			"desc": "cxaz6q_desc",
+			"row": "cxaz6q_row",
+			"rowText": "cxaz6q_rowText",
+			"stepper": "cxaz6q_stepper",
+			"title": "cxaz6q_title",
+			"unit": "cxaz6q_unit",
+			"value": "cxaz6q_value"
 		};
 		//#endregion
 		//#region src/client/RightbarWidthRow.tsx
@@ -1410,8 +1409,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\VibeCoding\dsh-ecosystem\plugins\ui-theme-custom\src\client\HomeLayoutRow.module.css.mjs
-		const css = ".r2YvOa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.r2YvOa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.r2YvOa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.r2YvOa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.r2YvOa_segmented{background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;align-items:center;gap:2px;padding:2px;display:inline-flex}.r2YvOa_segmentItem{appearance:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;line-height:18px;transition:all .15s}.r2YvOa_segmentItem:hover:not([data-active]){color:var(--dsw-alias-label-primary)}.r2YvOa_segmentItem[data-active]{background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px #00000014}";
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\HomeLayoutRow.module.css.mjs
+		const css = ".YIkPxa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.YIkPxa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.YIkPxa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.YIkPxa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.YIkPxa_segmented{background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;align-items:center;gap:2px;padding:2px;display:inline-flex}.YIkPxa_segmentItem{appearance:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;line-height:18px;transition:all .15s}.YIkPxa_segmentItem:hover:not([data-active]){color:var(--dsw-alias-label-primary)}.YIkPxa_segmentItem[data-active]{background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px #00000014}";
 		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/HomeLayoutRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1421,12 +1420,12 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var HomeLayoutRow_module_css_default = {
-			"desc": "r2YvOa_desc",
-			"row": "r2YvOa_row",
-			"rowText": "r2YvOa_rowText",
-			"segmentItem": "r2YvOa_segmentItem",
-			"segmented": "r2YvOa_segmented",
-			"title": "r2YvOa_title"
+			"desc": "YIkPxa_desc",
+			"row": "YIkPxa_row",
+			"rowText": "YIkPxa_rowText",
+			"segmentItem": "YIkPxa_segmentItem",
+			"segmented": "YIkPxa_segmented",
+			"title": "YIkPxa_title"
 		};
 		//#endregion
 		//#region src/client/HomeLayoutRow.tsx
@@ -2333,15 +2332,13 @@ window.__ModuleLoader__.load({
 				if (hourCounts === null) hourCounts = new Array(24).fill(0);
 				for (let dh = 0; dh < 24; dh++) hourCounts[dh] = (hourCounts[dh] ?? 0) + (Number(hourDay.hours[dh]) || 0);
 			}
-			else if (listed !== null) {
-				if (start === null && Array.isArray(listed.hours)) hourCounts = listed.hours;
-				else for (let e = 0; e < listed.entries.length; e++) {
-					const item = listed.entries[e];
-					if (!item || startMs !== null && item.at < startMs) continue;
-					if (hourCounts === null) hourCounts = new Array(24).fill(0);
-					const hour = new Date(item.at).getHours();
-					if (hour >= 0 && hour < 24) hourCounts[hour] = (hourCounts[hour] ?? 0) + (item.calls || 1);
-				}
+			else if (listed !== null) if (start === null && Array.isArray(listed.hours)) hourCounts = listed.hours;
+			else for (let e = 0; e < listed.entries.length; e++) {
+				const item = listed.entries[e];
+				if (!item || startMs !== null && item.at < startMs) continue;
+				if (hourCounts === null) hourCounts = new Array(24).fill(0);
+				const hour = new Date(item.at).getHours();
+				if (hour >= 0 && hour < 24) hourCounts[hour] = (hourCounts[hour] ?? 0) + (item.calls || 1);
 			}
 			let peakHour = null;
 			if (hourCounts !== null) {
@@ -2358,16 +2355,14 @@ window.__ModuleLoader__.load({
 			let model = null;
 			if (models && models.length > 0 && models[0]) model = models[0].id;
 			else if (ready && typeof value.model === "string") model = value.model;
-			else if (listed !== null) {
-				if (startMs === null) model = listed.model;
-				else {
-					let bestSessions = 0;
-					for (let m = 0; m < listed.models.length; m++) {
-						const item = listed.models[m];
-						if (!item || item.lastAt < startMs || item.sessions <= bestSessions) continue;
-						bestSessions = item.sessions;
-						model = item.id;
-					}
+			else if (listed !== null) if (startMs === null) model = listed.model;
+			else {
+				let bestSessions = 0;
+				for (let m = 0; m < listed.models.length; m++) {
+					const item = listed.models[m];
+					if (!item || item.lastAt < startMs || item.sessions <= bestSessions) continue;
+					bestSessions = item.sessions;
+					model = item.id;
 				}
 			}
 			let fun = null;
@@ -2679,10 +2674,9 @@ window.__ModuleLoader__.load({
 					className: "dsh-theme-home-chart-axis",
 					children: list.map((column, index) => {
 						if (!column) return null;
-						const text = isSingle ? `今日 (${homeShortDate(column.date)})` : list.length <= 7 || index % 3 === 0 ? homeShortDate(column.date) : "";
 						return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: "dsh-theme-home-chart-label",
-							children: text
+							children: isSingle ? `今日 (${homeShortDate(column.date)})` : list.length <= 7 || index % 3 === 0 ? homeShortDate(column.date) : ""
 						}, column.date);
 					})
 				})]
@@ -3494,6 +3488,99 @@ body[data-dsh-home-layout="studio"][data-dsh-home-hero] [class*="_composerHero"]
 			};
 		}
 		//#endregion
+		//#region src/client/market-sticky.ts
+		/**
+		* 插件市场（dsh-market）吸顶筛选区的 stuck 状态补丁。
+		*
+		* 🚨 为什么需要这个模块（实测结论，不要用「加填充」代替它）：
+		* dsh-market 1.66 的 `catsStuck` 只服务于组件内部的「分类行折叠」计算，
+		* **不向 DOM 输出任何 stuck 标记** —— 实测其 `client/client.js` 中
+		* `data-stuck` 出现 0 次，`Stuck` 只出现在源码注释里。
+		* 而本主题的筛选区是两态设计（未吸顶 transparent / 吸顶给填充），
+		* 依赖的正是 `[data-stuck="true"]` / `[class*="Stuck"]` 这两个永不命中的选择器。
+		* 于是吸顶后筛选区仍是透明，卡片文字从它下面滚过时直接穿透。
+		*
+		* 修法：本模块观测 dsh-market **自己渲染的哨兵节点**
+		* （`MarketSection.tsx` 在 stickyHead 前渲染的 `<div ref={setCatsSentinel} />`），
+		* 按几何关系补出 `data-stuck` 标记，让主题的两态 CSS 真正生效。
+		*
+		* 判据（不猜类名、不猜偏移量）：未吸顶时哨兵紧贴在吸顶条上方
+		* （sentinel.bottom ≈ head.top）；吸顶后吸顶条被钉在滚动视口顶边，
+		* 哨兵继续向上滚走，二者距离拉开 —— 差值 > 1px 即判定为吸顶。
+		*/
+		/** 补丁挂载的标记属性，便于门禁与排查确认已生效。 */
+		const MARKET_STICKY_ATTRIBUTE = "data-dsh-market-sticky-sync";
+		/** 吸顶判定的容差：亚像素布局与 0.5px 边框会让差值在 0~1 之间抖动。 */
+		const STUCK_EPSILON = 1;
+		/**
+		* 单次扫描：为每个市场的每个吸顶条同步 `data-stuck`。
+		* 只写属性、不读回布局之外的任何东西，因此可在滚动帧内安全调用。
+		*/
+		function syncStuck() {
+			const roots = document.querySelectorAll("[data-dsh-market-root]");
+			for (let i = 0; i < roots.length; i += 1) {
+				const root = roots[i];
+				if (root === void 0) continue;
+				const heads = root.querySelectorAll("[class*=\"stickyHead\"]");
+				for (let j = 0; j < heads.length; j += 1) {
+					const head = heads[j];
+					if (head === void 0) continue;
+					const sentinel = head.previousElementSibling;
+					const stuck = sentinel instanceof HTMLElement ? head.getBoundingClientRect().top - sentinel.getBoundingClientRect().bottom > STUCK_EPSILON : false;
+					if (stuck === (head.getAttribute("data-stuck") === "true")) continue;
+					if (stuck) head.setAttribute("data-stuck", "true");
+					else head.removeAttribute("data-stuck");
+				}
+			}
+		}
+		/**
+		* 安装吸顶同步：滚动与缩放**同步**判定（吸顶态必须与滚动同帧生效），
+		* 市场挂载/切页引起的 DOM 变化则用 rAF 节流补一次扫描。
+		* @returns disposer，随插件 fiber 一起释放。
+		*/
+		function initMarketStickySync() {
+			if (typeof document === "undefined" || typeof window === "undefined") return () => {};
+			if (document.documentElement.hasAttribute("data-dsh-market-sticky-sync")) return () => {};
+			document.documentElement.setAttribute(MARKET_STICKY_ATTRIBUTE, "");
+			let frame = 0;
+			const schedule = () => {
+				if (frame !== 0) return;
+				frame = window.requestAnimationFrame(() => {
+					frame = 0;
+					syncStuck();
+				});
+			};
+			const observer = new MutationObserver(schedule);
+			observer.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+			/**
+			* 滚动路径**同步**执行，不经 rAF。
+			* 判据只读 2 个 rect（市场根最多一个），成本可忽略；而依赖 rAF 会让吸顶态
+			* 晚一帧生效 —— 用户看到的正是「卡片文字已经从筛选区下面滚过去了、
+			* 筛选区却还没变实」的那一帧穿透。
+			*/
+			const onScroll = () => {
+				syncStuck();
+			};
+			document.addEventListener("scroll", onScroll, {
+				capture: true,
+				passive: true
+			});
+			window.addEventListener("resize", onScroll, { passive: true });
+			syncStuck();
+			return () => {
+				if (frame !== 0) window.cancelAnimationFrame(frame);
+				document.removeEventListener("scroll", onScroll, true);
+				window.removeEventListener("resize", onScroll);
+				observer.disconnect();
+				document.documentElement.removeAttribute(MARKET_STICKY_ATTRIBUTE);
+				const heads = document.querySelectorAll("[class*=\"stickyHead\"][data-stuck]");
+				for (let i = 0; i < heads.length; i += 1) heads[i]?.removeAttribute("data-stuck");
+			};
+		}
+		//#endregion
 		//#region src/boot-spinner-css.ts
 		/**
 		* Boot-page spinner correction shared by both halves.
@@ -3737,6 +3824,19 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"]{
 /* ── A 组：完整毛玻璃（背后有内容滚动经过）────────────────────────────── */
 /* A1 输入坞 · A2 任务进度卡 · A3 撤回气泡 · A5 代码块标题条。
 
+   🚨🚨 选择器必须用 [data-composer-card] 锚定，**不得**用 [class$="_card"]：
+   「回答选择面板」（ui-user-questions 的 QuestionComposer）也是
+   conversation.composer 链的一个 takeover，它的卡片类名同样以 _card 结尾
+   （实测 H0yVCG_card），且**同样挂在 composerSeat 内**。
+   于是旧的 [class*="composerSeat"] [class$="_card"] 会把它一起命中，
+   把本属于输入坞的 0.38 玻璃填充强加到回答面板上 ——
+   而回答面板自带 background: var(--dsw-specific-input-major)（0.93 近实心），
+   是**承载可读文字的整块卡片**，不是浮在内容之上的玻璃条。
+   实测：回答面板 0.93 → 被覆盖成 0.38，正文选项文字与背后对话直接叠印。
+
+   判据用**官方输入坞自己的 data-composer-card 属性**（InputBar.tsx:398），
+   不猜类名、不用后缀通配 —— 回答面板没有这个属性，天然被排除。
+
    ⚠️ 成本卡（cm-footer-stack）：
    原设于 A 组，但实测该组件在 simple 模式下为 overflow: auto 滚动容器，
    内部每个用量卡均包裹了官方 primitives Tooltip（Fragment 原地渲染 position:fixed 浮层）。
@@ -3745,11 +3845,11 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"]{
    且成本卡在侧边栏纯底色上，blur 零漫反射收益。
    故移出 A 组、显式禁用 blur（backdrop-filter: none !important），
    独立保留其玻璃高光与内阴影，彻底根治 Containing Block 劫持。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card],
 body[data-ds-custom-theme="sequoia"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sequoia"] [class*="dsh-recall-bubble"],
 body[data-ds-custom-theme="sequoia"] [class*="_bannerWrap"],
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card],
 body[data-ds-custom-theme="sonoma"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sonoma"] [class*="dsh-recall-bubble"],
 body[data-ds-custom-theme="sonoma"] [class*="_bannerWrap"]{
@@ -3773,10 +3873,10 @@ body[data-ds-custom-theme="sonoma"] [class*="cm-footer-stack"]{
 /* 输入坞是**浮在对话流之上**的 sticky 浮层，需要外投影与内容分离；
    成本卡在侧栏内、与背景同为侧栏填充，去掉外投影更干净。
    故只给输入坞/任务卡/标题条补回官方 elevation 的**投影部分**（不含 0.5px 外环）。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card],
 body[data-ds-custom-theme="sequoia"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sequoia"] [class*="_bannerWrap"],
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card],
 body[data-ds-custom-theme="sonoma"] [class*="composerStack"] > section,
 body[data-ds-custom-theme="sonoma"] [class*="_bannerWrap"]{
   box-shadow:
@@ -3969,24 +4069,24 @@ body[data-ds-custom-theme] [class*="overlayAnchor"] *::-webkit-scrollbar-track{
 
    全页复扫「自身带 blur + 内含定位浮层」的容器数 = **0**，即风险已清零。
    ⚠️ 若日后 A 组新增成员且其内部会弹出浮层，必须套用本节同一修法。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"],
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]{
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card],
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]{
   position:relative;z-index:0;
   backdrop-filter:none !important;
   -webkit-backdrop-filter:none !important;
 }
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]::before,
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]::before{
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]::before,
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]::before{
   content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;
   border-radius:inherit;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
 }
 /* 卡片内含浮层时抬层，确保菜单浮在卡片内容之上（用 :has 自适应，无需改 JS） */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]),
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([class*="overlayAnchor"] [class$="_menu"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="menu"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([class*="overlayAnchor"] [class$="_menu"]){
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([role="menu"]),
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([class*="overlayAnchor"] [class$="_menu"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([role="menu"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([class*="overlayAnchor"] [class$="_menu"]){
   z-index:9500 !important;
 }
 /* 上下文占用弹窗（官方 ContextMeter 的 role="dialog"）同为**卡片内浮层**：
@@ -3997,8 +4097,8 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has
    给卡片加了 z-index:0，其余主题不建立该 context，本就不冲突。）
    选择器收窄到 ContextMeter 面板本体（[role="dialog"][class$="_panel"]），
    与既有 [class$="_menu"] / [class$="_card"] 同一后缀范式，不波及其它卡片内浮层。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:has([role="dialog"][class$="_panel"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:has([role="dialog"][class$="_panel"]){
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([role="dialog"][class$="_panel"]),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([role="dialog"][class$="_panel"]){
   z-index:9500 !important;
 }
 
@@ -4126,19 +4226,30 @@ body[data-ds-custom-theme] [class*="_MG5Va_root"] [class*="pill"] {
 
 /* 对话页：站在 composerStack 顶端，因此上方有排队消息、待办或目标卡片时
    会自动上移到全部元素之上，永不遮挡。
-   右侧预留 48px 避让宽度为 34px 的回到底部按钮（.toBottom），彻底避免重叠与点击冲突。 */
+
+   右侧 68px 的来历（实测，勿随手改）：34px 是「回到底部」按钮直径
+   （.toBottom，官方 ChatView），另一半是留白。
+   该按钮挂在对话列上、右对齐，而挂件挂在 composerStack 上 —— 两者在同一
+   竖直带里会相遇，所以横向必须让开。
+
+   ⚠️ 2026-10-20 用户要求「挂件往右移一些」：把 68px 调为 52px（右移 16px）。
+   实测各列宽下「人物右缘 → 按钮左缘」的间隙从 35px 收到 19px，仍然安全；
+   再往右就会压到按钮：offset=44 → 11px、offset=40 → 7px（视觉上已贴住）。
+   改这个数前请先按下面的公式核算，不要凭感觉调小：
+     gap = 34 + (offset - 16)      （列宽 ≥ 约 1100px 时恒成立）
+   → 要保证 gap ≥ 12px，offset 不得小于 44px；52px 留了 19px 余量。 */
 [data-dsh-pet-anchor="stack"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 68px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 52px) !important;
   bottom: 100% !important;
 }
-/* 替代面板（授权确认 / 提问面板）接管输入卡片时 */
+/* 替代面板（授权确认 / 提问面板）接管输入卡片时 —— 与 stack 同步右移 16px */
 [data-dsh-pet-anchor="panel"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 68px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 52px) !important;
   bottom: calc(100% - 7px) !important;
 }
-/* 首页新会话卡片 / 兜底卡片 */
+/* 首页新会话卡片 / 兜底卡片 —— 同样同步右移 16px */
 [data-dsh-pet-anchor="card"] > .dsh-composer-pet {
-  right: 68px !important;
+  right: 52px !important;
   bottom: 100% !important;
 }
 
@@ -4746,43 +4857,93 @@ span > input[class*="Input"],
   background:var(--dsh-scrollbar-thumb-hover, rgba(128,128,128,0.4)) !important;
 }
 
-/* 插件市场吸顶搜索区：未吸顶时透明融入背景，吸顶时激活精致磨砂浮岛（全主题通用） */
-[data-dsh-market-root] [class*="stickyHead"] {
+/* ══════════════════════════════════════════════════════════════════════════
+   插件市场（dsh-market）在设置弹窗内的两处可读性缺陷
+   ══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ 适用范围（与 §1.5 的材质门控一致）：**仅 液态 sequoia 与 曜黑 sonoma**。
+   其余 4 个主题没有弹窗玻璃改写，市场的原生 layer-1/layer-2 本就是近实心，
+   保持官方外观即可 —— 这里若也给它们加规则，反而会把可用的实心条改成透明。
+
+   🚨 缺陷一：任务悬浮窗（.opPanel）透明度太高。
+   真因不是本主题「故意调透」，而是**市场借用了会被弹窗玻璃规则改写的 token**：
+     · dsh-market 的 .opPanel 写 background: var(--dsw-alias-bg-layer-1)；
+     · 本主题为弹窗玻璃把 [role="dialog"] 内的 layer-1 改写成
+       rgba(255,255,255,0.36)（深色 0.04，见上方 dialog 规则）；
+     · 于是浮层只剩 36% 白，背后卡片标题/描述直接穿透 —— 实测截图中
+       「暂无进行中的操作」浮层能清楚读出下面的插件名与版本号。
+   修法：市场浮层改用 --dsw-alias-bg-overlay（各主题定义的近实心浮层档），
+   不再借用会被弹窗规则改写的 layer token。
+
+   🚨 缺陷二：上滑列表时筛选区（.stickyHead）透明度太高。
+   真因是**吸顶态永远不会被触发**，不是填充值不够：
+     · dsh-market 1.66 的 catsStuck 只用于组件内部「分类行折叠」计算，
+       **不向 DOM 输出任何 stuck 标记**（实测其 client.js 中 data-stuck 出现 0 次，
+       Stuck 仅出现在源码注释里）；
+     · 而本主题的两态设计是「未吸顶 transparent / 吸顶才给填充」，
+       依赖的正是 [data-stuck="true"] / [class*="Stuck"] 这两个永不命中的选择器；
+     · 结果：吸顶后筛选区仍是 transparent，卡片从它下面滚过时完全穿透。
+   修法：由 market-sticky.ts 观测市场自带的哨兵节点
+   （dsh-market 在 stickyHead 前渲染的 <div ref={setCatsSentinel} />），
+   按几何关系补出 data-stuck 标记，让这里的两态规则真正生效。
+
+   三条硬规则：
+   1. 填充只用 token（--dsw-alias-bg-overlay / --dsw-alias-bg-layer-2），禁止写死主题色；
+   2. 未吸顶态必须保持 transparent —— 否则会在弹窗顶部留一条与玻璃底不同色的横带；
+   3. 全部规则必须带 sequoia / sonoma 主题门控（§1.5 材质适用范围）。 */
+
+/* 未吸顶：透明融入弹窗玻璃底（不新增可见色带） */
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="stickyHead"],
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="stickyHead"] {
   background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
   transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-[data-dsh-market-root] [class*="stickyHead"]::before {
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="stickyHead"]::before,
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="stickyHead"]::before {
   background: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   transition: background 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* 滚动吸顶激活态：同色系柔和磨砂遮罩，阻断下层文字穿透，杜绝死白补丁 */
-[data-dsh-market-root] [class*="stickyHead"][data-stuck="true"],
-[data-dsh-market-root] [class*="stickyHead"][class*="Stuck"] {
-  background: rgba(245, 245, 247, 0.88) !important;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, rgb(245, 245, 247)) 88%, transparent) !important;
+/* 吸顶激活态：近实心遮罩，真正阻断下层卡片文字穿透。
+   data-stuck 由 market-sticky.ts 补出（宿主自己不输出）。 */
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"],
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"] {
+  background: var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(245, 245, 247))) !important;
   backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
   -webkit-backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
   box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.06) !important;
 }
-[data-dsh-market-root] [class*="stickyHead"][data-stuck="true"]::before,
-[data-dsh-market-root] [class*="stickyHead"][class*="Stuck"]::before {
+/* ::before 是贴在吸顶条上方那 14px 的补白带（宿主用 bottom:100% 画出），
+   必须一起上色，否则吸顶条上方仍有一条透明的「漏字缝」。 */
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"]::before,
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"]::before {
   background: inherit !important;
   backdrop-filter: inherit !important;
   -webkit-backdrop-filter: inherit !important;
 }
 
-/* 深色模式吸顶态：与深色基底自然融合 */
-body[data-ds-dark-theme] [data-dsh-market-root] [class*="stickyHead"][data-stuck="true"],
-body[data-ds-dark-theme] [data-dsh-market-root] [class*="stickyHead"][class*="Stuck"] {
-  background: rgba(22, 24, 30, 0.88) !important;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, rgb(22, 24, 30)) 88%, transparent) !important;
-  box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.40) !important;
+/* 任务悬浮窗（.opPanel）：近实心浮层 + 与弹窗一致的柔和投影。
+   🚨 不要用 --dsw-alias-bg-layer-1：弹窗内的 layer-1 已被玻璃规则改写成 0.36。 */
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="opPanel"],
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="opPanel"] {
+  background: var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-2, rgb(255, 255, 255))) !important;
+  backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
+  -webkit-backdrop-filter: var(--dsh-glass-blur, blur(20px)) saturate(180%) !important;
+  border-color: var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.10)) !important;
+  box-shadow:
+    0 20px 52px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 var(--dsh-glass-edge, rgba(255, 255, 255, 0.6)) !important;
+}
+/* 汇总条（.opAggregate）原本取 layer-2（弹窗内 0.48），叠在已实心的浮层上会
+   形成一块比浮层更透的「补丁」。改为同系淡色 tint，层次保留但不破面。 */
+body[data-ds-custom-theme="sequoia"] [data-dsh-market-root] [class*="opAggregate"],
+body[data-ds-custom-theme="sonoma"] [data-dsh-market-root] [class*="opAggregate"] {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary, rgb(0, 0, 0)) 4%, transparent) !important;
 }
 
 /* 弹窗进场动画 */
@@ -4850,14 +5011,16 @@ nav[class*="frame"],
 
 /* 输入坞的聚焦态反馈（液态/曜黑各一套主题色）。
    ⚠️ 旧规则用 [class*="InputBar_card"]，0.1.5 改名后实测命中数为 0，一直没生效。
-   现改用结构稳定的 [class*="composerSeat"] [class$="_card"]（与 A1 组同源）。
+   现改用 [data-composer-card]（官方 InputBar.tsx 自带该属性）——
+   ⚠️ 不可用 [class$="_card"]：回答选择面板的卡片同样以 _card 结尾且挂在
+   composerSeat 内，会被一并命中，把输入坞的聚焦环加到回答面板上。
    填充、虚化、颗粒均已由 A 组统一配方与 --dsh-glass-* 令牌接管，
    此处只保留「聚焦环 + 圆角」这两项纯交互反馈，避免与 A 组 !important 打架。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"] {
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card] {
   border-radius: 20px !important;
   transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:focus-within {
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:focus-within {
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
     inset 0 -1px 1px var(--dsh-glass-bottom),
@@ -4865,11 +5028,11 @@ body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [class$="_card"]:fo
     var(--dsw-elevation-prominent, none) !important;
 }
 
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"] {
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card] {
   border-radius: 20px !important;
   transition: box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [class$="_card"]:focus-within {
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:focus-within {
   box-shadow:
     inset 0 1px 0 var(--dsh-glass-edge),
     inset 0 -1px 1px var(--dsh-glass-bottom),
@@ -5078,8 +5241,7 @@ body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-
   box-shadow: none !important;
 }
 body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel]:not([aria-hidden="true"]) {
-  background:
-    linear-gradient(180deg,
+  background:    linear-gradient(180deg,
       rgb(22, 24, 30) 0,
       rgb(22, 24, 30) var(--dsh-fusion-top, 44px),
       rgba(22, 24, 30, 0.55) calc(var(--dsh-fusion-top, 44px) + 52px),
@@ -5088,6 +5250,49 @@ body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-p
     rgba(18, 20, 25, 0.55) !important;
   /* 去掉顶部 inset 亮线（会在顶栏正下方形成横贯亮线） */
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   右栏面板「全屏态」必须实心（用户反馈：文件 diff 悬浮面板透明度太高）
+   ══════════════════════════════════════════════════════════════════════════
+
+   🚨 根因：右栏面板在 **push 态**是停在对话右侧的窄栏，背后是页面底色，
+   0.68 的半透明填充读作「玻璃侧栏」，是设计意图。
+   但在 **fullscreen 态**（data-sidebar-right-panel="fullscreen"，
+   官方 SidebarRight.tsx:313）面板铺满 100vw，**直接压在对话正文之上** ——
+   此时 0.68 填充就变成正文透光的纱窗：实测 dsh-git-panel 的 diff 视图
+   （GitDiffView，注册在 sidebar.right.pane.tab 槽位）铺满全屏后，
+   对话里的中文正文与代码 diff 叠印在一起，两者都读不清。
+
+   两条硬规则：
+   1. 判据用**属性值** [data-sidebar-right-panel="fullscreen"]，
+      不用类名、不用 :has() 猜 —— 该属性值是官方明确的状态标识；
+   2. push 态**保持原样**（半透明玻璃侧栏是设计意图，不能一起改成实心）。
+
+   ⚠️🚨 特异性陷阱（实测踩到）：通栏规则带 :not([aria-hidden="true"])，
+   特异性是 (0,4,1)；若 fullscreen 规则只写 [data-sidebar-right-panel="fullscreen"]
+   则只有 (0,3,1) —— **即使写在后面也赢不了**，实测计算值仍是 0.68。
+   故 fullscreen 规则必须带同样的 :not() 守卫，把特异性拉平到 (0,4,1)，
+   再靠「源序在后」取胜。 */
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"] [data-sidebar-right-panel="fullscreen"]:not([aria-hidden="true"]) {
+  background:
+    linear-gradient(180deg,
+      rgb(245, 245, 247) 0,
+      rgb(245, 245, 247) var(--dsh-fusion-top, 44px),
+      rgba(245, 245, 247, 1) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(245, 245, 247, 1) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
+    rgb(245, 245, 247) !important;
+  box-shadow: none !important;
+}
+body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-panel="fullscreen"]:not([aria-hidden="true"]) {
+  background:
+    linear-gradient(180deg,
+      rgb(22, 24, 30) 0,
+      rgb(22, 24, 30) var(--dsh-fusion-top, 44px),
+      rgba(22, 24, 30, 1) calc(var(--dsh-fusion-top, 44px) + 52px),
+      rgba(22, 24, 30, 1) calc(var(--dsh-fusion-top, 44px) + 100px)) no-repeat,
+    rgb(22, 24, 30) !important;
+  box-shadow: none !important;
 }
 
 /* 强制保障设置与模态弹窗全屏视口居中，彻底消除包含块压迫 */
@@ -5929,6 +6134,9 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 			ctx.effect(() => {
 				return initMascot(ctx);
 			}, "ui-theme-custom: claude mascot companion");
+			ctx.effect(() => {
+				return initMarketStickySync();
+			}, "ui-theme-custom: market sticky head state");
 			ctx.effect(() => {
 				applyHomeLayout(readHomeLayout());
 				let rafScheduled = false;

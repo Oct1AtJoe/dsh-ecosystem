@@ -231,20 +231,98 @@ Select-String -Path trace.txt -Pattern "Module name '<包>' was successfully res
 
 ## 5. Profile 挂载与生效验证流程
 
-### 5.1 挂载依赖
-1. 编辑 `C:\Users\Administrator\.dsh\profiles\web\package.json`：
+> 🚨 **本机跑的是「发布版」插件**（profile 依赖指向 GitHub Release 的 .tgz），
+> 所以**改完源码不会立刻生效** —— 必须先把 profile 切成 `link:` 源码（§5.2），
+> 用户在页面上验证通过后，再切回发布版并重新打包（§5.3）。
+> **不要跳过 link 这一步就打包**：那等于让用户拿旧产物去验收新代码。
+
+### 5.1 挂载依赖（新增插件时）
+1. 编辑 `C:\Users\Administrator\.dsh\profiles\<profile>\package.json`：
    在 `dependencies` 中添加：
    ```json
-   "@deepseek-ai/dsh-client-<name>": "link:../../../../../dsh-ecosystem/plugins/<包名>"
+   "@deepseek-ai/dsh-client-<name>": "link:C:/dsh-ecosystem/plugins/<包名>"
    ```
-2. 编辑 `C:\Users\Administrator\.dsh\profiles\web\cordis.patch.yml`：
+2. 编辑 `C:\Users\Administrator\.dsh\profiles\<profile>\cordis.patch.yml`：
    在 `- insert:` 列表末尾挂载该条目：
    ```yaml
    - id: <name>
      name: '@deepseek-ai/dsh-client-<name>'
    ```
+   （客户端专用插件若自带 `cordis.patch.yml` 且 `package.json` 声明了
+   `dsh.bundle.patch`，则由该文件提供 loader 条目，**不要**再手写一条。）
 
-### 5.2 生效与调试验证
+### 5.2 开发期：把 profile 切到本地源码（link）
+
+```powershell
+# 切到源码并重装（脚本会改 profile/package.json 的依赖并跑 pnpm install）
+cd C:\dsh-ecosystem
+node scripts\plugin-dev-link.mjs link ui-theme-custom --profile desktop
+
+# 查看当前是「源码」还是「发布版」
+node scripts\plugin-dev-link.mjs status ui-theme-custom --profile desktop
+```
+
+**link 之后改源码的完整循环**：
+
+```powershell
+cd C:\dsh-ecosystem\plugins\ui-theme-custom
+$env:NODE_OPTIONS=""
+node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json      # 必须 exit 0
+node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
+# 跑该插件的门禁测试（见各插件 AGENTS.md）
+node tests\badge-token-check.mjs
+```
+
+然后**重启 DSH 宿主**并在页面 `Ctrl+F5` 硬刷新。
+
+> 🚨 **第一次 link 必须重启宿主**：profile 被重装过，而宿主在**启动时**解析并缓存
+> 每个插件的 `client.js` 路径（`client-modules` 的 `resolveMeta` / `pkgMeta` 缓存），
+> 所以光刷新页面仍会拿到旧 bundle。**重启之后**再改源码就不用重启了 ——
+> HMR watcher 每 500ms 轮询各 bundle 的 stat，变化时通过 SSE 推送新 graph，
+> 此时「重新构建 + Ctrl+F5」即可生效。
+>
+> ⚠️ `link:` 只替换**依赖解析**，`dsh.profile.bundles` 列表与 loader 条目不变，
+> 所以插件仍然会被正常编进 `window.__DSH_BOOT__`。
+> ⚠️ 若改了插件的 `package.json`（如新增 `dsh.bundle` 声明）或 `cordis.patch.yml`，
+> **必须重启宿主**，光刷新页面不生效（这属于「启动期配置」，不走 HMR）。
+
+### 5.3 发布期：切回发布版并重新打包
+
+用户**在页面上验证通过**之后，才走这一步：
+
+```powershell
+cd C:\dsh-ecosystem
+# 1. 切回发布版依赖（脚本把 link: 换回 Release 的 .tgz URL 并重装）
+node scripts\plugin-dev-link.mjs release ui-theme-custom --profile desktop
+
+# 2. 切版本号（package.json 的 version），让 tarball 文件名带上新版本
+#    编辑 plugins\ui-theme-custom\package.json 的 "version"
+
+# 3. 重新构建 + 打包全部插件
+cd plugins\ui-theme-custom
+node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
+node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
+cd ..\..
+node scripts\pack-plugins.mjs
+
+# 4. 把 dist-tarballs\*.tgz 上传到对应的 GitHub Release
+```
+
+`pack-plugins.mjs` 会把每个插件打成 `dist-tarballs/<扁平名>-<版本>.tgz`，
+并生成 `manifest.json`；上传后 Release 的下载 URL 即为
+`https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<文件名>`。
+
+### 5.4 改动插件源码后，必须提示用户是否打包发布
+
+> 🚨 **硬性要求**：本次会话**只要改动了 `plugins/<任一插件>/` 下的源码**，
+> 在最终回复里**必须**明确询问用户：
+> **「源码已改好，是否现在打包发布？（或先在页面上验证，确认没问题后再发布）」**
+
+不得擅自打包、不得擅自发布、也不得默认「改完就算完」。
+用户的默认节奏是：**先 link 到源码 → 页面验证 → 确认无误 → 再打包发布**。
+
+### 5.5 生效与调试验证
 - **浏览器刷新**：构建完成后浏览器执行 `Ctrl+F5` 硬刷新即可加载最新 Combo bundle。
-- **软链断链排查**：若页面未更新，检查 `C:\Users\Administrator\.dsh\profiles\web\node_modules\@deepseek-ai\dsh-client-<name>\lib\client.js` 内容与修改时间戳。如断链，手动从插件目录将 `lib/client.js` 拷贝覆盖至 profile 对应目录。
+- **软链断链排查**：若页面未更新，检查 `C:\Users\Administrator\.dsh\profiles\<profile>\node_modules\@deepseek-ai\dsh-client-<name>\lib\client.js` 内容与修改时间戳；`status` 命令会直接打印源码产物的 size/mtime 对比。
 - **服务重启**：若新增了 patch 条目或修改了 Node-half，重启 DSH 服务（`pnpm dsh web`）。
+
