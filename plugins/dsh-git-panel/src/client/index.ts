@@ -22,6 +22,7 @@ import { GitStatusCache } from './git-status.ts'
 import { installFileTreeDecorations } from './decorations.ts'
 import { basenameOf, parseFileAddress } from './refs.ts'
 import { ReviewView } from './review/ReviewView.tsx'
+import { BranchChip } from './BranchChip.tsx'
 
 /**
  * 我们使用到的注入式客户端运行时结构。这里在本地声明，而不是导入 SDK 的
@@ -238,31 +239,38 @@ export function apply(ctx: PanelClientContext): void {
     }
   })
 
-  // 1. 输入框上方的分支状态 Chip —— 当前**不再注册**。
+  // 1. 输入框右上方分支选择器 Chip。
   //
-  //    它是 `conversation.input.dock` 槽里紧贴输入框上方的一个 div，与官方
-  //    工作区选择器并排。实际上它属于重复入口：右侧栏 Git 标签本身就是一等
-  //    公民（分支列表、双击切换、右键菜单全都在那里），chip 只是又占了一行
-  //    输入框上方的空间，因此这里停用。
+  //    只挂 `conversation.hero.options` 一个槽位，理由（实测踩坑）：
   //
-  //    组件本体（BranchChip.tsx）与下方第 2 条的面板都不依赖这段注册：
-  //    Panel 切分支时自己会 load() 刷新，chip 派发的 'dsh-git-panel:switched'
-  //    事件对它并非必需。保留代码便于需要时一键恢复——把下面这段放开即可。
-  //
-  // ctx.inject(['slots', 'sessions'], (scope: PanelClientContext) => {
-  //   try {
-  //     scope.slots.inject('conversation.input.dock', () =>
-  //       scope.slots.register({
-  //         name: 'conversation.input.dock',
-  //         id: 'git-panel-branch-chip',
-  //         order: 100,
-  //         locale: 'dsh-git-panel',
-  //         inject: () => ({ sessions: scope.sessions }),
-  //       }, BranchChip))
-  //   } catch (error) {
-  //     console.error('dsh-git-panel: branch chip registration failed', error)
-  //   }
-  // })
+  //    - 它由官方渲染在「工作区选择器 + 模式选择」那一行里，本胶囊紧跟在
+  //      「模式选择」之后——正是用户要的位置。
+  //    - hero 与 active 是**同一次渲染**里的两种内容形态，而 `input.dock`
+  //      在两个形态下都会渲染。此前同时挂两个槽位，结果新会话里两枚胶囊
+  //      同时出现（一个在顶部选择器行、一个在输入框上方横条），旧会话里
+  //      输入框上方那枚也一直留着——这正是用户报的两个问题。
+  //    - 因此这里**只保留 hero.options**：新会话显示、旧会话自然消失，
+  //      不会占用多轮对话的输入空间。
+  ctx.inject(['slots', 'sessions'], (scope: any) => {
+    try {
+      scope.slots.inject('conversation.hero.options', () =>
+        scope.slots.register({
+          name: 'conversation.hero.options',
+          id: 'git-panel-branch-chip',
+          order: 10,
+          locale: 'dsh-git-panel',
+          inject: (sessionId: string) => ({
+            sessionId,
+            sessions: scope.sessions,
+            cwd: cwdOf(sessionId),
+          }),
+        }, BranchChip))
+
+      console.log('dsh-git-panel: registered branch chip (conversation.hero.options)')
+    } catch (error) {
+      console.error('dsh-git-panel: branch chip registration failed', error)
+    }
+  })
 
   // 2. 官方右侧栏集成 (适配新版 DSH 0.1.5-alpha.2+ 原生多 Tab 系统)
   ctx.inject(['sidebarRightTabs', 'slots'], (scope: any) => {

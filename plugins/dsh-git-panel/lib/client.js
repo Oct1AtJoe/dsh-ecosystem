@@ -32,7 +32,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react12 = require("react");
+var import_react13 = require("react");
 
 // src/client/api.ts
 async function post(path, payload, signal) {
@@ -6479,12 +6479,426 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
   );
 });
 
+// src/client/BranchChip.tsx
+var import_react12 = require("react");
+var import_jsx_runtime7 = require("react/jsx-runtime");
+var CHIP_STYLE = `
+/* \u4F4D\u7F6E\u4FEE\u6B63\uFF1A\u7528\u6237\u8981\u6C42\u5206\u652F\u80F6\u56CA\u7D27\u8DDF\u5728\u300C\u6A21\u5F0F\u9009\u62E9\u300D\uFF08Agent \u9884\u8BBE\u82AF\u7247\uFF09\u4E4B\u540E\uFF0C
+   \u800C\u4E0D\u662F\u9876\u5230\u8BE5\u884C\u6700\u53F3\u4FA7\u3002
+
+   \u5B98\u65B9 hero \u884C\u7684\u5EA7\u4F4D\u7ED3\u6784\u662F\uFF1A
+     .heroOptions                                  \u2190 margin-left:auto\uFF08\u628A\u5EA7\u4F4D\u63A8\u5230\u6700\u53F3\uFF09
+       \u2514\u2500 [data-slot="conversation.hero.options"]  \u2190 display:contents\uFF08\u4E0D\u53C2\u4E0E\u76D2\u6A21\u578B\uFF09
+            \u2514\u2500 .dsh-gpc-host                       \u2190 \u672C\u7EC4\u4EF6
+
+   \`display:contents\` \u4E0D\u53C2\u4E0E\u76D2\u6A21\u578B\uFF0Cmargin \u52A0\u5728\u5B83\u8EAB\u4E0A\u65E0\u6548\uFF1B\u800C .heroOptions
+   \u662F CSS Module \u54C8\u5E0C\u7C7B\u540D\uFF0C\u65E0\u6CD5\u76F4\u63A5\u5199\u9009\u62E9\u5668\u3002\u56E0\u6B64\u7531\u7EC4\u4EF6\u5728\u6302\u8F7D\u65F6\u7ED9\u5EA7\u4F4D\u5143\u7D20
+   \u6253\u4E0A \`data-gpc-seat\` \u6807\u8BB0\uFF08\u89C1 applySeatLayout\uFF09\uFF0C\u518D\u7531\u4E0B\u9762\u8FD9\u6761\u89C4\u5219\u6E05\u96F6
+   \u81EA\u52A8\u5916\u8FB9\u8DDD\u3002\u6807\u8BB0\u53EA\u5728\u300C\u5EA7\u4F4D\u91CC\u786E\u5B9E\u6709\u672C\u80F6\u56CA\u300D\u65F6\u5B58\u5728\uFF0C\u522B\u7684\u63D2\u4EF6\u5360\u7528\u8BE5\u5EA7\u4F4D\u65F6
+   \u5B98\u65B9\u6392\u5E03\u4E0D\u53D7\u5F71\u54CD\u3002 */
+[data-gpc-seat] {
+  margin-left: 0 !important;
+}
+/* \u4E0E\u300C\u6A21\u5F0F\u9009\u62E9\u300D\u540C\u4E00\u884C\u3001\u7D27\u8DDF\u5176\u540E\uFF1A\u6309\u5185\u5BB9\u5BBD\u5EA6\u6392\u5E03\uFF0C\u4E0D\u6491\u6EE1\u6574\u884C\u3002 */
+.dsh-gpc-host {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+.dsh-gpc {
+  --gpc-fg: var(--dsw-alias-label-primary, #24292f);
+  --gpc-border: var(--dsw-alias-border-l1, rgba(128,128,128,0.35));
+  --gpc-hover: var(--dsw-alias-bg-hover, rgba(0,0,0,0.06));
+  --gpc-bg: var(--dsw-alias-bg-layer2, #ffffff);
+  --gpc-muted: var(--dsw-alias-label-caption, #6e7781);
+  --gpc-accent: var(--dsw-alias-brand-primary, #1976d2);
+  --gpc-danger: var(--dsw-alias-status-danger, #cf222e);
+  --gpc-pop-bg: var(--dsw-specific-menu, #ffffff);
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  width: auto;
+  margin: 0;
+}
+[data-ds-dark-theme] .dsh-gpc {
+  --gpc-fg: var(--dsw-alias-label-primary, #d1d9e0);
+  --gpc-border: var(--dsw-alias-border-l1, rgba(255,255,255,0.22));
+  --gpc-hover: var(--dsw-alias-bg-hover, rgba(255,255,255,0.08));
+  --gpc-bg: var(--dsw-alias-bg-layer2, #21262d);
+  --gpc-muted: var(--dsw-alias-label-caption, #9198a1);
+  --gpc-accent: var(--dsw-alias-brand-primary, #58a6ff);
+  --gpc-danger: var(--dsw-alias-status-danger, #f85149);
+  --gpc-pop-bg: var(--dsw-specific-menu, #1f2328);
+}
+.dsh-gpc-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.dsh-gpc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 240px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--gpc-fg);
+  background: var(--gpc-bg);
+  border: 1px solid var(--gpc-border);
+  border-radius: var(--dsw-radius-full, 999px);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dsh-gpc-chip:hover {
+  background: var(--gpc-hover);
+}
+.dsh-gpc-chip:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.dsh-gpc-chip .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dsh-gpc-spin {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--gpc-muted) 25%, transparent);
+  border-top-color: var(--gpc-accent);
+  animation: dsh-gpc-spin 0.75s linear infinite;
+  box-sizing: border-box;
+}
+@keyframes dsh-gpc-spin { to { transform: rotate(360deg); } }
+.dsh-gpc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+.dsh-gpc-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 340px;
+  overflow: auto;
+  z-index: 901;
+  background: var(--gpc-pop-bg);
+  backdrop-filter: var(--dsw-menu-backdrop-filter, blur(8px));
+  -webkit-backdrop-filter: var(--dsw-menu-backdrop-filter, blur(8px));
+  border: 1px solid var(--gpc-border);
+  border-radius: var(--dsw-radius-md, 8px);
+  box-shadow: var(--dsw-elevation-panel, 0 8px 24px rgba(0,0,0,0.18));
+  padding: 4px;
+}
+.dsh-gpc-pop .head {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--gpc-muted);
+  font-weight: 600;
+  user-select: none;
+}
+.dsh-gpc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--gpc-fg);
+  border-radius: var(--dsw-radius-sm, 6px);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.dsh-gpc-row:hover {
+  background: var(--gpc-hover);
+}
+.dsh-gpc-row .check {
+  color: var(--gpc-accent);
+  width: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+.dsh-gpc-row .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.dsh-gpc-row.current {
+  font-weight: 600;
+}
+.dsh-gpc-err {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--gpc-danger);
+}
+.dsh-gpc-empty {
+  padding: 8px;
+  font-size: 11px;
+  color: var(--gpc-muted);
+}
+`;
+var chipStyleInjected = false;
+function ensureChipStyle() {
+  if (chipStyleInjected) return;
+  chipStyleInjected = true;
+  const tag = document.createElement("style");
+  tag.dataset.plugin = "dsh-git-panel-chip-css";
+  tag.textContent = CHIP_STYLE;
+  document.head.appendChild(tag);
+}
+var SEAT_ATTR = "data-gpc-seat";
+function applySeatLayout(host) {
+  if (host === null) return () => {
+  };
+  let seat = host.parentElement;
+  while (seat !== null && getComputedStyle(seat).display === "contents") {
+    seat = seat.parentElement;
+  }
+  if (seat === null || seat === host || seat === document.body) return () => {
+  };
+  const previous = seat.getAttribute(SEAT_ATTR);
+  seat.setAttribute(SEAT_ATTR, "");
+  return () => {
+    if (previous === null) seat.removeAttribute(SEAT_ATTR);
+    else seat.setAttribute(SEAT_ATTR, previous);
+  };
+}
+function BranchChip(props) {
+  const { sessionId, sessions, cwd: propCwd, useWorkspaces } = props;
+  const t2 = useT();
+  const [api] = (0, import_react12.useState)(() => new GitPanelApi());
+  const [current, setCurrent] = (0, import_react12.useState)(null);
+  const [view, setView] = (0, import_react12.useState)(null);
+  const [open, setOpen] = (0, import_react12.useState)(false);
+  const [busy, setBusy] = (0, import_react12.useState)(false);
+  const [error, setError] = (0, import_react12.useState)(null);
+  const [loading, setLoading] = (0, import_react12.useState)(false);
+  const retries = (0, import_react12.useRef)(0);
+  const fetchSeq = (0, import_react12.useRef)(0);
+  const [openUp, setOpenUp] = (0, import_react12.useState)(false);
+  const chipRef = (0, import_react12.useRef)(null);
+  const popRef = (0, import_react12.useRef)(null);
+  const seatCleanup = (0, import_react12.useRef)(null);
+  const hostRef = (0, import_react12.useCallback)((node2) => {
+    seatCleanup.current?.();
+    seatCleanup.current = applySeatLayout(node2);
+  }, []);
+  const updateDirection = (0, import_react12.useCallback)(() => {
+    const chip = chipRef.current;
+    if (chip === null) return;
+    const chipRect = chip.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - chipRect.bottom;
+    const spaceAbove = chipRect.top;
+    const height = popRef.current?.getBoundingClientRect().height ?? 240;
+    const opensUp = spaceBelow < height + 10;
+    setOpenUp(opensUp);
+    const pop = popRef.current;
+    if (pop === null) return;
+    const max = opensUp ? Math.max(160, spaceAbove - 12) : Math.max(120, spaceBelow - 12);
+    pop.style.maxHeight = `${Math.min(max, 340)}px`;
+  }, []);
+  (0, import_react12.useLayoutEffect)(() => {
+    if (!open) return;
+    updateDirection();
+    window.addEventListener("resize", updateDirection);
+    return () => window.removeEventListener("resize", updateDirection);
+  }, [open, view, error, loading, updateDirection]);
+  ensureChipStyle();
+  const EMPTY_WORKSPACES = [];
+  const workspaces = useWorkspaces === void 0 ? EMPTY_WORKSPACES : useWorkspaces((snapshot) => snapshot.items) ?? EMPTY_WORKSPACES;
+  const cwd = (0, import_react12.useMemo)(() => {
+    if (propCwd !== void 0 && propCwd !== "") return propCwd;
+    if (sessionId !== void 0 && sessions !== void 0) {
+      const fromSession = sessions.list.getSnapshot().byId[sessionId]?.cwd;
+      if (typeof fromSession === "string" && fromSession !== "") return fromSession;
+    }
+    if (workspaces.length > 0) {
+      const owned = sessionId === void 0 ? void 0 : workspaces.find((item) => item.sessionIds.includes(sessionId));
+      if (owned !== void 0) return owned.path;
+      const fallback = workspaces[0];
+      if (fallback !== void 0) return fallback.path;
+    }
+    return "";
+  }, [propCwd, sessionId, sessions, workspaces]);
+  const refetchCurrent = (0, import_react12.useCallback)(async () => {
+    if (!cwd) {
+      setCurrent(null);
+      return;
+    }
+    const seq = ++fetchSeq.current;
+    const result = await api.current(cwd);
+    if (seq !== fetchSeq.current) return;
+    if (result.ok) {
+      retries.current = 0;
+      setCurrent(result.value.current || null);
+      setError(null);
+    } else {
+      setError(result.error.message);
+      if (current === null && retries.current < 1) {
+        retries.current += 1;
+        window.setTimeout(() => void refetchCurrent(), 1500);
+      }
+    }
+  }, [cwd, api, current]);
+  (0, import_react12.useEffect)(() => {
+    void refetchCurrent();
+  }, [refetchCurrent]);
+  (0, import_react12.useEffect)(() => {
+    const onSwitched = () => void refetchCurrent();
+    window.addEventListener("dsh-git-panel:switched", onSwitched);
+    return () => window.removeEventListener("dsh-git-panel:switched", onSwitched);
+  }, [refetchCurrent]);
+  const refetchList = (0, import_react12.useCallback)(async () => {
+    if (!cwd) {
+      setView(null);
+      return;
+    }
+    const seq = ++fetchSeq.current;
+    setLoading(true);
+    const result = await api.branches(cwd);
+    if (seq !== fetchSeq.current) return;
+    setLoading(false);
+    if (result.ok) {
+      setView(result.value);
+      setError(null);
+    } else {
+      setError(result.error.message);
+    }
+  }, [cwd, api]);
+  (0, import_react12.useEffect)(() => {
+    if (open) void refetchList();
+  }, [open, refetchList]);
+  if (current === null && !loading) return null;
+  const switchTo = async (branch) => {
+    if (busy || branch === current) {
+      setOpen(false);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const result = await api.switchBranch(cwd, branch);
+    setBusy(false);
+    if (result.ok) {
+      setOpen(false);
+      await refetchCurrent();
+      window.dispatchEvent(new CustomEvent("dsh-git-panel:switched"));
+    } else {
+      setError(result.error.message);
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-host", ref: hostRef, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-gpc-anchor", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+      "button",
+      {
+        ref: chipRef,
+        type: "button",
+        className: "dsh-gpc-chip",
+        title: t2("chip.title"),
+        "aria-expanded": open,
+        disabled: loading,
+        onClick: () => {
+          if (loading) return;
+          setOpen((v) => !v);
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+            "svg",
+            {
+              viewBox: "0 0 16 16",
+              width: "12",
+              height: "12",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: "1.4",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "4", cy: "4", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "4", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M4 5.6v4.8a2.4 2.4 0 0 0 2.4 2.4H12" })
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "label", children: current }),
+          loading ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "dsh-gpc-spin", "aria-label": t2("aria.loading") }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            "svg",
+            {
+              viewBox: "0 0 16 16",
+              width: "10",
+              height: "10",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: "1.4",
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              "aria-hidden": "true",
+              children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M4 6l4 4 4-4" })
+            }
+          )
+        ]
+      }
+    ),
+    open ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-backdrop", onClick: () => setOpen(false) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        "div",
+        {
+          ref: popRef,
+          className: "dsh-gpc-pop",
+          role: "listbox",
+          style: openUp ? { bottom: "calc(100% + 6px)", top: "auto" } : { top: "calc(100% + 6px)", bottom: "auto" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "head", children: t2("chip.head") }),
+            error && view === null ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
+            loading && view === null ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-empty", children: t2("loading") }) : null,
+            !loading && error && view !== null ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
+            !loading && !error && view !== null && view.local.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-gpc-empty", children: t2("empty.local") }) : null,
+            view?.local.map((branch) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+              "div",
+              {
+                role: "option",
+                "aria-selected": branch.name === current,
+                className: `dsh-gpc-row${branch.name === current ? " current" : ""}`,
+                onClick: () => void switchTo(branch.name),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "check", children: branch.name === current ? icon("check", 12) : null }),
+                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "name", children: branch.name }),
+                  branch.ahead || branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { style: { color: "var(--gpc-muted)", fontSize: 11 }, children: [
+                    branch.ahead ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+                      icon("arrowUp", 11),
+                      branch.ahead
+                    ] }) : null,
+                    branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+                      icon("arrowDown", 11),
+                      branch.behind
+                    ] }) : null
+                  ] }) : null
+                ]
+              },
+              branch.name
+            ))
+          ]
+        }
+      )
+    ] }) : null
+  ] }) }) });
+}
+
 // src/client/index.ts
 var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {
   const size = props.size ?? 26;
-  return (0, import_react12.createElement)(
+  return (0, import_react13.createElement)(
     "svg",
     {
       width: size,
@@ -6498,10 +6912,10 @@ function GitGuideIcon(props) {
       strokeLinejoin: "round",
       "aria-hidden": "true"
     },
-    (0, import_react12.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
-    (0, import_react12.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
-    (0, import_react12.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
-    (0, import_react12.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
+    (0, import_react13.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
+    (0, import_react13.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
+    (0, import_react13.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
+    (0, import_react13.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
   );
 }
 var DIFF_TAB_ID = "@deepseek-ai/dsh-git-panel/diff";
@@ -6602,6 +7016,24 @@ function apply(ctx) {
       console.warn("dsh-git-panel: status polling setup failed", error);
     }
   });
+  ctx.inject(["slots", "sessions"], (scope) => {
+    try {
+      scope.slots.inject("conversation.hero.options", () => scope.slots.register({
+        name: "conversation.hero.options",
+        id: "git-panel-branch-chip",
+        order: 10,
+        locale: "dsh-git-panel",
+        inject: (sessionId) => ({
+          sessionId,
+          sessions: scope.sessions,
+          cwd: cwdOf(sessionId)
+        })
+      }, BranchChip));
+      console.log("dsh-git-panel: registered branch chip (conversation.hero.options)");
+    } catch (error) {
+      console.error("dsh-git-panel: branch chip registration failed", error);
+    }
+  });
   ctx.inject(["sidebarRightTabs", "slots"], (scope) => {
     try {
       if (scope.sidebarRightTabs) {
@@ -6635,18 +7067,18 @@ function apply(ctx) {
           () => scope.slots.register({
             name: "sidebar.right.pane.tab.title",
             key: TAB_ID
-          }, () => (0, import_react12.createElement)(
+          }, () => (0, import_react13.createElement)(
             "span",
             { style: { display: "flex", alignItems: "center", gap: 5 } },
-            (0, import_react12.createElement)(
+            (0, import_react13.createElement)(
               "svg",
               { viewBox: "0 0 16 16", width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
-              (0, import_react12.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
-              (0, import_react12.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
-              (0, import_react12.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
-              (0, import_react12.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
+              (0, import_react13.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
+              (0, import_react13.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
+              (0, import_react13.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
+              (0, import_react13.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
             ),
-            (0, import_react12.createElement)("span", null, "Git")
+            (0, import_react13.createElement)("span", null, "Git")
           ))
         );
         console.log("dsh-git-panel: registered into native sidebarRightTabs");
