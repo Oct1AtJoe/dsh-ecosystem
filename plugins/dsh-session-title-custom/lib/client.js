@@ -38,7 +38,7 @@ window.__ModuleLoader__.load({
 
     /** Staged numeric fields and their accepted ranges (mirrors the host schema). */
     const RANGES = {
-      maxTokens: { min: 256, max: 8192 },
+      maxTokens: { min: 32, max: 8192 },
       maxInputChars: { min: 200, max: 8000 },
       timeoutMs: { min: 3000, max: 120000 },
       maxTitleLength: { min: 20, max: 200 },
@@ -47,7 +47,7 @@ window.__ModuleLoader__.load({
 
     /** Reset targets, kept equal to the host DEFAULTS. */
     const RESET = {
-      maxTokens: '512',
+      maxTokens: '96',
       maxInputChars: '2000',
       timeoutMs: '30000',
       maxTitleLength: '80',
@@ -74,7 +74,7 @@ window.__ModuleLoader__.load({
       effortDefault: '跟随模型默认',
       effortUnsupported: '（该模型不支持，请更换）',
       maxTokens: '最大输出 Tokens',
-      maxTokensHint: '单次标题生成的输出上限（256–8192，需容纳推理+正文）。',
+      maxTokensHint: '单次标题生成的输出上限（32–8192；关闭思考时 96 足够）。',
       maxInputChars: '首条消息截断',
       maxInputCharsHint: '送给模型的首条消息最大字符数（200–8000）。',
       timeoutMs: '超时（毫秒）',
@@ -109,7 +109,7 @@ window.__ModuleLoader__.load({
       effortDefault: 'Model default',
       effortUnsupported: ' (unsupported, change it)',
       maxTokens: 'Max output tokens',
-      maxTokensHint: 'Output cap for one title generation (256–8192; must cover reasoning + text).',
+      maxTokensHint: 'Output cap for one title generation (32–8192; 96 suffices with thinking off).',
       maxInputChars: 'First message cap',
       maxInputCharsHint: 'Max characters of the first message sent to the model (200–8000).',
       timeoutMs: 'Timeout (ms)',

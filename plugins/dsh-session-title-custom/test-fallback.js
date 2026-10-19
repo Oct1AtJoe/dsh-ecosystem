@@ -22,7 +22,7 @@ const DEFAULTS = Object.freeze({
   provider: 'xiaomi',
   model: 'mimo-v2.5',
   reasoningEffort: 'off',
-  maxTokens: 512,
+  maxTokens: 96,
   maxInputChars: 2000,
   timeoutMs: 30000,
   maxTitleLength: 80,
@@ -39,7 +39,7 @@ const schema = z.object({
   provider: z.string(),
   model: z.string(),
   reasoningEffort: z.string(),
-  maxTokens: z.number().min(256).max(8192).default(DEFAULTS.maxTokens),
+  maxTokens: z.number().min(32).max(8192).default(DEFAULTS.maxTokens),
   maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars),
   timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs),
   maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength),
@@ -47,7 +47,7 @@ const schema = z.object({
 
 // 1. schema 能构建（回归：.optional() 会让这里抛错）
 const built = schema({})
-assert.equal(built.maxTokens, 512, 'defaults should apply')
+assert.equal(built.maxTokens, 96, 'defaults should apply')
 assert.ok(Array.isArray(built.models), 'models must be an array')
 
 // 2. 旧配置不被覆盖

@@ -24,14 +24,16 @@ const DEFAULTS = Object.freeze({
   /** '' = follow the model's own default effort; 'off' disables thinking. */
   reasoningEffort: 'off',
   /**
-   * 预算必须容得下「思考 + 正文」。
-   * 推理模型（deepseek-flash 等）会先烧掉 reasoning tokens 再产出正文；
-   * 预算过小时 finish_reason=length 且 content 为空串 → 插件抛
-   * `empty output from model` → 整条托底链全灭 → 宿主静默退回 fallback 标题
-   * （表现为「自动命名操作失败」）。48 在 hello 这种极短输入上实测就已被
-   * reasoning 全部吃完（reasoning_tokens=48, content=""）。默认 512 留足余量。
+   * 预算只需容纳「一行标题」的正文，因为本插件默认 reasoningEffort=off
+   * （适配器会映射成 thinking:{type:'disabled'}，不产生 reasoning token）。
+   * 实测关闭思考时一次标题只花 4–6 tokens，96 足够有余。
+   *
+   * ⚠️ 只有当输出预算被 reasoning 吃光时才会失败：此时 finish_reason=length
+   * 且 content 为空串 → 插件抛 `empty output from model` → 整条托底链全灭
+   * → 宿主静默退回 fallback 标题（表现为「自动命名操作失败」）。
+   * 因此若把 reasoningEffort 改成 low/high/max 开启思考，务必同步调高此值。
    */
-  maxTokens: 512,
+  maxTokens: 96,
   maxInputChars: 2000,
   timeoutMs: 30000,
   maxTitleLength: 80,
@@ -55,7 +57,7 @@ function buildSchema() {
     provider: z.string().volatile(),
     model: z.string().volatile(),
     reasoningEffort: z.string().volatile(),
-    maxTokens: z.number().min(256).max(8192).default(DEFAULTS.maxTokens).volatile(),
+    maxTokens: z.number().min(32).max(8192).default(DEFAULTS.maxTokens).volatile(),
     maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars).volatile(),
     timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs).volatile(),
     maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength).volatile(),
@@ -266,11 +268,12 @@ function apply(ctx, config) {
             .map(b => b.text).join(' ')
             .trim()
           if (!raw) {
-            // 空正文最常见的原因是「输出预算被 reasoning 吃光」：finish 为 length
-            // 且没有正文块。把这个信号带进错误里，否则只会看到无信息量的 empty output。
+            // 空正文最常见的原因是「输出预算被推理吃光」：此时宿主 finish 为
+            // {kind:'max-tokens'} 且没有任何正文块。把这个信号带进错误里，否则
+            // 只会看到无信息量的 empty output，排查时完全看不出是预算问题。
             const finishKind = assembler.finish?.kind
-            const hint = finishKind === 'length'
-              ? `（finish=length：${config.maxTokens} tokens 被推理耗尽，调高 maxTokens 或设 reasoningEffort=off）`
+            const hint = finishKind === 'max-tokens'
+              ? `（finish=max-tokens：${config.maxTokens} tokens 在正文前就耗尽，调高 maxTokens 或设 reasoningEffort=off）`
               : ''
             throw new Error(`empty output from model${hint}`)
           }
