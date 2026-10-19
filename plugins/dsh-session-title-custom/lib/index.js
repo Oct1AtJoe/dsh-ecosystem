@@ -23,7 +23,15 @@ const DEFAULTS = Object.freeze({
   model: 'mimo-v2.5',
   /** '' = follow the model's own default effort; 'off' disables thinking. */
   reasoningEffort: 'off',
-  maxTokens: 48,
+  /**
+   * 预算必须容得下「思考 + 正文」。
+   * 推理模型（deepseek-flash 等）会先烧掉 reasoning tokens 再产出正文；
+   * 预算过小时 finish_reason=length 且 content 为空串 → 插件抛
+   * `empty output from model` → 整条托底链全灭 → 宿主静默退回 fallback 标题
+   * （表现为「自动命名操作失败」）。48 在 hello 这种极短输入上实测就已被
+   * reasoning 全部吃完（reasoning_tokens=48, content=""）。默认 512 留足余量。
+   */
+  maxTokens: 512,
   maxInputChars: 2000,
   timeoutMs: 30000,
   maxTitleLength: 80,
@@ -47,7 +55,7 @@ function buildSchema() {
     provider: z.string().volatile(),
     model: z.string().volatile(),
     reasoningEffort: z.string().volatile(),
-    maxTokens: z.number().min(16).max(8192).default(DEFAULTS.maxTokens).volatile(),
+    maxTokens: z.number().min(256).max(8192).default(DEFAULTS.maxTokens).volatile(),
     maxInputChars: z.number().min(200).max(8000).default(DEFAULTS.maxInputChars).volatile(),
     timeoutMs: z.number().min(3000).max(120000).default(DEFAULTS.timeoutMs).volatile(),
     maxTitleLength: z.number().min(20).max(200).default(DEFAULTS.maxTitleLength).volatile(),
@@ -257,7 +265,15 @@ function apply(ctx, config) {
             .filter(b => b.type === 'text')
             .map(b => b.text).join(' ')
             .trim()
-          if (!raw) throw new Error('empty output from model')
+          if (!raw) {
+            // 空正文最常见的原因是「输出预算被 reasoning 吃光」：finish 为 length
+            // 且没有正文块。把这个信号带进错误里，否则只会看到无信息量的 empty output。
+            const finishKind = assembler.finish?.kind
+            const hint = finishKind === 'length'
+              ? `（finish=length：${config.maxTokens} tokens 被推理耗尽，调高 maxTokens 或设 reasoningEffort=off）`
+              : ''
+            throw new Error(`empty output from model${hint}`)
+          }
 
           let type, topic
           try {
