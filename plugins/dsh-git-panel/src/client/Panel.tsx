@@ -1488,7 +1488,10 @@ export function GitPanel(props: {
       setMessage(null)
     }
     try {
-      const [b, g] = await Promise.all([api.branches(path), api.graph(path)])
+      // 串行：branches 与 graph 内部各要 fork 三四个 git，并发会让宿主在
+      // Windows 上同时 CreateProcess 十几个进程，单次耗时翻三倍以上。
+      const b = await api.branches(path)
+      const g = await api.graph(path)
       if (seq !== loadSeq.current) return
       if (b.ok) {
         if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
@@ -1582,15 +1585,19 @@ export function GitPanel(props: {
   }, [path, api])
 
   useEffect(() => {
-    void refreshStatus()
-    void refreshStash()
+    void (async () => {
+      await refreshStatus()
+      await refreshStash()
+    })()
   }, [refreshStatus, refreshStash])
 
-  /** 全量刷新：同时拉取分支/提交图、工作区状态、储藏，并同步外部缓存。 */
+  /** 全量刷新：串行拉取分支/提交图、工作区状态、储藏，避免同时 fork 十几个 git。 */
   const refreshAll = useCallback(async (): Promise<void> => {
     if (!path || busy) return
     onRefreshStatus?.()
-    await Promise.all([load(false), refreshStatus(), refreshStash()])
+    await load(false)
+    await refreshStatus()
+    await refreshStash()
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash])
 
   // 订阅后台 statusCache 变更通知：一旦有文件变动，实时触发变更区轻量刷新（仅 status，不查沉重图谱）
@@ -1603,14 +1610,15 @@ export function GitPanel(props: {
     return unsubscribe
   }, [statusCache, path, busy, refreshStatus])
 
-  // 面板在前台展示时，轻量轮询变更区状态（2.5 秒一次，仅刷新文件变更，绝不拉取昂贵的分支/提交图/抽屉）
+  // 面板在前台展示时，轻量轮询变更区状态（6 秒一次，仅刷新文件变更，绝不拉取昂贵的分支/提交图/抽屉）。
+  // 每次 status 会在宿主 fork 4 个 git 进程，2.5 秒一次会让事件循环长期被进程创建占住。
   useEffect(() => {
     if (!path) return undefined
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible' && !busy) {
         void refreshStatus()
       }
-    }, 2500)
+    }, 6000)
     return () => clearInterval(timer)
   }, [path, busy, refreshStatus])
 

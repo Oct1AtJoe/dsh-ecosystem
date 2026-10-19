@@ -1013,7 +1013,7 @@ async function runBatch(files, apply2) {
 }
 
 // src/client/git-status.ts
-var TTL_MS = 2500;
+var TTL_MS = 5e3;
 function statusLetter(code) {
   if (code === "??") return "U";
   if (code === "!!") return "U";
@@ -2626,7 +2626,8 @@ function GitPanel(props) {
       setMessage(null);
     }
     try {
-      const [b, g] = await Promise.all([api.branches(path), api.graph(path)]);
+      const b = await api.branches(path);
+      const g = await api.graph(path);
       if (seq !== loadSeq.current) return;
       if (b.ok) {
         if (!silent || !areBranchesEqual(branchesRef.current, b.value)) {
@@ -2701,13 +2702,17 @@ function GitPanel(props) {
     setDiffState({ file, content: result.ok ? result.value.output : tError(result.error?.code, result.error?.message ?? ""), busy: false });
   }, [path, api]);
   (0, import_react4.useEffect)(() => {
-    void refreshStatus();
-    void refreshStash();
+    void (async () => {
+      await refreshStatus();
+      await refreshStash();
+    })();
   }, [refreshStatus, refreshStash]);
   const refreshAll = (0, import_react4.useCallback)(async () => {
     if (!path || busy) return;
     onRefreshStatus?.();
-    await Promise.all([load(false), refreshStatus(), refreshStash()]);
+    await load(false);
+    await refreshStatus();
+    await refreshStash();
   }, [path, busy, onRefreshStatus, load, refreshStatus, refreshStash]);
   (0, import_react4.useEffect)(() => {
     if (!statusCache || !path) return void 0;
@@ -2723,7 +2728,7 @@ function GitPanel(props) {
       if (document.visibilityState === "visible" && !busy) {
         void refreshStatus();
       }
-    }, 2500);
+    }, 6e3);
     return () => clearInterval(timer);
   }, [path, busy, refreshStatus]);
   (0, import_react4.useEffect)(() => {
@@ -6540,13 +6545,44 @@ function apply(ctx) {
       const unsubscribeCurrent = scope.uiSession?.adapter?.current?.subscribe?.(() => {
         refreshCurrent(true);
       });
-      const timer = window.setInterval(() => {
-        if (document.visibilityState === "visible") {
+      const fileTreeRendered = () => document.querySelector('[data-files-state="tree"][data-files-root]') !== null;
+      const TREE_MISSING_FALLBACK_MS = 3e4;
+      const TREE_MISSING_WARN_MS = 6e4;
+      let treeMissingSince = 0;
+      let treeMissingWarned = false;
+      let lastFallbackAt = 0;
+      const warnTreeMissing = () => {
+        console.warn(
+          '[dsh-git-panel] 60 \u79D2\u5185\u6CA1\u6709\u627E\u5230\u6587\u4EF6\u6811\u8282\u70B9 [data-files-state="tree"]\uFF0C\u53D8\u66F4\u5FBD\u6807\u8F6E\u8BE2\u5DF2\u964D\u7EA7\u4E3A 30 \u79D2\u515C\u5E95\u3002\u82E5\u9762\u677F\u91CC\u6587\u4EF6\u6811\u5176\u5B9E\u53EF\u89C1\uFF0C\u8BF4\u660E\u5BBF\u4E3B DOM \u5951\u7EA6\u53D8\u4E86\uFF0C\u8BF7\u540C\u6B65\u66F4\u65B0\u672C\u63D2\u4EF6\u7684\u9009\u62E9\u5668\u3002'
+        );
+      };
+      const tick = () => {
+        if (document.visibilityState !== "visible") return;
+        const now = Date.now();
+        if (fileTreeRendered()) {
+          treeMissingSince = 0;
+          treeMissingWarned = false;
           refreshCurrent(false);
+          return;
         }
-      }, POLL_MS);
+        if (treeMissingSince === 0) treeMissingSince = now;
+        if (!treeMissingWarned && now - treeMissingSince >= TREE_MISSING_WARN_MS) {
+          treeMissingWarned = true;
+          warnTreeMissing();
+        }
+        if (now - lastFallbackAt < TREE_MISSING_FALLBACK_MS) return;
+        lastFallbackAt = now;
+        refreshCurrent(false);
+      };
+      const timer = window.setInterval(tick, POLL_MS);
+      const debugWindow = window;
+      debugWindow.__dshGitPanelTreeCheck = () => ({
+        rendered: fileTreeRendered(),
+        missingSince: treeMissingSince,
+        warned: treeMissingWarned
+      });
       const onFocusOrVisible = () => {
-        if (document.visibilityState === "visible") {
+        if (document.visibilityState === "visible" && fileTreeRendered()) {
           refreshCurrent(false);
         }
       };
@@ -6556,6 +6592,7 @@ function apply(ctx) {
         window.clearInterval(timer);
         window.removeEventListener("focus", onFocusOrVisible);
         document.removeEventListener("visibilitychange", onFocusOrVisible);
+        delete window.__dshGitPanelTreeCheck;
         unsubscribeList();
         unsubscribeCurrent?.();
       }, "dsh-git-panel: status poll");

@@ -134,6 +134,20 @@ export type WorkspaceGate = (path: string) => Promise<WorkspaceVerdict>
 /** 基于原生 child_process 的生产运行器，支持环境变量完整透传与网络超时。 */
 export function subprocessRunner(_ctx: Context): GitRunner {
   let current: ReturnType<typeof spawn> | null = null
+  // Windows 上 CreateProcess 相互竞争会显著变慢：一次面板刷新会同时要 12 个以上
+  // git 进程，实测单次从 60ms 涨到 300ms 以上，把宿主事件循环按住一两秒。
+  // 这里做全局并发闸，超出的排队等待，不再一起 fork。
+  const MAX_CONCURRENT = 3
+  let active = 0
+  const waiters: Array<() => void> = []
+  const acquire = async (): Promise<void> => {
+    while (active >= MAX_CONCURRENT) await new Promise<void>((resolve) => { waiters.push(resolve) })
+    active += 1
+  }
+  const release = (): void => {
+    active -= 1
+    waiters.shift()?.()
+  }
   return {
     cancel() {
       if (current !== null) {
@@ -142,7 +156,20 @@ export function subprocessRunner(_ctx: Context): GitRunner {
       }
     },
     async run(argv, cwd) {
-      return new Promise((resolve) => {
+      // 网络操作最长占 90 秒，若参与并发闸会把后续的面板刷新全部堵在队列里；
+      // 前端对 pull/fetch/push 另有 in-flight 保护，同一时刻最多一个。
+      const networkOp = argv.includes('pull') || argv.includes('fetch')
+        || argv.includes('push') || argv.includes('clone')
+      if (!networkOp) await acquire()
+      // 槽位只归还一次：spawn 同步抛错时 Promise 会 reject，没有 close/error 事件。
+      let released = false
+      const once = (): void => {
+        if (released) return
+        released = true
+        if (!networkOp) release()
+      }
+      try {
+        return await new Promise((resolve) => {
         // 对齐 VS Code git 扩展的执行约定（extensions/git/src/git.ts）：
         //   options.stdio = ['ignore', null, null]   → stdin 丢弃，git 永远无法交互式提问
         //   LANGUAGE/LC_ALL/LANG = en_US.UTF-8       → 输出语言稳定（错误信息可被可靠解析）
@@ -226,6 +253,7 @@ export function subprocessRunner(_ctx: Context): GitRunner {
           settled = true
           clearTimeout(timer)
           current = null
+          once()
           if (exitCode !== 0) {
             let errMsg = stderr.trim() !== '' ? stderr.trim() : `git exited with code ${exitCode}`
             if (timedOut) {
@@ -243,10 +271,15 @@ export function subprocessRunner(_ctx: Context): GitRunner {
           settled = true
           clearTimeout(timer)
           current = null
+          once()
           resolve({ exitCode: 1, stdout, stderr: err.message || String(err) })
         })
         child.on('close', (code: number | null) => finish(code ?? 1))
-      })
+        })
+      } catch (error) {
+        once()
+        throw error
+      }
     },
   }
 }
@@ -281,6 +314,16 @@ export class GitService {
    */
   private readonly commitParentCache = new Map<string, string>()
   private readonly commitFileDiffCache = new Map<string, CommitFileDiffResult>()
+  /**
+   * 工作区根与 git 目录：同一工作区的 rev-parse 结果不会变，但每次
+   * status/fileStatus 都会重新 fork 一次 git（Windows 约 60ms）。按 canonical
+   * 缓存 Promise，顺带合并并发首算。
+   */
+  private readonly roots = new Map<string, Promise<{ toplevel: string; gitDir: string }>>()
+  /** 当前分支短名：一次面板刷新里 branches/graph/current 会各问一遍。 */
+  private readonly branchCache = new Map<string, { at: number; value: string }>()
+  /** 文件树徽章轮询的短缓存。2 秒内重复询问直接返回，不再 fork git。 */
+  private readonly fileStatusCache = new Map<string, { at: number; value: FileStatusView }>()
 
   constructor(
     public readonly runner: GitRunner,
@@ -301,15 +344,20 @@ export class GitService {
 
   /** 解析仓库显示名（顶层目录的基名）。 */
   private async repoName(canonical: string): Promise<string> {
-    const run = await this.runner.run(['rev-parse', '--show-toplevel'], canonical)
-    if (run.exitCode !== 0) return canonical.split(/[\\/]/).pop() ?? canonical
-    return run.stdout.trim().split(/[\\/]/).pop() ?? canonical
+    // toplevel 已经由 rootsOf 缓存，不必每轮重新 rev-parse。
+    const { toplevel } = await this.rootsOf(canonical)
+    return toplevel.split(/[\\/]/).pop() ?? canonical
   }
 
-  /** 当前分支短名（HEAD 游离时为空）。 */
+  /** 当前分支短名（HEAD 游离时为空）。1 秒内重复询问复用上一次结果。 */
   async currentBranch(canonical: string): Promise<string> {
+    const cached = this.branchCache.get(canonical)
+    const now = Date.now()
+    if (cached !== undefined && now - cached.at < 1000) return cached.value
     const run = await this.runner.run(['symbolic-ref', '--quiet', '--short', 'HEAD'], canonical)
-    return run.exitCode === 0 ? run.stdout.trim() : ''
+    const value = run.exitCode === 0 ? run.stdout.trim() : ''
+    this.branchCache.set(canonical, { at: now, value })
+    return value
   }
 
   /** 轻量级当前分支探测（一次或两次 git 调用），用于 chip 标签。 */
@@ -333,7 +381,7 @@ export class GitService {
     // 一趟遍历本地 + 远程引用。下面会剥离完整引用名
     // （refname:short 会抹掉 heads/remotes 的区别）。
     const run = await this.runner.run(
-      ['for-each-ref', '--sort=-committerdate', '--format=' + `%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, 'refs/heads', 'refs/remotes'],
+      ['for-each-ref', '--sort=-committerdate', '--format=' + `%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${FIELD}%(upstream:track)${REC}`, 'refs/heads', 'refs/remotes'],
       canonical,
     )
     if (run.exitCode !== 0) {
@@ -344,10 +392,9 @@ export class GitService {
     }
     const local: BranchRow[] = []
     const remote: BranchRow[] = []
-    const withUpstream: Array<[BranchRow, string]> = []
 
     for (const record of splitRecords(run.stdout)) {
-      const [ref, sha, date, subject, upstream] = record.split(FIELD)
+      const [ref, sha, date, subject, upstream, track] = record.split(FIELD)
       if (!ref || !sha) continue
       const isRemote = ref.startsWith('refs/remotes/')
       const name = isRemote ? ref.slice('refs/remotes/'.length) : ref.slice('refs/heads/'.length)
@@ -358,22 +405,19 @@ export class GitService {
         subject: sanitize(subject ?? '').slice(0, 80),
         current: !isRemote && name === current,
       }
+      // %(upstream:track) 形如 "[ahead 2, behind 1]"，与上游同步时为空串。
+      // 一趟 for-each-ref 就带回所有跟踪分支的领先/落后，不必逐分支 rev-list
+      // （Windows 上每次 fork 都是固定的六十毫秒级开销）。
+      if (!isRemote && upstream) {
+        row.ahead = Number(/ahead (\d+)/.exec(track ?? '')?.[1] ?? 0)
+        row.behind = Number(/behind (\d+)/.exec(track ?? '')?.[1] ?? 0)
+      }
       if (isRemote) {
         remote.push(row)
       } else {
         local.push(row)
-        if (upstream) withUpstream.push([row, upstream])
       }
     }
-
-    // ahead/behind 相对上游，每个跟踪的本地分支一次 git 调用。
-    await Promise.all(withUpstream.map(async ([row, upstream]) => {
-      const count = await this.runner.run(['rev-list', '--left-right', '--count', `${row.name}...${upstream}`], canonical)
-      if (count.exitCode !== 0) return
-      const [a, b] = count.stdout.trim().split(/\s+/).map(Number)
-      row.ahead = Number.isFinite(a) ? a : 0
-      row.behind = Number.isFinite(b) ? b : 0
-    }))
 
     const sortRows = (rows: BranchRow[]): BranchRow[] => {
       rows.sort((x, y) => {
@@ -400,6 +444,7 @@ export class GitService {
     if (run.exitCode !== 0) {
       return { ok: false, output: run.stdout, error: { code: 'switch-failed', message: run.stderr.trim() || `git switch ${branch} failed` } }
     }
+    this.branchCache.delete(canonical)
     return { ok: true, output: run.stdout.trim() }
   }
 
@@ -521,10 +566,8 @@ export class GitService {
     // 像 VS Code 一样：检查是否有 .git/MERGE_MSG 并自动读取
     let mergeMsg = ''
     try {
-      const revTop = await this.runner.run(['rev-parse', '--git-dir'], canonical)
-      const gitDir = revTop.exitCode === 0 ? revTop.stdout.trim() : '.git'
-      const fullGitDir = gitDir.startsWith('/') || /^[a-zA-Z]:/.test(gitDir) ? gitDir : join(canonical, gitDir)
-      const mergeMsgPath = join(fullGitDir, 'MERGE_MSG')
+      const { gitDir } = await this.rootsOf(canonical)
+      const mergeMsgPath = join(gitDir, 'MERGE_MSG')
       if (existsSync(mergeMsgPath)) {
         mergeMsg = readFileSync(mergeMsgPath, 'utf8').split('\n')[0].trim()
       }
@@ -618,7 +661,7 @@ export class GitService {
     if (!safeRelative(name)) {
       return { ok: false, output: '', error: { code: 'invalid-file', message: '非法文件路径' } }
     }
-    const toplevel = await this.repoRoot(canonical)
+    const { toplevel } = await this.rootsOf(canonical)
     const absolute = resolvePath(canonical, name)
     if (!inside(canonical, absolute)) {
       return { ok: false, output: '', error: { code: 'outside-workspace', message: '文件位于工作区外' } }
@@ -699,9 +742,13 @@ export class GitService {
    */
   async fileStatus(path: string): Promise<{ ok: boolean; value?: FileStatusView; error?: GitError }> {
     const canonical = await this.requireWorkspace(path)
-    const toplevel = await this.repoRoot(canonical)
+    const held = this.fileStatusCache.get(canonical)
+    if (held !== undefined && Date.now() - held.at < 2000) return { ok: true, value: held.value }
+    const { toplevel } = await this.rootsOf(canonical)
     // 以仓库根为 cwd 运行，porcelain 的路径基准与 toplevel 必然一致。
-    const run = await this.runner.run(['status', '--porcelain', '-z', '--untracked-files=all'], toplevel)
+    // 文件树徽章只需要「这个路径有没有改动」。--untracked-files=all 会把每个
+    // 未跟踪文件都列出来，大工作区一次 200–500ms；normal 只列未跟踪目录，够用。
+    const run = await this.runner.run(['status', '--porcelain', '-z', '--untracked-files=normal'], toplevel)
     if (run.exitCode !== 0) {
       return { ok: false, error: { code: 'status-failed', message: run.stderr.trim() || 'git status failed' } }
     }
@@ -720,17 +767,32 @@ export class GitService {
       entries.push({ path: local, code })
     }
     entries.sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
-    return {
-      ok: true,
-      value: { workspace: canonical, toplevel, entries },
-    }
+    const value = { workspace: canonical, toplevel, entries }
+    this.fileStatusCache.set(canonical, { at: Date.now(), value })
+    return { ok: true, value }
   }
 
-  /** 仓库根：非 git 目录回退到工作区根本身。 */
-  private async repoRoot(canonical: string): Promise<string> {
-    const run = await this.runner.run(['rev-parse', '--show-toplevel'], canonical)
-    const root = run.exitCode === 0 ? run.stdout.trim() : ''
-    return root === '' ? canonical : root
+  /**
+   * 仓库根与 git 目录：非 git 目录回退到工作区根与 `.git`。
+   * 结果按 canonical 缓存，避免每轮轮询重复 fork rev-parse。
+   */
+  private rootsOf(canonical: string): Promise<{ toplevel: string; gitDir: string }> {
+    const cached = this.roots.get(canonical)
+    if (cached !== undefined) return cached
+    const task = (async () => {
+      const [top, dir] = await Promise.all([
+        this.runner.run(['rev-parse', '--show-toplevel'], canonical),
+        this.runner.run(['rev-parse', '--git-dir'], canonical),
+      ])
+      const root = top.exitCode === 0 ? top.stdout.trim() : ''
+      const rawDir = dir.exitCode === 0 ? dir.stdout.trim() : '.git'
+      return {
+        toplevel: root === '' ? canonical : root,
+        gitDir: rawDir.startsWith('/') || /^[a-zA-Z]:/.test(rawDir) ? rawDir : join(canonical, rawDir),
+      }
+    })()
+    this.roots.set(canonical, task)
+    return task
   }
 
   /** 摘取一个提交到当前分支（git cherry-pick）。 */

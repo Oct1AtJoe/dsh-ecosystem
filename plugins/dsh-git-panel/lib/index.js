@@ -75,6 +75,19 @@ async function countFileLines(fullPath) {
 }
 function subprocessRunner(_ctx) {
   let current = null;
+  const MAX_CONCURRENT = 3;
+  let active = 0;
+  const waiters = [];
+  const acquire = async () => {
+    while (active >= MAX_CONCURRENT) await new Promise((resolve) => {
+      waiters.push(resolve);
+    });
+    active += 1;
+  };
+  const release = () => {
+    active -= 1;
+    waiters.shift()?.();
+  };
   return {
     cancel() {
       if (current !== null) {
@@ -83,95 +96,110 @@ function subprocessRunner(_ctx) {
       }
     },
     async run(argv, cwd) {
-      return new Promise((resolve) => {
-        const isWindows = process.platform === "win32";
-        const homeDir = homedir();
-        const env = {
-          ...process.env,
-          ...isWindows ? {
-            USERPROFILE: process.env.USERPROFILE || homeDir,
-            HOME: process.env.HOME || process.env.USERPROFILE || homeDir,
-            APPDATA: process.env.APPDATA || `${homeDir}\\AppData\\Roaming`,
-            LOCALAPPDATA: process.env.LOCALAPPDATA || `${homeDir}\\AppData\\Local`
-          } : {},
-          // 后台进程绝不进入交互式提示：没有 TTY，一旦发问就会挂到超时。
-          GIT_TERMINAL_PROMPT: "0",
-          // GCM 的 GUI 对话框需要有桌面会话；本进程由 launchd 后台拉起，
-          // 弹窗可能无人应答而卡死，因此明确禁掉 GUI，让它直接报错。
-          GCM_INTERACTIVE: "never",
-          GCM_MODAL_PROMPT: "false",
-          // VS Code 同款：强制英文输出 + 不分页。
-          LANGUAGE: "en",
-          LC_ALL: "en_US.UTF-8",
-          LANG: "en_US.UTF-8",
-          GIT_PAGER: "cat",
-          // 企业内网 GitLab 不走代理，直连更快。
-          NO_PROXY: "*sjfood.us,localhost,127.0.0.1",
-          no_proxy: "*sjfood.us,localhost,127.0.0.1"
-        };
-        const isNetworkOp = argv.includes("pull") || argv.includes("fetch") || argv.includes("push") || argv.includes("clone");
-        const timeout = isNetworkOp ? 9e4 : 2e4;
-        const credPath = join(homeDir, ".git-credentials");
-        const credArgs = existsSync(credPath) ? [
-          "-c",
-          `credential.helper=store --file=${credPath}`,
-          // 我们的凭据按主机存（https://user:pass@host）；若开了 useHttpPath，
-          // git 会要求按仓库路径精确匹配从而永远取不到，这里显式关闭。
-          "-c",
-          "credential.useHttpPath=false"
-        ] : [];
-        const fullArgv = [...credArgs, ...argv];
-        let timedOut = false;
-        const child = spawn("git", fullArgv, {
-          cwd,
-          windowsHide: true,
-          env,
-          stdio: ["ignore", "pipe", "pipe"]
-        });
-        current = child;
-        const MAX = OUTPUT_CAP_BYTES;
-        let stdout = "";
-        let stderr = "";
-        let settled = false;
-        child.stdout?.setEncoding("utf8");
-        child.stderr?.setEncoding("utf8");
-        child.stdout?.on("data", (chunk) => {
-          if (stdout.length < MAX) stdout += chunk;
-        });
-        child.stderr?.on("data", (chunk) => {
-          if (stderr.length < MAX) stderr += chunk;
-        });
-        const timer = setTimeout(() => {
-          timedOut = true;
-          try {
-            child.kill("SIGTERM");
-          } catch {
-          }
-        }, timeout);
-        const finish = (exitCode) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          current = null;
-          if (exitCode !== 0) {
-            let errMsg = stderr.trim() !== "" ? stderr.trim() : `git exited with code ${exitCode}`;
-            if (timedOut) {
-              errMsg = "E_TIMEOUT: operation timed out";
+      const networkOp = argv.includes("pull") || argv.includes("fetch") || argv.includes("push") || argv.includes("clone");
+      if (!networkOp) await acquire();
+      let released = false;
+      const once = () => {
+        if (released) return;
+        released = true;
+        if (!networkOp) release();
+      };
+      try {
+        return await new Promise((resolve) => {
+          const isWindows = process.platform === "win32";
+          const homeDir = homedir();
+          const env = {
+            ...process.env,
+            ...isWindows ? {
+              USERPROFILE: process.env.USERPROFILE || homeDir,
+              HOME: process.env.HOME || process.env.USERPROFILE || homeDir,
+              APPDATA: process.env.APPDATA || `${homeDir}\\AppData\\Roaming`,
+              LOCALAPPDATA: process.env.LOCALAPPDATA || `${homeDir}\\AppData\\Local`
+            } : {},
+            // 后台进程绝不进入交互式提示：没有 TTY，一旦发问就会挂到超时。
+            GIT_TERMINAL_PROMPT: "0",
+            // GCM 的 GUI 对话框需要有桌面会话；本进程由 launchd 后台拉起，
+            // 弹窗可能无人应答而卡死，因此明确禁掉 GUI，让它直接报错。
+            GCM_INTERACTIVE: "never",
+            GCM_MODAL_PROMPT: "false",
+            // VS Code 同款：强制英文输出 + 不分页。
+            LANGUAGE: "en",
+            LC_ALL: "en_US.UTF-8",
+            LANG: "en_US.UTF-8",
+            GIT_PAGER: "cat",
+            // 企业内网 GitLab 不走代理，直连更快。
+            NO_PROXY: "*sjfood.us,localhost,127.0.0.1",
+            no_proxy: "*sjfood.us,localhost,127.0.0.1"
+          };
+          const isNetworkOp = argv.includes("pull") || argv.includes("fetch") || argv.includes("push") || argv.includes("clone");
+          const timeout = isNetworkOp ? 9e4 : 2e4;
+          const credPath = join(homeDir, ".git-credentials");
+          const credArgs = existsSync(credPath) ? [
+            "-c",
+            `credential.helper=store --file=${credPath}`,
+            // 我们的凭据按主机存（https://user:pass@host）；若开了 useHttpPath，
+            // git 会要求按仓库路径精确匹配从而永远取不到，这里显式关闭。
+            "-c",
+            "credential.useHttpPath=false"
+          ] : [];
+          const fullArgv = [...credArgs, ...argv];
+          let timedOut = false;
+          const child = spawn("git", fullArgv, {
+            cwd,
+            windowsHide: true,
+            env,
+            stdio: ["ignore", "pipe", "pipe"]
+          });
+          current = child;
+          const MAX = OUTPUT_CAP_BYTES;
+          let stdout = "";
+          let stderr = "";
+          let settled = false;
+          child.stdout?.setEncoding("utf8");
+          child.stderr?.setEncoding("utf8");
+          child.stdout?.on("data", (chunk) => {
+            if (stdout.length < MAX) stdout += chunk;
+          });
+          child.stderr?.on("data", (chunk) => {
+            if (stderr.length < MAX) stderr += chunk;
+          });
+          const timer = setTimeout(() => {
+            timedOut = true;
+            try {
+              child.kill("SIGTERM");
+            } catch {
             }
-            resolve({ exitCode, stdout, stderr: errMsg });
-          } else {
-            resolve({ exitCode: 0, stdout, stderr });
-          }
-        };
-        child.on("error", (err) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          current = null;
-          resolve({ exitCode: 1, stdout, stderr: err.message || String(err) });
+          }, timeout);
+          const finish = (exitCode) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            current = null;
+            once();
+            if (exitCode !== 0) {
+              let errMsg = stderr.trim() !== "" ? stderr.trim() : `git exited with code ${exitCode}`;
+              if (timedOut) {
+                errMsg = "E_TIMEOUT: operation timed out";
+              }
+              resolve({ exitCode, stdout, stderr: errMsg });
+            } else {
+              resolve({ exitCode: 0, stdout, stderr });
+            }
+          };
+          child.on("error", (err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            current = null;
+            once();
+            resolve({ exitCode: 1, stdout, stderr: err.message || String(err) });
+          });
+          child.on("close", (code) => finish(code ?? 1));
         });
-        child.on("close", (code) => finish(code ?? 1));
-      });
+      } catch (error) {
+        once();
+        throw error;
+      }
     }
   };
 }
@@ -194,6 +222,16 @@ var GitService = class {
    */
   commitParentCache = /* @__PURE__ */ new Map();
   commitFileDiffCache = /* @__PURE__ */ new Map();
+  /**
+   * 工作区根与 git 目录：同一工作区的 rev-parse 结果不会变，但每次
+   * status/fileStatus 都会重新 fork 一次 git（Windows 约 60ms）。按 canonical
+   * 缓存 Promise，顺带合并并发首算。
+   */
+  roots = /* @__PURE__ */ new Map();
+  /** 当前分支短名：一次面板刷新里 branches/graph/current 会各问一遍。 */
+  branchCache = /* @__PURE__ */ new Map();
+  /** 文件树徽章轮询的短缓存。2 秒内重复询问直接返回，不再 fork git。 */
+  fileStatusCache = /* @__PURE__ */ new Map();
   /** 缓存写入：超限时整体清空（提交级缓存无失效语义，粗暴清空即可）。 */
   cacheSet(map, key, value) {
     if (map.size >= COMMIT_CACHE_LIMIT) map.clear();
@@ -206,14 +244,18 @@ var GitService = class {
   }
   /** 解析仓库显示名（顶层目录的基名）。 */
   async repoName(canonical) {
-    const run = await this.runner.run(["rev-parse", "--show-toplevel"], canonical);
-    if (run.exitCode !== 0) return canonical.split(/[\\/]/).pop() ?? canonical;
-    return run.stdout.trim().split(/[\\/]/).pop() ?? canonical;
+    const { toplevel } = await this.rootsOf(canonical);
+    return toplevel.split(/[\\/]/).pop() ?? canonical;
   }
-  /** 当前分支短名（HEAD 游离时为空）。 */
+  /** 当前分支短名（HEAD 游离时为空）。1 秒内重复询问复用上一次结果。 */
   async currentBranch(canonical) {
+    const cached = this.branchCache.get(canonical);
+    const now = Date.now();
+    if (cached !== void 0 && now - cached.at < 1e3) return cached.value;
     const run = await this.runner.run(["symbolic-ref", "--quiet", "--short", "HEAD"], canonical);
-    return run.exitCode === 0 ? run.stdout.trim() : "";
+    const value = run.exitCode === 0 ? run.stdout.trim() : "";
+    this.branchCache.set(canonical, { at: now, value });
+    return value;
   }
   /** 轻量级当前分支探测（一次或两次 git 调用），用于 chip 标签。 */
   async current(path) {
@@ -232,7 +274,7 @@ var GitService = class {
       this.currentBranch(canonical)
     ]);
     const run = await this.runner.run(
-      ["for-each-ref", "--sort=-committerdate", `--format=%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${REC}`, "refs/heads", "refs/remotes"],
+      ["for-each-ref", "--sort=-committerdate", `--format=%(refname)${FIELD}%(objectname:short)${FIELD}%(committerdate:iso8601)${FIELD}%(subject)${FIELD}%(upstream:short)${FIELD}%(upstream:track)${REC}`, "refs/heads", "refs/remotes"],
       canonical
     );
     if (run.exitCode !== 0) {
@@ -243,9 +285,8 @@ var GitService = class {
     }
     const local = [];
     const remote = [];
-    const withUpstream = [];
     for (const record of splitRecords(run.stdout)) {
-      const [ref, sha, date, subject, upstream] = record.split(FIELD);
+      const [ref, sha, date, subject, upstream, track] = record.split(FIELD);
       if (!ref || !sha) continue;
       const isRemote = ref.startsWith("refs/remotes/");
       const name = isRemote ? ref.slice("refs/remotes/".length) : ref.slice("refs/heads/".length);
@@ -256,20 +297,16 @@ var GitService = class {
         subject: sanitize(subject ?? "").slice(0, 80),
         current: !isRemote && name === current
       };
+      if (!isRemote && upstream) {
+        row.ahead = Number(/ahead (\d+)/.exec(track ?? "")?.[1] ?? 0);
+        row.behind = Number(/behind (\d+)/.exec(track ?? "")?.[1] ?? 0);
+      }
       if (isRemote) {
         remote.push(row);
       } else {
         local.push(row);
-        if (upstream) withUpstream.push([row, upstream]);
       }
     }
-    await Promise.all(withUpstream.map(async ([row, upstream]) => {
-      const count = await this.runner.run(["rev-list", "--left-right", "--count", `${row.name}...${upstream}`], canonical);
-      if (count.exitCode !== 0) return;
-      const [a, b] = count.stdout.trim().split(/\s+/).map(Number);
-      row.ahead = Number.isFinite(a) ? a : 0;
-      row.behind = Number.isFinite(b) ? b : 0;
-    }));
     const sortRows = (rows) => {
       rows.sort((x, y) => {
         if (x.name === current) return -1;
@@ -291,6 +328,7 @@ var GitService = class {
     if (run.exitCode !== 0) {
       return { ok: false, output: run.stdout, error: { code: "switch-failed", message: run.stderr.trim() || `git switch ${branch} failed` } };
     }
+    this.branchCache.delete(canonical);
     return { ok: true, output: run.stdout.trim() };
   }
   /** 拉取当前分支（使用其上游）。 */
@@ -388,10 +426,8 @@ var GitService = class {
     }
     let mergeMsg = "";
     try {
-      const revTop = await this.runner.run(["rev-parse", "--git-dir"], canonical);
-      const gitDir = revTop.exitCode === 0 ? revTop.stdout.trim() : ".git";
-      const fullGitDir = gitDir.startsWith("/") || /^[a-zA-Z]:/.test(gitDir) ? gitDir : join(canonical, gitDir);
-      const mergeMsgPath = join(fullGitDir, "MERGE_MSG");
+      const { gitDir } = await this.rootsOf(canonical);
+      const mergeMsgPath = join(gitDir, "MERGE_MSG");
       if (existsSync(mergeMsgPath)) {
         mergeMsg = readFileSync(mergeMsgPath, "utf8").split("\n")[0].trim();
       }
@@ -476,7 +512,7 @@ var GitService = class {
     if (!safeRelative(name)) {
       return { ok: false, output: "", error: { code: "invalid-file", message: "\u975E\u6CD5\u6587\u4EF6\u8DEF\u5F84" } };
     }
-    const toplevel = await this.repoRoot(canonical);
+    const { toplevel } = await this.rootsOf(canonical);
     const absolute = resolvePath(canonical, name);
     if (!inside(canonical, absolute)) {
       return { ok: false, output: "", error: { code: "outside-workspace", message: "\u6587\u4EF6\u4F4D\u4E8E\u5DE5\u4F5C\u533A\u5916" } };
@@ -554,8 +590,10 @@ var GitService = class {
    */
   async fileStatus(path) {
     const canonical = await this.requireWorkspace(path);
-    const toplevel = await this.repoRoot(canonical);
-    const run = await this.runner.run(["status", "--porcelain", "-z", "--untracked-files=all"], toplevel);
+    const held = this.fileStatusCache.get(canonical);
+    if (held !== void 0 && Date.now() - held.at < 2e3) return { ok: true, value: held.value };
+    const { toplevel } = await this.rootsOf(canonical);
+    const run = await this.runner.run(["status", "--porcelain", "-z", "--untracked-files=normal"], toplevel);
     if (run.exitCode !== 0) {
       return { ok: false, error: { code: "status-failed", message: run.stderr.trim() || "git status failed" } };
     }
@@ -573,16 +611,31 @@ var GitService = class {
       entries.push({ path: local, code });
     }
     entries.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
-    return {
-      ok: true,
-      value: { workspace: canonical, toplevel, entries }
-    };
+    const value = { workspace: canonical, toplevel, entries };
+    this.fileStatusCache.set(canonical, { at: Date.now(), value });
+    return { ok: true, value };
   }
-  /** 仓库根：非 git 目录回退到工作区根本身。 */
-  async repoRoot(canonical) {
-    const run = await this.runner.run(["rev-parse", "--show-toplevel"], canonical);
-    const root = run.exitCode === 0 ? run.stdout.trim() : "";
-    return root === "" ? canonical : root;
+  /**
+   * 仓库根与 git 目录：非 git 目录回退到工作区根与 `.git`。
+   * 结果按 canonical 缓存，避免每轮轮询重复 fork rev-parse。
+   */
+  rootsOf(canonical) {
+    const cached = this.roots.get(canonical);
+    if (cached !== void 0) return cached;
+    const task = (async () => {
+      const [top, dir] = await Promise.all([
+        this.runner.run(["rev-parse", "--show-toplevel"], canonical),
+        this.runner.run(["rev-parse", "--git-dir"], canonical)
+      ]);
+      const root = top.exitCode === 0 ? top.stdout.trim() : "";
+      const rawDir = dir.exitCode === 0 ? dir.stdout.trim() : ".git";
+      return {
+        toplevel: root === "" ? canonical : root,
+        gitDir: rawDir.startsWith("/") || /^[a-zA-Z]:/.test(rawDir) ? rawDir : join(canonical, rawDir)
+      };
+    })();
+    this.roots.set(canonical, task);
+    return task;
   }
   /** 摘取一个提交到当前分支（git cherry-pick）。 */
   async cherryPick(path, sha) {

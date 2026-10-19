@@ -159,15 +159,65 @@ export function apply(ctx: PanelClientContext): void {
         refreshCurrent(true)
       })
 
-      // 仅在前台激活时以 3 秒间隔静默更新当前工作区
-      const timer = window.setInterval(() => {
-        if (document.visibilityState === 'visible') {
+      // 变更清单的唯一消费者是左侧文件树的装饰徽标（decorations.ts 只查
+      // [data-files-state="tree"]）。树没渲染时徽标无处可贴，轮询纯属浪费一次
+      // 宿主 git 进程，所以这里按 DOM 是否真的存在来门控。
+      //
+      // 门控是脆的：宿主一旦改掉这个 DOM 契约，fileTreeRendered() 会恒为 false，
+      // 装饰从此静默失效。因此门控只降频、不归零——树不可见时仍每 30 秒兜底拉
+      // 一次，并在持续不可见时打一条可检索的警告，让契约变更在控制台可见。
+      const fileTreeRendered = (): boolean =>
+        document.querySelector('[data-files-state="tree"][data-files-root]') !== null
+
+      /** 树不可见时的兜底间隔：功能不归零，只把频率压到一个可忽略的量级。 */
+      const TREE_MISSING_FALLBACK_MS = 30_000
+      /** 连续不可见多久之后报警：留出用户正常收起文件树的余量。 */
+      const TREE_MISSING_WARN_MS = 60_000
+
+      let treeMissingSince = 0
+      let treeMissingWarned = false
+      let lastFallbackAt = 0
+
+      /** 一条可被 grep 的告警，避免 DOM 契约变更退化成静默失效。 */
+      const warnTreeMissing = (): void => {
+        console.warn(
+          '[dsh-git-panel] 60 秒内没有找到文件树节点 [data-files-state="tree"]，'
+          + '变更徽标轮询已降级为 30 秒兜底。若面板里文件树其实可见，'
+          + '说明宿主 DOM 契约变了，请同步更新本插件的选择器。',
+        )
+      }
+
+      const tick = (): void => {
+        if (document.visibilityState !== 'visible') return
+        const now = Date.now()
+        if (fileTreeRendered()) {
+          treeMissingSince = 0
+          treeMissingWarned = false
           refreshCurrent(false)
+          return
         }
-      }, POLL_MS)
+        if (treeMissingSince === 0) treeMissingSince = now
+        if (!treeMissingWarned && now - treeMissingSince >= TREE_MISSING_WARN_MS) {
+          treeMissingWarned = true
+          warnTreeMissing()
+        }
+        if (now - lastFallbackAt < TREE_MISSING_FALLBACK_MS) return
+        lastFallbackAt = now
+        refreshCurrent(false)
+      }
+
+      const timer = window.setInterval(tick, POLL_MS)
+
+      // 手动排查入口：DevTools 控制台执行 __dshGitPanelTreeCheck() 即可看到门控现状。
+      const debugWindow = window as unknown as { __dshGitPanelTreeCheck?: () => unknown }
+      debugWindow.__dshGitPanelTreeCheck = () => ({
+        rendered: fileTreeRendered(),
+        missingSince: treeMissingSince,
+        warned: treeMissingWarned,
+      })
 
       const onFocusOrVisible = (): void => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && fileTreeRendered()) {
           refreshCurrent(false)
         }
       }
@@ -178,6 +228,7 @@ export function apply(ctx: PanelClientContext): void {
         window.clearInterval(timer)
         window.removeEventListener('focus', onFocusOrVisible)
         document.removeEventListener('visibilitychange', onFocusOrVisible)
+        delete (window as unknown as { __dshGitPanelTreeCheck?: () => unknown }).__dshGitPanelTreeCheck
         unsubscribeList()
         unsubscribeCurrent?.()
       }, 'dsh-git-panel: status poll')

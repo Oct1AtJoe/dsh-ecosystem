@@ -14,8 +14,13 @@
 import type { FileStatusView } from '../core/types.ts'
 import { GitPanelApi } from './api.ts'
 
-/** 缓存寿命：这段时间内的重复询问不再发请求。 */
-const TTL_MS = 2500
+/**
+ * 缓存寿命：这段时间内的重复询问不再发请求。
+ * 必须大于轮询间隔（index.ts 的 3 秒），否则每次轮询都判定过期，缓存形同
+ * 虚设——每次都给宿主发一次 `git status`，而一次 git 在 Windows 上要
+ * 60~220ms 的进程创建开销。
+ */
+const TTL_MS = 5000
 
 /** 单个工作区的变更快照。 */
 interface Snapshot {
