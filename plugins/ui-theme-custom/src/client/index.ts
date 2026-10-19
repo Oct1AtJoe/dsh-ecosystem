@@ -41,6 +41,7 @@ import { HomeUsagePanel } from './usage/HomeUsagePanel.tsx'
 import { SaulFingerGunIcon } from './usage/SaulIcon.tsx'
 import { createHomeUsage } from './usage/data.ts'
 import { injectHomeUsageStyles } from './usage/styles.ts'
+import { BOOT_SPINNER_CSS } from '../boot-spinner-css.ts'
 
 export type { TechThemeRowInjected } from './TechThemeRow.tsx'
 export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
@@ -1826,6 +1827,25 @@ function injectSurfaceGlass(): () => void {
   return () => { tag.remove() }
 }
 
+/** Marker attribute for the injected boot-spinner stylesheet. */
+const BOOT_SPINNER_ATTRIBUTE = 'data-ui-theme-custom-boot-spinner'
+
+/**
+ * Re-inject the boot-spinner correction once the bundle activates, for pages
+ * the node half served before it carried this style. Idempotent across HMR
+ * re-applies and cheap enough to leave the node half's copy in place.
+ * @returns disposer removing the style element.
+ */
+function injectBootSpinner(): () => void {
+  if (typeof document === 'undefined') return () => {}
+  if (document.head.querySelector(`style[${BOOT_SPINNER_ATTRIBUTE}]`) !== null) return () => {}
+  const tag = document.createElement('style')
+  tag.setAttribute(BOOT_SPINNER_ATTRIBUTE, '')
+  tag.textContent = BOOT_SPINNER_CSS
+  document.head.appendChild(tag)
+  return () => { tag.remove() }
+}
+
 /** Theme id → tokens map for direct CSS-variable application. */
 const THEME_TOKEN_MAP: Record<string, ThemeTokens> = {
   sequoia: SEQUOIA_TOKENS,
@@ -2553,6 +2573,7 @@ export function apply(ctx: Context): void {
     const removeKeyframes = injectButtonDrift()
     const removeSurfaceGlass = injectSurfaceGlass()
     const removeHomeUsageStyles = injectHomeUsageStyles()
+    const removeBootSpinner = injectBootSpinner()
     return () => {
       disposeSequoia()
       disposeSonoma()
@@ -2563,6 +2584,7 @@ export function apply(ctx: Context): void {
       removeKeyframes()
       removeSurfaceGlass()
       removeHomeUsageStyles()
+      removeBootSpinner()
       clearTokens()
     }
   }, 'ui-theme-custom: tech theme registrations + drift keyframes + surface glass')

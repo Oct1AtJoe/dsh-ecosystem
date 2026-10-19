@@ -16,7 +16,10 @@ import type { Context } from '@deepseek-ai/cordis';
 /** Local structural stand-in for the host webserver's index injection row. */
 type IndexInjection = {
     kind: 'script';
-    placement: 'body';
+    placement: 'head' | 'body';
+    text: string;
+} | {
+    kind: 'style';
     text: string;
 };
 declare module '@deepseek-ai/cordis' {

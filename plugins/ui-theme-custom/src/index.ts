@@ -20,13 +20,12 @@ import { VOID_TOKENS } from './client/void.ts'
 import { JADE_TOKENS } from './client/jade.ts'
 import { SOLAR_TOKENS } from './client/solar.ts'
 import { PARCHMENT_TOKENS } from './client/parchment.ts'
+import { BOOT_SPINNER_CSS } from './boot-spinner-css.ts'
 
 /** Local structural stand-in for the host webserver's index injection row. */
-type IndexInjection = {
-  kind: 'script'
-  placement: 'body'
-  text: string
-}
+type IndexInjection =
+  | { kind: 'script'; placement: 'head' | 'body'; text: string }
+  | { kind: 'style'; text: string }
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -95,6 +94,7 @@ try {
 export function apply(ctx: Context): void {
   ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
     table.push({ kind: 'script', placement: 'body', text: BOOT_SCRIPT })
+    table.push({ kind: 'style', text: BOOT_SPINNER_CSS })
   })
 
   ctx.inject(['webServer'], (scope: any) => {

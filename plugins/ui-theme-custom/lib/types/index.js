@@ -5,6 +5,7 @@ import { VOID_TOKENS } from "./client/void.js";
 import { JADE_TOKENS } from "./client/jade.js";
 import { SOLAR_TOKENS } from "./client/solar.js";
 import { PARCHMENT_TOKENS } from "./client/parchment.js";
+import { BOOT_SPINNER_CSS } from "./boot-spinner-css.js";
 /** Custom theme id → serialized token overrides for the pre-paint boot application. */
 const CUSTOM_TOKENS = {
     sequoia: SEQUOIA_TOKENS,
@@ -63,6 +64,7 @@ try {
 export function apply(ctx) {
     ctx.on('webserver/index-inject', (table) => {
         table.push({ kind: 'script', placement: 'body', text: BOOT_SCRIPT });
+        table.push({ kind: 'style', text: BOOT_SPINNER_CSS });
     });
     ctx.inject(['webServer'], (scope) => {
         const dispose = registerRoutes(ctx, scope);
