@@ -36,6 +36,9 @@
         "@deepseek-ai/dsh-client-ui-renderer"
       ],
       "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
     }
   },
   "scripts": {
@@ -77,7 +80,8 @@
   "files": [
     "lib/index.js",
     "lib/client.js",
-    "lib/types/**/*.d.ts"
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml"
   ],
   "engines": {
     "dsh": ">=0.1.2-rc.1 <0.3.0"
