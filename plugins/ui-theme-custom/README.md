@@ -2,19 +2,57 @@
 
 English | [中文](README.zh.md)
 
-Aurora and nebula tech themes for the Web GUI, registered onto the official [`dsh-client-ui-theme`](../ui-theme/README.md) theme registry. The browser plugin injects the theme service and calls `ctx.theme.register(...)` for both definitions; the registry snapshot then drives the Appearance row cubes and the presenter exactly like the built-in pair.
+**Tech Themes & Customization** plugin for DeepSeek Harness Web GUI, registered onto the official [`dsh-client-ui-theme`](../ui-theme/README.md) theme registry and settings system.
 
-The package ships the moved token files (`aurora.ts`, `nebula.ts` — nebula carries the liquid-glass surface tokens, gradient/glow buttons, and the drift motion), injects the `dsh-button-drift` keyframes the nebula motion token references as a runtime style element, and registers its own settings row (`settings.general.item`, id `appearance-custom`) carrying the two theme cubes — the official Appearance row stays light/dark/system only. It depends on the official ui-theme extension surface: `THEME_PREFERENCES` includes the two ids (so selection persists through the official settings scope) and `boot-theme.ts` maps them to the dark palette pre-activation. The token-consuming `var(--dsw-alias-...)` fallback rules in official component stylesheets are inert without these themes.
+This plugin delivers six premium crafted tech themes, frosted glass and titlebar fusion aesthetics, and comprehensive UI customization features including independent sidebar font scaling, right sidebar width ratio, composer mascot, and Studio layout.
 
-## Model experience
+---
 
-No model-facing requests: the plugin only registers CSS token sets into the browser theme registry. It performs no prompt, tool, message, or provider work and touches no session log.
+## Core Features
 
-#### KV cache impact
+### 1. Six Premium Tech Themes
 
-None — no model input is assembled.
+Registers a dedicated "Tech themes" row (`appearance-custom`) right below the official Appearance row in Settings:
 
-## Known Limitations and Deferred Work
+- **Liquid (Sequoia)**: macOS Sequoia-inspired Liquid Frost Light theme. Seamless background `rgb(245,245,247)`, deep frosted glass with `blur(92px) saturate(180%)`, specular hairline highlights, and byte-exact fusion with desktop titlebar.
+- **Obsidian (Sonoma)**: macOS Sonoma-inspired Dark Obsidian Pro theme. Deep space dark background `rgb(22,24,30)` with tuned dark glass translucency.
+- **Void**: Warm charcoal dark theme `rgb(13,13,16)` for an immersive developer coding environment.
+- **Argent (Jade)**: Refined frosted liquid silver light theme `rgb(226,228,233)` with CNC aluminum finish aesthetic.
+- **Solar**: Amber glowing frosted glass dark theme `rgb(18,14,16)` with warm eye-friendly amber hues.
+- **Parchment**: Warm rice paper & pine soot ink light theme `rgb(230,224,212)` with clean, glare-free reading comfort.
 
-- **Mount coupling**: the tech-theme settings row assumes this plugin is mounted; without it, the aurora/nebula cubes are absent (the official row never references the custom ids), and a persisted `aurora`/`nebula` preference is not selectable.
-- **Boot flash**: theme activation follows client-plugin activation; the official boot script covers `light`/`dark`/`system` only when the extension surface above is absent.
+### 2. Frosted Glass & Borderless Titlebar Fusion
+
+- **True Frosted Glass Material**: Powered by `backdrop-filter: blur(92px) saturate(180%)` and optimal opacity (`.38`), gently diffusing background contents while preserving visual hierarchy across composer dock, AI cards, and sidebars.
+- **Borderless Titlebar Fusion (Plan C)**: Syncs theme color with desktop shell via notification bridge, aligning canvas and titlebar colors byte-for-byte to eliminate color discrepancies and seams.
+
+### 3. UI Personalization Settings
+
+Seamless native settings integrated into General Settings:
+
+- **Sidebar Font Size**: Decouples sidebar navigation font size from conversation content (default 13px) to prevent navigation from competing visually with reading content.
+- **Right Sidebar Initial Width Ratio**: Customizes the default percentage of window width occupied by the right sidebar upon expansion.
+- **Composer Pet (Mascot)**: Animated pixel companion displayed above the composer dock.
+- **New Conversation Layout**: Toggle between Classic centered layout and Studio layout (centered home model usage panel with docked composer).
+
+---
+
+## Model Experience
+
+No model-facing requests: this plugin only registers CSS token sets and client components into the browser container. It performs no prompt, tool, message, or provider operations and touches no session logs.
+
+#### KV Cache Impact
+
+None — no model inputs are assembled.
+
+---
+
+## Build & Test
+
+```powershell
+cd plugins/ui-theme-custom
+node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
+node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
+node tests\badge-token-check.mjs
+node tests\font-size-check.mjs
+```
