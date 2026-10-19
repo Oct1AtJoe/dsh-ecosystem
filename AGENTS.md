@@ -312,14 +312,23 @@ node scripts\pack-plugins.mjs
 并生成 `manifest.json`；上传后 Release 的下载 URL 即为
 `https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<文件名>`。
 
-### 5.4 改动插件源码后，必须提示用户是否打包发布
+### 5.4 改动源码与打包发布的交付契约（双阶段硬约束）
 
-> 🚨 **硬性要求**：本次会话**只要改动了 `plugins/<任一插件>/` 下的源码**，
-> 在最终回复里**必须**明确询问用户：
+> 🚨 **第一阶段（改完源码）：必须询问是否打包发布**
+> 本次会话**只要改动了 `plugins/<任一插件>/` 下的源码**，在回复里**必须**明确询问用户：
 > **「源码已改好，是否现在打包发布？（或先在页面上验证，确认没问题后再发布）」**
+> - 不得擅自打包、不得擅自发布、也不得默认「改完就算完」。
+> - 用户的默认节奏是：**先 link 到源码 → 页面验证 → 确认无误 → 再打包发布**。
 
-不得擅自打包、不得擅自发布、也不得默认「改完就算完」。
-用户的默认节奏是：**先 link 到源码 → 页面验证 → 确认无误 → 再打包发布**。
+> 🚨 **第二阶段（完成发布）：必须返回 GitHub 安装命令与覆盖路径**
+> 当用户确认打包发布、且执行完 `pack-plugins.mjs` 及 GitHub Release 上传后，最终回复里**必须**交付具体的安装命令与路径，供用户在 DSH UI 中快速安装覆盖：
+> 1. **DSH UI 在线安装地址**（进入「设置 ⚙️ -> 插件 -> 添加插件」直接粘贴 URL）：
+>    `https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<扁平名>-<版本>.tgz`
+> 2. **本地离线包绝对路径**（免网络下载，适合网络受限时秒级安装覆盖）：
+>    `C:\dsh-ecosystem\dist-tarballs\<扁平名>-<版本>.tgz`
+> 3. **CLI 命令行安装命令**：
+>    `dsh plugin add https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<扁平名>-<版本>.tgz`
+> 4. **重启指引**：提示用户安装覆盖后，通过托盘右键「重启服务与客户端」或重启应用生效。
 
 ### 5.5 生效与调试验证
 - **浏览器刷新**：构建完成后浏览器执行 `Ctrl+F5` 硬刷新即可加载最新 Combo bundle。
