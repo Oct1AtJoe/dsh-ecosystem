@@ -3332,6 +3332,234 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 托盘自愈看门狗。
+///
+/// `tray-icon` 首次 `Shell_NotifyIcon(NIM_ADD)` 失败时**静默放弃**（其源码注释：保持
+/// 窗口存活，等 `TaskbarCreated` 再注册）。而 `TaskbarCreated` 只在 Shell 启动/重启时
+/// 广播一次 —— DSH 启动窗口期若通知区域未就绪，图标就永久缺失且无任何报错。
+///
+/// 这里每 1.5s 自查一次：本进程的 `tray_icon_app` 隐藏窗口是否真的进了通知区
+/// （`Shell_NotifyIconGetRect` 能查到即已注册）。未注册就伪造一次 `TaskbarCreated`
+/// 触发库内 remove + register 分支。已注册即退出，最多重试 10 次。
+#[cfg(target_os = "windows")]
+fn start_tray_watchdog() {
+    use windows::Win32::Foundation::{GetLastError, HWND, LPARAM, WPARAM};
+    use windows::Win32::UI::Shell::{
+        Shell_NotifyIconGetRect, Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD,
+        NIM_DELETE, NOTIFYICONDATAW, NOTIFYICONIDENTIFIER, NOTIFY_ICON_DATA_FLAGS,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        FindWindowExW, GetWindowThreadProcessId, PostMessageW, RegisterWindowMessageW,
+    };
+
+    // 用独立线程而非 async task：本函数持有 HWND/裸指针，Send future 约束会把 async 版拒掉。
+    std::thread::spawn(move || {
+        let pid = std::process::id();
+        let class = windows::core::w!("tray_icon_app");
+        let taskbar_created =
+            unsafe { RegisterWindowMessageW(windows::core::w!("TaskbarCreated")) };
+        let mut attempt = 0u32;
+        loop {
+            std::thread::sleep(Duration::from_millis(1500));
+
+            // 枚举本进程的托盘隐藏窗口（库可能已创建但未注册）。
+            // 存 isize 而非 HWND：HWND 含裸指针不是 Send，跨 await 会被 spawn 拒绝。
+            let mut hwnds: Vec<isize> = Vec::new();
+            let null = HWND(std::ptr::null_mut());
+            unsafe {
+                let mut cur = FindWindowExW(null, null, class, windows::core::PCWSTR::null());
+                let mut guard = 0;
+                while let Ok(h) = cur {
+                    let mut wpid = 0u32;
+                    GetWindowThreadProcessId(h, Some(&mut wpid as *mut u32));
+                    if wpid == pid {
+                        hwnds.push(h.0 as isize);
+                    }
+                    guard += 1;
+                    if guard >= 16 {
+                        break;
+                    }
+                    cur = FindWindowExW(null, h, class, windows::core::PCWSTR::null());
+                }
+            }
+            if hwnds.is_empty() {
+                // 库还没建窗口，再等；超过 20 轮视为未启用托盘
+                attempt += 1;
+                if attempt > 20 {
+                    break;
+                }
+                continue;
+            }
+
+            let mut registered = false;
+            for hwnd in &hwnds {
+                for uid in 1..8u32 {
+                    let id = NOTIFYICONIDENTIFIER {
+                        cbSize: std::mem::size_of::<NOTIFYICONIDENTIFIER>() as u32,
+                        hWnd: HWND(*hwnd as _),
+                        uID: uid,
+                        guidItem: Default::default(),
+                    };
+                    if unsafe { Shell_NotifyIconGetRect(&id) }.is_ok() {
+                        registered = true;
+                        break;
+                    }
+                }
+                if registered {
+                    break;
+                }
+            }
+            if registered {
+                log::info!("[tray] 图标已在通知区（看门狗确认）");
+                break;
+            }
+
+            attempt += 1;
+            // 首次失败做一次 A/B 诊断：crate 的窗口 vs 自建标准窗口，都用系统图标。
+            // 两者都在同一个 HIGH 进程里，差异只可能是窗口属性/上下文。
+            if attempt == 1 {
+                let mut diag = String::new();
+                let sys_icon = unsafe {
+                    windows::Win32::UI::WindowsAndMessaging::LoadIconW(
+                        None,
+                        windows::Win32::UI::WindowsAndMessaging::IDI_APPLICATION,
+                    )
+                    .map(|h| h.0 as isize)
+                    .unwrap_or(0)
+                };
+                diag.push_str(&format!("LoadIconW(IDI_APPLICATION) = 0x{:X}\n", sys_icon));
+
+                for h in &hwnds {
+                    let mut nid = NOTIFYICONDATAW::default();
+                    nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+                    nid.hWnd = HWND(*h as _);
+                    nid.uID = 9001;
+                    nid.uFlags =
+                        NOTIFY_ICON_DATA_FLAGS(NIF_MESSAGE.0 | NIF_ICON.0 | NIF_TIP.0);
+                    nid.uCallbackMessage = 0x8007;
+                    nid.hIcon = windows::Win32::UI::WindowsAndMessaging::HICON(
+                        sys_icon as *mut core::ffi::c_void,
+                    );
+                    for (i, c) in "crate-hwnd probe".encode_utf16().take(127).enumerate() {
+                        nid.szTip[i] = c;
+                    }
+                    let ok = unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
+                    let err = unsafe { GetLastError() };
+                    diag.push_str(&format!(
+                        "[A] crate 窗口 0x{:X} + 系统图标 -> NIM_ADD={} last_error={}\n",
+                        *h,
+                        ok.as_bool(),
+                        err.0
+                    ));
+                    if ok.as_bool() {
+                        let id = NOTIFYICONIDENTIFIER {
+                            cbSize: std::mem::size_of::<NOTIFYICONIDENTIFIER>() as u32,
+                            hWnd: HWND(*h as _),
+                            uID: 9001,
+                            guidItem: Default::default(),
+                        };
+                        let rect = unsafe { Shell_NotifyIconGetRect(&id) };
+                        diag.push_str(&format!(
+                            "    GetRect: {}\n",
+                            match &rect {
+                                Ok(r) => format!("OK ({},{},{},{})", r.left, r.top, r.right, r.bottom),
+                                Err(e) => format!("FAIL code={:?}", e.code()),
+                            }
+                        ));
+                        let _ = unsafe { Shell_NotifyIconW(NIM_DELETE, &nid) };
+                    }
+                }
+
+                // [B] 自建标准窗口（只带 WS_EX_TOOLWINDOW，与独立探针一致）
+                unsafe {
+                    #[repr(C)]
+                    struct Wcx {
+                        style: u32,
+                        proc_: usize,
+                        cb_cls: i32,
+                        cb_wnd: i32,
+                        inst: isize,
+                        icon: isize,
+                        cursor: isize,
+                        brush: isize,
+                        menu: *const u16,
+                        cls: *const u16,
+                    }
+                    #[link(name = "user32")]
+                    extern "system" {
+                        fn RegisterClassW(lp: *const Wcx) -> u16;
+                        fn CreateWindowExW(
+                            ex: u32, cls: *const u16, name: *const u16, style: u32,
+                            x: i32, y: i32, w: i32, h: i32,
+                            parent: isize, menu: isize, inst: isize, p: isize,
+                        ) -> isize;
+                        fn DefWindowProcW(hwnd: isize, msg: u32, w: usize, l: isize) -> isize;
+                        fn DestroyWindow(hwnd: isize) -> i32;
+                        fn LoadIconW(inst: isize, name: usize) -> isize;
+                    }
+                    let class = windows::core::w!("DSH_TRAY_DIAG_CLS");
+                    let wc = Wcx {
+                        style: 0,
+                        proc_: DefWindowProcW as *const () as usize,
+                        cb_cls: 0,
+                        cb_wnd: 0,
+                        inst: 0,
+                        icon: 0,
+                        cursor: 0,
+                        brush: 0,
+                        menu: std::ptr::null(),
+                        cls: class.as_ptr(),
+                    };
+                    RegisterClassW(&wc);
+                    let w = CreateWindowExW(
+                        0x80, class.as_ptr(), std::ptr::null(), 0,
+                        0, 0, 0, 0, 0, 0, 0, 0,
+                    );
+                    diag.push_str(&format!("\n[B] 自建标准窗口 = 0x{:X}\n", w));
+                    if w != 0 {
+                        let icon = LoadIconW(0, 32512);
+                        let mut nid = NOTIFYICONDATAW::default();
+                        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+                        nid.hWnd = HWND(w as _);
+                        nid.uID = 9002;
+                        nid.uFlags =
+                            NOTIFY_ICON_DATA_FLAGS(NIF_MESSAGE.0 | NIF_ICON.0 | NIF_TIP.0);
+                        nid.uCallbackMessage = 0x8008;
+                        nid.hIcon = windows::Win32::UI::WindowsAndMessaging::HICON(
+                            icon as *mut core::ffi::c_void,
+                        );
+                        let ok = Shell_NotifyIconW(NIM_ADD, &nid);
+                        let err = GetLastError();
+                        diag.push_str(&format!(
+                            "    NIM_ADD={} last_error={}\n",
+                            ok.as_bool(),
+                            err.0
+                        ));
+                        if ok.as_bool() {
+                            let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
+                        }
+                        DestroyWindow(w);
+                    }
+                }
+
+                diag.push_str("\n判定：A 失败 + B 成功 = crate 窗口属性有毒；两者都失败 = DSH 进程上下文被拦；两者都成功 = 检测方法误判。\n");
+                let _ = std::fs::write("C:\\dsh-ecosystem\\tray-diag.txt", &diag);
+                log::warn!("[tray] A/B 诊断已写入 tray-diag.txt");
+            }
+            log::warn!("[tray] 图标未注册，伪造 TaskbarCreated 触发重注册（第 {attempt} 次）");
+            for hwnd in &hwnds {
+                unsafe {
+                    let _ = PostMessageW(HWND(*hwnd as _), taskbar_created, WPARAM(0), LPARAM(0));
+                }
+            }
+            if attempt >= 10 {
+                log::error!("[tray] 重试 {attempt} 次仍失败，停止看门狗");
+                break;
+            }
+        }
+    });
+}
+
 /// 注册当前进程 AUMID + 注册表 DisplayName/IconUri（builder 前调用，logger 未初始化，用 eprintln）。
 fn register_aumid() {
     use windows::core::PCWSTR;
@@ -3761,6 +3989,8 @@ pub fn run() {
                 log::info!("[pet] desktop pet disabled");
             }
             build_tray(app)?;
+            #[cfg(target_os = "windows")]
+            start_tray_watchdog();
             ensure_shortcut();
             Ok(())
         })
