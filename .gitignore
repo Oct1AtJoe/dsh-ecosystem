@@ -36,3 +36,9 @@ Thumbs.db
 # ==========================================
 *git-credentials*
 
+# ==========================================
+# 发布产物：tarball 上传到 GitHub Release，不进 git
+# 重新生成：node scripts/pack-plugins.mjs
+# ==========================================
+/dist-tarballs/
+
