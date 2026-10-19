@@ -10,7 +10,11 @@
 
 // 注意：本文件不 import 任何语义常量（src/pet-state.mjs 等）——语义层封闭，
 // 配置面不得读取/覆盖它们（引用门禁守护）。
-import z from 'schemastery'
+// `.volatile()` is a DSH schema extension that only ships in
+// @deepseek-ai/schemastery (>= 3.18.5); the plain `schemastery` package never
+// had it. Import the host's fork so the settings schema can mark fields as
+// live-editable. Kept as a namespace import so the schema below reads the same.
+import z from '@deepseek-ai/schemastery'
 
 export const NAMESPACE = 'kanye-pet'
 
