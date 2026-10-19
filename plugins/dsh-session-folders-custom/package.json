@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-folders-custom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Forked from dsh-session-folders with custom modifications (auto-rename prompt, reasoning off, session quote menu).",
   "type": "module",
   "main": "lib/index.js",

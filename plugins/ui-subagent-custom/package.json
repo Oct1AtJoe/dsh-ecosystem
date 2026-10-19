@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-subagent-custom",
   "description": "Composer tool-row robot button with a live running-subagent count badge; clicking opens the better-sidebar subagent tab (local customisation composed on top of official ui-subagent)",
-  "version": "0.2.0-rc.1",
+  "version": "0.2.0-rc.2",
   "publishConfig": {
     "access": "public"
   },
