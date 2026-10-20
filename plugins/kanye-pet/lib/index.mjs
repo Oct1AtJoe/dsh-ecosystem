@@ -29,8 +29,8 @@ export const inject = ['jobs', 'agents', 'sessions', 'webServer']
 // 设置页 schema：宿主 loader 读本导出（0.2.1 起设置页 = loader 条目 id + 本 Config）。
 export { Config }
 // 路由端点 re-export（来源 src/routes.mjs；保持既有导出面）。
-import { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH } from './src/routes.mjs'
-export { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH }
+import { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH, WINDOW_PATH } from './src/routes.mjs'
+export { STATE_PATH, INTERACT_PATH, CONFIG_PATH, ROUTE_PREFIX, EVENTS_PATH, PRESENCE_PATH, SESSIONS_PATH, WINDOW_PATH }
 /** /interact 请求体大小上限（动作只需几字节）。 */
 export const BODY_LIMIT = 1024
 
@@ -729,6 +729,33 @@ export function apply(ctx, config) {
             json(res, 200, sessionsSnapshot(), { 'cache-control': 'no-store' })
           } catch (error) {
             json(res, 500, { error: error instanceof Error ? error.message : String(error) })
+          }
+        },
+      }),
+      // ---- 桌面宠物窗口页（Electron 壳用）----
+      // 壳以 dsh-app://app/kanye-pet/window 加载本页，经主进程转发到 Host，故与本插件的
+      // /state /config /assets 同源：页面里的相对路径请求不需要 CORS，也不需要知道端口。
+      // 因此前端页随插件版本走，改 pet.js 只需重启 Host，不必重打壳补丁。
+      webServer.register({
+        kind: 'exact',
+        path: WINDOW_PATH,
+        handler: async (req, res) => {
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            res.writeHead(405, { allow: 'GET' })
+            res.end()
+            return
+          }
+          try {
+            const html = readFileSync(join(import.meta.dirname, 'assets', 'pet', 'pet.html'))
+            res.writeHead(200, {
+              'content-type': 'text/html; charset=utf-8',
+              // 窗口页必须每次重取：改完前端重启 Host 就直接生效，不被强缓存滞留。
+              'cache-control': 'no-store',
+            })
+            res.end(req.method === 'HEAD' ? undefined : html)
+          } catch {
+            res.writeHead(404)
+            res.end()
           }
         },
       }),

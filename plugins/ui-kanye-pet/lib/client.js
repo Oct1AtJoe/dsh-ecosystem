@@ -465,9 +465,21 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => {
 				const RawNotification = window.Notification;
 				if (typeof RawNotification !== "function") return () => {};
+				const readPetConfig = () => fetch("/kanye-pet/config", { cache: "no-store" }).then(async (r) => {
+					const b = await r.json();
+					return b?.config ?? b ?? {};
+				});
 				function DynamicNotification(title, options) {
 					const bridge = window.__dshNotifyBridge;
-					if (!bridge?.fire) return new RawNotification(title, options);
+					if (!bridge?.fire) {
+						readPetConfig().then((cfg) => {
+							if (cfg.desktopPetEnabled === true) return;
+							new RawNotification(title, options);
+						}).catch(() => {
+							new RawNotification(title, options);
+						});
+						return this;
+					}
 					const payload = {
 						type: "dsh-notification",
 						title,
@@ -477,8 +489,8 @@ window.__ModuleLoader__.load({
 						requireInteraction: Boolean(options?.requireInteraction),
 						force: true
 					};
-					fetch("http://127.0.0.1:3080/kanye-pet/config", { cache: "no-store" }).then(async (r) => r.json()).then((b) => {
-						if ((b?.config ?? b ?? {}).desktopNotificationEnabled !== false) bridge.fire?.(payload);
+					readPetConfig().then((cfg) => {
+						if (cfg.desktopNotificationEnabled !== false) bridge.fire?.(payload);
 					}).catch(() => {
 						bridge.fire?.(payload);
 					});

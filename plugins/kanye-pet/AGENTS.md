@@ -25,18 +25,20 @@ kanye-pet/
 | **Host half** | Node.js / DSH 服务 | 提供资产、状态、配置 REST API | `cordis.patch.yml` 行 `id: kanye-pet` |
 | **Client half** | 浏览器 / Webview | 渲染浮宠、处理交互 | `__ModuleLoader__.load({ id, factory })` |
 
-### 1.2 Tauri 桌面窗 vs Web GUI 浮宠
+### 1.2 Electron 桌面窗 vs Web GUI 浮宠
 
 Kanye-pet 有 **两个独立的宠物渲染通道**，互不依赖：
 
 | 通道 | 入口 | 渲染技术 | 控制方式 |
 |------|------|---------|---------|
-| **Tauri 透明窗口** | `desktop-tauri/src/pet.html` + `pet.js` | CSS background sprite 动画 | 独立 exe 渲染 |
+| **Electron 透明窗口** | `kanye-pet/lib/assets/pet/pet.html` + `pet.js`（由 Host 的 `GET /kanye-pet/window` 提供） | CSS background sprite 动画 | `patches/kanye-pet-electron` 在主进程建窗 |
 | **Web GUI 浮宠** | `kanye-pet/lib/client/index.mjs` | DOM + CSS + Canvas | 浏览器内嵌 |
 
-> **关键决策**：内置化后，**Web GUI 浮宠在源码层已禁用**（`lib/client/index.mjs` 的 `apply` 返回空 disposer），设计上只保留 Tauri 桌面窗。
+> **关键决策**：内置化后，**Web GUI 浮宠在源码层已禁用**（`lib/client/index.mjs` 的 `apply` 返回空 disposer），设计上只保留桌面窗。
 >
-> ⚠️ **但线上跑的是构建产物 `lib/client.js`**（8-27 14:08），它**早于**源码里的禁用改动（14:25）→ 网页里的浮宠其实还活着，网页里会庆祝/思考的那只就是它。核实通道归属时先比对两个文件的 mtime，别只读源码（见 §七 #39）。
+> ⚠️ **但线上跑的是构建产物 `lib/client.js`**，它**早于**源码里的禁用改动 → 网页里的浮宠其实还活着。核实通道归属时先比对两个文件的 mtime，别只读源码（见 §七 #39）。
+>
+> 🔄 **2026-10-20 换壳**：桌面窗宿主从自研 Tauri 壳换成 **官方 Electron 桌面端**。前端文件已迁进插件（`lib/assets/pet/`），壳侧只剩一个透明置顶 `BrowserWindow` + `preload-pet.cjs` 桥（见 §三）。前端改动从此**只需重启 Host**，不必重编壳——这是换壳带来的最大维护性收益。
 
 ### 1.3 数据流
 
@@ -52,7 +54,8 @@ DSH Settings Namespace（kanye-pet）
 /kanye-pet/config 端点（routes.mjs）
     ↓ 轮询（每 2s）
     ↓
-Tauri pet.js → applyConfig() → 重设窗口尺寸/透明度/角色
+Electron pet.js → applyConfig() → 重设窗口尺寸/透明度/角色
+  （尺寸/显隐走 window.petDesktop → 壳补丁 IPC）
 
 ---- 通知链路（桌宠气泡接管，v3 终版） ----
 
@@ -65,10 +68,10 @@ Tauri pet.js → applyConfig() → 重设窗口尺寸/透明度/角色
 /kanye-pet/state 端点 → notification 字段
     ↓ 轮询（每 2s）
     ↓
-Tauri pet.js → pollState() → showBubble() → 气泡显示 8s
+Electron pet.js → pollState() → showBubble() → 气泡显示 8s
     ↓ 点击气泡
-    ↓
-pet_open_session (Tauri command) → show_main + open_session
+    ↓ window.petDesktop.openSession(id) → 壳补丁 `dsh-pet:open-session`
+    ↓ 主进程 mainWindow.show() + webContents.executeJavaScript
     ↓ eval `dsh:open-session` CustomEvent
     ↓ ui-kanye-pet 客户端监听 → ctx.uiWorkspace.openSession(id)
       （宿主已删 sessions.open，导航归 ui-workspace view owner）
@@ -130,152 +133,164 @@ export const Config = buildSchema()   // lib/index.mjs 里 `export { Config }`
 
 ---
 
-## 三、Tauri 桌面窗
+## 三、Electron 桌面窗
 
-### 3.1 窗口创建
+> **2026-10-20 换壳**：桌面窗宿主从自研 Tauri 壳换成**官方 Electron 桌面端**（`E:\dshDesktop`）。
+> 本节全部换成 Electron 语义。Tauri 那套实现（`desktop-tauri/src-tauri/src/lib.rs` 的
+> `pet_open_session` / `pet_show_main` / `ShimNotification` / `initialization_script`）已**不再参与**
+> 打包路径，仅作为历史参考留在 `desktop/` 目录里。
 
-`desktop-tauri/src-tauri/src/lib.rs` 中的 `setup` 函数：
+### 3.1 职责划分（换壳后最重要的认知）
 
-```rust
-let _pet_window = tauri::WebviewWindowBuilder::new(app, "pet", tauri::WebviewUrl::App("pet.html".into()))
-    .title("桌宠 Kanye")
-    .inner_size(260.0, 260.0)
-    .position(pet_pos.0, pet_pos.1)
-    .always_on_top(true)
-    .decorations(false)
-    .resizable(true)        // ← 必须 true，否则 set_size IPC 无效
-    .transparent(true)
-    .shadow(false)
-    .skip_taskbar(true)
-    .build()?;
-```
+| 层 | 位置 | 职责 | 改动代价 |
+|---|---|---|---|
+| **前端页** | `lib/assets/pet/pet.html` + `pet.js` | 精灵动画、拖拽、气泡、音效 | **重启 Host 即生效**，无需重打壳补丁 |
+| **Host 路由** | `lib/index.mjs` 的 `WINDOW_PATH` | `GET /kanye-pet/window` 返回 pet.html | 重启 Host |
+| **壳补丁** | `patches/kanye-pet-electron/` | 建透明置顶窗 + 5 个 IPC + preload 桥 | **重跑 patch.mjs 并重启应用** |
 
-> **坑点**：`resizable(false)` 会阻止程序化 `set_size` API 生效。需要 resize 时必须设为 `true`。
+Tauri 时代前端嵌在 exe 里（Brotli 压缩），改一个字符都要 `cargo build`；现在前端走 HTTP，
+改完重启 Host 就生效。**这是换壳带来的最大维护性收益，不要退回把前端塞进壳里的做法。**
 
-### 3.2 权限系统（Tauri 2 Capabilities）
+### 3.2 窗口创建（壳侧，`patches/kanye-pet-electron/lib/rules.mjs`）
 
-`desktop-tauri/src-tauri/capabilities/default.json`：
-
-```json
-{
-  "windows": ["main", "pet"],
-  "permissions": [
-    "core:default",
-    "notification:default",
-    "core:window:default",
-    "core:window:allow-set-size",
-    "core:window:allow-set-position",
-    "core:window:allow-outer-position"
-  ]
-}
-```
-
-> **坑点**：
-> - `windows` 数组必须包含 `"pet"`，否则 pet 窗口无法使用任何 IPC
-> - `core:window:default` **不包含** `allow-set-size`、`allow-set-position`、`allow-outer-position`，必须显式添加
-> - `allow-start-dragging` **已废弃**：拖拽改用 `set_position` 手动移窗（见 3.3），不再依赖系统拖拽 API
-> - 权限缺失时 IPC 报错：`window.set_size not allowed. Permissions associated with this command: ...`
-> - 自定义命令（如 `pet_open_session`）默认无需 capability 声明即可由窗口调用
-
-### 3.3 IPC 调用
-
-**拖拽窗口**（`pet.js`）—— 手动 `set_position`，不触发 Windows Snap：
+官方 `createWindow` 的 `setWindowOpenHandler` 一律 `deny`，页面**无法**自建窗口，
+所以宠物窗只能由主进程创建：
 
 ```javascript
-// pointerdown → setPointerCapture → pointermove → set_position
-// 不用 Tauri start_dragging（避免触发 Windows Aero Snap）
-let winX = 0, winY = 0           // 本地追踪窗口位置
-let dragState = null              // { offsetX, offsetY }
+petWindow = new BrowserWindow({
+	...position, width: PET_WIDTH, height: PET_HEIGHT,
+	show: false, frame: false, transparent: true, hasShadow: false,
+	alwaysOnTop: true, skipTaskbar: true,
+	resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+	webPreferences: {
+		preload: preloadPath, contextIsolation: true, nodeIntegration: false, sandbox: true,
+		backgroundThrottling: false,   // ← 关键，见 3.4
+	}
+});
+petWindow.setAlwaysOnTop(true, "floating");
+```
 
-function handlePointerDown(e) {
-  dragState = {
-    offsetX: e.screenX - winX,   // 记录鼠标相对窗口的偏移
-    offsetY: e.screenY - winY,
-  }
-  pet.setPointerCapture(e.pointerId)
+默认尺寸 150×255（精灵帧 122×207 的比例）。位置默认主屏右下角向内 24px。
+
+> **坑点**：`transparent: true` 必须配 `hasShadow: false`，否则 Windows 会在透明区域描一圈阴影。
+
+### 3.3 页面来源与同源（为什么不再有 CORS）
+
+Tauri 版 pet.js 硬编码 `http://127.0.0.1:3080`，因为 Tauri 窗口跨源访问 DSH 服务。
+Electron 官方壳的 Host **端口每次启动随机**，且鉴权 cookie 由主进程注入，硬编码必然打空。
+
+因此改为：
+
+```
+壳 loadURL('dsh-app://app/kanye-pet/window')
+  → protocol.handle('dsh-app') 的 forwardWebRequest
+  → 带 cookie 转发到 Host 的 /kanye-pet/window
+  → 插件 Host 返回 pet.html
+  → 页内相对请求（/kanye-pet/state、/kanye-pet/assets/...）走同一 origin
+```
+
+**同源 ⇒ 免 CORS、免 cookie 管理、免端口发现。** pet.js 里的 `DSH_BASE` 因此是空串：
+
+```javascript
+const DSH_BASE = '';
+const CONFIG_URL = `${DSH_BASE}/kanye-pet/config`;
+```
+
+> **坑点**：pet.html 里不能写相对的 `src="pet.js"` —— 那会解析成 `/kanye-pet/pet.js`，
+> 而 assets 挂在 `/kanye-pet/assets`。必须写绝对路径 `/kanye-pet/assets/pet/pet.js`。
+
+### 3.4 显隐：`hide()/show()`，不再缩 0×0
+
+Tauri 版关闭桌宠时用 `set_size(0,0)` 而非 `hide()`，因为 Tauri 默认背景节流
+（`BackgroundThrottlingPolicy::Suspend`）会挂起隐藏 WebView 的 JS，2s 轮询停摆后开关再也回不来。
+
+Electron 的节流是**可显式关闭**的：建窗时 `backgroundThrottling: false`，于是
+`hide()/show()` 语义干净，轮询永不断。**不要照搬 0×0 那套 workaround。**
+
+```javascript
+// pet.js
+window.petDesktop?.setVisible(show);          // 主进程 hide()/showInactive()
+// 开启态才设尺寸；关闭态不缩窗
+if (show && hasSize) {
+  const FRAME_W = 122, FRAME_H = 207;
+  await window.petDesktop?.setSize(Math.round(newSize), Math.round(newSize * FRAME_H / FRAME_W));
 }
+```
 
+> **为什么用 `showInactive()` 而不是 `show()`**：开启桌宠不该抢走主窗口的输入焦点。
+
+### 3.5 IPC 桥（`window.petDesktop`）
+
+`preload-pet.cjs` 是宠物页唯一的能力入口（`contextIsolation: true` + `sandbox: true` 下必须走 contextBridge）：
+
+| `window.petDesktop` | IPC 通道 | 行为 |
+|---|---|---|
+| `setPosition(x, y)` | `dsh-pet:set-position` | 移窗 + 落点校验 + 写 `userData/pet-window.json` |
+| `setSize(w, h)` | `dsh-pet:set-size` | 改窗尺寸（≤0 忽略） |
+| `setVisible(bool)` | `dsh-pet:set-visible` | `showInactive()` / `hide()` |
+| `showMain()` | `dsh-pet:show-main` | 还原 + 显示 + 聚焦主窗口 |
+| `openSession(id)` | `dsh-pet:open-session` | 显示主窗 + `executeJavaScript` 派发 `dsh:open-session` |
+
+**每个 handler 首行都校验 `event.sender === petWindow.webContents`**，只信宠物窗自己。
+
+> **坑点**：`pet.js` 里**不得出现任何 `__TAURI_INTERNALS__`**。`tests/pet-window.test.mjs`
+> 的「pet.js 已脱离 Tauri 桥」用例会拦这个回归。
+
+### 3.6 拖拽（保留手动移窗，避开 Windows Snap）
+
+逻辑与 Tauri 版一致：`pointerdown` 记录锚点 → 位移超 6px 才判定为拖拽 → RAF 节流后
+`setPosition` → `pointerup` flush 最后一帧。**不用系统拖拽 API**，避免触发 Aero Snap。
+
+```javascript
 function handlePointerMove(e) {
-  if (!dragState) return
-  winX = e.screenX - dragState.offsetX
-  winY = e.screenY - dragState.offsetY
-  scheduleSetPosition(winX, winY) // RAF 节流后 invoke
+  if (!dragStart) return;
+  if (!isDragging) {
+    if (Math.hypot(e.screenX - dragStart.screenX, e.screenY - dragStart.screenY) <= 6) return;
+    isDragging = true; dragging = true;
+    try { pet.setPointerCapture(dragStart.pointerId); } catch {}
+  }
+  // clientX/Y 作为抓取锚点偏移，天然自洽，免多屏/DPI 时序错位
+  scheduleSetPosition(e.screenX - dragStart.clientX, e.screenY - dragStart.clientY);
 }
 ```
 
-**调整窗口尺寸**（`pet.js`）：
+> **坑点**：`setPointerCapture` 保证鼠标移出元素仍收事件，但**移出 OS 窗口后会丢失**——
+> 这是平台限制，与 Tauri 版相同。
+
+### 3.7 位置持久化
+
+`userData/pet-window.json`，拖拽结束即写。启动时读回并做**屏幕边界校验**：
 
 ```javascript
-await window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', {
-  value: { Logical: { width: winSize, height: winSize } },
-})
+const clampPetPosition = (x, y, width, height) => {
+  const visible = screen.getAllDisplays().some((d) => {
+    const a = d.workArea;
+    return x < a.x + a.width && x + width > a.x && y < a.y + a.height && y + height > a.y;
+  });
+  if (visible) return { x, y };
+  const a = screen.getPrimaryDisplay().workArea;
+  return { x: Math.round(a.x + a.width - width - 24), y: Math.round(a.y + a.height - height - 24) };
+};
 ```
 
-> **坑点**：
-> - `set_size` 的参数格式是 `{ value: { Logical: { width, height } } }`，不是 `{ width: { type: 'Logical', value: N } }`
-> - 手动拖拽使用 `screenX/screenY`（CSS 逻辑像素），传给 `set_position` 时用 `Logical` 类型
-> - `setPointerCapture` 保证鼠标移出 pet 元素仍收 `pointermove` 事件；但移出 OS 窗口后会丢失
+> **为什么必须校验**：拔掉副屏后位置记忆会把窗口送到屏幕外，用户以为"宠物消失了"。
 
-### 3.4 pet.js 核心逻辑
+### 3.8 加载失败自愈（最容易漏的一条）
 
 ```javascript
-// 拖拽处理（手动 set_position，无 Windows Snap）
-let winX = 0, winY = 0
-let dragState = null
-let dragRafId = null
-let pendingPos = null
-
-function scheduleSetPosition(x, y) {
-  pendingPos = { x: Math.round(x), y: Math.round(y) }
-  if (!dragRafId) {
-    dragRafId = requestAnimationFrame(() => {
-      // 只发最后一帧位置，避免 IPC 风暴
-      invoke('plugin:window|set_position', {
-        value: { Logical: { x: pendingPos.x, y: pendingPos.y } },
-      }).catch(() => {})
-      pendingPos = null
-    })
-  }
-}
-
-function setupDrag() {
-  pet.addEventListener('pointerdown', handlePointerDown)
-  pet.addEventListener('pointermove', handlePointerMove)
-  pet.addEventListener('pointerup', handlePointerUp)
-  pet.addEventListener('pointercancel', handlePointerUp)
-}
-
-// 配置轮询（每 2s）
-async function pollConfig() {
-  const res = await fetch(CONFIG_URL)  // http://127.0.0.1:3080/kanye-pet/config
-  const body = await res.json()
-  const config = body?.config ?? body  // ← 注意嵌套结构
-  applyConfig(config)
-  // manifest 未加载时重试（DSH 刚启动时 assets 端点可能未就绪）
-  if (!manifestReady) void loadManifest()
-}
-
-// 应用配置
-async function applyConfig(config) {
-  const show = config.desktopPetEnabled !== false
-  document.body.style.opacity = show ? String(config.opacity ?? 1) : '0'
-  document.body.style.pointerEvents = show ? 'auto' : 'none'
-  document.body.style.display = show ? '' : 'none'
-  // 关闭时窗口压到 0×0（不是 hide()：Tauri 默认 background throttling = Suspend，
-  // 隐藏会挂起 WebView JS，2s 轮询停摆 → 重开开关再也回不来；0×0 时窗口仍 visible）
-  const newSize = Math.min(300, Number(config.size))
-  const hasSize = Number.isFinite(newSize) && newSize > 0
-  // 关闭态无条件缩零（size 无效也缩，保证不残留占位）；开启态仅在 size 有效时设尺寸
-  if (hasSize || !show) {
-    const FRAME_W = 122, FRAME_H = 207
-    const winW = show ? Math.round(newSize) : 0
-    const winH = show ? Math.round(newSize * FRAME_H / FRAME_W) : 0
-    await invoke('plugin:window|set_size', { value: { Logical: { width: winW, height: winH } } })
-  }
-}
+const loadPetPage = () => {
+  petWindow.loadURL(PET_URL).catch(() => {
+    setTimeout(loadPetPage, 2000);   // ← 503 走这里
+  });
+};
 ```
 
-### 3.5 Sprite 渲染
+> ⚠️ **`did-fail-load` 不会在 503 时触发**：503 是**正常完成的 HTTP 响应**，不是网络失败。
+> Host 未就绪时 `dsh-app://app` 正是返回 503 —— 只挂 `did-fail-load` 会让窗口永久空白。
+> 同理，**不要**在 `did-finish-load` 里 `show()`：503 也算"加载完成"，那样会闪一个空白窗。
+> 显隐的唯一权威是页面自己的配置轮询。
+
+### 3.9 Sprite 渲染
 
 使用 CSS `background-image` + `background-position` 实现帧动画：
 
@@ -288,23 +303,19 @@ async function applyConfig(config) {
 ```
 
 ```javascript
-// background-size: 100% 100% → 每帧填满容器
 // 百分比选帧：pct = frame / (frames - 1) * 100
-pet.style.backgroundSize = `${set.frames * 100}% 100%`
 pet.style.backgroundPosition = `${pct}% 0`
 ```
 
 > **坑点**：`background-size: contain` 会露出多帧（显示多个复制体），必须用 `100% 100%`。
 
-### 3.6 精灵图透明边距（已修复 2026-08-21）
+### 3.10 精灵图透明边距（已修复 2026-08-21）
 
 - **历史现象**：窗口 260×260，精灵图每帧 256×256，但角色实际只占画面中心约 60-80px
 - **根因**：精灵图导出时留了过多透明 padding，属素材设计问题
-- **修复**：2026-08-21 用 `Bitmap.Clone` 将 15 个状态的 PNG 从 256×256 帧裁剪为 122×207 帧（union bbox (68,24)-(189,230)），原始文件备份在 `originals_bak/`。因 assets 路由设 `immutable` 缓存，文件名从 `.v2.png` 改为 `.v3.png`
-- **涉及文件**：`packages/desktop/kanye-pet/lib/assets/characters/kanye/*.v2.png`（15 个文件）
-- **相关改动**：`manifest.json` 的 `stageSize` 从 256→207；`desktop-tauri/src-tauri/src/lib.rs` 窗口尺寸对应调整
-
----
+- **修复**：用 `Bitmap.Clone` 将 15 个状态的 PNG 从 256×256 帧裁剪为 122×207 帧（union bbox (68,24)-(189,230)），原始文件备份在 `originals_bak/`。因 assets 路由设 `immutable` 缓存，文件名从 `.v2.png` 改为 `.v3.png`
+- **涉及文件**：`lib/assets/characters/kanye/*.v3.png`（15 个文件）
+- **相关改动**：`manifest.json` 的 `stageSize` 从 256→207；壳补丁的窗口初始尺寸 150×255
 
 ## 四、设置面板（ui-kanye-pet）
 
@@ -421,20 +432,29 @@ if (!lastTurnEndNotif.has(id)) {
 }
 ```
 
-### 5.3 Windows 通知抑制（ShimNotification）
+### 5.3 系统通知抑制（Electron 换壳后：ui-kanye-pet 的 Notification shim）
 
-`desktop-tauri/src-tauri/src/lib.rs` 的 `bridge_init_script` 注入 `ShimNotification` 拦截所有 `new Notification(...)`：
+> 🔄 **2026-10-20 换壳**：Tauri 版的 `ShimNotification`（由 Rust `bridge_init_script` 注入）
+> 已随 Tauri 壳一起停用。Electron 官方壳是**真 Chromium**，主窗口里 `new Notification()`
+> 会直接弹 Windows Toast，所以抑制逻辑改由 **`ui-kanye-pet` 的 client shim** 承担
+> （`plugins/ui-kanye-pet/src/client/index.ts` 的 `DynamicNotification`）。
+
+shim 按宿主分两支：
 
 ```
-new Notification(...)
-  → ShimNotification 构造器
-  → fetch /kanye-pet/config 查 desktopPetEnabled
-  → desktopPetEnabled === false → bridge.fire()（Windows 通知）
-  → desktopPetEnabled !== false → 直接抑制（由 kanye-pet turn 检测/轮询驱动气泡）
-  → fetch 失败 → bridge.fire()（兜底 Windows）
+new Notification(title, options)
+  → 有 window.__dshNotifyBridge？（Tauri 壳遗留分支）
+      是 → 查 desktopNotificationEnabled，经桥转 Windows Toast
+      否 → Electron / 浏览器分支：
+            fetch('/kanye-pet/config', { cache: 'no-store' })
+            desktopPetEnabled === true  → 直接吞掉（由桌宠气泡接管）
+            否则 / fetch 失败          → 原生 new Notification(...)
 ```
 
-> **注意**：桌面宠物窗口（pet.html/pet.js）没有注入 ShimNotification，只有主窗口（main）注入了。ShimNotification 的作用是把浏览器里 dsh-notification-custom 发起的 `new Notification()` 转成 Windows Toast；桌宠启用时统一由 kanye-pet 气泡接管，不再区分 pending 与非 pending。
+> **关键**：Electron 分支的 fetch 用**相对路径** `/kanye-pet/config`。
+> 硬编码 `http://127.0.0.1:3080` 在桌面端会打空（Host 端口随机）、且跨源。
+> 配置读不到时**保持原行为**（宁可多弹一条，也不静默丢通知）。
+
 
 ### 5.4 通知链路细节
 
@@ -443,7 +463,7 @@ new Notification(...)
 | 通知队列 | 单槽 `petNotification`（最新覆盖旧），60s TTL 防残留 |
 | tag 去重 | pet.js `lastNotifTag` 防轮询重复显示 |
 | 气泡时长 | 8s 自动消失 |
-| 点击跳转 | `pet_open_session`(Tauri command) → `show_main` + `open_session` → eval `dsh:open-session` CustomEvent → **ui-kanye-pet client 监听 → `ctx.uiWorkspace.openSession(id)`**（导航归 view owner；宿主已删除 `ctx.sessions.open()`，旧调用是静默 no-op，2026-10-18 修正；2026-09-04 起由 ui-kanye-pet 承担，原提供方 dsh-notification-custom 已退役）；点击后气泡立即消失 |
+| 点击跳转 | `window.petDesktop.openSession(id)` → 壳补丁 `dsh-pet:open-session` → 主进程 `mainWindow.show()` + `webContents.executeJavaScript` 派发 `dsh:open-session` CustomEvent → **ui-kanye-pet client 监听 → `ctx.uiWorkspace.openSession(id)`**（导航归 view owner；宿主已删除 `ctx.sessions.open()`，旧调用是静默 no-op，2026-10-18 修正；2026-09-04 起由 ui-kanye-pet 承担，原提供方 dsh-notification-custom 已退役）；点击后气泡立即消失 |
 | 会话标题兜底链 | `resolveSessionTitle` → `session.label` → `session.id`（启动初期标题未就绪时兜底） |
 | 延迟 | turn/end 写入 log 后，下一条 session/event 到来时检测（通常毫秒级） |
 
@@ -490,7 +510,7 @@ approval    → 等待你的审批    // approval/asked 事件
 
 #### 5.6.4 点击消失
 
-`pet.js` 的 `showBubble` 创建的气泡点击后立即隐藏并清除定时器（`clearTimeout` + `display: none`），同时调用 `pet_open_session` 跳转会话。
+`pet.js` 的 `showBubble` 创建的气泡点击后立即隐藏并清除定时器（`clearTimeout` + `display: none`），同时调用 `window.petDesktop.openSession(id)` 跳转会话。
 
 #### 5.6.5 关键坑点
 
@@ -553,7 +573,7 @@ pet.js 在**配置首次到达时一次性**探测这四个文件（各发一次
 
 #### 5.7.4 实现细节
 
-- 音效播放位于 `desktop-tauri/src/pet.js` 的 `playNotifSound(reason)` 函数
+- 音效播放位于 `lib/assets/pet/pet.js` 的 `playNotifSound(reason)` 函数
 - 服务器 `/state` 端点返回的 `notification` 对象包含 `reason` 字段（如 `'completed'`、`'question'`、`'approval'`），pet.js 据此选择音效
 - Web Audio API 上下文懒初始化（首次播放时才创建 `AudioContext`），且**每次取用都检查
   `state === 'suspended'` 并 `resume()`**：自动播放策略下无用户手势创建的 ctx 是
@@ -595,149 +615,165 @@ pet.js 在**配置首次到达时一次性**探测这四个文件（各发一次
 
 ## 六、构建与部署
 
-### 6.1 Debug vs Release
+> 🔄 **2026-10-20 换壳**：Tauri 的 `cargo build` / frontendDist 嵌入流程已随壳一起废弃。
+> 本节换成 Electron 语义。Tauri 时代的 §6.1–6.5（Brotli 嵌入取证、WebView2 缓存、
+> 端口 3080 复用）**不再适用**，仅作历史参考保留在本节末尾。
 
-| | Debug | Release |
+### 6.1 三层各自的改动代价
+
+| 改了什么 | 需要做什么 | 不需要做什么 |
 |---|---|---|
-| 命令 | `tauri build --debug` | `tauri build` |
-| 编译 | 无优化，快 | 全优化，慢（~50s） |
-| 体积 | ~16MB | ~3-5MB |
-| devtools | 有（F12） | 无 |
-| 用途 | 开发调试 | 发布 |
+| `lib/assets/pet/*`（pet.html / pet.js） | 重启 Host（或仅硬刷新宠物窗） | 不重打壳补丁、不重编任何二进制 |
+| `lib/index.mjs`、`lib/src/*`（Host 逻辑/路由） | 重启 Host | 不重打壳补丁 |
+| `ui-kanye-pet` 的 TS 源码 | `tsc` + `tsdown` 重建 → 主窗口 Ctrl+F5 | 不重打壳补丁 |
+| `patches/kanye-pet-electron/lib/rules.mjs` | 退出应用 → `node patch.mjs` → `node verify.mjs` → 重启 | — |
+| 插件 `package.json` / `cordis.patch.yml` | 重启宿主（启动期配置，不走 HMR） | — |
 
-### 6.2 关键构建步骤
-
-```bash
-# 1. 重建所有客户端包（ui-kanye-pet 等）
-pnpm run build
-
-# 2. 重建 Tauri exe
-cd desktop-tauri
-npx tauri build --debug    # 或 npx tauri build（release）
-
-# 3. 产物位置
-# debug:   desktop-tauri/src-tauri/target/debug/dsh-desktop.exe
-# release: desktop-tauri/src-tauri/target/release/dsh-desktop.exe
-```
-
-### 6.3 ⚠️ Tauri 前端资源缓存（本次最大坑）
-
-**现象**：改了 `pet.js`/`pet.html` 后重编 exe，跑起来还是旧行为，`/kanye-pet/state` 请求根本不出现。
-
-**根因**：`tauri-build` 的 build script 只对 `frontendDist` **目录本身**发出 `cargo:rerun-if-changed`，**不跟踪目录内文件内容变化**。改文件内容不触发 build script 重跑，嵌入 exe 的仍是旧压缩资源。
-
-**验证方法**：检查 `target/release/build/dsh-desktop-*/out/tauri-codegen-assets/` 里的文件名。文件名是内容的 BLAKE3 hash，改了文件 hash 应变化；hash 不变说明 build script 没重跑。
-
-**解决方案**（任一）：
-```powershell
-# 方案 1：删 build 产物目录强制重跑
-Remove-Item "desktop-tauri/src-tauri/target/release/build/dsh-desktop-*" -Recurse -Force
-cd desktop-tauri; npx tauri build
-
-# 方案 2：完全清 target（最稳，但全量重编 ~2.5min）
-Remove-Item "desktop-tauri/src-tauri/target" -Recurse -Force
-cd desktop-tauri; npx tauri build
-```
-
-### 6.4 DSH 服务加载优先级
-
-Tauri exe 启动 DSH 服务的逻辑（`spawn_dsh`）：
-
-1. 检查 `DSH_DESKTOP_BACKEND` 环境变量（完整 argv 覆盖）
-2. **开发模式**：检测源码仓库 `apps/cli/src/bin.ts` 是否存在，存在则用 `node --import tsx/esm` 运行
-3. 兜底：查找全局安装的 `@deepseek-ai/dsh`（npm/pnpm）
-
-> **坑点**：Tauri exe 会**复用**端口 3080 上已有的 DSH 服务。如果旧服务还在运行，即使重启 exe 也不会加载新代码（lib/index.mjs 改动需重启 DSH 生效）。必须：
-> - 关闭 Tauri exe
-> - 杀掉旧 node 进程（`Get-Process node | Stop-Process`）
-> - 重新双击 exe
-
-### 6.5 WebView 缓存
-
-Tauri WebView2 有独立缓存。代码更新后如果行为不对，清除缓存：
+### 6.2 常规构建命令
 
 ```powershell
-Remove-Item "$env:LOCALAPPDATA\ai.deepseek.harness.desktop\EBWebView" -Recurse -Force
+# ui-kanye-pet（client bundle；tsc 必须 exit 0）
+cd C:\dsh-ecosystem\plugins\ui-kanye-pet
+$env:NODE_OPTIONS=""
+node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
+node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
+
+# kanye-pet 的 client half（若确需重建，先读 §七 #39：会关掉网页浮宠）
+cd C:\dsh-ecosystem\plugins\kanye-pet
+node scripts\build-client.mjs
 ```
 
----
+### 6.3 开发期把 profile 切到本地源码
+
+```powershell
+cd C:\dsh-ecosystem
+node scripts\plugin-dev-link.mjs link kanye-pet --profile desktop
+node scripts\plugin-dev-link.mjs link ui-kanye-pet --profile desktop
+```
+
+link 会重装 profile 的 `node_modules` 并改写依赖版本，所以**必须重启宿主**——
+宿主只在启动时解析并缓存每个插件的 `client.js` 路径。之后改源码不再需要重启
+（HMR watcher 每 500ms 轮询 bundle，变化时经 SSE 推新 graph，此时重建 + Ctrl+F5 即可）。
+
+> ⚠️ 新增插件的 `dsh.profile.bundles` 条目不会自动加，需手工补 profile 的
+> `package.json`（否则依赖装上了但 loader 不挂载）。
+
+### 6.4 壳补丁的自检与回滚
+
+```powershell
+cd C:\dsh-ecosystem\patches\kanye-pet-electron
+node patch.mjs --dry-run   # 锚点唯一性命中检查
+node patch.mjs
+node verify.mjs            # 17 项产物断言
+node revert.mjs            # 从 main.js.orig-<版本> 还原并删 preload
+```
+
+> **必须完全退出 DSH 桌面端再打补丁**：`main.js` 在运行期被映射进进程，
+> 写入会失败或只对下次启动的半截生效。
+
+### 6.5 （历史）Tauri 时代的构建坑 —— 已不适用
+
+保留以便读懂旧记录，**不要照着做**：
+
+- `tauri build` + Brotli 嵌入 `frontendDist` → 改 pet.js 必须重编 exe；
+- `tauri-build` 的 rerun-if-changed 不跟踪目录内文件，得删 `target/.../build/dsh-desktop-*`；
+- WebView2 缓存目录 `%LOCALAPPDATA%\ai.deepseek.harness.desktop\EBWebView`；
+- 端口 3080 复用导致「重启 exe 不加载新 lib/index.mjs」。
 
 ## 七、避坑清单
 
+> **换壳后的读法**：`#1–#40` 是历史累计条目，其中标 **［Tauri 专属］** 的已不适用
+>（保留用于读懂旧记录），标 **［通用］** 的仍然有效。`#41–#48` 是 Electron 换壳新增。
+
 | # | 坑 | 解决方案 |
 |---|-----|---------|
-| 1 | config.mjs 改了但限制没变 | DSH 服务运行的是全局安装版，不是源码。需重启 DSH 或用源码启动 |
-| 2 | 保存时值被重置到 160 | host Zod schema 还是旧的 `max(160)`。改 `config.mjs` 后重建并重启 DSH |
-| 3 | 设置面板显示范围不对 | 三层同步改：config.mjs + controller + locales.ts |
-| 4 | 桌宠窗口拖拽触发 Windows Snap | `start_dragging` 触发系统拖拽激活 Aero Snap。改用手动 `pointermove` + `set_position` 绕开 |
-| 5 | set_size IPC 报错 missing required key value | 参数格式错，应为 `{ value: { Logical: { width, height } } }` |
-| 6 | set_size 不生效 | 窗口 `resizable(false)` 阻止了 resize，改为 `true` |
-| 7 | 桌宠显示三个复制体 | `background-size: contain` 导致多帧可见，改为 `100% 100%` |
-| 8 | 桌宠底部地球被裁 | pet div 尺寸不够，窗口 260x260 + `background-position: center bottom` |
-| 9 | 拖拽时精灵抖动 | 拖拽中 `background-position` 持续更新，需暂停帧动画 |
-| 10 | 修改后刷新页面没用 | WebView 缓存旧 JS，需清缓存或重启 exe |
-| 11 | 新 exe 启动后旧 DSH 还在 | Tauri 复用端口 3080 的已有服务，需先杀旧进程 |
-| 12 | 找不到 `__TAURI_INTERNALS__` | pet.html 必须通过 Tauri webview 加载（`tauri://` 协议），不能直接浏览器打开 |
-| 13 | 保存设置后值被回退成旧值 | 写入被拒：Windows 下 `settings.yaml` 被其他进程持句柄时 rename 报 EPERM。`dsh-atomic-write` 已有 unlink+rename 回退 |
-| 14 | lib/index.mjs 加载报错（SyntaxError） | 文件有无效 UTF-8 字节（中文第三字节被 `?` 替换），导致字符串缺失闭合引号、注释吞代码。需从 git 恢复后用 fix-v5.mjs 修复 |
-| 15 | DSH 启动后插件不生效（404） | `cordis.patch.yml` 中 kanye-pet 行被注释。检查 bundle 的 patch 层是否启用 |
-| 16 | Tauri 打开了但桌宠窗口空白 | pet window 需要 `capabilities.default.json` 的 `windows` 数组包含 `"pet"`；缺此权限所有 IPC 均不可用 |
-| 17 | ⚠️ 改 pet.js/pet.html 后重编 exe 不生效 | Tauri build script 只跟踪 frontendDist 目录本身，不跟踪文件内容。删 `target/release/build/dsh-desktop-*` 或整个 target 重编（见 6.3） |
-| 18 | 点击气泡无反应 | 确认 `pet_open_session` 命令已注册（`invoke_handler`）；pet.js 里 invoke 参数名 `sessionId` 与 Rust 命令参数 `session_id` 的 serde 转换（Tauri 自动 camelCase，`session_id` ↔ `sessionId` 正确） |
-| 19 | Windows 通知仍弹（桌宠启用时） | 确认 ShimNotification 走对分支：只有 `desktopPetEnabled === false` / fetch 失败才 fire。所有通知（含 pending）统一查桌宠开关。另注意 `task_notifier_script` 必须走 `new Notification()` 而非直呼 `bridge.fire()`（绕过 shim） |
-| 20 | 气泡被窗口裁剪 | 气泡必须放在窗口可视区域内（`bottom: 6px`），`bottom: calc(100% - 6px)` 会把气泡推到窗口外被裁掉 |
-| 21 | 气泡标题和正文挤在一行 | pet.js `showBubble()` 里 `display: 'block'` 会覆盖 CSS 的 `display: flex; flex-direction: column`。必须用 `display: 'flex'` |
-| 22 | 气泡底部透明蒙版 | `box-shadow` 在透明窗口内形成半透明渐变带。去掉 box-shadow、用纯色背景+实色边框 |
-| 23 | ⚠️ 双通知（气泡 + Windows Toast） | ShimNotification 转发到已删除的 `/kanye-pet/notify` 端点 → 404 → catch 兜底 fire → Windows Toast。转发失败不应兜底 fire；桌宠启用时直接抑制 |
-| 24 | ⚠️ 通知两头空（pet 部分损坏） | kanye-pet 插件 config 端点活着但 turn 检测不工作时，ShimNotification 抑制 Windows 通知、pet 气泡也没有 → 通知丢失。排查 `/kanye-pet/state` 的 notification 字段与日志 `[kanye-pet] turn/end` |
-| 25 | onJobDone 不触发（纯对话） | `onJobDone` 只对子进程 job 触发，纯对话 turn 不经过它。通知不能以 onJobDone 为唯一源 |
-| 26 | assistant/message 触发通知太频繁 | 命令结果、子智能体回复都会产生 assistant/message。通知必须按 turn/end 粒度（见 5.2） |
-| 27 | 启动时通知历史 turn | 首次扫描 session.events 时只记录 lastTurnEndNotif 位置不通知，否则重启后把所有历史 turn 都通知一遍 |
-| 28 | 启动时桌宠透明（manifest 加载失败） | `loadManifest()` 只调一次，DSH 未就绪时失败后不重试。在 `pollConfig()` 里加 `if (!manifestReady) void loadManifest()` 重试 |
-| 29 | 精灵图角色显示很小 | 精灵图每帧透明 padding 过多（见 3.6，待解决） |
-| 30 | PowerShell 测 curl JSON 报 invalid JSON | `Set-Content -Encoding UTF8` 会加 BOM 导致 `JSON.parse` 失败；单引号包裹的 JSON 也会被 PowerShell 转义破坏。用 `[System.IO.File]::WriteAllText(..., [UTF8Encoding]::new($false))` 写无 BOM 文件 + `curl --data-binary "@file"` |
-| 31 | 会话标题未就绪显示"未命名会话" | 启动初期 `resolveSessionTitle` 返回 null。兜底链：`resolveSessionTitle` → `session.label` → `session.id` |
-| 32 | ⚠️ 工具审批通知两头空（无气泡、无 Windows） | 工具审批**不产生 turn/end blocked**（turn 保持 OPEN）。不能靠 turn/end 扫描，必须检测 `approval/asked` 事件（§5.6.1） |
-| 33 | ⚠️ ask_user_question / exit_plan_mode 无通知 | 工具 async 等待时 turn 不结束，不产生 turn/end。必须靠 `tool/call` 快速路径（§5.6.1） |
-| 34 | ⚠️ pending 通知与 Windows toast 重复 | ShimNotification 原逻辑对 `-pending-` 标签永远走 Windows。改 pending 通知也查 `desktopPetEnabled`（§5.3） |
-| 35 | ⚠️ rc.1 升级后任务完成气泡全失效（无任何报错） | rc.1 Session 事件日志私有化，`session.events` 恒 `undefined`，守卫 `typeof session?.events?.slice === 'function'` 把它静默兜成空数组 → 扫描永不命中。三处读日志全部改 `session.snapshotEvents()`：事件路径扫描、`/state` 轮询兜底、`resolveSessionTitle` 的 titleFromLog（2026-09-04 修复，壳日志实证 130 次轮询 0 通知）。pending 通知读回调事件参数本身，不受影响 |
-| 36 | ⚠️ 新会话首个回合完成不通知（重启后测第一个任务必静默） | seed 分支原为 `if (lastSeq >= 0)` 才写 `lastTurnEndNotif`——新会话首个 turn/end 到来时 `has()` 仍为 false，重进 seed 分支被当历史回合标记抑制。改为无条件 `lastTurnEndNotif.set(id, lastSeq)`（含 -1，2026-09-04 修复） |
-| 37 | ⚠️ 子代理子任务完成也弹气泡（一个对话任务里刷一串通知） | 三条检测路径原本对所有会话生效，子代理子会话（`session.header.origin === 'subagent'`）的 turn/end / 审批 / 提问全部照发。修复：`setPetNotification()` 首行按 `origin === 'subagent'` 拦截（2026-09-10）。判定字段实证自会话日志 header：`{"parentSession":"session-…","origin":"subagent","delegationDepth":1}`；`parentSession` 单独存在 = fork 世系，仍算主会话，**不能**用它当子代理判据 |
-| 38 | ⚠️ 子代理跑一轮，宠物就庆祝一次（动画刷屏） | 庆祝窗口有三个写入点，全部对子代理照发：① turn/end → `turnCompletedUntil`；② `onJobDone` 完成 → `celebrateUntil` + `celebrate` 信号；③ `activity()` 里 job 翻转派生的 celebrate burst（客户端 `burst` 行取 `activity.name` 播 celebrate 状态）。修复（2026-09-10）：① 读 `session.header.origin`；②③ 读 `JobSnapshot.ownerSession` 查 `subagentSessions`（事件流首见登记，`JobSnapshot` 无 header 只能归属查表）。**只静音表现层**——账本 XP/称号/回忆、`working`/`think` 陪伴、等待姿态一律不变 |
-| 39 | ⚠️ §1.2「Web GUI 浮宠已禁用」与线上不符 | `lib/client/index.mjs`（源码 8-27 14:25）确有禁用早退，但构建产物 `lib/client.js`（8-27 14:08）**早于该改动**，仍带完整浮宠：`apply` 无早退、CSS 全在、`STATE_TABLE` 的 `burst`/`celebrate`/`think` 行都在 → 网页里那个会庆祝的宠物就是它。**别顺手 `npm run build:client`**（那会真的把用户的宠物关掉）；改表现层语义请改 host `/state` 字段（本表 #38 即此路线） |
-| 40 | ⚠️ 设置页「桌宠」「会话标题与 git 提交」两个 tab 整块空白（零报错） | 0.2.1 删除了 `settings.register()`：设置在 host 端改由 **loader 条目 id + 插件导出的 `Config`** 投影（`SettingsForms.describe`，只取 `.volatile()` 字段）。旧代码的 `typeof settings.register === 'function'` 守卫静默跳过 → 命名空间不出现 → 客户端 `configForms` 快照恒 `unavailable` → 卡片 `if (!state.available) return null`。修复三处：① `lib/index.mjs` 里 `export { Config }`（schema 全字段 `.volatile()`）；② `apply(ctx, config)` 读第二参数（volatile 值需 `.get()`，用递归 unwrap）；③ client 侧 `ctx.configForms.get('<loader 条目 id>')`——不是自定的 locale 名。另 `settings.configure({ auto: false })` 抑制「插件列表」里的自动生成页。旧 `settings.yaml` 的节要手工迁到 profile `cordis.patch.yml` 的 `- id: <entryId>` + `config:`（整体替换、不深合并；`session-title` 节名与条目 id 不同，自动导入必失败；`reasoningEffort: off` 必须加引号，否则 YAML 解析成布尔） |
-
----
+| 1 | ［通用］config.mjs 改了但限制没变 | 确认宿主加载的是哪份插件（link 源码还是发布 tarball）；改完重启 Host |
+| 2 | ［通用］保存时值被重置到旧上限 | host Zod schema 还是旧范围。改 `config.mjs` 后重启 Host |
+| 3 | ［通用］设置面板显示范围不对 | 三层同步改：config.mjs + controller + locales.ts |
+| 4 | ［Tauri 专属］桌宠窗口拖拽触发 Windows Snap | `start_dragging` 触发 Aero Snap。已改为手动 `pointermove` + 移窗，Electron 侧沿用同一策略 |
+| 5 | ［Tauri 专属］set_size IPC 报 missing required key value | 旧参数格式 `{ value: { Logical: … } }`；Electron 侧改 `setSize(w, h)` 直传数字 |
+| 6 | ［Tauri 专属］set_size 不生效 | Tauri 需 `resizable(true)`；Electron 用 `petWindow.setSize()`，不受 `resizable` 限制 |
+| 7 | ［通用］桌宠显示三个复制体 | `background-size: contain` 会露出多帧，改 `auto 100%`（当前实现） |
+| 8 | ［通用］桌宠底部被裁 | pet div 尺寸不够或缺 `background-position: center bottom` |
+| 9 | ［通用］拖拽时精灵抖动 | 拖拽中暂停帧动画（pet.js 里 `dragging` 已参与 `tick()` 早退） |
+| 10 | ［Tauri 专属］修改后刷新页面没用 | 旧 WebView2 缓存；Electron 侧前端走 HTTP + `pet/` 目录 `no-cache`，重启 Host 即生效 |
+| 11 | ［Tauri 专属］新 exe 启动后旧 DSH 还在 | 端口 3080 复用；Electron 官方壳端口随机且单实例锁，无此问题 |
+| 12 | ［Tauri 专属］找不到 `__TAURI_INTERNALS__` | Electron 侧**不存在**该对象；页面必须经 `dsh-app://app/kanye-pet/window` 加载才能拿到 `window.petDesktop` |
+| 13 | ［通用］保存设置后值被回退成旧值 | 写入被拒：Windows 下 `settings.yaml` 被其他进程持句柄时 rename 报 EPERM。`dsh-atomic-write` 已有 unlink+rename 回退 |
+| 14 | ［通用］lib/index.mjs 加载报错（SyntaxError） | 文件有无效 UTF-8 字节（中文第三字节被 `?` 替换）。只能用纯 UTF-8 编辑器改，见 §9.3 |
+| 15 | ［通用］DSH 启动后插件不生效（404） | `cordis.patch.yml` 中 kanye-pet 行被注释；或 profile 的 `dsh.profile.bundles` 缺条目 |
+| 16 | ［Tauri 专属］Tauri 打开了但桌宠窗口空白 | 旧 capabilities `windows` 缺 `"pet"`；Electron 侧无 capability 概念 |
+| 17 | ［Tauri 专属］改 pet.js/pet.html 后重编 exe 不生效 | Tauri build script 缓存问题；Electron 侧改前端**根本不用重编** |
+| 18 | ［Tauri 专属］点击气泡无反应 | 旧 `pet_open_session` 注册问题；Electron 侧查 `preload-pet.cjs` 是否就位 + 主窗口是否装了 ui-kanye-pet |
+| 19 | ［Tauri 专属］Windows 通知仍弹（桌宠启用时） | 旧 ShimNotification 分支判断；Electron 侧见 #44 |
+| 20 | ［通用］气泡被窗口裁剪 | 气泡必须放在窗口可视区域内（`bottom: 4px`），不能用 `calc(100% - …)` 推到窗口外 |
+| 21 | ［通用］气泡标题和正文挤在一行 | `showBubble()` 里 `display: 'flex'`（CSS 已定 `flex-direction: column`）；用 `'block'` 会覆盖 |
+| 22 | ［通用］气泡底部透明蒙版 | `box-shadow` 在透明窗口内形成半透明渐变带；用纯色背景 + 实色边框 |
+| 23 | ［Tauri 专属］双通知（气泡 + Windows Toast） | 旧 ShimNotification 转发到已删除端点后兜底 fire；Electron 侧见 #44 |
+| 24 | ［通用］通知两头空 | 抑制逻辑生效但桌宠气泡没发出。查 `/kanye-pet/state` 的 `notification` 字段与日志 `[kanye-pet] notify` |
+| 25 | ［通用］onJobDone 不触发（纯对话） | 它只对子进程 job 触发；通知不能以它为唯一源 |
+| 26 | ［通用］assistant/message 触发通知太频繁 | 通知必须按 turn/end 粒度（见 §5.2） |
+| 27 | ［通用］启动时通知历史 turn | 首次扫描只记 `lastTurnEndNotif` 基线，不通知 |
+| 28 | ［通用］启动时桌宠透明（manifest 加载失败） | `loadManifest()` 只在 `pollConfig()` 里按 `!manifestReady` 重试 |
+| 29 | ［通用］精灵图角色显示很小 | 精灵图透明 padding 过多，见 §3.10（已修复，`.v3.png`） |
+| 30 | ［通用］PowerShell 测 curl JSON 报 invalid JSON | `Set-Content -Encoding UTF8` 加 BOM；用 `[IO.File]::WriteAllText(..., UTF8Encoding($false))` 写无 BOM 文件 |
+| 31 | ［通用］会话标题未就绪显示"未命名会话" | 兜底链 `resolveSessionTitle` → `session.label` → `session.id` |
+| 32 | ［通用］工具审批通知两头空 | 审批不产生 `turn/end blocked`（turn 保持 OPEN）。必须靠 `approval/asked` 事件（§5.6.1） |
+| 33 | ［通用］ask_user_question / exit_plan_mode 无通知 | 工具 async 等待时 turn 不结束。必须靠 `tool/call` 快速路径 |
+| 34 | ［Tauri 专属］pending 通知与 Windows toast 重复 | 旧 ShimNotification 的 `-pending-` 特判；Electron 侧统一查 `desktopPetEnabled` |
+| 35 | ［通用］rc.1 升级后任务完成气泡全失效（零报错） | `session.events` 已删除，守卫式兼容读会静默兜成空数组。三处读日志全改 `session.snapshotEvents()` |
+| 36 | ［通用］新会话首个回合完成不通知 | seed 分支必须**无条件** `lastTurnEndNotif.set(id, lastSeq)`（含 -1） |
+| 37 | ［通用］子代理子任务完成也弹气泡 | `setPetNotification()` 首行按 `session.header.origin === 'subagent'` 拦截；三条路径都经它汇聚 |
+| 38 | ［通用］子代理跑一轮宠物就庆祝 | 庆祝三个写入点都要过滤：`session.header.origin` + `JobSnapshot.ownerSession` 查 `subagentSessions`。**只静音表现层**，账本不变 |
+| 39 | ［通用］§1.2「Web GUI 浮宠已禁用」与线上不符 | 构建产物 `lib/client.js` 早于源码禁用改动 → 网页浮宠仍在跑。**别顺手 `npm run build:client`**（那会真的关掉它） |
+| 40 | ［通用］设置页 tab 整块空白（零报错） | 0.2.1 删除 `settings.register()`；改为 loader 条目 id + 插件导出的 `Config`（全字段 `.volatile()`），client 用 `ctx.configForms.get('<loader 条目 id>')` |
+| 41 | ⚠️［Electron］宠物窗完全不出现 | ① `node patches/kanye-pet-electron/verify.mjs` 是否 17/17；② 是否漏了 `desktop-menu` 前置（main.js 未 unpacked 时本补丁拒绝写入）；③ 改完 main.js 是否真的退出了应用再重启 |
+| 42 | ⚠️［Electron］宠物窗一片空白 / 永不加载 | **`did-fail-load` 对 503 不触发**（503 是正常完成的响应）。必须 `loadURL().catch()` 里重试；也不要在 `did-finish-load` 里 `show()`，那会闪空白窗（§3.8） |
+| 43 | ⚠️［Electron］拖拽/点击全无反应 | `window.petDesktop` 没注入 → `preload-pet.cjs` 是否与 `main.js` 同目录；`preload-error` 会进壳日志。**页面必须经 `dsh-app://app` 加载**，直接开 `file://` 拿不到桥 |
+| 44 | ⚠️［Electron］桌宠开着仍弹 Windows Toast | `ui-kanye-pet` 的 Notification shim 未加载或还是旧 bundle。它用**相对路径** `/kanye-pet/config`；硬编码 3080 在桌面端必打空 |
+| 45 | ⚠️［Electron］关掉桌宠开关后宠物还在 | `desktopPetEnabled` 未落到 profile `cordis.patch.yml` 的 `- id: kanye-pet` 节；或旧 bundle 缓存（重启 Host） |
+| 46 | ⚠️［Electron］改了 pet.js 没反应 | assets 路由对 `pet/` 下发 `no-cache`，但 Host 进程内的模块不重启就不会换页；确认重启了 Host。别去清 WebView 缓存（不是那个原因） |
+| 47 | ⚠️［Electron］宠物跑到屏幕外不见了 | 位置记忆写的是副屏坐标，副屏拔了。`clampPetPosition` 会把完全出屏的落点拉回主屏右下角；若仍丢失，删 `%APPDATA%\@deepseek-ai\dsh-desktop\pet-window.json` |
+| 48 | ⚠️［Electron］官方更新后宠物/菜单一起消失 | 官方「检查更新」整包覆盖 `app.asar` 与 `app.asar.unpacked`。按序重跑两个补丁：先 `patches/desktop-menu`，再 `patches/kanye-pet-electron` |
 
 ## 八、相关文件清单
 
 ```
-packages/desktop/kanye-pet/
-├── lib/index.mjs               # Host half（通知队列 + turn 检测 + 路由）
-├── lib/src/config.mjs          # Host schema + 默认值
-├── lib/src/routes.mjs          # HTTP 路由
-├── lib/src/session-events.mjs  # turn 边沿判定（parseTurnEvent）
-├── lib/client/index.mjs        # Client half（源码层已禁用）
-├── lib/client.js               # Client half 构建产物（8-27 构建，早于禁用改动 → 浮宠仍在线，见 §七 #39）
-├── cordis.patch.yml            # 宿主组合挂载
-└── assets/manifest.json        # 角色 sprite 清单
+plugins/kanye-pet/                        # 插件本体（本仓）
+├── lib/index.mjs                         # Host half（通知队列 + turn 检测 + 路由）
+├── lib/src/config.mjs                    # Host schema + 默认值
+├── lib/src/routes.mjs                    # HTTP 路由常量（含 WINDOW_PATH）
+├── lib/src/assets.mjs                    # 路径净化 / MIME / 缓存策略
+├── lib/src/session-events.mjs            # turn 边沿判定（parseTurnEvent）
+├── lib/assets/pet/pet.html               # 桌面宠物窗口页（Electron 壳加载）
+├── lib/assets/pet/pet.js                 # 宠物窗口逻辑（拖拽 + 轮询 + sprite + 气泡 + 音效）
+├── lib/assets/manifest.json              # 角色 sprite 清单
+├── lib/client/index.mjs                  # Client half 源码（已禁用，见 §七 #39）
+├── lib/client.js                         # Client half 构建产物（旧构建 → 网页浮宠仍在线）
+├── tests/pet-window.test.mjs             # 窗口页路由 + 前端去 Tauri 化门禁
+├── tests/subagent-notify.test.mjs        # 子代理不通知回归
+└── cordis.patch.yml                      # 宿主组合挂载
 
-packages/client/ui-kanye-pet/
-├── src/client/KanyeCard.tsx    # 设置卡片 UI
-├── src/client/kanye-card-controller.ts  # 表单 + 校验
-├── src/client/locales.ts       # 文案
-└── lib/client.js               # 构建产物
+plugins/ui-kanye-pet/                     # 设置面板 + 通知 shim + 会话跳转监听
+├── src/client/KanyeCard.tsx              # 设置卡片 UI
+├── src/client/kanye-card-controller.ts   # 表单 + 校验
+├── src/client/index.ts                   # apply：slots / dsh:open-session / Notification shim
+├── src/client/locales.ts                 # 文案
+└── lib/client.js                         # 构建产物
 
-desktop-tauri/
-├── src-tauri/src/lib.rs        # Tauri 主程序（窗口 + DSH 启动 + ShimNotification + pet_open_session）
-├── src-tauri/capabilities/default.json  # 权限配置
-├── src/pet.html                # 桌宠窗口 HTML（气泡 CSS）
-├── src/pet.js                  # 桌宠窗口逻辑（拖拽 + 轮询 + sprite + 气泡）
-├── src-tauri/target/debug/dsh-desktop.exe   # Debug 产物
-└── src-tauri/target/release/dsh-desktop.exe # Release 产物
+patches/kanye-pet-electron/               # Electron 壳补丁（宠物窗口宿主）
+├── patch.mjs                             # 打补丁（幂等，语法自检，自动备份）
+├── verify.mjs                            # 17 项产物断言
+├── revert.mjs                            # 还原 main.js + 删 preload
+├── lib/asar.mjs                          # 最小 asar 读工具（定位与前置检查）
+├── lib/rules.mjs                         # 注入规则 + preload 源码（唯一真值来源）
+└── README.md                             # 依赖顺序、升级重跑、排查表
+
+patches/desktop-menu/                     # 前置补丁：把 lib/main.js 解包（菜单项）
+desktop/                                  # 自研 Tauri 壳（已弃用，仅历史参考）
+├── src/pet.html / src/pet.js             # 旧窗口前端（已迁至插件 assets）
+└── src-tauri/src/lib.rs                  # 旧 Rust 侧（pet_open_session / ShimNotification）
 ```
-
----
 
 ## 九、扩展指南
 
@@ -755,7 +791,7 @@ desktop-tauri/
 4. 在 `KanyeCard.tsx` 中添加 UI 控件 + **reset 硬编码**
 5. 在 `kanye-card-controller.ts` 中添加校验
 6. 在 `locales.ts` 中添加文案
-7. 若影响桌宠窗口尺寸，同步改 `desktop-tauri/src/pet.js` 的 `applyConfig` 和 `lib.rs` 的初始窗口
+7. 若影响桌宠窗口尺寸，同步改 `lib/assets/pet/pet.js` 的 `applyConfig` 与壳补丁 `lib/rules.mjs` 的 `PET_W`/`PET_H`（改壳补丁需重跑 patch.mjs）
 
 > **坑点**：改默认值时，reset 硬编码（§4.5）、schema default、`DEFAULTS`、前端校验、locale 提示、`pet.js` 的 `Math.min` 上限**六处必须同步**。
 
@@ -790,20 +826,26 @@ dbg.textContent = 'debug info'
 
 | 症状 | 查什么 |
 |------|--------|
-| 桌宠气泡不出现 | `curl http://127.0.0.1:3080/kanye-pet/state` 看 notification 字段；DSH 日志查 `[kanye-pet] notify <id>: "<标题>"`（发出时必打）；只有 `/state` DEBUG 行而无 notify 行 = 检测路径失效（§七 #35） |
+| 宠物窗不出现 | ① `node patches/kanye-pet-electron/verify.mjs`（应 17/17）② 是否真的退出应用后重启 ③ `desktop-menu` 前置是否打过 |
+| 宠物窗空白 | `curl http://127.0.0.1:<当前端口>/kanye-pet/window` 是否 200；Host 未就绪时壳返回 503（补丁每 2s 重试，见 §3.8） |
+| 拖拽/点击无反应 | 页里 `typeof window.petDesktop` 应为 object；`file://` 打开拿不到桥，必须走 `dsh-app://app` |
+| 会话气泡不出现 | `curl <host>/kanye-pet/state` 看 `notification` 字段；日志查 `[kanye-pet] notify <id>: "<标题>"`（发出时必打）；只有 `/state` DEBUG 行而无 notify 行 = 检测路径失效（§七 #35） |
 | 通知内容不对 | 检查 turn/end 的 `reason.kind` 映射；标题兜底链是否命中 |
-| Windows 通知和气泡同时弹 | ShimNotification 是否误走 `fire()`；`/kanye-pet/notify` 端点是否残留 |
-| 点击气泡不跳转 | 窗口弹出但不切会话 = 主窗口缺 `dsh:open-session` 监听器（原由 dsh-notification-custom 提供，退役后由 ui-kanye-pet client 承担——确认其 client.js 含 `dsh:open-session` 且页面硬刷加载了新 bundle）；**若监听存在仍不切会话，查是否还在调已删除的 `sessions.open()`——必须走 `ctx.uiWorkspace.openSession(id)`**（2026-10-18 修复，回归检查 `node tests/jump-check.mjs`）；DSH 日志查 `会话跳转事件派发失败` |
-| 桌宠透明 | manifest.json 是否 200；`loadManifest` 重试是否生效 |
-| 改动不生效 | ① 清 WebView 缓存 ② 杀 node 重启 exe ③ 删 build 产物重编（6.3） |
+| 桌宠开着仍弹 Windows Toast | `ui-kanye-pet` 的 Notification shim 未生效或旧 bundle（§七 #44） |
+| 点击气泡不跳转 | 主窗口是否加载了含 `dsh:open-session` 监听的 ui-kanye-pet；监听存在仍不切 → 检查是否还调已删除的 `sessions.open()`（必须走 `ctx.uiWorkspace.openSession(id)`）；回归 `node plugins/ui-kanye-pet/tests/jump-check.mjs` |
+| 桌宠透明/无图 | `curl <host>/kanye-pet/assets/manifest.json` 是否 200；`loadManifest` 重试是否生效 |
+| 改了 pet.js 不生效 | 重启 Host（不是清 WebView 缓存）；确认走的是 `link:` 源码而非发布 tarball |
+| 想确认前端是否已去 Tauri 化 | `node --test plugins/kanye-pet/tests/pet-window.test.mjs`（9 项） |
 
 ### 9.6 经验总结
 
-1. **Tauri 前端资源打包有缓存**，改 pet.js/pet.html 必须删 build 产物重编（见 6.3），否则白改
-2. **会话事件有两套通道**：`session/event` 广播（每条 append 都发，含 turn 边沿）与完整事件日志。rc.1 起日志私有化，读法是 `session.snapshotEvents()`，`session.events` 属性已删除——**守卫式兼容读会把破坏静默吞成空数组而非报错**，宿主升级后必须 grep 插件里所有 `.events` 引用（§七 #35/#36）
-3. **通知语义要对齐 dsh-notification-custom**：它按 turn 投影推进触发，一次 turn 一条；不要用 onJobDone（只覆盖 job）或 assistant/message（太频繁）
-4. **三条通知检测路径缺一不可**：turn/end 扫描覆盖正常完成；`approval/asked` 覆盖工具审批；`tool/call` 快速路径覆盖 `ask_user_question`/`exit_plan_mode`。工具审批不产生 `turn/end blocked`，`ask_user_question` 不产生任何 turn/end（§5.6.1）
-5. **ShimNotification 的 pending 特判**：原逻辑对 pending 标签永远走 Windows，与 pet 气泡重复。统一查 `desktopPetEnabled` 后，所有通知由 pet 气泡接管（§5.3）
-6. **透明窗口的视觉坑**：box-shadow、半透明背景、窗口外定位都会产生诡异视觉效果，气泡用纯色 + 窗口内定位
-7. **host 端改动（lib/index.mjs）无需重编 exe**，重启 DSH 即生效；pet.js/pet.html/lib.rs 改动必须重编 exe
-8. **验证 exe 是否包含新前端代码**：解压 `target/release/build/dsh-desktop-*/out/tauri-codegen-assets/*.js`（Brotli 压缩），检查内容 hash 是否变化或直接解压比对
+1. **换壳后的分层是核心心智**：前端（`lib/assets/pet/`）走 HTTP，改完重启 Host 即生效；只有窗口宿主（`patches/kanye-pet-electron`）需要重打补丁。别再把前端塞回壳里。
+2. **Electron 的官方协议是免费的同源通道**：`dsh-app://app` 由主进程 `protocol.handle` 带 cookie 转发到 Host，所以宠物页与 `/kanye-pet/*` 天然同源——不需要 CORS，也不需要知道端口。
+3. **`did-fail-load` 不管 HTTP 状态码**：503 属于「正常完成的响应」。自愈重试必须挂在 `loadURL().catch()` 上（§3.8）。同理别在 `did-finish-load` 里 show。
+4. **`backgroundThrottling: false` 换掉了 Tauri 的 0×0 hack**：隐藏不再挂起 JS，`hide()/show()` 就是正确语义。
+5. **会话事件有两套通道**：`session/event` 广播与完整事件日志。rc.1 起日志私有化，读法是 `session.snapshotEvents()`——**守卫式兼容读会把破坏静默吞成空数组而非报错**，宿主升级后必须 grep 插件里所有 `.events` 引用（§七 #35/#36）。
+6. **通知语义要对齐 dsh-notification-custom**：按 turn 投影推进，一次 turn 一条；不要用 onJobDone（只覆盖 job）或 assistant/message（太频繁）。
+7. **三条通知检测路径缺一不可**：turn/end 扫描 / `approval/asked` / `tool/call` 快速路径（§5.6.1）。
+8. **通知抑制只有一个决策点**：`desktopPetEnabled`。开 → 桌宠气泡接管，关 → 原生通知。两个宿主（Tauri 桥 / Electron 原生）共用同一条判断，别分裂成两套语义。
+9. **透明窗口的视觉坑**：`transparent` 必须配 `hasShadow: false`；气泡用纯色背景 + 窗口内定位，`box-shadow` 在透明窗里会形成渐变带。
+10. **补丁锚点唯一命中是硬约束**：官方升级后 `--dry-run` 报命中 ≠1 就停下改 `rules.mjs`，绝不放宽断言。

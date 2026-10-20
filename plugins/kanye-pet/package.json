@@ -12,6 +12,7 @@
     "lib/src",
     "lib/assets/characters",
     "lib/assets/manifest.json",
+    "lib/assets/pet",
     "lib/assets/sounds",
     "cordis.patch.yml",
     "locale",

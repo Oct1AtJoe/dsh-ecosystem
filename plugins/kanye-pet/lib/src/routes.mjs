@@ -11,3 +11,5 @@ export const ASSETS_PATH = `${ROUTE_PREFIX}/assets`
 export const EVENTS_PATH = `${ROUTE_PREFIX}/events`
 export const PRESENCE_PATH = `${ROUTE_PREFIX}/presence`
 export const SESSIONS_PATH = `${ROUTE_PREFIX}/sessions`
+// 桌面宠物窗口页（Electron 壳以 dsh-app://app/kanye-pet/window 加载，与各 API 同源）。
+export const WINDOW_PATH = `${ROUTE_PREFIX}/window`

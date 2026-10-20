@@ -55,14 +55,39 @@ export function apply(ctx) {
     // Desktop notification runtime patch (Plan A):
     // Ensure notifications are immediately controlled by desktopNotificationEnabled
     // in the active session without requiring an immediate exe rebuild.
+    //
+    // 两条宿主分支：
+    // - Tauri 壳：注入 `__dshNotifyBridge`，通知要经桥转成 Windows Toast；
+    // - Electron 官方壳（真 Chromium，无桥）：`new Notification()` 直接出系统通知。
+    //   桌宠开启时必须吞掉，否则桌宠气泡与系统 Toast 重复弹（Tauri 版靠壳注入
+    //   ShimNotification 解决，Electron 侧由本 shim 承担同一职责）。
     ctx.effect(() => {
         const RawNotification = window.Notification;
         if (typeof RawNotification !== 'function')
             return () => { };
+        // 同源相对路径：Electron 桌面端与 Web GUI 都由 Host 提供本页，端口随启动变化，
+        // 硬编码 3080 在桌面端（随机端口）恒打空。
+        const readPetConfig = () => fetch('/kanye-pet/config', { cache: 'no-store' })
+            .then(async (r) => {
+            const b = (await r.json());
+            const cfg = (b?.config ?? b ?? {});
+            return cfg;
+        });
         function DynamicNotification(title, options) {
             const bridge = window.__dshNotifyBridge;
             if (!bridge?.fire) {
-                return new RawNotification(title, options);
+                // Electron / 浏览器：桌宠开着就由桌宠气泡接管，不再出系统通知。
+                // 配置读不到时保持原行为（宁可多弹一条，也不静默丢通知）。
+                void readPetConfig()
+                    .then((cfg) => {
+                    if (cfg.desktopPetEnabled === true)
+                        return;
+                    new RawNotification(title, options);
+                })
+                    .catch(() => {
+                    new RawNotification(title, options);
+                });
+                return this;
             }
             const payload = {
                 type: 'dsh-notification',
@@ -73,12 +98,8 @@ export function apply(ctx) {
                 requireInteraction: Boolean(options?.requireInteraction),
                 force: true,
             };
-            void fetch('http://127.0.0.1:3080/kanye-pet/config', { cache: 'no-store' })
-                .then(async (r) => r.json())
-                .then((b) => {
-                const cfg = b?.config
-                    ?? b
-                    ?? {};
+            void readPetConfig()
+                .then((cfg) => {
                 if (cfg.desktopNotificationEnabled !== false) {
                     bridge.fire?.(payload);
                 }

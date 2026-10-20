@@ -56,5 +56,8 @@ export function contentTypeFor(rel) {
  */
 export function cacheControlFor(rel) {
   if (rel === 'manifest.json' || rel.startsWith('sounds/')) return 'no-cache, must-revalidate'
+  // pet/：桌面宠物窗口页前端（随插件版本走，改完重启 Host 即生效）。
+  // 下发 immutable 会让 pet.js 的修复被强缓存吞掉，症状是「改了没反应、零报错」。
+  if (rel.startsWith('pet/')) return 'no-cache, must-revalidate'
   return 'public, max-age=31536000, immutable'
 }
