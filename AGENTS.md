@@ -312,14 +312,31 @@ node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config 
 cd ..\..
 node scripts\pack-plugins.mjs
 
-# 4. 把 dist-tarballs\*.tgz 上传到对应的 GitHub Release
+# 4. 更新 另一台电脑安装指南.md（必须在第 5 步之前，见 §5.4 第 0 阶段）
+
+# 5. 把 dist-tarballs\*.tgz 上传到对应的 GitHub Release
 ```
+
+> 🚨 **第 4 步不可跳过**：`另一台电脑安装指南.md` 是另一台电脑的安装依据，
+> 它与 `dist-tarballs/` 的产物必须是同一版本。打包前不改指南 = 让另一台电脑装旧版。
 
 `pack-plugins.mjs` 会把每个插件打成 `dist-tarballs/<扁平名>-<版本>.tgz`，
 并生成 `manifest.json`；上传后 Release 的下载 URL 即为
 `https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<文件名>`。
 
-### 5.4 改动源码与打包发布的交付契约（双阶段硬约束）
+### 5.4 改动源码与打包发布的交付契约（硬约束）
+
+> 🚨 **第 0 阶段（打包发布前）：必须同步更新 `另一台电脑安装指南.md`**
+> 本次会话**只要改动了 `plugins/<任一插件>/` 下的源码**，在跑 `pack-plugins.mjs` **之前**，
+> **必须**把 `C:\dsh-ecosystem\另一台电脑安装指南.md` 一并更新，使其与本次产物一致：
+> 1. 新增/改名的插件 → 补进「插件清单」，写对包名、扁平名、版本号、功能说明；
+> 2. 版本号变更 → 更新文中所有 `<扁平名>-<版本>.tgz` 的 URL、`dsh plugin add` 命令与 Release tag；
+> 3. 新增的安装前置条件（依赖、宿主版本、配置项）→ 同步写进对应章节；
+> 4. 已废弃/替换的功能 → 删掉旧描述，不留过期文案。
+>
+> - **顺序硬性**：先改指南 → 再 `pack-plugins.mjs` → 再上传 Release。
+>   不允许「先打包发布、指南回头补」，因为指南一旦落后，另一台电脑就会装错版本。
+> - 指南里的版本号必须与 `dist-tarballs/manifest.json` 的实际产物逐条对齐。
 
 > 🚨 **第一阶段（改完源码）：必须询问是否打包发布**
 > 本次会话**只要改动了 `plugins/<任一插件>/` 下的源码**，在回复里**必须**明确询问用户：
