@@ -3,6 +3,13 @@
 > 本文件为工作区级开发指南。DSH 按 用户全局（`~/.dsh/AGENTS.md`）→ 项目根（`C:\dsh-ecosystem\AGENTS.md`）→ cwd 链 顺序加载。
 > 本工作区所有插件开发、缺陷修复与维护任务均须严格遵守本文档。
 
+> 🚨 **升级 `E:\dshDesktop` 桌面端后，必读
+> [docs/desktop-upgrade-checklist.md](docs/desktop-upgrade-checklist.md)。**
+>
+> 桌面端从 `app.asar` 加载官方包，升级会替换其中的版本。凡是我们用 `link:`
+> 覆盖过的官方包（见 §6），版本错位会导致**整块界面崩溃**。
+> 该清单给出逐步核对流程、官方是否已自带补丁的判断方法，以及回滚命令。
+
 ---
 
 ## 0. 桌面壳（desktop/）参考文档
