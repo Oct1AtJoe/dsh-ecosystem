@@ -632,29 +632,35 @@ body[data-ds-custom-theme] [class*="_MG5Va_root"] [class*="pill"] {
 /* 对话页：站在 composerStack 顶端，因此上方有排队消息、待办或目标卡片时
    会自动上移到全部元素之上，永不遮挡。
 
-   右侧 68px 的来历（实测，勿随手改）：34px 是「回到底部」按钮直径
+   右侧基准的来历（实测，勿随手改）：34px 是「回到底部」按钮直径
    （.toBottom，官方 ChatView），另一半是留白。
    该按钮挂在对话列上、右对齐，而挂件挂在 composerStack 上 —— 两者在同一
    竖直带里会相遇，所以横向必须让开。
 
-   ⚠️ 2026-10-20 用户要求「挂件往右移一些」：把 68px 调为 52px（右移 16px）。
-   实测各列宽下「人物右缘 → 按钮左缘」的间隙从 35px 收到 19px，仍然安全；
-   再往右就会压到按钮：offset=44 → 11px、offset=40 → 7px（视觉上已贴住）。
-   改这个数前请先按下面的公式核算，不要凭感觉调小：
-     gap = 34 + (offset - 16)      （列宽 ≥ 约 1100px 时恒成立）
-   → 要保证 gap ≥ 12px，offset 不得小于 44px；52px 留了 19px 余量。 */
+   ⚠️ 站位调整史（均为用户要求「往右移一些」，实测驱动，勿凭感觉改）：
+     68px（初版） → 52px（2026-10-20 第一次右移 16px，间隙 35→19px）
+                 → 46px（2026-10-20 第二次右移 6px，间隙 19→13px）
+   核算公式（列宽 ≥ 约 1100px 时恒成立，区间 760..3000px 实测一致）：
+     gap = 34 + (offset - 16)
+   → offset=46 → gap=13px（当前）；44 → 11px（开始贴身）；40 → 7px（压住按钮）。
+   **46px 已是安全上限附近，再小就开始压「回到底部」按钮。**
+
+   若以后还要让挂件更靠右，唯一出路是**改动竖直站位**：把底边整体上抬，
+   越过按钮所占的 34px 高度带（按钮占 composer_height+16 .. composer_height+50），
+   横向才彻底自由。单纯压 offset 到 40px 以下会在点击层面撞按钮。
+   （注：本文件是反引号模板字符串，注释里禁止再出现反引号，否则会截断字符串。） */
 [data-dsh-pet-anchor="stack"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 52px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px), (100% - var(--dsh-composer-card-max-width, 712px)) / 2) + 46px) !important;
   bottom: 100% !important;
 }
-/* 替代面板（授权确认 / 提问面板）接管输入卡片时 —— 与 stack 同步右移 16px */
+/* 替代面板（授权确认 / 提问面板）接管输入卡片时 —— 与 stack 同步 */
 [data-dsh-pet-anchor="panel"] > .dsh-composer-pet {
-  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 52px) !important;
+  right: calc(max(var(--dsh-composer-side-clearance, 16px) + 16px, (100% - var(--dsh-chat-content-width, 680px)) / 2) + 46px) !important;
   bottom: calc(100% - 7px) !important;
 }
-/* 首页新会话卡片 / 兜底卡片 —— 同样同步右移 16px */
+/* 首页新会话卡片 / 兜底卡片 —— 同样同步 */
 [data-dsh-pet-anchor="card"] > .dsh-composer-pet {
-  right: 52px !important;
+  right: 46px !important;
   bottom: 100% !important;
 }
 

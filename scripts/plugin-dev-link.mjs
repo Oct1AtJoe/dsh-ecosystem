@@ -45,8 +45,14 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pluginsRoot = path.join(repoRoot, 'plugins')
 
-/** GitHub release tag the published tarballs live under. */
-const RELEASE_TAG = 'v4'
+/**
+ * GitHub release tag the published tarballs live under.
+ *
+ * ⚠️ 每次开新 Release（v4 → v5 …）都必须同步改这里，否则 `release` 子命令
+ * 会把 profile 依赖写成**旧 tag**的 URL，装到的是上一轮的产物。
+ * 核对方式：`gh release list --limit 3`，取标了 Latest 的那个。
+ */
+const RELEASE_TAG = 'v5'
 
 /** GitHub owner/repo that hosts the release assets. */
 const RELEASE_REPO = 'Oct1AtJoe/dsh-ecosystem'

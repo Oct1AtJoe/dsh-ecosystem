@@ -54,8 +54,8 @@ check('三个锚点偏移一致（无跳变）', stack === panel && panel === ca
   stack === panel && panel === card ? '' : `  stack=${stack} panel=${panel} card=${card}`)
 
 console.log('\n=== B. 安全边界：offset 不得小于 44px ===')
-// 几何：人物右缘到按钮左缘的间隙 = 34 + (offset - 16)  （列宽够宽时恒成立）
-// offset=44 → 11px，已是可接受下限；再小就会贴住/压住按钮。
+// 几何：人物右缘到按钮左缘的间隙 = 34 + (offset - 16)  （列宽 ≥ 1100px 恒成立）
+// offset=46 → 13px（当前）；44 → 11px（开始贴身）；40 → 7px（压住按钮）。
 const SAFE_MIN = 44
 for (const [name, v] of [['stack', stack], ['panel', panel], ['card', card]]) {
   check(
@@ -65,10 +65,14 @@ for (const [name, v] of [['stack', stack], ['panel', panel], ['card', card]]) {
   )
 }
 
-console.log('\n=== C. 记录本次右移（68px → 52px）===')
-check('已右移到 52px（用户 2026-10-20 要求「往右移一些」）', stack === 52, `  实测 ${stack}px`)
-check('负向对照：不得回落到旧的 68px', stack !== 68)
-check('注释记录了 68→52 的由来与核算公式', /68px\s*调为\s*52px/.test(indexSrc) && /gap\s*=\s*34\s*\+/.test(indexSrc))
+console.log('\n=== C. 记录站位调整史（68 → 52 → 46px）===')
+check('已右移到 46px（用户 2026-10-20 第二次要求「再往右移一些」）', stack === 46, `  实测 ${stack}px`)
+check('负向对照：不得回落到 52px', stack !== 52)
+check('负向对照：不得回落到 68px', stack !== 68)
+check('注释记录了两轮右移与核算公式',
+  /52px[\s\S]{0,120}46px/.test(indexSrc) && /gap\s*=\s*34\s*\+/.test(indexSrc))
+check('注释写明 46px 已近安全上限、再往右需改竖直站位',
+  /46px\s*已是安全上限附近/.test(indexSrc) && /竖直站位/.test(indexSrc))
 
 console.log('\n=== D. 垂直站位未被动到（只改横向）===')
 check('stack 仍贴输入卡上沿（bottom: 100%）',
@@ -79,7 +83,8 @@ check('挂件尺寸未变（73×109）',
   /\.dsh-composer-pet\s*\{[\s\S]{0,400}?width:\s*73px\s*!important[\s\S]{0,80}?height:\s*109px\s*!important/.test(css))
 
 console.log('\n=== E. 构建产物 ===')
-check('产物含新偏移 52px', /\+ 52px\)/.test(bundle))
+check('产物含新偏移 46px', /\+ 46px\)/.test(bundle))
+check('产物不再含旧偏移 52px', !/\+ 52px\)\s*!important[\s\S]{0,200}?dsh-composer-pet/.test(bundle))
 check('产物不再含挂件的 68px 偏移', !/\+ 68px\)\s*!important[\s\S]{0,200}?dsh-composer-pet/.test(bundle))
 
 console.log('')
