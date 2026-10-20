@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-kanye-pet",
   "description": "桌面宠物设置面板：在插件设置中提供桌宠开关、角色、大小透明度与互动行为配置卡片。",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"

@@ -12,11 +12,46 @@
 
 ---
 
-## 0. 桌面壳（desktop/）参考文档
+## 0. 桌面端现状（必读，2026-10-20 修订）
 
-**凡涉及 `C:\dsh-ecosystem\desktop` 桌面壳（Tauri 无边框双 WebView 窗口）的修改，必须先读 [desktop/DESKTOP-SHELL.md](desktop/DESKTOP-SHELL.md)**。
+### 0.1 当前桌面端 = 官方 Electron 客户端
 
-该文档涵盖：窗口/WebView 布局与生命周期顺序、Win32 无边框机制（WM_STYLECHANGING / WM_NCCALCSIZE / WM_GETMINMAXINFO / WM_NCHITTEST）、边缘拖拽缩放的跨进程 `border_resizing` 方案、标题栏交互（双击最大化、菜单对齐）、三条独立 initialization_script、重启语义、部署流程与全部踩坑记录。改动壳子前请对照其中的「踩坑记录」表，避免重复引入历史回归。
+**正在运行的桌面端是 `E:\dshDesktop` 的官方 Electron 客户端，不是自研 Tauri 壳。**
+
+| 事实 | 值 |
+|---|---|
+| 可执行文件 | `E:\dshDesktop\DeepSeek Harness.exe`（Electron） |
+| 应用包 | `E:\dshDesktop\resources\app.asar`（约 182 MB） |
+| 官方包根 | `E:\dshDesktop\resources\app.asar\dsh\` |
+| 升级方式 | 官方 NSIS 安装包；升级会整体替换 `app.asar` |
+| 网页端 | 同一个 Host 进程，`dsh web` 监听随机端口（如 `http://127.0.0.1:25063`） |
+
+### 0.2 改官方 Electron 端的唯一途径 = `patches/`
+
+官方桌面端的 `app.asar` 是**官方产物**，源码在 `E:\vibeCoding\deepseek-harness` 里改**不会**进 asar。
+要改壳层行为，只能走 `patches/` 下的 asar 补丁（每个补丁带 `patch.mjs` / `verify.mjs` / `revert.mjs`）：
+
+| 补丁 | 作用 |
+|---|---|
+| `patches/desktop-menu` | 给「应用」菜单与托盘右键各加「刷新页面」「重启应用」两项。**改 `lib/main.js` 为 `unpacked`，是其它补丁的前置** |
+| `patches/kanye-pet-electron` | 给官方 Electron 壳注入透明置顶宠物窗与 IPC 桥，配套 `kanye-pet` 插件的 `GET /kanye-pet/window` |
+| `patches/chat-virtual-rows` | 聊天区只画可见行（`content-visibility`），切长会话不再卡顿 |
+| `patches/cost-meter-lock` | `dsh-cost-meter` 的 Windows 锁身份不再同步调 PowerShell |
+
+> 🚨 **打补丁前必须完全退出 DSH 桌面端**（托盘退出，不是关窗口）：`main.js` 在运行期被映射进进程。
+> 🚨 **`desktop-menu` 是前置**：它把 `lib/main.js` 摊到 `app.asar.unpacked/lib/main.js`，后续补丁只改那个磁盘文件，**不重写 asar 头**。
+> 🚨 改完必须验证：`node verify.mjs`。判据用**补丁自己的独有符号**，不能用 locale 文案键（会撞车复用字典）。
+
+### 0.3 `desktop/`（Tauri 壳）已弃用，仅作历史参考
+
+`C:\dsh-ecosystem\desktop` 是**早期自研的 Tauri 2 无边框双 WebView 壳**（Rust + WebView2），
+**当前不再使用、不再维护、不再随版本迭代**。保留原因：其中踩坑记录对理解壳层问题仍有参考价值。
+
+- 若出于考古需要阅读，见 [desktop/DESKTOP-SHELL.md](desktop/DESKTOP-SHELL.md)：Win32 无边框机制
+  （WM_STYLECHANGING / WM_NCCALCSIZE / WM_GETMINMAXINFO / WM_NCHITTEST）、边缘拖拽缩放的跨进程
+  `border_resizing` 方案、标题栏交互、三条 initialization_script、重启语义与全部踩坑记录。
+- **不要再基于它改功能**：它和当前 Electron 端是两套独立实现，改它不会影响你正在用的客户端。
+- Tauri 版的 pet 窗口、重启语义等能力，在 Electron 端的对应实现见 `patches/kanye-pet-electron` 与 `patches/desktop-menu`。
 
 ---
 
@@ -421,6 +456,11 @@ node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 
 > 🚨 **每次升级 `E:\dshDesktop` 后，先查固化包版本是否与 asar 内的新版本一致。**
 > 版本错位 = 整块界面崩溃风险。
+
+> 🚨 **升级会整体替换 `app.asar`，`patches/` 里的补丁全部丢失，必须重打。**
+> 顺序：`desktop-menu`（前置，摊开 `lib/main.js`）→ `kanye-pet-electron` → 其它。
+> 每个补丁打完都要 `node verify.mjs`，认补丁独有符号，零命中就是没进去。
+> 升级后 `resources/app.asar.orig-<版本>` 是官方原包备份，回滚时用它。
 
 1. 查 asar 内该包的新版本：
    ```powershell
