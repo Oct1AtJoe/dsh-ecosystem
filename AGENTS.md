@@ -335,3 +335,83 @@ node scripts\pack-plugins.mjs
 - **软链断链排查**：若页面未更新，检查 `C:\Users\Administrator\.dsh\profiles\<profile>\node_modules\@deepseek-ai\dsh-client-<name>\lib\client.js` 内容与修改时间戳；`status` 命令会直接打印源码产物的 size/mtime 对比。
 - **服务重启**：若新增了 patch 条目或修改了 Node-half，重启 DSH 服务（`pnpm dsh web`）。
 
+---
+
+## 6. 覆盖官方包：vendored 补丁包（`packages/`）
+
+### 6.1 为什么需要这一层
+
+DSH 桌面端运行的是 `E:\dshDesktop\resources\app.asar` 里**打包好的官方产物**。
+你在官方 checkout（`E:\vibeCoding\deepseek-harness`）里改的源码**不会自动进入 asar** ——
+只有 `app.asar` 被重新打包才会。于是出现「源码改了、产物也重建了、页面上就是没变化」。
+
+> 🚨 **典型误判**：在 asar 里 grep 到某个 locale 文案键（如 `stats.dialog.speed`）就以为功能已生效。
+> 文案键可能来自别处复用的字典。**判据要用补丁自己的独有符号**（如 `deriveTurnMetrics`），
+> 零命中才是真的没进 asar。
+
+### 6.2 覆盖机制（唯一可行路径）
+
+宿主加载客户端插件走 `client-modules` 的 `locatePkgJson()` → `loader.resolveSync()`，
+**从 profile 目录向上解析**。所以只要 profile 的 `node_modules` 里有同名包，就命中它，
+asar 内的副本被绕过。
+
+```jsonc
+// C:\Users\Administrator\.dsh\profiles\desktop\package.json
+"@deepseek-ai/dsh-client-ui-chat": "link:C:/dsh-ecosystem/packages/ui-chat-patched"
+```
+
+```powershell
+cd C:\Users\Administrator\.dsh\profiles\desktop
+node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
+```
+
+**必须重启宿主**——路径在启动时解析并缓存进 `pkgMeta`，刷新页面拿的还是旧路径。
+
+### 6.3 为什么固化进 `packages/` 而不是直接 link 官方 checkout
+
+用户**升级桌面端**（`E:\dshDesktop`）时，asar 里的包版本会变；
+若 profile 直接 link 官方 checkout，会造成「fork 产物版本 ≠ asar 其余生态版本」的错位，
+可能整块界面崩溃。固化副本让官方 checkout 保持纯净（可随时 `git pull` 无冲突），
+且补丁知识留在 `VENDORED-FROM.md` 里。
+
+**目录约定**：`C:\dsh-ecosystem\packages\<包名>-patched\`
+
+每个固化包**必须**带 `VENDORED-FROM.md`，写明：来源、版本、补丁提交、补丁内容、
+升级时的核对步骤、回滚方法。
+
+### 6.4 固化包只放运行时文件
+
+按 `package.json` 的 `files` 字段 + `exports` 实际引用的路径拷贝：
+
+| 必拷 | 不拷 |
+|---|---|
+| `package.json` | `src/` |
+| `lib/index.js`、`lib/client.js` | `tsconfig*.json` |
+| `lib/types/**`（.d.ts） | `tsdown.config.ts` |
+| `locale/*.json` | `README*`、`*.tsbuildinfo` |
+
+固化副本**不承担构建职责**（没有 src）。要改行为必须回到官方 checkout 打补丁、
+重建 `lib/client.js`，再覆盖回来。
+
+### 6.5 升级桌面端后的必检项
+
+> 🚨 **每次升级 `E:\dshDesktop` 后，先查固化包版本是否与 asar 内的新版本一致。**
+> 版本错位 = 整块界面崩溃风险。
+
+1. 查 asar 内该包的新版本：
+   ```powershell
+   $py = "C:\Users\Administrator\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+   & $py -c "import json,io; d=json.load(io.open(r'<asar解出路径>\node_modules\<包名>\package.json',encoding='utf-8')); print(d['version'])"
+   ```
+2. 版本一致 → 通常可继续用。
+3. 版本不一致 → 按优先级：
+   - **先查官方是否已自带该补丁**（grep 补丁独有符号）。若已有 → **删掉固化包与 profile 依赖**，回官方版。
+   - 否则从新版本源码重打补丁、重建、覆盖固化包。
+4. 出问题立即回滚：删 profile 里该条依赖 → `pnpm install` → 重启。
+
+### 6.6 现有固化包
+
+| 包 | 版本 | 补丁 | 说明 |
+|---|---|---|---|
+| `@deepseek-ai/dsh-client-ui-chat` | 0.2.1-rc.2 | `603ce1067b` | 「本轮用量」悬浮窗补回 TPS 行。详见 [packages/ui-chat-patched/VENDORED-FROM.md](packages/ui-chat-patched/VENDORED-FROM.md) |
+
