@@ -16,11 +16,19 @@ DSH 桌面端从 `E:\dshDesktop\resources\app.asar` 加载 ui-chat，那是官�
 
 见 `E:\vibeCoding\deepseek-harness\LOCAL-CHANGES.md` §12：
 1. `contract/turn-metrics.ts` 加回 `deriveTurnMetrics()`
-2. `contract/chat-nodes.ts` 的 `TurnTailChatData` 加 `tokensPerSecond?`
-3. `conversation-nodes/turn-tail.ts` 调用它并写入
-4. `chat/TurnUsagePanel.tsx` props 加 `tokensPerSecond?`，「输出」行后追加 TPS 行
-5. `chat/TurnTailNodeView.tsx` 透传
+2. `contract/chat-nodes.ts` 的 `TurnTailChatData` 加 `tokensPerSecond?` 与 `ttftMs?`
+3. `conversation-nodes/turn-tail.ts` 调用它并把两个字段写入
+4. `chat/TurnUsagePanel.tsx` props 加 `tokensPerSecond?` / `ttftMs?`，
+   在「输出」行后依次追加「首字用时」与「输出速度（TPS）」两行
+5. `chat/TurnTailNodeView.tsx` 透传两个字段
 6. `conversation-nodes/event-projection.ts` 从持久化 stream 记录恢复首 token 时间
+7. `chat/locale.ts` 新增 `message.turnUsage.ttft`（zh「首字用时」/ en「Time to first token」）
+
+> **「首字用时」用的是单次值，不是平均。** `deriveTurnMetrics()` 取该轮
+> **最低 step 的单次 TTFT**；官方的 `StatsPills` 全局面板才用 `ttftMs / ttftSteps`
+> 算平均。所以这里刻意**没有**复用 `stats.dialog.ttft`（文案带"平均"二字，
+> 用在单次值上是错的），另建了 `message.turnUsage.ttft`。
+> 复用现成的 `formatDuration()` 做格式化，不新增格式化逻辑。
 
 ## ⚠️ 升级桌面端时必须核对
 
