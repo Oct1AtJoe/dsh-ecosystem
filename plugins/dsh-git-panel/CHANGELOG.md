@@ -2,6 +2,21 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.23] - 2026-10-23
+
+### Fixed
+- **Windows 上凭据存了也不生效，每次 pull/fetch 都重新要求输入账号密码**：
+  - 根因：面板保存凭据后，运行时以 `-c credential.helper=store --file=<路径>` 注入助手；
+    而 git 对 `-c key=value` 的值会做一层**转义解析**，Windows 下 `join(homedir(),'.git-credentials')`
+    得到的是反斜杠路径（`C:\Users\<user>\.git-credentials`），反斜杠被吃掉后 store 助手指向一个
+    不存在的文件 —— 于是凭据明明写进了 `~/.git-credentials`，读取端永远命中不了，
+    面板只能反复弹自己的「填账号密码」表单，形成死循环。
+  - 修复：注入前把路径归一化成正斜杠。Node 的 `fs` 在 Windows 上同样接受正斜杠，
+    `existsSync` 判断不受影响；写入端（`routes.ts` 走 `fs.writeFileSync`）无需改动。
+  - 实测对照（同一份凭据文件、同一台机器）：
+    反斜杠 `--file` → `exit=128`，`could not read Username for 'https://github.com'`；
+    正斜杠 `--file` → `exit=0`，正确返回 username/password。
+
 ## [Unreleased]
 
 ### Fixed
