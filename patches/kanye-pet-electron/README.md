@@ -148,6 +148,6 @@ patches/kanye-pet-electron/
 | 宠物窗完全不出现 | ①`node verify.mjs` 是否 15/15；②壳日志有无 `kanye-pet:` 报错；③`curl` 插件 `/kanye-pet/window` 是否 200 |
 | 窗口出现但全白/全透明 | Host 未就绪或插件未挂载 → `dsh-app://app/kanye-pet/window` 返 503；补丁会自动每 2s 重试 |
 | 拖拽不生效 | `window.petDesktop` 未注入 → `preload-pet.cjs` 是否在 `main.js` 同目录；preload 报错会在壳日志的 `preload-error` 里 |
-| 点气泡不跳会话 | 主窗口是否加载了 `ui-kanye-pet`（它注册 `dsh:open-session` 监听） |
+| 点气泡不跳会话 | 主窗口是否加载了 `dsh-kanye-pet-settings`（它注册 `dsh:open-session` 监听） |
 | 关掉桌宠开关后宠物还在 | `desktopPetEnabled` 未写入 profile 的 `cordis.patch.yml` 的 `- id: kanye-pet` 节 |
-| 桌宠开着仍弹 Windows Toast | `ui-kanye-pet` 的 Notification shim 未加载或版本旧，需重建 client bundle |
+| 桌宠开着仍弹 Windows Toast | `dsh-kanye-pet-settings` 的 Notification shim 未加载或版本旧，需重建 client bundle |

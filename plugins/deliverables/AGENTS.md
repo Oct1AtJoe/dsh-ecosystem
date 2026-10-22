@@ -1,11 +1,11 @@
-# ui-deliverables-custom 维护注意
+# dsh-deliverables（原 ui-deliverables-custom）维护注意
 
 ## 修改后需要同步到 profile
 
-这个插件的源码在 `C:\dsh-ecosystem\plugins\ui-deliverables-custom\`，但 DSH 服务器实际读取的是：
+这个插件的源码在 `C:\dsh-ecosystem\plugins\deliverables\`，但 DSH 服务器实际读取的是：
 
 ```
-C:\Users\Administrator\.dsh\profiles\web\node_modules\@deepseek-ai\dsh-client-ui-deliverables-custom\lib\client.js
+C:\Users\Administrator\.dsh\profiles\web\node_modules\dsh-deliverables\lib\client.js
 ```
 
 两者最初是硬链接关系（改一个两个都变），但 `pnpm install` / `pnpm add` 等操作会使硬链接断开，profile 里的 `lib/client.js` 被恢复为原始版本。
@@ -19,8 +19,8 @@ C:\Users\Administrator\.dsh\profiles\web\node_modules\@deepseek-ai\dsh-client-ui
 3. **把 `lib/client.js` 复制到 profile**：
 
 ```powershell
-Copy-Item "C:\dsh-ecosystem\plugins\ui-deliverables-custom\lib\client.js" `
-          "C:\Users\Administrator\.dsh\profiles\web\node_modules\@deepseek-ai\dsh-client-ui-deliverables-custom\lib\client.js" -Force
+Copy-Item "C:\dsh-ecosystem\plugins\deliverables\lib\client.js" `
+          "C:\Users\Administrator\.dsh\profiles\web\node_modules\dsh-deliverables\lib\client.js" -Force
 ```
 
 4. **硬刷新浏览器**（Ctrl+F5）让浏览器加载新文件

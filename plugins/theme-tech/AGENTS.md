@@ -1,4 +1,4 @@
-# ui-theme-custom 维护注意与核心踩坑指南
+# dsh-theme-tech（原 ui-theme-custom）维护注意与核心踩坑指南
 
 > 本文件为 `plugins/theme-tech/` 专属架构规范与光斑/毛玻璃避坑速查表。
 > **涉及光斑、刺眼白斑、侧边栏背景、弹窗颜色修改时，必读第 2 章与第 3 章！**
@@ -17,7 +17,7 @@
 
 ### 1.2 标准两阶段构建命令
 ```powershell
-cd C:\dsh-ecosystem\plugins\ui-theme-custom
+cd C:\dsh-ecosystem\plugins\theme-tech
 $env:NODE_OPTIONS=""
 node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts

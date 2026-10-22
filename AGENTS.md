@@ -307,16 +307,16 @@ Select-String -Path trace.txt -Pattern "Module name '<包>' was successfully res
 ```powershell
 # 切到源码并重装（脚本会改 profile/package.json 的依赖并跑 pnpm install）
 cd C:\dsh-ecosystem
-node scripts\plugin-dev-link.mjs link ui-theme-custom --profile desktop
+node scripts\plugin-dev-link.mjs link theme-tech --profile desktop
 
 # 查看当前是「源码」还是「发布版」
-node scripts\plugin-dev-link.mjs status ui-theme-custom --profile desktop
+node scripts\plugin-dev-link.mjs status theme-tech --profile desktop
 ```
 
 **link 之后改源码的完整循环**：
 
 ```powershell
-cd C:\dsh-ecosystem\plugins\ui-theme-custom
+cd C:\dsh-ecosystem\plugins\theme-tech
 $env:NODE_OPTIONS=""
 node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json      # 必须 exit 0
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts

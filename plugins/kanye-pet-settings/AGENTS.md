@@ -1,4 +1,4 @@
-# ui-kanye-pet 维护注意
+# dsh-kanye-pet-settings（原 ui-kanye-pet）维护注意
 
 桌宠 Kanye 的设置面板插件（Plugins 设置页 pet 标签页），另承担桌宠气泡/Windows toast 的点击跳转监听。
 
