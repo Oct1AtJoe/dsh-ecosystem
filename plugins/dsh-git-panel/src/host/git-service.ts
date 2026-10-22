@@ -214,9 +214,13 @@ export function subprocessRunner(_ctx: Context): GitRunner {
         // 凭据（~/.git-credentials 存在）时，才额外挂上 git 原生的 store 助手 ——
         // 注意此处不清空继承的 helper 链，顺序上 store 会先命中，未命中则继续交给系统助手。
         const credPath = join(homeDir, '.git-credentials')
+        // git 对 `-c key=value` 的值会做一层转义解析，Windows 的反斜杠会被吃掉，
+        // 导致 store 助手指向不存在的路径 → 凭据永远取不到、每次拉取都重新询问。
+        // 必须换成正斜杠；Node 的 fs 在 Windows 上同样接受正斜杠，故 existsSync 不受影响。
+        const credArgPath = credPath.replace(/\\/g, '/')
         const credArgs = existsSync(credPath)
           ? [
-              '-c', `credential.helper=store --file=${credPath}`,
+              '-c', `credential.helper=store --file=${credArgPath}`,
               // 我们的凭据按主机存（https://user:pass@host）；若开了 useHttpPath，
               // git 会要求按仓库路径精确匹配从而永远取不到，这里显式关闭。
               '-c', 'credential.useHttpPath=false',

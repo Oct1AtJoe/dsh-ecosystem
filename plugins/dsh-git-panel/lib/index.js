@@ -134,9 +134,10 @@ function subprocessRunner(_ctx) {
           const isNetworkOp = argv.includes("pull") || argv.includes("fetch") || argv.includes("push") || argv.includes("clone");
           const timeout = isNetworkOp ? 9e4 : 2e4;
           const credPath = join(homeDir, ".git-credentials");
+          const credArgPath = credPath.replace(/\\/g, "/");
           const credArgs = existsSync(credPath) ? [
             "-c",
-            `credential.helper=store --file=${credPath}`,
+            `credential.helper=store --file=${credArgPath}`,
             // 我们的凭据按主机存（https://user:pass@host）；若开了 useHttpPath，
             // git 会要求按仓库路径精确匹配从而永远取不到，这里显式关闭。
             "-c",
