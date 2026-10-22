@@ -48,4 +48,11 @@ Thumbs.db
 /desktop/bundle-resources/
 /recovery/
 
+# ==========================================
+# 第三方包离线备份（降级回滚用，不进 git）
+#   vendor/ra-0.4.4/ = dsh-reference-anything 0.4.4 原始包
+#   用途：0.5.x 的 $mount 卡启动 bug 修复后，从这里重装或对比
+# ==========================================
+/vendor/
+
 
