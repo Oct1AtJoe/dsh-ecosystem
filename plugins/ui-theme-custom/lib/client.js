@@ -756,7 +756,9 @@ window.__ModuleLoader__.load({
 			"home-layout.title": "新会话版面",
 			"home-layout.description": "工作室版面在中央展示模型用量面板，输入框贴底；经典版面保持居中",
 			"home-layout.classic": "经典",
-			"home-layout.studio": "工作室"
+			"home-layout.studio": "工作室",
+			"schedule-entry.title": "自动化任务入口",
+			"schedule-entry.description": "在左侧边栏工作区上方显示或隐藏自动化任务面板入口"
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -782,7 +784,9 @@ window.__ModuleLoader__.load({
 			"home-layout.title": "New conversation layout",
 			"home-layout.description": "Studio layout displays the usage panel in center with docked composer; Classic keeps centered",
 			"home-layout.classic": "Classic",
-			"home-layout.studio": "Studio"
+			"home-layout.studio": "Studio",
+			"schedule-entry.title": "Automation Tasks Entry",
+			"schedule-entry.description": "Show or hide the automation tasks entry above workspaces in the left sidebar"
 		};
 		//#endregion
 		//#region src/client/sidebar-font.ts
@@ -965,6 +969,23 @@ window.__ModuleLoader__.load({
 				} }
 			});
 		}
+		/**
+		* 自动化任务入口显隐开关行的 store。
+		* @returns store 句柄。
+		*/
+		function createScheduleEntryStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({
+					visible: true,
+					revision: -1
+				}),
+				actions: { sync: (d, visible, revision) => {
+					if (revision <= d.revision) return;
+					d.visible = visible;
+					d.revision = revision;
+				} }
+			});
+		}
 		//#endregion
 		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 		function r(e) {
@@ -982,13 +1003,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\TechThemeRow.module.css.mjs
-		const css$4 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
-		const tagId$4 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
+		const css$5 = ".bNLuYa_group{border-bottom:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:8px;padding:16px 0;display:flex}.bNLuYa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.bNLuYa_cubeRow{flex-wrap:wrap;align-items:stretch;gap:8px;display:flex}.bNLuYa_themeCube{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border-radius:16px;flex-direction:column;flex:180px;justify-content:center;align-items:center;gap:4px;padding:20px 32px;font-size:14px;line-height:22px;display:flex}.bNLuYa_themeCube:hover:not(.bNLuYa_selected){background:var(--dsw-alias-interactive-bg-hover)}.bNLuYa_selected{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent)!important;border:1.5px solid var(--dsw-alias-brand-primary)!important;color:var(--dsw-alias-brand-primary)!important;box-shadow:0 4px 14px color-mix(in srgb, var(--dsw-alias-brand-primary) 20%, transparent)!important;border-radius:14px!important}.bNLuYa_selected *{color:var(--dsw-alias-brand-primary)!important;fill:currentColor!important}";
+		const tagId$5 = "@deepseek-ai/dsh-client-ui-theme-custom/TechThemeRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$5) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$4;
-			tag.textContent = css$4;
+			tag.dataset.pluginCss = tagId$5;
+			tag.textContent = css$5;
 			document.head.appendChild(tag);
 		}
 		var TechThemeRow_module_css_default = {
@@ -1118,13 +1139,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\SidebarFontRow.module.css.mjs
-		const css$3 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
-		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
+		const css$4 = ".LcL5XW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.LcL5XW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.LcL5XW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.LcL5XW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.LcL5XW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.LcL5XW_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.LcL5XW_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.LcL5XW_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.LcL5XW_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.LcL5XW_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.LcL5XW_stepper:hover .LcL5XW_arrows,.LcL5XW_stepper:focus-within .LcL5XW_arrows{opacity:1}.LcL5XW_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.LcL5XW_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.LcL5XW_arrow:disabled{color:var(--dsw-alias-label-caption);cursor:default}";
+		const tagId$4 = "@deepseek-ai/dsh-client-ui-theme-custom/SidebarFontRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$3;
-			tag.textContent = css$3;
+			tag.dataset.pluginCss = tagId$4;
+			tag.textContent = css$4;
 			document.head.appendChild(tag);
 		}
 		var SidebarFontRow_module_css_default = {
@@ -1236,13 +1257,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\MascotRow.module.css.mjs
-		const css$2 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+		const css$3 = "._6MUgPW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._6MUgPW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._6MUgPW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._6MUgPW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}._6MUgPW_control{flex:none;align-items:center;gap:8px;display:inline-flex}._6MUgPW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}._6MUgPW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}._6MUgPW_switch:disabled{cursor:default;opacity:.5}._6MUgPW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}._6MUgPW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}._6MUgPW_switch[aria-checked=true] ._6MUgPW_thumb{transform:translate(16px)}";
+		const tagId$3 = "@deepseek-ai/dsh-client-ui-theme-custom/MascotRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
+			tag.dataset.pluginCss = tagId$3;
+			tag.textContent = css$3;
 			document.head.appendChild(tag);
 		}
 		var MascotRow_module_css_default = {
@@ -1292,13 +1313,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\RightbarWidthRow.module.css.mjs
-		const css$1 = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+		const css$2 = ".cxaz6q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.cxaz6q_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.cxaz6q_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.cxaz6q_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.cxaz6q_control{flex:none;align-items:center;gap:8px;display:inline-flex}.cxaz6q_stepper{background:var(--dsw-alias-bg-module-platform);border-radius:18px;justify-content:center;align-items:center;min-width:72px;height:36px;display:inline-flex;position:relative}.cxaz6q_value{text-align:center;width:34px;min-width:18px;height:22px;font:inherit;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary);box-sizing:border-box;margin:0;padding:0;font-size:14px;line-height:22px;box-shadow:none!important;background:0 0!important;border:none!important;outline:none!important}.cxaz6q_value:focus-visible{border-radius:6px;box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent)!important}.cxaz6q_unit{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.cxaz6q_arrows{opacity:0;flex-direction:column;gap:2px;display:flex;position:absolute;right:8px}.cxaz6q_stepper:hover .cxaz6q_arrows,.cxaz6q_stepper:focus-within .cxaz6q_arrows{opacity:1}.cxaz6q_arrow{background:color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);width:17px;height:12px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:3px;justify-content:center;align-items:center;padding:0;display:inline-flex}.cxaz6q_arrow:hover:not(:disabled){background:var(--dsw-alias-bg-layer-1)}.cxaz6q_arrow:disabled{opacity:.35;cursor:not-allowed}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-theme-custom/RightbarWidthRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
 		var RightbarWidthRow_module_css_default = {
@@ -1410,13 +1431,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\HomeLayoutRow.module.css.mjs
-		const css = ".YIkPxa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.YIkPxa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.YIkPxa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.YIkPxa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.YIkPxa_segmented{background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;align-items:center;gap:2px;padding:2px;display:inline-flex}.YIkPxa_segmentItem{appearance:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;line-height:18px;transition:all .15s}.YIkPxa_segmentItem:hover:not([data-active]){color:var(--dsw-alias-label-primary)}.YIkPxa_segmentItem[data-active]{background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px #00000014}";
-		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/HomeLayoutRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = ".YIkPxa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.YIkPxa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.YIkPxa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.YIkPxa_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.YIkPxa_segmented{background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;align-items:center;gap:2px;padding:2px;display:inline-flex}.YIkPxa_segmentItem{appearance:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;line-height:18px;transition:all .15s}.YIkPxa_segmentItem:hover:not([data-active]){color:var(--dsw-alias-label-primary)}.YIkPxa_segmentItem[data-active]{background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary);box-shadow:0 1px 3px #00000014}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-theme-custom/HomeLayoutRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var HomeLayoutRow_module_css_default = {
@@ -1459,6 +1480,62 @@ window.__ModuleLoader__.load({
 						onClick: () => setLayout("studio"),
 						children: t("home-layout.studio")
 					})]
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:C:\dsh-ecosystem\plugins\ui-theme-custom\src\client\ScheduleEntryRow.module.css.mjs
+		const css = ".fpPTVW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.fpPTVW_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.fpPTVW_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.fpPTVW_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.fpPTVW_control{flex:none;align-items:center;gap:8px;display:inline-flex}.fpPTVW_switch{box-sizing:border-box;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer;border:0;border-radius:10px;flex:none;width:36px;height:20px;padding:2px;transition:background-color .15s;position:relative}.fpPTVW_switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}.fpPTVW_switch:disabled{cursor:default;opacity:.5}.fpPTVW_switch:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.fpPTVW_thumb{corner-shape:round;background:var(--dsw-alias-label-primary-foreground,#fff);border-radius:50%;width:16px;height:16px;transition:transform .15s cubic-bezier(.16,1,.3,1);display:block;box-shadow:0 1px 2px #0003}.fpPTVW_switch[aria-checked=true] .fpPTVW_thumb{transform:translate(16px)}";
+		const tagId = "@deepseek-ai/dsh-client-ui-theme-custom/ScheduleEntryRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-theme-custom";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var ScheduleEntryRow_module_css_default = {
+			"control": "fpPTVW_control",
+			"desc": "fpPTVW_desc",
+			"row": "fpPTVW_row",
+			"rowText": "fpPTVW_rowText",
+			"switch": "fpPTVW_switch",
+			"thumb": "fpPTVW_thumb",
+			"title": "fpPTVW_title"
+		};
+		//#endregion
+		//#region src/client/ScheduleEntryRow.tsx
+		/**
+		* 渲染自动化任务入口显隐偏好行。
+		* @param props - 槽位组合 props。
+		* @returns 该行的元素树。
+		*/
+		function ScheduleEntryRow({ t, setScheduleEntryVisible, useStore }) {
+			const visible = useStore((s) => s.visible);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: ScheduleEntryRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: ScheduleEntryRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: ScheduleEntryRow_module_css_default.title,
+						children: t("schedule-entry.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: ScheduleEntryRow_module_css_default.desc,
+						children: t("schedule-entry.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: ScheduleEntryRow_module_css_default.control,
+					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						role: "switch",
+						"aria-checked": visible,
+						"aria-label": t("schedule-entry.title"),
+						className: ScheduleEntryRow_module_css_default.switch,
+						onClick: () => {
+							setScheduleEntryVisible(!visible);
+						},
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: ScheduleEntryRow_module_css_default.thumb })
+					})
 				})]
 			});
 		}
@@ -1975,6 +2052,44 @@ window.__ModuleLoader__.load({
 				if (currentAnimation) currentAnimation.cancel();
 				detach();
 			};
+		}
+		//#endregion
+		//#region src/client/schedule-entry.ts
+		/**
+		* 左侧边栏自动化任务入口显隐控制与持久化。
+		*/
+		const SCHEDULE_ENTRY_STORAGE_KEY = "dsh-show-schedule-entry";
+		/**
+		* 从 localStorage 读取自动化任务入口是否显示。
+		* 默认开启（true）。
+		*/
+		function readScheduleEntryVisible() {
+			if (typeof localStorage === "undefined") return true;
+			try {
+				if (localStorage.getItem("dsh-show-schedule-entry") === "false") return false;
+			} catch {}
+			return true;
+		}
+		/**
+		* 持久化自动化任务入口显隐状态。
+		*/
+		function writeScheduleEntryVisible(visible) {
+			if (typeof localStorage === "undefined") return;
+			try {
+				localStorage.setItem(SCHEDULE_ENTRY_STORAGE_KEY, visible ? "true" : "false");
+			} catch {}
+		}
+		/**
+		* 将显隐标记应用至 DOM（html 与 body 双写，防止层叠与加载时序问题）。
+		*/
+		function applyScheduleEntryVisible(visible) {
+			if (typeof document === "undefined") return;
+			const targets = [document.documentElement, document.body];
+			for (const el of targets) {
+				if (!el) continue;
+				if (visible) el.removeAttribute("data-dsh-hide-schedule");
+				else el.setAttribute("data-dsh-hide-schedule", "true");
+			}
 		}
 		//#endregion
 		//#region src/client/usage/data.ts
@@ -5464,6 +5579,24 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   overflow-x: auto !important;
   padding-bottom: 0 !important;
 }
+
+/* 左侧边栏工作区上方自动化任务入口显隐控制 */
+html[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+body[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"] {
+  display: none !important;
+}
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]) {
+  margin-bottom: 0 !important;
+}
 `;
 		/** localStorage key for the user's custom theme preference. */
 		const LS_KEY = "dsh-theme-preference";
@@ -6088,6 +6221,30 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
 				locale: SETTINGS_NS,
 				inject: rightbarWidthInjected
 			}, RightbarWidthRow));
+			applyScheduleEntryVisible(readScheduleEntryVisible());
+			const scheduleEntryStore = createScheduleEntryStore();
+			let scheduleEntryBound;
+			let scheduleEntryRevision = 0;
+			const syncScheduleEntryRow = () => {
+				scheduleEntryBound?.sync(readScheduleEntryVisible(), ++scheduleEntryRevision);
+			};
+			const scheduleEntryInjected = (actions) => {
+				scheduleEntryBound = actions;
+				syncScheduleEntryRow();
+				return { setScheduleEntryVisible: (visible) => {
+					writeScheduleEntryVisible(visible);
+					applyScheduleEntryVisible(visible);
+					syncScheduleEntryRow();
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "schedule-entry-custom",
+				order: 10.85,
+				store: scheduleEntryStore,
+				locale: SETTINGS_NS,
+				inject: scheduleEntryInjected
+			}, ScheduleEntryRow));
 			const sidebarStore = createSidebarFontStore();
 			let sidebarBound;
 			let sidebarRevision = 0;

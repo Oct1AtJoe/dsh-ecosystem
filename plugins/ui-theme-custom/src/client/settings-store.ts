@@ -149,4 +149,32 @@ export function createHomeLayoutStore(): EngineStoreHandle<HomeLayoutRowState, H
   })
 }
 
+/** 自动化任务入口显隐开关行的状态。 */
+export interface ScheduleEntryRowState {
+  visible: boolean
+  revision: number
+}
+
+type ScheduleEntryRowActions = {
+  sync: (draft: ScheduleEntryRowState, visible: boolean, revision: number) => void
+}
+
+/**
+ * 自动化任务入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createScheduleEntryStore(): EngineStoreHandle<ScheduleEntryRowState, ScheduleEntryRowActions> {
+  return defineStore({
+    init: () => ({ visible: true, revision: -1 }),
+    actions: {
+      sync: (d, visible, revision) => {
+        if (revision <= d.revision) return
+        d.visible = visible
+        d.revision = revision
+      },
+    },
+  })
+}
+
+
 

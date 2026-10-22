@@ -7,15 +7,17 @@ import { JADE_TOKENS } from "./jade.js";
 import { SOLAR_TOKENS } from "./solar.js";
 import { PARCHMENT_TOKENS } from "./parchment.js";
 import { en, zh } from "./locales.js";
-import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
+import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createScheduleEntryStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
 import { SETTINGS_NS, TechThemeRow } from "./TechThemeRow.js";
 import { SidebarFontRow } from "./SidebarFontRow.js";
 import { MascotRow } from "./MascotRow.js";
 import { RightbarWidthRow } from "./RightbarWidthRow.js";
 import { HomeLayoutRow } from "./HomeLayoutRow.js";
+import { ScheduleEntryRow } from "./ScheduleEntryRow.js";
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from "./sidebar-font.js";
 import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from "./rightbar-width.js";
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from "./mascot.js";
+import { applyScheduleEntryVisible, readScheduleEntryVisible, writeScheduleEntryVisible } from "./schedule-entry.js";
 import { HomeUsagePanel } from "./usage/HomeUsagePanel.js";
 import { SaulFingerGunIcon } from "./usage/SaulIcon.js";
 import { createHomeUsage } from "./usage/data.js";
@@ -1869,6 +1871,24 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   overflow-x: auto !important;
   padding-bottom: 0 !important;
 }
+
+/* 左侧边栏工作区上方自动化任务入口显隐控制 */
+html[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+body[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"] {
+  display: none !important;
+}
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]) {
+  margin-bottom: 0 !important;
+}
 `;
 /** localStorage key for the user's custom theme preference. */
 const LS_KEY = 'dsh-theme-preference';
@@ -2606,6 +2626,34 @@ export function apply(ctx) {
         locale: SETTINGS_NS,
         inject: rightbarWidthInjected,
     }, RightbarWidthRow));
+    // ── 自动化任务入口显隐设置行 ─────────────────────────────────────────
+    // order 10.85：紧随右侧边栏宽度(10.8)之后，在官方字号(11)之前。
+    applyScheduleEntryVisible(readScheduleEntryVisible());
+    const scheduleEntryStore = createScheduleEntryStore();
+    let scheduleEntryBound;
+    let scheduleEntryRevision = 0;
+    const syncScheduleEntryRow = () => {
+        scheduleEntryBound?.sync(readScheduleEntryVisible(), ++scheduleEntryRevision);
+    };
+    const scheduleEntryInjected = (actions) => {
+        scheduleEntryBound = actions;
+        syncScheduleEntryRow();
+        return {
+            setScheduleEntryVisible: (visible) => {
+                writeScheduleEntryVisible(visible);
+                applyScheduleEntryVisible(visible);
+                syncScheduleEntryRow();
+            },
+        };
+    };
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+        name: 'settings.general.item',
+        id: 'schedule-entry-custom',
+        order: 10.85,
+        store: scheduleEntryStore,
+        locale: SETTINGS_NS,
+        inject: scheduleEntryInjected,
+    }, ScheduleEntryRow));
     // ── 侧边栏字号行 ───────────────────────────────────────────────────
     // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。
     // 对话区字号归官方(11)，侧边栏字号归本插件(11.5)，随后才是对话显示(12)。

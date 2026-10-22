@@ -28,15 +28,17 @@ import { JADE_TOKENS } from './jade.ts'
 import { SOLAR_TOKENS } from './solar.ts'
 import { PARCHMENT_TOKENS } from './parchment.ts'
 import { en, zh, type TechThemeKey } from './locales.ts'
-import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
+import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createScheduleEntryStore, createSidebarFontStore, createTechThemeStore } from './settings-store.ts'
 import { SETTINGS_NS, TechThemeRow, type TechThemeRowInjected } from './TechThemeRow.tsx'
 import { SidebarFontRow, type SidebarFontRowInjected } from './SidebarFontRow.tsx'
 import { MascotRow, type MascotRowInjected } from './MascotRow.tsx'
 import { RightbarWidthRow, type RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
 import { HomeLayoutRow, type HomeLayoutRowInjected } from './HomeLayoutRow.tsx'
+import { ScheduleEntryRow, type ScheduleEntryRowInjected } from './ScheduleEntryRow.tsx'
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from './sidebar-font.ts'
 import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from './rightbar-width.ts'
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from './mascot.ts'
+import { applyScheduleEntryVisible, readScheduleEntryVisible, writeScheduleEntryVisible } from './schedule-entry.ts'
 import { HomeUsagePanel } from './usage/HomeUsagePanel.tsx'
 import { SaulFingerGunIcon } from './usage/SaulIcon.tsx'
 import { createHomeUsage } from './usage/data.ts'
@@ -49,6 +51,7 @@ export type { SidebarFontRowInjected } from './SidebarFontRow.tsx'
 export type { MascotRowInjected } from './MascotRow.tsx'
 export type { RightbarWidthRowInjected } from './RightbarWidthRow.tsx'
 export type { HomeLayoutRowInjected } from './HomeLayoutRow.tsx'
+export type { ScheduleEntryRowInjected } from './ScheduleEntryRow.tsx'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -1910,6 +1913,24 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   overflow-x: auto !important;
   padding-bottom: 0 !important;
 }
+
+/* 左侧边栏工作区上方自动化任务入口显隐控制 */
+html[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+body[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="自动化任务"],
+html[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"],
+body[data-dsh-hide-schedule="true"] [class*="panelRow"][aria-label="Automation tasks"] {
+  display: none !important;
+}
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child:has([data-dsh-schedule-marker])),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="自动化任务"]),
+html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]),
+body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]) {
+  margin-bottom: 0 !important;
+}
 `
 
 /** localStorage key for the user's custom theme preference. */
@@ -2672,6 +2693,36 @@ export function apply(ctx: Context): void {
     locale: SETTINGS_NS,
     inject: rightbarWidthInjected,
   }, RightbarWidthRow))
+
+  // ── 自动化任务入口显隐设置行 ─────────────────────────────────────────
+  // order 10.85：紧随右侧边栏宽度(10.8)之后，在官方字号(11)之前。
+  applyScheduleEntryVisible(readScheduleEntryVisible())
+
+  const scheduleEntryStore = createScheduleEntryStore()
+  let scheduleEntryBound: BoundActions<typeof scheduleEntryStore> | undefined
+  let scheduleEntryRevision = 0
+  const syncScheduleEntryRow = (): void => {
+    scheduleEntryBound?.sync(readScheduleEntryVisible(), ++scheduleEntryRevision)
+  }
+  const scheduleEntryInjected = (actions: BoundActions<typeof scheduleEntryStore>): ScheduleEntryRowInjected => {
+    scheduleEntryBound = actions
+    syncScheduleEntryRow()
+    return {
+      setScheduleEntryVisible: (visible) => {
+        writeScheduleEntryVisible(visible)
+        applyScheduleEntryVisible(visible)
+        syncScheduleEntryRow()
+      },
+    }
+  }
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'schedule-entry-custom',
+    order: 10.85,
+    store: scheduleEntryStore,
+    locale: SETTINGS_NS,
+    inject: scheduleEntryInjected,
+  }, ScheduleEntryRow))
 
   // ── 侧边栏字号行 ───────────────────────────────────────────────────
   // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。

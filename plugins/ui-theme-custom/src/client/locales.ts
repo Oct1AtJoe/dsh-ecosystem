@@ -26,6 +26,8 @@ export const zh = {
   'home-layout.description': '工作室版面在中央展示模型用量面板，输入框贴底；经典版面保持居中',
   'home-layout.classic': '经典',
   'home-layout.studio': '工作室',
+  'schedule-entry.title': '自动化任务入口',
+  'schedule-entry.description': '在左侧边栏工作区上方显示或隐藏自动化任务面板入口',
 } satisfies Record<string, string>
 
 /** English dictionary checked against the Chinese key set. */
@@ -53,6 +55,8 @@ export const en = {
   'home-layout.description': 'Studio layout displays the usage panel in center with docked composer; Classic keeps centered',
   'home-layout.classic': 'Classic',
   'home-layout.studio': 'Studio',
+  'schedule-entry.title': 'Automation Tasks Entry',
+  'schedule-entry.description': 'Show or hide the automation tasks entry above workspaces in the left sidebar',
 } satisfies Record<TechThemeKey, string>
 
 /** Copy keys shared by both dictionaries. */

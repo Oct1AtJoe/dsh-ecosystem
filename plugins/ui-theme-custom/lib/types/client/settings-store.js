@@ -87,4 +87,21 @@ export function createHomeLayoutStore() {
         },
     });
 }
+/**
+ * 自动化任务入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createScheduleEntryStore() {
+    return defineStore({
+        init: () => ({ visible: true, revision: -1 }),
+        actions: {
+            sync: (d, visible, revision) => {
+                if (revision <= d.revision)
+                    return;
+                d.visible = visible;
+                d.revision = revision;
+            },
+        },
+    });
+}
 //# sourceMappingURL=settings-store.js.map
