@@ -1015,6 +1015,41 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   display: none !important;
 }
 
+/* ── 第三方输入框浮层（dsh-prompt-history）的层级纠正 ────────────────────────
+   🚨 真因：dsh-prompt-history 把「下一条预测」(.dsh-ph-suggest) 与「行内补全」
+   (.dsh-ph-ghost) 直接 append 到 document.body，用 position:fixed +
+   z-index:2147482000（接近 int32 上限）强行置顶；它只在自己的 editor host
+   **断开连接**时才收起（suggestOverlay.ts 的 tick：current.host.isConnected
+   为 false 时才 hideSuggestion）。
+
+   问题在于 host 并不会在这些场景断开：
+     ① 切到「轨迹 / 审查」等 composer overlay 视图 —— 输入坞是被 overlay 盖住，
+        而不是卸载，host 仍 isConnected；
+     ② 打开设置弹窗 —— 弹窗是叠在页面之上的独立层，host 自然还在；
+     ③ 右栏面板 fullscreen 铺满 —— 同理。
+   于是 ghost 文字一直钉在最上层，穿透弹窗与视图。本主题给弹窗层的 9500
+   （见上）永远打不过 2147482000，纯改弹窗 z-index 是死路。
+
+   ✅ 修法：在**宿主出现遮挡层**时把这两个浮层隐藏（display:none），而不是
+   去和第三方比 z-index。选择器全部锚在宿主自带的结构标记上：
+     · [role="presentation"] > [role="dialog"]（官方设置/模态弹窗的固定结构）
+     · [data-conversation-composer-overlay]（官方 composer overlay 视图标记）
+     · [data-sidebar-right-panel="fullscreen"]（官方右栏通栏态，SidebarRight.tsx）
+   弹窗关闭 / 视图切回后 :has() 自动失效，浮层恢复，无需 JS 配合。
+
+   ⚠️ 不用 z-index 下压：这两个节点是 body 直接子级，下压会掉到内容层之下，
+   反而在正常输入场景里不可见。
+   ⚠️ 三条判据合并进一个 :is() 里传给 :has()，只触发一次全文档匹配。
+   ⚠️ 门控到自定义主题（body[data-ds-custom-theme]）：本样式只在装了本主题时
+   注入，避免影响内置主题的原始表现。 */
+body[data-ds-custom-theme]:has(:is(
+  [role="presentation"] > [role="dialog"],
+  [data-conversation-composer-overlay],
+  [data-sidebar-right-panel="fullscreen"]
+)) :is(.dsh-ph-suggest, .dsh-ph-ghost) {
+  display: none !important;
+}
+
 /* Sidebar footer actions: vertical layout so card (e.g. cost-meter) and action buttons stack top-to-bottom */
 [class*="footArea"] [class*="footerActions"]{
   display: flex !important;
@@ -1182,8 +1217,10 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="selector"]{
   border-radius:12px !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
-/* 操作按钮与关闭按钮：规范化弹窗内操作组按键，区分主次状态与禁用对比度 */
-[role="dialog"] [class*="actions"] button{
+/* 操作按钮与关闭按钮：规范化弹窗内操作组按键，区分主次状态与禁用对比度。
+   🚨 排除守卫：严格排除开关控件（role="switch"、aria-checked、switch 类）与图标操作钮，
+   防止列表操作栏（如 dssm-skill-actions 等）内的开关被强制加上 6px 16px padding 与次级按钮白底。 */
+[role="dialog"] [class*="actions"] button:not([role="switch"]):not([aria-checked]):not([class*="switch"]):not([class*="Switch"]):not([class*="icon"]):not([class*="Icon"]){
   font-weight:500 !important;
   font-size:13px !important;
   padding:6px 16px !important;
@@ -1221,20 +1258,20 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button[da
   cursor:not-allowed !important;
 }
 /* 次级按钮（放弃）：激活态 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):not([role="switch"]):not([aria-checked]):not([class*="switch"]):not([class*="Switch"]):not([class*="icon"]):not([class*="Icon"]){
   background:rgba(255, 255, 255, 0.65) !important;
   color:var(--dsw-alias-label-primary, #1d1d1f) !important;
   border:1px solid rgba(0, 0, 0, 0.14) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.80) !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]){
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):not([role="switch"]):not([aria-checked]):not([class*="switch"]):not([class*="Switch"]):not([class*="icon"]):not([class*="Icon"]){
   background:rgba(255, 255, 255, 0.08) !important;
   color:var(--dsw-alias-label-primary, #f5f5f7) !important;
   border:1px solid rgba(255, 255, 255, 0.16) !important;
   box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 /* 次级按钮（放弃）：禁用态保持可见细边框与清爽底色，文字不溶解 */
-body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):not([role="switch"]):not([aria-checked]):not([class*="switch"]):not([class*="Switch"]):not([class*="icon"]):not([class*="Icon"]):disabled{
   background:rgba(0, 0, 0, 0.03) !important;
   color:rgba(0, 0, 0, 0.38) !important;
   border:1px solid rgba(0, 0, 0, 0.10) !important;
@@ -1242,13 +1279,67 @@ body[data-ds-custom-theme="sequoia"] [role="dialog"] [class*="actions"] button:n
   opacity:1 !important;
   cursor:not-allowed !important;
 }
-body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):disabled{
+body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:not([data-tone="primary"]):not([role="switch"]):not([aria-checked]):not([class*="switch"]):not([class*="Switch"]):not([class*="icon"]):not([class*="Icon"]):disabled{
   background:rgba(255, 255, 255, 0.03) !important;
   color:rgba(255, 255, 255, 0.38) !important;
   border:1px solid rgba(255, 255, 255, 0.10) !important;
   box-shadow:none !important;
   opacity:1 !important;
   cursor:not-allowed !important;
+}
+
+/* 弹窗内 Switch 开关规范：彻底排除 actions/button 规则污染，确保两态对比鲜明与质感统一。
+   🚨 判据必须是 aria-checked（真正的「两态开关」语义），**不得**用 [class*="switch"]。
+   实踩回归：宽通配会命中 ui-kanye-pet 的 .KanyeCard_switch（42×24 / 18px ::after 滑块 /
+   translateX(18px)，用的是 aria-pressed 而非 aria-checked），把它强改成 36×20 /
+   16px / translateX(16px)，滑块尺寸与位移全错位 —— 表现为「桌宠 tab 开关 UI 异常」。
+   收窄后：官方 Switch 与 dsh-skills-manager 的 .dssm-enable-switch 都带 aria-checked，
+   照常规范化；自有尺寸的第三方开关（aria-pressed / data-on）完全不受几何干预。 */
+[role="dialog"] button[aria-checked] {
+  box-sizing: border-box !important;
+  position: relative !important;
+  flex: 0 0 auto !important;
+  width: 36px !important;
+  height: 20px !important;
+  padding: 2px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  corner-shape: round !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+/* 关闭态：清爽中性深浅两档底槽，避免弹窗内 l3 边框极淡导致开关隐形 */
+body:not([data-ds-dark-theme]) [role="dialog"] button[aria-checked]:not([aria-checked="true"]) {
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+
+body[data-ds-dark-theme] [role="dialog"] button[aria-checked]:not([aria-checked="true"]) {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* 开启态：高对比度的品牌主色（Sequoia 天蓝 / Sonoma 曜蓝 / 各主题 brand-primary） */
+[role="dialog"] button[aria-checked="true"] {
+  background: var(--dsw-alias-brand-primary, #147ce5) !important;
+}
+
+/* 开关滑块（Thumb）：纯白微投影，平滑滑动 */
+[role="dialog"] button[aria-checked] > span {
+  box-sizing: border-box !important;
+  display: block !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  corner-shape: round !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20) !important;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  pointer-events: none !important;
+}
+
+[role="dialog"] button[aria-checked="true"] > span {
+  transform: translateX(16px) !important;
 }
 /* 弹窗原生独立输入框与下拉选择框：仅对顶层孤立的原生控件生效，严禁污染任何复合输入组件内部字段 */
 body[data-ds-custom-theme="sequoia"] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([class*="value"]):not([class*="input"]):not([class*="Input"]):not(span > input):not([class*="wrap"] input):not([class*="Wrap"] input):not([class*="wrapper"] input):not([class*="Wrapper"] input):not([class*="stepper"] input):not([class*="search"] input):not([class*="Search"] input),
