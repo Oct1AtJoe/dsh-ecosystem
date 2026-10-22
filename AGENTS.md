@@ -275,8 +275,17 @@ Select-String -Path trace.txt -Pattern "Module name '<包>' was successfully res
 
 > 🚨 **本机跑的是「发布版」插件**（profile 依赖指向 GitHub Release 的 .tgz），
 > 所以**改完源码不会立刻生效** —— 必须先把 profile 切成 `link:` 源码（§5.2），
-> 用户在页面上验证通过后，再切回发布版并重新打包（§5.3）。
+> 用户在页面上验证通过后，再打包发布，**最后**才把 profile 切回发布版（§5.3）。
 > **不要跳过 link 这一步就打包**：那等于让用户拿旧产物去验收新代码。
+>
+> 🚨 **「切回发布版」必须是发布流程的最后一步，不能排在打包/上传之前。**
+> `release` 子命令会读 `package.json` 的 version 去拼 tarball URL 并立刻
+> `pnpm install`，因此：
+> - 若在**改版本号之前**切回 → URL 带的是**旧版本号**，profile 被指回上一版产物，
+>   页面看起来"发布成功"，实际跑的是旧代码；
+> - 若在**上传资产之前**切回 → URL 指向一个尚不存在的文件，
+>   `pnpm install` 直接 404 失败，profile 停在一个坏 spec 上。
+> 两种都真实踩过。正确顺序见 §5.3。
 
 ### 5.1 挂载依赖（新增插件时）
 1. 编辑 `C:\Users\Administrator\.dsh\profiles\<profile>\package.json`：
@@ -328,36 +337,75 @@ node tests\badge-token-check.mjs
 > ⚠️ 若改了插件的 `package.json`（如新增 `dsh.bundle` 声明）或 `cordis.patch.yml`，
 > **必须重启宿主**，光刷新页面不生效（这属于「启动期配置」，不走 HMR）。
 
-### 5.3 发布期：切回发布版并重新打包
+### 5.3 发布期：打包发布，最后切回发布版
 
-用户**在页面上验证通过**之后，才走这一步：
+用户**在页面上验证通过**之后，才走这一步。
+
+> 🚨 **顺序是硬性的**：先把产物做出来、传上去，**最后**才切回发布版依赖。
+> 早期版本把 `release` 排在第一步，导致两个真实故障（见 §5 开头）。
+> 现在的顺序保证：切回时资产一定已存在，且 URL 带的是本次的新版本号。
 
 ```powershell
 cd C:\dsh-ecosystem
-# 1. 切回发布版依赖（脚本把 link: 换回 Release 的 .tgz URL 并重装）
-node scripts\plugin-dev-link.mjs release ui-theme-custom --profile desktop
 
-# 2. 切版本号（package.json 的 version），让 tarball 文件名带上新版本
-#    编辑 plugins\ui-theme-custom\package.json 的 "version"
+# 1. 切版本号（package.json 的 version），让 tarball 文件名带上新版本
+#    编辑 plugins\<插件>\package.json 的 "version"
 
-# 3. 重新构建 + 打包全部插件
-cd plugins\ui-theme-custom
+# 2. 更新 另一台电脑安装指南.md
+#    必须在 pack 之前完成，见 §5.4 第 0 阶段
+
+# 3. 重新构建
+cd plugins\<插件>
+$env:NODE_OPTIONS=""
 node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
+# 跑该插件的门禁测试
 cd ..\..
+
+# 4. 打包全部插件
 node scripts\pack-plugins.mjs
 
-# 4. 更新 另一台电脑安装指南.md（必须在第 5 步之前，见 §5.4 第 0 阶段）
+# 5. 提交并推送源码与产物
+git add plugins/<插件> 另一台电脑安装指南.md
+git commit -m "fix(<插件>): <摘要>"
+git push origin main
 
-# 5. 把 dist-tarballs\*.tgz 上传到对应的 GitHub Release
+# 6. 上传 tarball 到 GitHub Release
+gh release upload v6 "dist-tarballs\<扁平名>-<版本>.tgz" --clobber
+
+# 7. 【最后】切回发布版依赖并重装
+#    此时资产已存在，脚本能解析到正确 tag（见 §5.3.1）
+node scripts\plugin-dev-link.mjs release <插件> --profile desktop
+
+# 8. 重启宿主，让新解析生效
 ```
 
-> 🚨 **第 4 步不可跳过**：`另一台电脑安装指南.md` 是另一台电脑的安装依据，
-> 它与 `dist-tarballs/` 的产物必须是同一版本。打包前不改指南 = 让另一台电脑装旧版。
+> 🚨 **第 7 步必须在第 6 步之后**。`release` 会用 `package.json` 的 version
+> 拼出 `.tgz` URL 并立刻 `pnpm install`；资产没上传时这一步必然 404，
+> 且会把坏 URL 写进 profile（需手工修回）。
+
+#### 5.3.1 `release` 如何确定 Release tag
+
+脚本**不再**依赖写死的常量，而是按「**哪个 Release 真正带这个 tarball**」判定：
+
+1. `gh release list --limit 20 --json tagName` 拿到 tag 列表
+   （注意：该命令**不接受** `assets` 字段，只能先取 tag）；
+2. 逐个 `gh release view <tag> --json assets --jq '.assets[].name'`，
+   找到包含 `<扁平名>-<版本>.tgz` 的那个 tag；
+3. 查不到（离线 / `gh` 缺失 / 资产未上传）→ 回退 `RELEASE_TAG_FALLBACK`。
+
+> 历史教训：常量曾停在 `v5` 而实际已发到 `v6`，导致 `release` 生成
+> `v5/...rc.12.tgz`（不存在），装包 404。
 
 `pack-plugins.mjs` 会把每个插件打成 `dist-tarballs/<扁平名>-<版本>.tgz`，
 并生成 `manifest.json`；上传后 Release 的下载 URL 即为
 `https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/<tag>/<文件名>`。
+
+#### 5.3.2 只发布单个插件时的注意点
+
+`pack-plugins.mjs` 会**打包全部**插件，但只需上传本次变更的那个 tarball。
+其余 Release 资产保持原版本不动 —— 前提是它们的 `package.json` 版本号没变，
+产物文件名一致，不会产生歧义。
 
 ### 5.4 改动源码与打包发布的交付契约（硬约束）
 
