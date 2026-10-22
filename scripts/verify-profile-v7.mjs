@@ -80,13 +80,22 @@ console.table(rows.map((r) => ({
 const bad = rows.filter((r) => !r.installed || !r.dep || !r.bundle || !r.patchName || !r.idMatch || r.metaName !== r.pkg)
 console.log(bad.length === 0 ? '\n✅ 8 个全部一致' : `\n⚠️ ${bad.length} 个有问题：${bad.map((b) => b.pkg).join(', ')}`)
 
-// 旧名残留
+// 旧名残留（只查仍在用的 8 个包；退役包单独查）
 const OLD = [
   '@deepseek-ai/dsh-client-ui-theme-custom', '@deepseek-ai/dsh-client-ui-queue-recall',
-  '@deepseek-ai/dsh-client-ui-resend-failed-round', '@deepseek-ai/dsh-client-ui-subagent-custom',
+  '@deepseek-ai/dsh-client-ui-resend-failed-round',
   '@deepseek-ai/dsh-client-ui-deliverables-custom', '@deepseek-ai/dsh-client-ui-kanye-pet',
   '@deepseek-ai/dsh-kanye-pet', 'dsh-session-title-custom',
-  'dsh-session-folders-custom', 'dsh-file-upload-custom',
+  'dsh-session-folders-custom',
 ]
 const leftovers = OLD.filter((o) => patch.includes(`name: ${o}`) || patch.includes(`name: "${o}"`) || patch.includes(`name: '${o}'`))
 console.log(leftovers.length ? `⚠️ patch 仍有旧 name: ${leftovers.join(', ')}` : '✅ patch 无旧 name 残留')
+
+// 退役包：不该出现在 dependencies / bundles / node_modules / patch
+const RETIRED = ['dsh-subagent-card', 'dsh-file-upload',
+  '@deepseek-ai/dsh-client-ui-subagent-custom', 'dsh-file-upload-custom']
+const stillThere = RETIRED.filter((n) =>
+  deps[n] !== undefined || bundles.includes(n) || fs.existsSync(path.join(nm, n)) || patch.includes(`name: ${n}`))
+console.log(stillThere.length
+  ? `⚠️ 退役包仍在: ${stillThere.join(', ')}`
+  : '✅ 退役包（subagent-card / file-upload）已彻底移除')

@@ -5,14 +5,12 @@
 ```
 C:\dsh-ecosystem\
 ├── plugins\           # 定制插件源码（目录名 = 包名去掉 dsh- 前缀）
-│   ├── file-upload\            dsh-file-upload（拖拽与 Ctrl+V 粘贴文件上传，零路径污染）
 │   ├── session-folders\        dsh-session-folders（会话文件夹）
 │   ├── session-title\          dsh-session-title-gen（会话标题生成）
 │   ├── queue-recall\           dsh-queue-recall（排队消息撤回编辑）
 │   ├── theme-tech\             dsh-theme-tech（科技主题与外观定制）
 │   ├── deliverables\           dsh-deliverables（交付物面板，未发布）
 │   ├── resend-failed-round\    dsh-resend-failed-round（失败轮次重发）
-│   ├── subagent-card\          dsh-subagent-card（子代理卡片）
 │   ├── kanye-pet-settings\     dsh-kanye-pet-settings（桌宠设置面板）
 │   ├── kanye-pet\              dsh-kanye-pet（桌宠 bundle 插件）
 │   ├── dsh-git-panel\          dsh-git-panel（Git 面板，第三方上游，包名与目录均不改）
@@ -37,6 +35,10 @@ C:\dsh-ecosystem\
 > 统一为 `dsh-<功能>`。旧名 → 新名对照见 [另一台电脑安装指南.md](另一台电脑安装指南.md) 的「从 v6 迁移到 v7」。
 > `dsh-git-panel` 是唯一例外：它来自第三方上游（`a792883583/dsh-git-panel`），包名本就合规，目录与版本均不动。
 > 🚨 **`cordis.patch.yml` 的 `id:` 一律未改**（settings 页绑定 loader 条目 id + `Config`），只改了 `name:`。
+>
+> **已退役（2026-10-23）**：`dsh-subagent-card`（原 `ui-subagent-custom`）与 `dsh-file-upload`
+> （原 `dsh-file-upload-custom`）不再使用，源码目录与 `PUBLISHED` 条目已删除。v7 Release 里的
+> 两个 tarball 保留未删（历史可追溯），但不要再安装。
 
 ## 加载机制（2026-08-29 起）
 

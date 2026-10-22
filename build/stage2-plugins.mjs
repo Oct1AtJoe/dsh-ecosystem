@@ -1,4 +1,13 @@
 /**
+ * ⛔ DEPRECATED（2026-10-22）—— 随自研 Tauri 壳一起弃用，勿运行。
+ *
+ * 这个脚本是早期 Tauri 2 壳时代用来把 link: 插件「实体化」进壳的预构建产物的。
+ * 现在的桌面端是官方 Electron 客户端（E:\dshDesktop），插件由 profile 的
+ * package.json + cordis.patch.yml 挂载，不再需要这一步。
+ *
+ * 它引用的 external-repos/* 与 plugins/dsh-*-custom 目录都已不存在或改名。
+ * 保留文件仅为读懂旧构建流程，**不要执行**。
+ *
  * 阶段 2：实体化 8 个 link: 插件。
  *
  * 关键决策（基于实测）：插件目录里的 node_modules 是完整 devDependencies，
@@ -15,8 +24,8 @@ const PLUGINS = [
   ['dsh-feishu-notifier', 'C:\\dsh-ecosystem\\external-repos\\dsh-feishu-notifier'],
   ['dsh-git-panel', 'C:\\dsh-ecosystem\\plugins\\dsh-git-panel'],
   ['dsh-reference-anything', 'C:\\dsh-ecosystem\\external-repos\\dsh-reference-anything'],
-  ['dsh-session-folders-custom', 'C:\\dsh-ecosystem\\plugins\\dsh-session-folders-custom'],
-  ['dsh-session-title-custom', 'C:\\dsh-ecosystem\\plugins\\dsh-session-title-custom'],
+  ['dsh-session-folders', 'C:\\dsh-ecosystem\\plugins\\session-folders'],
+  ['dsh-session-title-gen', 'C:\\dsh-ecosystem\\plugins\\session-title'],
   ['dsh-smooth-stream', 'C:\\dsh-ecosystem\\external-repos\\dsh-smooth-stream'],
   ['dshmarket', 'C:\\dsh-ecosystem\\external-repos\\dsh-market'],
 ]

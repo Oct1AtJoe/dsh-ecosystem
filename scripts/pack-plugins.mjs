@@ -36,10 +36,8 @@ export const PUBLISHED = [
   'theme-tech',
   'queue-recall',
   'resend-failed-round',
-  'subagent-card',
   'session-title',
   'session-folders',
-  'file-upload',
 ]
 
 /** Windows bsdtar emits CRLF, so always normalise before comparing paths. */
