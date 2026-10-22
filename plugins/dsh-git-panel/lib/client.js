@@ -325,6 +325,8 @@ var DICTS = {
     "menu.fetchAll": "\u6293\u53D6\u5168\u90E8 (Fetch all)",
     "panel.title": "Git \u9762\u677F",
     "panel.empty": "\u6253\u5F00\u9879\u76EE\u4F1A\u8BDD\u540E\u663E\u793A Git \u9762\u677F",
+    "panel.notRepo": "\u5F53\u524D\u5DE5\u4F5C\u533A\u4E0D\u662F Git \u4ED3\u5E93",
+    "panel.notRepoHint": "\u5728\u9879\u76EE\u6839\u76EE\u5F55\u6267\u884C git init \u540E\u5373\u53EF\u4F7F\u7528\u56FE\u8C31\u4E0E\u5BA1\u67E5\u3002",
     "tab.branches": "\u5206\u652F",
     "tab.graph": "\u56FE\u8C31",
     "loading": "\u52A0\u8F7D\u4E2D\u2026",
@@ -552,6 +554,8 @@ var DICTS = {
     "menu.fetchAll": "Fetch all",
     "panel.title": "Git Panel",
     "panel.empty": "Open a project session to see the Git panel",
+    "panel.notRepo": "This workspace is not a Git repository",
+    "panel.notRepoHint": "Run git init in the project root to enable the graph and review.",
     "tab.branches": "Branches",
     "tab.graph": "Graph",
     "loading": "Loading\u2026",
@@ -779,6 +783,8 @@ var DICTS = {
     "menu.fetchAll": "Obtener todo (Fetch all)",
     "panel.title": "Panel de Git",
     "panel.empty": "Abre una sesi\xF3n de proyecto para ver el panel de Git",
+    "panel.notRepo": "Este espacio de trabajo no es un repositorio Git",
+    "panel.notRepoHint": "Ejecuta git init en la ra\xEDz del proyecto para habilitar el gr\xE1fico y la revisi\xF3n.",
     "tab.branches": "Ramas",
     "tab.graph": "Gr\xE1fico",
     "loading": "Cargando\u2026",
@@ -6096,6 +6102,7 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
   const [branches, setBranches] = (0, import_react10.useState)(() => cached?.branches ?? null);
   const [loading, setLoading] = (0, import_react10.useState)(() => !cached);
   const [error, setError] = (0, import_react10.useState)(null);
+  const [notRepo, setNotRepo] = (0, import_react10.useState)(false);
   const containerRef = (0, import_react10.useRef)(null);
   const [width, setWidth] = (0, import_react10.useState)(() => typeof window !== "undefined" ? window.innerWidth - 300 : 800);
   (0, import_react10.useEffect)(() => {
@@ -6132,6 +6139,7 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
       setLoading(true);
     }
     setError(null);
+    setNotRepo(false);
     Promise.all([api.graph(cwd), api.branches(cwd)]).then(([gRes, bRes]) => {
       if (cancelled) return;
       setLoading(false);
@@ -6140,6 +6148,11 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
         setBranches(bRes.value);
         graphDataCache.set(cwd, { graph: gRes.value, branches: bRes.value });
       } else {
+        const notRepoHit = !gRes.ok && gRes.error.code === "not-a-repo" || !bRes.ok && bRes.error.code === "not-a-repo";
+        if (notRepoHit) {
+          if (!hasCache) setNotRepo(true);
+          return;
+        }
         const err = (!gRes.ok ? gRes.error.message : "") || (!bRes.ok ? bRes.error.message : "") || "\u52A0\u8F7D\u56FE\u8C31\u5931\u8D25";
         if (!hasCache) setError(err);
       }
@@ -6211,6 +6224,26 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
             /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: t2("loading") })
           ]
         }
+      ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "var(--muted)",
+            gap: 8,
+            padding: 24,
+            fontSize: 13,
+            textAlign: "center"
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") })
+          ]
+        }
       ) : error && !graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
         "div",
         {
@@ -6260,6 +6293,7 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
   const [detail, setDetail] = (0, import_react11.useState)(null);
   const [loading, setLoading] = (0, import_react11.useState)(false);
   const [error, setError] = (0, import_react11.useState)(null);
+  const [notRepo, setNotRepo] = (0, import_react11.useState)(false);
   const [selectedFile, setSelectedFile] = (0, import_react11.useState)(null);
   const [treeWidth, setTreeWidth] = (0, import_react11.useState)(() => {
     try {
@@ -6302,11 +6336,13 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
       setSelectedFile(null);
       setLoading(false);
       setError(null);
+      setNotRepo(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setNotRepo(false);
     api.commitDetail(effectiveCwd, effectiveSha).then((res) => {
       if (cancelled) return;
       setLoading(false);
@@ -6318,6 +6354,7 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
           setSelectedFile(null);
         }
       } else {
+        setNotRepo(res.error.code === "not-a-repo");
         setError(res.error.message || "\u83B7\u53D6\u63D0\u4EA4\u8BE6\u60C5\u5931\u8D25");
       }
     }).catch((err) => {
@@ -6373,6 +6410,38 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-gp-spinner lg" }),
               /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: t2("review.loading") })
+            ]
+          }
+        ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "div",
+          {
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: 1,
+              height: "100%",
+              color: "var(--review-muted)",
+              gap: 8,
+              padding: 24,
+              textAlign: "center"
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: "dsh-review-diff-btn",
+                  onClick: () => reviewStore.clearTarget(props.sessionId),
+                  children: [
+                    "\u2190 ",
+                    t2("review.backToGraph")
+                  ]
+                }
+              )
             ]
           }
         ) : error || !detail ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(

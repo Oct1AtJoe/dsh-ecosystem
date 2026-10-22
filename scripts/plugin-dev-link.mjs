@@ -34,9 +34,9 @@
 //   script never touches it. Only the dependency spec changes.
 // - Reinstalling rewrites the profile's node_modules, so the DSH host must be
 //   restarted (or the page hard-refreshed) for the new resolution to take.
-// - The published URL is derived from the plugin's package.json version and
-//   the release tag recorded in RELEASE_TAG below, matching the convention
-//   pack-plugins.mjs uses for tarball names.
+// - The published URL is derived from the plugin's package.json version, the
+//   tarball naming convention pack-plugins.mjs uses, and the release tag that
+//   actually hosts that tarball (looked up via `gh`; see resolveReleaseTag).
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -46,16 +46,61 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const pluginsRoot = path.join(repoRoot, 'plugins')
 
 /**
- * GitHub release tag the published tarballs live under.
+ * Fallback GitHub release tag, used only when the live lookup below cannot
+ * determine the tag (offline, `gh` missing, or no asset uploaded yet).
  *
- * ⚠️ 每次开新 Release（v4 → v5 …）都必须同步改这里，否则 `release` 子命令
- * 会把 profile 依赖写成**旧 tag**的 URL，装到的是上一轮的产物。
- * 核对方式：`gh release list --limit 3`，取标了 Latest 的那个。
+ * ⚠️ 不要再把它当成唯一依据去手改 —— 历史教训：常量停在 `v5`、实际已发到
+ * `v6`，`release` 子命令把 profile 依赖写成不存在的 `v5/...rc.12.tgz`，
+ * 装包直接 404。现在优先按「哪个 Release 真正带这个 tarball」来判定。
  */
-const RELEASE_TAG = 'v5'
+const RELEASE_TAG_FALLBACK = 'v5'
 
 /** GitHub owner/repo that hosts the release assets. */
 const RELEASE_REPO = 'Oct1AtJoe/dsh-ecosystem'
+
+/** Tarball asset name for a plugin, matching pack-plugins.mjs naming. */
+function tarballName(pkg) {
+  const flat = pkg.name.replace(/^@deepseek-ai\//, '').replace(/\//g, '-')
+  return `${flat}-${pkg.version}.tgz`
+}
+
+/**
+ * Find the release tag that actually hosts this plugin's tarball.
+ *
+ * 以资产存在性为判据，而不是信任某个写死的常量：tarball 一定是在开 Release
+ * 时上传的，所以「哪个 tag 带这个文件」就是唯一正确的 tag。查询失败时回退
+ * 到 RELEASE_TAG_FALLBACK，保持离线可用。
+ * @param pkg - the plugin's package.json.
+ * @returns the tag, or null when it cannot be determined.
+ */
+function resolveReleaseTag(pkg) {
+  const asset = tarballName(pkg)
+  let tags
+  try {
+    // `gh release list` 不接受 assets 字段，只能先拿 tag 再逐个 view。
+    const out = execFileSync(
+      'gh',
+      ['release', 'list', '--limit', '20', '--json', 'tagName'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    )
+    tags = JSON.parse(out).map(r => r.tagName)
+  } catch {
+    return null
+  }
+  for (const tag of tags) {
+    try {
+      const out = execFileSync(
+        'gh',
+        ['release', 'view', tag, '--json', 'assets', '--jq', '.assets[].name'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+      if (out.split(/\r?\n/).includes(asset)) return tag
+    } catch {
+      // 单个 release 查询失败不影响其余 tag。
+    }
+  }
+  return null
+}
 
 /** Where the DSH profiles live on this machine. */
 const PROFILES_ROOT = path.join(process.env.USERPROFILE || '', '.dsh', 'profiles')
@@ -79,8 +124,8 @@ function resolvePlugin(dirName) {
 
 /** The published tarball URL for a plugin, matching pack-plugins.mjs naming. */
 function publishedUrl(pkg) {
-  const flat = pkg.name.replace(/^@deepseek-ai\//, '').replace(/\//g, '-')
-  return `https://github.com/${RELEASE_REPO}/releases/download/${RELEASE_TAG}/${flat}-${pkg.version}.tgz`
+  const tag = resolveReleaseTag(pkg) ?? RELEASE_TAG_FALLBACK
+  return `https://github.com/${RELEASE_REPO}/releases/download/${tag}/${tarballName(pkg)}`
 }
 
 /** Locate the pnpm runtime (the CLI is not on PATH by default). */
@@ -187,7 +232,7 @@ function cmdRelease(dirName, profileName) {
   console.log('')
   console.log('Next steps:')
   console.log(`  1. cut the release tarball:  node scripts/pack-plugins.mjs`)
-  console.log(`  2. upload dist-tarballs/${name.replace(/^@deepseek-ai\//, '').replace(/\//g, '-')}-${pkg.version}.tgz to the ${RELEASE_TAG} release`)
+  console.log(`  2. upload dist-tarballs/${tarballName(pkg)} to the release that ends up hosting it`)
   console.log('  3. restart the DSH host so the profile resolves the new tarball')
 }
 

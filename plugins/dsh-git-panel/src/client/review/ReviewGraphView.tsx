@@ -30,6 +30,8 @@ export const ReviewGraphView = memo(function ReviewGraphView(props: ReviewGraphV
   const [branches, setBranches] = useState<BranchesView | null>(() => cached?.branches ?? null)
   const [loading, setLoading] = useState(() => !cached)
   const [error, setError] = useState<string | null>(null)
+  /** 工作区不是 Git 仓库：这是业务状态，不是故障，应显示空态而非报错。 */
+  const [notRepo, setNotRepo] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState<number>(() => (typeof window !== 'undefined' ? window.innerWidth - 300 : 800))
@@ -72,6 +74,7 @@ export const ReviewGraphView = memo(function ReviewGraphView(props: ReviewGraphV
       setLoading(true)
     }
     setError(null)
+    setNotRepo(false)
 
     Promise.all([api.graph(cwd), api.branches(cwd)]).then(([gRes, bRes]) => {
       if (cancelled) return
@@ -81,6 +84,14 @@ export const ReviewGraphView = memo(function ReviewGraphView(props: ReviewGraphV
         setBranches(bRes.value)
         graphDataCache.set(cwd, { graph: gRes.value, branches: bRes.value })
       } else {
+        // 非 Git 仓库是**预期状态**：宿主返回 not-a-repo 时不该按故障报红。
+        // 直接给出空态说明，避免用户看到原始 git 报错文本。
+        const notRepoHit = (!gRes.ok && gRes.error.code === 'not-a-repo')
+          || (!bRes.ok && bRes.error.code === 'not-a-repo')
+        if (notRepoHit) {
+          if (!hasCache) setNotRepo(true)
+          return
+        }
         const err = (!gRes.ok ? gRes.error.message : '') || (!bRes.ok ? bRes.error.message : '') || '加载图谱失败'
         if (!hasCache) setError(err)
       }
@@ -153,6 +164,24 @@ export const ReviewGraphView = memo(function ReviewGraphView(props: ReviewGraphV
         >
           <span className="dsh-gp-spinner lg" />
           <span>{t('loading')}</span>
+        </div>
+      ) : notRepo ? (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: 'var(--muted)',
+            gap: 8,
+            padding: 24,
+            fontSize: 13,
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('panel.notRepo')}</div>
+          <div style={{ fontSize: 12.5 }}>{t('panel.notRepoHint')}</div>
         </div>
       ) : error && !graph ? (
         <div

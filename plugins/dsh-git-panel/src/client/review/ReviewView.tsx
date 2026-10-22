@@ -40,6 +40,8 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
   const [detail, setDetail] = useState<CommitDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** 工作区不是 Git 仓库：显示中性空态，而不是把原始 git 报错当故障展示。 */
+  const [notRepo, setNotRepo] = useState(false)
   const [selectedFile, setSelectedFile] = useState<CommitFileItem | null>(null)
 
   // 左侧文件树宽度拖拽
@@ -93,12 +95,14 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
       setSelectedFile(null)
       setLoading(false)
       setError(null)
+      setNotRepo(false)
       return
     }
 
     let cancelled = false
     setLoading(true)
     setError(null)
+    setNotRepo(false)
 
     api.commitDetail(effectiveCwd, effectiveSha).then((res) => {
       if (cancelled) return
@@ -112,6 +116,7 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
           setSelectedFile(null)
         }
       } else {
+        setNotRepo(res.error.code === 'not-a-repo')
         setError(res.error.message || '获取提交详情失败')
       }
     }).catch((err) => {
@@ -166,6 +171,31 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
           >
             <span className="dsh-gp-spinner lg" />
             <span>{t('review.loading')}</span>
+          </div>
+        ) : notRepo ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              height: '100%',
+              color: 'var(--review-muted)',
+              gap: 8,
+              padding: 24,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t('panel.notRepo')}</div>
+            <div style={{ fontSize: 12.5 }}>{t('panel.notRepoHint')}</div>
+            <button
+              type="button"
+              className="dsh-review-diff-btn"
+              onClick={() => reviewStore.clearTarget(props.sessionId)}
+            >
+              ← {t('review.backToGraph')}
+            </button>
           </div>
         ) : error || !detail ? (
           <div
