@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Subagent Custom Card (dsh-subagent-card)",
+    "description": "Composer tool-row robot button with a live running-subagent count badge and sidebar integration."
+  }
+}

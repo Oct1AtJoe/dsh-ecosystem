@@ -1,0 +1,30 @@
+# dsh-session-title-gen bundle patch.
+#
+# ctx.sessionTitle accepts exactly ONE optional provider: its register() throws
+# `session-title provider "<id>" is already registered` when a second one
+# mounts. Two official rows compete for that slot:
+#
+#   session-title-llm                   -> dsh-session-title-first-prompt-llm
+#   optional-session-title-all-prompts  -> dsh-session-title-all-prompts-llm
+#
+# A stock profile carries the first from @deepseek-ai/dsh-base and the second
+# from @deepseek-ai/dsh-experimental-session-titles-bundle, which is why
+# mounting this plugin on top of a stock profile fails to activate.
+#
+# This plugin owns the slot, so take it: disable both official rows and insert
+# our own. Patch order makes this safe -- bundle patches apply in
+# dsh.profile.bundles order, and this bundle sits after dsh-base and after the
+# experimental titles bundle, so these overrides land last.
+#
+# applyEntryPatches() only warns and skips when an id matches nothing, so this
+# stays a no-op on profiles that do not mount those bundles.
+
+- id: session-title-llm
+  disabled: true
+
+- id: optional-session-title-all-prompts
+  disabled: true
+
+- insert:
+    - id: dsh-session-title-custom
+      name: dsh-session-title-gen

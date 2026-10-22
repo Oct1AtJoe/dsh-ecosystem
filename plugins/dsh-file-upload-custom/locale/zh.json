@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "文件上传增强 (dsh-file-upload-custom)",
-    "description": "便捷文件上传：支持向输入框直接拖拽或 Ctrl+V 粘贴任意文件，自动转存至本地并生成无路径污染的引用。"
-  }
-}

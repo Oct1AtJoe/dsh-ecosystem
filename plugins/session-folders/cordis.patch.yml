@@ -1,0 +1,4 @@
+# dsh-session-folders bundle patch: fork of dsh-session-folders with custom modifications.
+- insert:
+    - id: dsh-session-folders-custom
+      name: dsh-session-folders

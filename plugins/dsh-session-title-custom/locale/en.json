@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "Session Title Generator (dsh-session-title-custom)",
-    "description": "Automatic session title generation with date, type, topic classification, and multi-model fallback chain."
-  }
-}

@@ -1,0 +1,11 @@
+# dsh-queue-recall bundle patch.
+#
+# This package is a client-only plugin: its host half is an empty apply()
+# and all behavior lives in ./client. Without a dsh.bundle declaration the
+# profile installer treats it as a plain dependency, so no loader entry is
+# created and the host never composes the client bundle into
+# window.__DSH_BOOT__. This insert exists purely to register that loader
+# entry so the browser half loads.
+- insert:
+    - id: ui-queue-recall
+      name: 'dsh-queue-recall'

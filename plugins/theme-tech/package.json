@@ -1,0 +1,86 @@
+{
+  "name": "dsh-theme-tech",
+  "description": "6 套高质感定制主题（液态/曜黑/冥夜/银曜/灼日/缃素），支持毛玻璃与顶栏无缝融合、独立侧边栏字号、右栏宽度、输入框挂件、工作室版面定制与自动化任务入口显隐。",
+  "version": "0.2.0",
+  "icon": "./icon.svg",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Oct1AtJoe/deepseek-harness-enhanced.git",
+    "directory": "packages/client/ui-theme-custom"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ],
+      "platform": "web",
+      "immediately": true
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "clsx": "^2.0.0",
+    "react": "^18.2.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-theme": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-test-runtime": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-theme": ">=0.1.2-rc.1 <0.3.0",
+    "@types/react": "~18.3.1",
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-store": ">=0.1.2-rc.1 <0.3.0"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  }
+}

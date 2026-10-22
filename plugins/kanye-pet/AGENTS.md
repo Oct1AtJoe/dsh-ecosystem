@@ -126,8 +126,8 @@ export const Config = buildSchema()   // lib/index.mjs 里 `export { Config }`
 | 层 | 文件 | 作用 |
 |----|------|------|
 | Host schema | `kanye-pet/lib/src/config.mjs` | 服务端保存时校验 |
-| Client validation | `ui-kanye-pet/.../kanye-card-controller.ts` | 前端实时校验 |
-| Locale hint | `ui-kanye-pet/.../locales.ts` | 用户看到的范围提示 |
+| Client validation | `kanye-pet-settings/.../kanye-card-controller.ts` | 前端实时校验 |
+| Locale hint | `kanye-pet-settings/.../locales.ts` | 用户看到的范围提示 |
 
 > **坑点**：改范围/默认值时，**三层必须同步改**，否则会出现前端显示一个范围、保存时又被拒绝的情况。
 
@@ -322,8 +322,8 @@ pet.style.backgroundPosition = `${pct}% 0`
 ### 4.1 包结构
 
 ```
-packages/client/ui-kanye-pet/
-├── package.json            # @deepseek-ai/dsh-client-ui-kanye-pet
+plugins/kanye-pet-settings/
+├── package.json            # dsh-kanye-pet-settings
 ├── src/
 │   ├── index.ts            # Host half（空壳，仅注册）
 │   ├── invariant.ts        # 包级不变量
@@ -338,8 +338,9 @@ packages/client/ui-kanye-pet/
 
 ### 4.2 加载路径
 
-- **URL**：`/plugins/@deepseek-ai/dsh-client-ui-kanye-pet/client.js`
-- **包名** = 插件 ID = 目录名前缀 `ui-kanye-pet`
+- **加载端点**：`/plugins/??<包名>/client.js,...&rev=<hash>`（**单包路径 `/plugins/<pkg>/client.js` 是 404**，别用它判断新代码是否生效）
+- **包名** = `dsh-kanye-pet-settings`；目录名 `plugins/kanye-pet-settings`
+- **loader 条目 `id:` 仍是 `ui-kanye-pet`**（v7 只改 `name:`，id 保持不变 —— settings 页绑定 id，改了会整块空白）
 - **构建**：`npx tsdown`（tsdown.config.ts 配置）
 
 ### 4.3 staged 编辑模式
@@ -374,7 +375,7 @@ private field(field: 'size' | 'opacity'): KanyeFieldState {
 
 ### 4.5 重置按钮硬编码
 
-`ui-kanye-pet/src/client/KanyeCard.tsx` 中每个 `NumberField` 的 `onReset` 直接写死了重置值：
+`kanye-pet-settings/src/client/KanyeCard.tsx` 中每个 `NumberField` 的 `onReset` 直接写死了重置值：
 
 ```tsx
 onReset={() => { props.edit('size', '150') }}     // ← 改默认值时同步改这里
@@ -437,7 +438,7 @@ if (!lastTurnEndNotif.has(id)) {
 > 🔄 **2026-10-20 换壳**：Tauri 版的 `ShimNotification`（由 Rust `bridge_init_script` 注入）
 > 已随 Tauri 壳一起停用。Electron 官方壳是**真 Chromium**，主窗口里 `new Notification()`
 > 会直接弹 Windows Toast，所以抑制逻辑改由 **`ui-kanye-pet` 的 client shim** 承担
-> （`plugins/ui-kanye-pet/src/client/index.ts` 的 `DynamicNotification`）。
+> （`plugins/kanye-pet-settings/src/client/index.ts` 的 `DynamicNotification`）。
 
 shim 按宿主分两支：
 
@@ -632,8 +633,8 @@ pet.js 在**配置首次到达时一次性**探测这四个文件（各发一次
 ### 6.2 常规构建命令
 
 ```powershell
-# ui-kanye-pet（client bundle；tsc 必须 exit 0）
-cd C:\dsh-ecosystem\plugins\ui-kanye-pet
+# kanye-pet-settings（client bundle；tsc 必须 exit 0）
+cd C:\dsh-ecosystem\plugins\kanye-pet-settings
 $env:NODE_OPTIONS=""
 node "E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc" -p tsconfig.json
 node "E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs" --config tsdown.config.ts
@@ -648,7 +649,7 @@ node scripts\build-client.mjs
 ```powershell
 cd C:\dsh-ecosystem
 node scripts\plugin-dev-link.mjs link kanye-pet --profile desktop
-node scripts\plugin-dev-link.mjs link ui-kanye-pet --profile desktop
+node scripts\plugin-dev-link.mjs link kanye-pet-settings --profile desktop
 ```
 
 link 会重装 profile 的 `node_modules` 并改写依赖版本，所以**必须重启宿主**——
@@ -754,7 +755,7 @@ plugins/kanye-pet/                        # 插件本体（本仓）
 ├── tests/subagent-notify.test.mjs        # 子代理不通知回归
 └── cordis.patch.yml                      # 宿主组合挂载
 
-plugins/ui-kanye-pet/                     # 设置面板 + 通知 shim + 会话跳转监听
+plugins/kanye-pet-settings/                     # 设置面板 + 通知 shim + 会话跳转监听
 ├── src/client/KanyeCard.tsx              # 设置卡片 UI
 ├── src/client/kanye-card-controller.ts   # 表单 + 校验
 ├── src/client/index.ts                   # apply：slots / dsh:open-session / Notification shim
@@ -832,7 +833,7 @@ dbg.textContent = 'debug info'
 | 会话气泡不出现 | `curl <host>/kanye-pet/state` 看 `notification` 字段；日志查 `[kanye-pet] notify <id>: "<标题>"`（发出时必打）；只有 `/state` DEBUG 行而无 notify 行 = 检测路径失效（§七 #35） |
 | 通知内容不对 | 检查 turn/end 的 `reason.kind` 映射；标题兜底链是否命中 |
 | 桌宠开着仍弹 Windows Toast | `ui-kanye-pet` 的 Notification shim 未生效或旧 bundle（§七 #44） |
-| 点击气泡不跳转 | 主窗口是否加载了含 `dsh:open-session` 监听的 ui-kanye-pet；监听存在仍不切 → 检查是否还调已删除的 `sessions.open()`（必须走 `ctx.uiWorkspace.openSession(id)`）；回归 `node plugins/ui-kanye-pet/tests/jump-check.mjs` |
+| 点击气泡不跳转 | 主窗口是否加载了含 `dsh:open-session` 监听的 ui-kanye-pet；监听存在仍不切 → 检查是否还调已删除的 `sessions.open()`（必须走 `ctx.uiWorkspace.openSession(id)`）；回归 `node plugins/kanye-pet-settings/tests/jump-check.mjs` |
 | 桌宠透明/无图 | `curl <host>/kanye-pet/assets/manifest.json` 是否 200；`loadManifest` 重试是否生效 |
 | 改了 pet.js 不生效 | 重启 Host（不是清 WebView 缓存）；确认走的是 `link:` 源码而非发布 tarball |
 | 想确认前端是否已去 Tauri 化 | `node --test plugins/kanye-pet/tests/pet-window.test.mjs`（9 项） |

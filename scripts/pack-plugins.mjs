@@ -32,14 +32,14 @@ const distDir = path.join(repoRoot, 'dist-tarballs')
 export const PUBLISHED = [
   'dsh-git-panel',
   'kanye-pet',
-  'ui-kanye-pet',
-  'ui-theme-custom',
-  'ui-queue-recall',
-  'ui-resend-failed-round',
-  'ui-subagent-custom',
-  'dsh-session-title-custom',
-  'dsh-session-folders-custom',
-  'dsh-file-upload-custom',
+  'kanye-pet-settings',
+  'theme-tech',
+  'queue-recall',
+  'resend-failed-round',
+  'subagent-card',
+  'session-title',
+  'session-folders',
+  'file-upload',
 ]
 
 /** Windows bsdtar emits CRLF, so always normalise before comparing paths. */

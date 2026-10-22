@@ -1,0 +1,34 @@
+{
+  "name": "dsh-file-upload",
+  "version": "3.0.0",
+  "description": "便捷文件上传：支持向输入框直接拖拽或 Ctrl+V 粘贴任意文件，自动转存至本地并生成无路径污染的引用。",
+  "icon": "./icon.svg",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "license": "MIT"
+}

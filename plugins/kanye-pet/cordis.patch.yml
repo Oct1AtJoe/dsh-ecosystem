@@ -2,4 +2,4 @@
 # client half 由 __ModuleLoader__ 内核挂载渲染宠物）。源自 whale-girl 内置化。
 - insert:
     - id: kanye-pet
-      name: '@deepseek-ai/dsh-kanye-pet'
+      name: 'dsh-kanye-pet'

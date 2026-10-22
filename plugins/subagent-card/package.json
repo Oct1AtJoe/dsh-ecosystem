@@ -1,0 +1,84 @@
+{
+  "name": "dsh-subagent-card",
+  "description": "子代理卡片定制：在输入框工具栏提供机器人按钮与运行计数角标，快速联动侧栏子代理视图。",
+  "version": "0.3.0",
+  "icon": "./icon.svg",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Oct1AtJoe/deepseek-harness-enhanced.git",
+    "directory": "packages/client/ui-subagent-custom"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ],
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-api-session-controller": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-session": ">=0.1.2-rc.1 <0.3.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-api-session-controller": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-session": ">=0.1.2-rc.1 <0.3.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "clsx": "^2.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  }
+}

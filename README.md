@@ -4,21 +4,22 @@
 
 ```
 C:\dsh-ecosystem\
-├── plugins\           # 定制插件源码
-│   ├── dsh-file-upload-custom\       dsh-file-upload-custom（拖拽与 Ctrl+V 粘贴文件上传，零路径污染）
-│   ├── dsh-session-folders-custom\   dsh-session-folders-custom（会话文件夹）
-│   ├── dsh-session-title-custom\     dsh-session-title-custom（会话标题生成）
-│   ├── ui-queue-recall\              @deepseek-ai/dsh-client-ui-queue-recall（排队消息撤回编辑）
-│   ├── ui-theme-custom\              @deepseek-ai/dsh-client-ui-theme-custom
-│   ├── ui-deliverables-custom\       @deepseek-ai/dsh-client-ui-deliverables-custom
-│   ├── ui-resend-failed-round\       @deepseek-ai/dsh-client-ui-resend-failed-round
-│   ├── ui-subagent-custom\           @deepseek-ai/dsh-client-ui-subagent-custom
-│   ├── ui-kanye-pet\                 @deepseek-ai/dsh-client-ui-kanye-pet
-│   ├── kanye-pet\                    @deepseek-ai/dsh-kanye-pet（bundle 插件）
+├── plugins\           # 定制插件源码（目录名 = 包名去掉 dsh- 前缀）
+│   ├── file-upload\            dsh-file-upload（拖拽与 Ctrl+V 粘贴文件上传，零路径污染）
+│   ├── session-folders\        dsh-session-folders（会话文件夹）
+│   ├── session-title\          dsh-session-title-gen（会话标题生成）
+│   ├── queue-recall\           dsh-queue-recall（排队消息撤回编辑）
+│   ├── theme-tech\             dsh-theme-tech（科技主题与外观定制）
+│   ├── deliverables\           dsh-deliverables（交付物面板，未发布）
+│   ├── resend-failed-round\    dsh-resend-failed-round（失败轮次重发）
+│   ├── subagent-card\          dsh-subagent-card（子代理卡片）
+│   ├── kanye-pet-settings\     dsh-kanye-pet-settings（桌宠设置面板）
+│   ├── kanye-pet\              dsh-kanye-pet（桌宠 bundle 插件）
+│   ├── dsh-git-panel\          dsh-git-panel（Git 面板，第三方上游，包名与目录均不改）
 │   ├── tsdown.client.ts              # 共享构建 preset（从官方仓库拷贝，独立维护）
 │   ├── build-preset\                 # preset 的依赖闭包（manifest/system/platform/client-build-environment）
 │   └── package.json                  # 插件构建与运行时依赖（tsdown/schemastery/zod/clsx/lightningcss）
-├── packages\client\ui-theme-custom\package.json   # workspace 桩（preset 按包名查找 manifest 用）
+├── packages\ui-chat-patched\         # vendored 官方包的覆盖副本（名字必须与官方逐字一致）
 ├── desktop\          # 【已弃用】早期自研 Tauri 2 桌面壳，仅作历史参考，见 AGENTS.md §0.3
 │   ├── src\           pet.html, pet.js, styles.css
 │   ├── src-tauri\     Rust 源码 + 配置
@@ -31,6 +32,11 @@ C:\dsh-ecosystem\
 ├── archive\          # 历史一次性脚本与截图（2026-08-29 清理归档，可删）
 └── README.md
 ```
+
+> **v7 包名统一（2026-10-22）**：已去掉全部 `@deepseek-ai/` 作用域、`client-ui` 中缀与 `custom` 后缀，
+> 统一为 `dsh-<功能>`。旧名 → 新名对照见 [另一台电脑安装指南.md](另一台电脑安装指南.md) 的「从 v6 迁移到 v7」。
+> `dsh-git-panel` 是唯一例外：它来自第三方上游（`a792883583/dsh-git-panel`），包名本就合规，目录与版本均不动。
+> 🚨 **`cordis.patch.yml` 的 `id:` 一律未改**（settings 页绑定 loader 条目 id + `Config`），只改了 `name:`。
 
 ## 加载机制（2026-08-29 起）
 

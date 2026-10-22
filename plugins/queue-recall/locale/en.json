@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Queue Message Recall (dsh-queue-recall)",
+    "description": "Recall queued messages back to composer draft on click for quick editing or cancellation."
+  }
+}
