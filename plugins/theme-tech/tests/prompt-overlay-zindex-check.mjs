@@ -78,6 +78,20 @@ assert(
   'MenuSurface ([data-menu-material]) must share z-index:9501 with [role="menu"]'
 )
 
+// 2b-6. 断言：输入框下方会话统计与回合用量悬浮卡片（官方 StatsPills / TurnUsagePanel 的
+//     [role="dialog"] 直接 portaled 到 body，无 presentation 外壳）。
+//     向上展开覆盖输入框时，提示词必须自动收起，不能浮在统计数据正中间。
+assert(
+  /body\[data-ds-custom-theme\]:has\(:is\([\s\S]{0,300}\[role="dialog"\]/.test(clientCode),
+  'overlay guard must treat portaled dialogs ([role="dialog"]) as a direct covering layer'
+)
+
+// 2b-7. 断言：[role="dialog"] 自身层级加固提升至 9500
+assert(
+  /\[role="dialog"\],\s*\[role="presentation"\]:has\(>\s*\[role="dialog"\]\)\s*\{\s*z-index:\s*9500\s*!important;/.test(clientCode),
+  '[role="dialog"] must share z-index:9500 alongside [role="presentation"]'
+)
+
 // 2c. 负向对照：禁止用通配类名去锚定这两个面板（CSS Modules 哈希后类名不可靠，
 //     且 [class*="card"] 会误伤输入坞与其它卡片）。
 assert(

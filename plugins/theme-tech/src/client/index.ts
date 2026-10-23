@@ -980,6 +980,7 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
    to out-rank any plausible dialog) was buried behind the settings panel.
    The 9500 cap sits above the message-nav rail (1001), sticky composer, and
    Radix popovers (1100) while staying below the market lightbox. */
+[role="dialog"],
 [role="presentation"]:has(> [role="dialog"]){
   z-index:9500 !important;
   isolation:isolate !important;
@@ -1046,6 +1047,9 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
       ⑥ 模型选择面板（官方 ModelSelect / data-menu-material）与弹出菜单展开 ——
          模型选择面板向上展开覆盖输入框，此时用户正在进行选项或搜索交互，提示语
          不得浮在模型面板之上，菜单关闭后自动恢复。
+      ⑦ 会话统计与用量悬浮卡片（官方 StatsPills / TurnUsagePanel 的 role="dialog"）展开 ——
+         直接 portaled 到 body，向上展开覆盖输入框，提示语浮在面板正中会严重干扰数据阅读，
+         必须收起，面板关闭后自动恢复。
 
    ⚠️ 不用 z-index 下压：这两个节点是 body 直接子级，下压会掉到内容层之下，
    反而在正常输入场景里不可见。
@@ -1059,6 +1063,7 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
    哈希名），在宿主 DOM 里稳定可命中；.dshiw-root--inline 是设置页内联预览，
    同样带 .dshiw-root，也一并收起，符合语义。 */
 body[data-ds-custom-theme]:has(:is(
+  [role="dialog"],
   [role="presentation"] > [role="dialog"],
   [data-conversation-composer-overlay],
   [data-sidebar-right-panel="fullscreen"],
