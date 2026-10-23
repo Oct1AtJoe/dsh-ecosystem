@@ -2020,6 +2020,48 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
   padding-bottom: 0 !important;
 }
 
+/* ── 宽表格「出血」越界（液态/曜黑的玻璃回复卡片专属）──────────────────────
+   🚨 症状（用户实测）：
+     ① 长表格底部的横向滚动条，左端跑到表格/卡片边界之外，画在页面底色上；
+     ② 表格右侧内容从卡片右侧透出来，压到右栏与滚动条槽上。
+
+   🔍 真因不是本插件写错了宽度，而是**官方满幅出血公式 + 卡片内边距**叠加：
+     官方 ui-chat 的 AssistantMarkdown.module.css 对 ≥4 列的表格加 .md-table-wide，
+     用容器查询单位把表格撑到**整个会话滚动容器**的宽度：
+       --dsh-table-spare: max(0px, (100cqw - --dsh-chat-content-width) / 2)
+       --dsh-table-lead : calc(spare + min(--dsh-chat-content-width, 100cqw) - 100%)
+       width      : calc(100% + lead + spare)
+       margin-left: calc(-1 * lead)
+       padding-left: lead
+     在没有卡片时，这套算法让表格左右两边对齐**页面边界**（官方设计意图，正确）。
+     但本插件给回复加了一层玻璃卡（padding:16px 20px，且**不能**加 overflow:hidden，
+     否则会裁掉焦点环与展开态），于是「100%」变成**卡片内容盒**宽度，而 spare/lead
+     仍按整列容器算 —— 表盒被撑到整列宽，再左移 lead，必然从卡片两侧各溢出一截。
+     溢出量恰好随窗宽增大（spare ∝ 列宽），所以宽屏下尤其明显。
+
+   ✅ 修法：在这两个玻璃主题里把出血系数**归零**，让滚动盒 = 卡片内容盒宽度
+     （width:100% + max-width:100% + margin/padding 复位），横向滚动条自然落在卡片内侧。
+     只动 sequoia / sonoma，且作用域**精确对齐上方卡片规则**（同一个 flowItem 谓词）——
+     其余 4 个主题没有卡片，必须保留官方满幅出血；卡片外的表格（如弹窗内）也不动。
+     ⚠️ 官方该规则是非 !important 的类选择器（.v5IAXa_body .md-table-wide，特异性 0,2,0），
+        这里用 !important 覆盖，不受样式注入先后顺序影响。
+     ⚠️ 不能改用 overflow:hidden 在卡片上裁掉溢出：那会同时裁掉表格的横向滚动能力、
+        卡片内焦点环与展开态（见 §1.5 同类教训），属于遮盖而非修复。 */
+body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide,
+body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide {
+  --dsh-table-spare: 0px !important;
+  --dsh-table-lead: 0px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+  overflow-x: auto !important;
+}
+
 /* 左侧边栏工作区上方自动化任务入口显隐控制 */
 html[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),
 body[data-dsh-hide-schedule="true"] [class*="panelRow"]:has([data-dsh-schedule-marker]),

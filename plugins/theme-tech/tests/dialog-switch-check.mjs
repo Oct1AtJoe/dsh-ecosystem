@@ -1,7 +1,11 @@
 import fs from 'node:fs'
 import assert from 'node:assert'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const clientCode = fs.readFileSync('C:/dsh-ecosystem/plugins/theme-tech/lib/client.js', 'utf8')
+// 产物路径按脚本自身位置推导：曾写死 C:/dsh-ecosystem/...，工作区换盘符后门禁直接崩。
+const here = dirname(fileURLToPath(import.meta.url))
+const clientCode = fs.readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8')
 
 // ── 1. 弹窗操作按钮规则必须排除开关与图标按钮（防止白底/大内边距污染） ──
 assert(

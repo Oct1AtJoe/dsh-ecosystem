@@ -339,6 +339,41 @@ fullscreen 态改实心；push 态**保持原样**（不能一起改成实心，
 
 > 门禁：`tests/panel-opacity-check.mjs` B 组（含特异性负向对照）。
 
+### 类型 E：官方「满幅出血」布局撞上卡片内边距（改官方系数，不改宽度数值）
+
+症状：回答里的长表格（≥4 列）底部横向滚动条**从卡片左侧跑到页面底色上**，
+同时表格右侧内容从卡片右侧透出，压到右栏与滚动条槽。
+
+真因链（**不是**本插件写错了宽度，别去调 width 的 px 值）：
+1. 官方 `ui-chat` 的 `AssistantMarkdown.module.css` 对 ≥4 列表格加 `.md-table-wide`，
+   用**容器查询单位**把它撑到整个会话滚动容器宽：
+   `spare = max(0px,(100cqw - --dsh-chat-content-width)/2)`、
+   `lead = spare + min(--dsh-chat-content-width,100cqw) - 100%`、
+   `width = 100% + lead + spare`、`margin-left = -lead`、`padding-left = lead`；
+2. 没有卡片时，这套算法让表格左右对齐**页面边界**（官方设计意图，正确）；
+3. 但液态/曜黑给回复加了玻璃卡（`padding:16px 20px`，且**不能**加 `overflow:hidden`，
+   否则裁掉焦点环与展开态），于是「100%」变成**卡片内容盒**宽，而 spare/lead 仍按
+   整列容器算 —— 表盒被撑到整列宽再左移 lead，必然从卡片两侧各溢出一截。
+   溢出量 ∝ `spare`，所以**宽屏下尤其明显**（实测 1571px 视口左溢出 −313.5px、右 +273.5px）。
+
+**修法**：只在两个玻璃主题里把**出血系数归零**（`--dsh-table-spare/lead: 0px !important`）
+并把盒模型钉死：`box-sizing:border-box + width/max-width:100% + margin/padding 左右:0 !important`。
+
+> 🚨 **作用域必须与卡片规则逐字对齐**：用同一套 `flowItem:not(...)` 谓词包住表格选择器。
+> 放宽到整个 `[data-slot="main.conversation"]` 会把弹窗、侧栏预览里的宽表格也一起归零，
+> 那里没有 18px 卡片内边距，官方满幅出血是**正确**行为。其余 4 个主题更不能动。
+
+> 🚨 **不要用 `overflow:hidden` 裁掉溢出**：那属于遮盖而非修复，会同时裁掉表格的横向
+> 滚动能力与卡片内焦点环/展开态（与 §1.5 同一类教训）。修完滚动条应仍在卡片**内侧**。
+
+> ⚠️ 官方该规则是非 `!important` 的类选择器（特异性 0,2,0），插件侧用 `!important` 覆盖，
+> 不受样式注入先后顺序影响；但 `width:100%` 与 `padding-left` **必须同时归零** ——
+> 自定义属性不参与 `box-sizing`，只归零 `spare/lead` 而留着 `padding-left:lead` 依旧溢出。
+
+> 门禁：`tests/table-bleed-check.mjs`（A/A2/B/C 组，含「不得放宽作用域」「不得用裁剪遮盖」
+> 「其余 4 主题不得被归零」三条负向对照）。
+> 几何复核工具：`data/table-probe/probe.html`（真实浏览器 headless 实测脚本痕迹见该目录 `REPORT.md`）。
+
 ---
 
 ## 4. 如何做一个「纯色 / 纯净无光斑」的主题（以【缃素】为例）

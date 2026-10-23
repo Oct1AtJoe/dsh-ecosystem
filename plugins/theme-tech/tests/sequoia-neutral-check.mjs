@@ -11,6 +11,7 @@
 //
 // 运行：node plugins/theme-tech/tests/sequoia-neutral-check.mjs
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -20,9 +21,11 @@ const themeSrc = readFileSync(join(here, '..', 'src', 'client', 'sequoia.ts'), '
 const indexSrc = readFileSync(join(here, '..', 'src', 'client', 'index.ts'), 'utf8')
 // profile 产物路径：插件在本机装在 desktop profile（web profile 未装），
 // 因此按「候选列表取第一个存在的」探测，避免把「换 profile 安装」误报成门禁失败。
+// ⚠️ 用户名不能写死：曾硬编码 C:/Users/Administrator，在用户名不同的机器上
+// 会以「profile 产物不可读」报假失败（与本门禁要验的内容无关）。
 const PROFILE_CANDIDATES = [
-  'C:/Users/Administrator/.dsh/profiles/desktop/node_modules/dsh-theme-tech/lib/client.js',
-  'C:/Users/Administrator/.dsh/profiles/web/node_modules/dsh-theme-tech/lib/client.js',
+  join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-theme-tech', 'lib', 'client.js'),
+  join(homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-theme-tech', 'lib', 'client.js'),
 ]
 const profile = PROFILE_CANDIDATES.find(p => existsSync(p)) ?? PROFILE_CANDIDATES[0]
 
