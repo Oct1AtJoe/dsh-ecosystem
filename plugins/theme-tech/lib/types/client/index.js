@@ -942,7 +942,8 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
   z-index:9500 !important;
   isolation:isolate !important;
 }
-[role="menu"]{
+[role="menu"],
+[data-menu-material]{
   z-index:9501 !important;
 }
 /* The settings portal mounts INSIDE the sidebar column (sidebarCol), which
@@ -1000,6 +1001,9 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
       ⑤ 开屏动画（dsh-ink-whale 的 .dshiw-root）播放中 —— 它经 shell.overlay
          槽位注入，全屏 fixed、z-index:2147483000；开屏期间输入框本就不可交互，
          提示语浮在品牌动画上只会显得脏。
+      ⑥ 模型选择面板（官方 ModelSelect / data-menu-material）与弹出菜单展开 ——
+         模型选择面板向上展开覆盖输入框，此时用户正在进行选项或搜索交互，提示语
+         不得浮在模型面板之上，菜单关闭后自动恢复。
 
    ⚠️ 不用 z-index 下压：这两个节点是 body 直接子级，下压会掉到内容层之下，
    反而在正常输入场景里不可见。
@@ -1018,7 +1022,10 @@ body[data-ds-custom-theme]:has(:is(
   [data-sidebar-right-panel="fullscreen"],
   [data-question-key],
   [data-plan-review-key],
-  .dshiw-root
+  .dshiw-root,
+  [data-menu-material],
+  [role="menu"],
+  .bre-model-search-box
 )) :is(.dsh-ph-suggest, .dsh-ph-ghost) {
   display: none !important;
 }

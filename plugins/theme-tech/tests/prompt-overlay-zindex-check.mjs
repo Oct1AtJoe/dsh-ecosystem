@@ -55,6 +55,29 @@ assert(
   'NEGATIVE: the splash anchor must be .dshiw-root, not the bare .dshiw-mount wrapper'
 )
 
+// 2b-4. 断言：模型选择面板与弹出菜单也属遮挡层（官方 ModelSelect 使用的
+//     MenuSurface 带有 [data-menu-material]，展开模型列表时包含 [role="menu"]，
+//     三方模型选择插件带有 .bre-model-search-box）。
+//     菜单展开向上覆盖输入框时，提示语必须收起，不能穿透盖在模型面板上方。
+assert(
+  clientCode.includes('[data-menu-material]'),
+  'overlay guard must treat MenuSurface ([data-menu-material]) as a covering layer'
+)
+assert(
+  clientCode.includes('[role="menu"]'),
+  'overlay guard must treat [role="menu"] as a covering layer'
+)
+assert(
+  clientCode.includes('.bre-model-search-box'),
+  'overlay guard must treat model selection search box (.bre-model-search-box) as a covering layer'
+)
+
+// 2b-5. 断言：MenuSurface 材质容器层级加固提升至 9501，与 [role="menu"] 齐平
+assert(
+  /\[role="menu"\],\s*\[data-menu-material\]\s*\{\s*z-index:\s*9501\s*!important;/.test(clientCode),
+  'MenuSurface ([data-menu-material]) must share z-index:9501 with [role="menu"]'
+)
+
 // 2c. 负向对照：禁止用通配类名去锚定这两个面板（CSS Modules 哈希后类名不可靠，
 //     且 [class*="card"] 会误伤输入坞与其它卡片）。
 assert(
