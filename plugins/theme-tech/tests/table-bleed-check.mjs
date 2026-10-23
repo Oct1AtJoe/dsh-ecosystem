@@ -57,7 +57,7 @@ console.log('=== A. 两个玻璃主题：出血系数必须归零（滚动盒 = 
 
 // 作用域必须与「回复卡片」规则严格一致：同一个 flowItem 谓词 + 卡片内表格。
 // 放宽到整列（不带 flowItem 作用域）会把官方满幅出血在别处也一起关掉。
-const CARD_PREDICATE = '[data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"])'
+const CARD_PREDICATE = '[data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"])'
 const seqAnchor = `body[data-ds-custom-theme="sequoia"] ${CARD_PREDICATE} [class*="tableScroll"].md-table-wide`
 const sonAnchor = `body[data-ds-custom-theme="sonoma"] ${CARD_PREDICATE} [class*="tableScroll"].md-table-wide`
 

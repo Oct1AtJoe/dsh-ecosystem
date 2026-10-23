@@ -1711,10 +1711,15 @@ body[data-ds-custom-theme="sonoma"] [class*="userStack"] > [class$="_bubble"] * 
    assistant-step + 99 个 tool-call）。旧选择器 :has([class*="_markdown_"]) 命中这些
    隐藏成员，其 padding: 16px 20px 在内容不可见时把盒子撑成 32px 高的空玻璃条，
    连成一排「空白圆角卡片」。
-   修法：排除 [hidden]（含 until-found）与 [data-turn-process-member]（思考/工具成员），
-   只对真正的可见回复卡施加卡面。 */
-body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]),
-body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) {
+   ⚠️ 陷阱：不能一刀切用 :not([data-turn-process-member])！因为在回答生成过程中
+   （streaming / liveProcess 阶段），宿主 ChatNodeSeat 把正在输出的正文也挂上
+   data-turn-process-member，直到回答结束 turnClosed 后才摘除；一刀切会导致正文在
+   回答过程中失去卡片包裹，回答结束才突然收拢成卡片。
+   修法：排除 [hidden] 与 [data-turn-process-hidden="true"]，并通过
+   :is([data-chat-group-part="response"], :not([data-turn-process-member]))
+   放行正在流式输出的正文，同时准确阻断折叠思考与工具成员。 */
+body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]),
+body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]) {
   background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
@@ -2054,8 +2059,8 @@ body[data-ds-custom-theme="sonoma"] [class*="md-code-block"] {
         这里用 !important 覆盖，不受样式注入先后顺序影响。
      ⚠️ 不能改用 overflow:hidden 在卡片上裁掉溢出：那会同时裁掉表格的横向滚动能力、
         卡片内焦点环与展开态（见 §1.5 同类教训），属于遮盖而非修复。 */
-body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide,
-body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):not([data-turn-process-member]):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide {
+body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide,
+body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]) [class*="tableScroll"].md-table-wide {
   --dsh-table-spare: 0px !important;
   --dsh-table-lead: 0px !important;
   box-sizing: border-box !important;
