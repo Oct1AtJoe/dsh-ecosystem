@@ -36,6 +36,21 @@ assert(
   'overlay guard must treat the plan-review panel (data-plan-review-key) as a covering layer'
 )
 
+// 2b-2. 断言：开屏动画（dsh-ink-whale 的 .dshiw-root）也算遮挡层。
+//     它经 shell.overlay 槽位注入，全屏 fixed、z-index:2147483000；
+//     开屏期间输入框本就不可交互，提示语浮在品牌动画上只会显得脏。
+assert(
+  clientCode.includes('.dshiw-root'),
+  'overlay guard must treat the dsh-ink-whale splash (.dshiw-root) as a covering layer'
+)
+
+// 2b-3. 负向对照：开屏判据必须是该类名本身，不得写成 .dshiw-mount（那只是
+//     React 的挂载壳，没有层级；也不是全屏根节点）。
+assert(
+  !/\:has\(:is\([\s\S]{0,700}\.dshiw-mount/.test(clientCode),
+  'NEGATIVE: the splash anchor must be .dshiw-root, not the bare .dshiw-mount wrapper'
+)
+
 // 2c. 负向对照：禁止用通配类名去锚定这两个面板（CSS Modules 哈希后类名不可靠，
 //     且 [class*="card"] 会误伤输入坞与其它卡片）。
 assert(

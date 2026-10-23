@@ -4705,6 +4705,9 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
 
       ④ 回答选择面板（ui-user-questions 的 QuestionComposer）弹出 —— 它是
          conversation.composer 链的 takeover，输入坞 host 依然 isConnected。
+      ⑤ 开屏动画（dsh-ink-whale 的 .dshiw-root）播放中 —— 它经 shell.overlay
+         槽位注入，全屏 fixed、z-index:2147483000；开屏期间输入框本就不可交互，
+         提示语浮在品牌动画上只会显得脏。
 
    ⚠️ 不用 z-index 下压：这两个节点是 body 直接子级，下压会掉到内容层之下，
    反而在正常输入场景里不可见。
@@ -4713,13 +4716,17 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
    注入，避免影响内置主题的原始表现。
    ⚠️ 只处理提示语/补全（.dsh-ph-suggest / .dsh-ph-ghost）。同插件的聊天目录
    （.dsh-ph-toc*）是用户主动拖出的浮层，刻意不纳入，避免「目录自己在面板上
-   消失」的新问题。 */
+   消失」的新问题。
+   ⚠️ .dshiw-root 是 dsh-ink-whale 在自身样式里显式定义的根类（非 CSS Modules
+   哈希名），在宿主 DOM 里稳定可命中；.dshiw-root--inline 是设置页内联预览，
+   同样带 .dshiw-root，也一并收起，符合语义。 */
 body[data-ds-custom-theme]:has(:is(
   [role="presentation"] > [role="dialog"],
   [data-conversation-composer-overlay],
   [data-sidebar-right-panel="fullscreen"],
   [data-question-key],
-  [data-plan-review-key]
+  [data-plan-review-key],
+  .dshiw-root
 )) :is(.dsh-ph-suggest, .dsh-ph-ghost) {
   display: none !important;
 }
