@@ -1317,12 +1317,15 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:no
 
 /* 弹窗内 Switch 开关规范：彻底排除 actions/button 规则污染，确保两态对比鲜明与质感统一。
    🚨 判据必须是 aria-checked（真正的「两态开关」语义），**不得**用 [class*="switch"]。
-   实踩回归：宽通配会命中 ui-kanye-pet 的 .KanyeCard_switch（42×24 / 18px ::after 滑块 /
+   实踩回归 1：宽通配会命中 ui-kanye-pet 的 .KanyeCard_switch（42×24 / 18px ::after 滑块 /
    translateX(18px)，用的是 aria-pressed 而非 aria-checked），把它强改成 36×20 /
    16px / translateX(16px)，滑块尺寸与位移全错位 —— 表现为「桌宠 tab 开关 UI 异常」。
-   收窄后：官方 Switch 与 dsh-skills-manager 的 .dssm-enable-switch 都带 aria-checked，
-   照常规范化；自有尺寸的第三方开关（aria-pressed / data-on）完全不受几何干预。 */
-[role="dialog"] button[aria-checked] {
+   实踩回归 2：dsh-notify-me 的 .dnm-switch 使用标准 role="switch" + aria-checked，
+   但自身基于 position:absolute + left:16px 进行动画位移；若被此处的 transform: translateX(16px) 叠加，
+   会导致 16px(left) + 16px(transform) = 32px 双重位移，滑块在打开时直接溢出轨道右侧外壁 —— 表现为「通知提醒 tab 开关在打开时显示异常」。
+   排除守卫：必须显式排除自带几何/位移动画的第三方自绘开关（:not([class*="dnm-switch"]) 等），
+   仅对官方原生 Switch 与 dsh-skills-manager 的 .dssm-enable-switch 等标准几何开关照常规范化。 */
+[role="dialog"] button[aria-checked]:not([class*="dnm-switch"]) {
   box-sizing: border-box !important;
   position: relative !important;
   flex: 0 0 auto !important;
@@ -1338,21 +1341,21 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"] [class*="actions"] button:no
 }
 
 /* 关闭态：清爽中性深浅两档底槽，避免弹窗内 l3 边框极淡导致开关隐形 */
-body:not([data-ds-dark-theme]) [role="dialog"] button[aria-checked]:not([aria-checked="true"]) {
+body:not([data-ds-dark-theme]) [role="dialog"] button[aria-checked]:not([aria-checked="true"]):not([class*="dnm-switch"]) {
   background: rgba(0, 0, 0, 0.15) !important;
 }
 
-body[data-ds-dark-theme] [role="dialog"] button[aria-checked]:not([aria-checked="true"]) {
+body[data-ds-dark-theme] [role="dialog"] button[aria-checked]:not([aria-checked="true"]):not([class*="dnm-switch"]) {
   background: rgba(255, 255, 255, 0.18) !important;
 }
 
 /* 开启态：高对比度的品牌主色（Sequoia 天蓝 / Sonoma 曜蓝 / 各主题 brand-primary） */
-[role="dialog"] button[aria-checked="true"] {
+[role="dialog"] button[aria-checked="true"]:not([class*="dnm-switch"]) {
   background: var(--dsw-alias-brand-primary, #147ce5) !important;
 }
 
 /* 开关滑块（Thumb）：纯白微投影，平滑滑动 */
-[role="dialog"] button[aria-checked] > span {
+[role="dialog"] button[aria-checked]:not([class*="dnm-switch"]) > span {
   box-sizing: border-box !important;
   display: block !important;
   width: 16px !important;
@@ -1365,7 +1368,7 @@ body[data-ds-dark-theme] [role="dialog"] button[aria-checked]:not([aria-checked=
   pointer-events: none !important;
 }
 
-[role="dialog"] button[aria-checked="true"] > span {
+[role="dialog"] button[aria-checked="true"]:not([class*="dnm-switch"]) > span {
   transform: translateX(16px) !important;
 }
 /* 弹窗原生独立输入框与下拉选择框：仅对顶层孤立的原生控件生效，严禁污染任何复合输入组件内部字段 */
@@ -1881,6 +1884,14 @@ body[data-ds-custom-theme="sonoma"] [class*="rightbarCol"] [data-sidebar-right-p
   height: 100vh !important;
 }
 
+/* ⚠️ 严禁让遮罩通顶（inset: 0）。
+   桌面端 y=0..40 那条顶栏是 **Windows 原生绘制**的（Electron titleBarOverlay），
+   网页遮罩物理上永远盖不住它。若在此把 .mask 拉到 top:0，网页内遮罩变深、而
+   原生顶栏和右上角三按钮仍是浅色，反而把色差放大成一块突兀的亮矩形。
+   官方用 --dsh-frame-chrome-top 让遮罩从 40px 起画，正是为了让「遮罩」与
+   「原生顶栏」各自完整、互不重叠；两者的颜色统一由探针色负责
+   （见 resolveTitlebarProbeColor）。 */
+
 /* 选中态与分类标签组件视觉调优：柔和半透底色，绝不喧宾夺主，14px 协调几何圆弧
    （涵盖插件市场分类标签、dsh-cost-meter 等扩展的胶囊式 Tab，确保背景与文字对比度充足醒目） */
 body[data-ds-custom-theme="sequoia"] [class*="cats"] button[class*="active"],
@@ -2192,6 +2203,156 @@ const THEME_SCHEME_MAP: Record<string, 'light' | 'dark'> = {
   parchment: 'light',
 }
 
+/**
+ * 把可能半透明的颜色合成到不透明底色上，得到 alpha=1 的 `rgb()`。
+ *
+ * 为什么必须自己合成：Windows 原生 WCO 控件收到带 alpha 的颜色后，会与窗口底层的
+ * **黑**强制预乘混合（`rgba(245,245,247,0.66)` → `#a2a2a3`），表现为顶栏右侧一块
+ * 突兀的脏灰块，比周围暗几十个色阶。所以探针必须交出合成后的实色。
+ * @param color - 遮罩自身的 background-color，可能是 rgba。
+ * @param base - 遮罩背后的不透明底色。
+ */
+function compositeOver(color: string, base: string): string {
+  const parse = (text: string): [number, number, number, number] => {
+    const match = text.match(/rgba?\(([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\)/u)
+    if (match === null) return [0, 0, 0, 1]
+    return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])]
+  }
+  const [red, green, blue, alpha] = parse(color)
+  const [baseRed, baseGreen, baseBlue] = parse(base)
+  const mix = (top: number, bottom: number): number => Math.round(top * alpha + bottom * (1 - alpha))
+  return `rgb(${mix(red, baseRed)}, ${mix(green, baseGreen)}, ${mix(blue, baseBlue)})`
+}
+
+/**
+ * 遮罩的底色是否已经可靠可读。
+ *
+ * 遮罩节点插入 DOM 的同一帧里，`background-color` 往往还是初始值（`rgba(0, 0, 0, 0)`
+ * 或空），因为宿主的 CSS 类刚挂上、样式尚未生效。此时若照常合成，会先算出一个
+ * 「等于主题实色」的假值并发一次 IPC，等下一轮才算出真值再发一次 —— 原生层收到
+ * 两次不同的颜色，就是用户看到的「弹窗打开瞬间闪一下」。
+ *
+ * 判据：完全透明即视为未就绪，宁可这一轮不发。
+ * @param color - 遮罩的 computed backgroundColor。
+ */
+function maskColorReady(color: string): boolean {
+  const match = color.match(/rgba?\(([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\)/u)
+  if (match === null) return false
+  const alpha = match[4] === undefined ? 1 : Number(match[4])
+  return alpha > 0
+}
+
+/**
+ * 当前覆盖全屏的「舞台层」，找不到返回 null。
+ *
+ * 用途只有一个：识别**启动期开屏动画**那种整屏纯色覆盖层（如 dsh-ink-whale 的
+ * `.dshiw-root`，背景 `#000`/`#fff`）。这类层只在启动瞬间出现一次、此时页面尚无
+ * 内容，跟随它的颜色不会表现为"闪烁"；否则三个原生按钮会孤零零亮在整屏黑/白之上。
+ *
+ * ## 刻意排除模态弹窗遮罩
+ *
+ * 设置面板的遮罩同样是全屏元素，但**必须排除**：它每次开合都会出现，
+ * 跟随它变暗就等于每次开合都让原生层重绘一次 —— 那正是用户反复报的"闪烁"。
+ * 判据：位于 `role="dialog"` 的父容器内、或自身带 `aria-hidden="true"` 的兄弟遮罩。
+ *
+ * 判据只用可测事实：铺满视口、`position: fixed|absolute`、背景不透明、非弹窗附属。
+ * @returns 舞台层元素；没有返回 null。
+ */
+function findStageMask(): HTMLElement | null {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  // 必须全文档扫描，不能只看 body.children。
+  // 实测教训：dsh-ink-whale 的 .dshiw-root 挂在 shell.overlay 槽位里，位于 #root 内
+  // 而非 body 的直接子节点；只扫 body.children 会漏掉它，开屏动画时按钮照样凸显。
+  const dialog = document.querySelector('[role="dialog"][aria-modal="true"]')
+  const dialogHost = dialog?.parentElement ?? null
+  const candidates = document.querySelectorAll<HTMLElement>('body *')
+  let best: HTMLElement | null = null
+  let bestArea = 0
+  for (const element of candidates) {
+    if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') continue
+    // 排除模态弹窗体系：宿主容器本身、遮罩兄弟、以及 dialog 的祖先链。
+    if (dialogHost !== null && (element === dialogHost || element.contains(dialog))) continue
+    if (element.getAttribute('aria-hidden') === 'true') continue
+    const style = getComputedStyle(element)
+    if (style.position !== 'fixed' && style.position !== 'absolute') continue
+    if (style.display === 'none' || style.visibility === 'hidden') continue
+    // 遮罩依赖 backdrop-filter 透出背后内容；开屏舞台层是自己画满整屏的实色。
+    if (style.backdropFilter !== 'none' && style.backdropFilter !== '') continue
+    const rect = element.getBoundingClientRect()
+    // 必须基本铺满视口：舞台层是整屏覆盖，面板本身不算。
+    if (rect.width < viewportWidth * 0.95 || rect.height < viewportHeight * 0.95) continue
+    if (!maskColorReady(style.backgroundColor)) continue
+    const area = rect.width * rect.height
+    if (area <= bestArea) continue
+    bestArea = area
+    best = element
+  }
+  return best
+}
+
+/**
+ * 标题栏探针色：官方 Windows preload 读 body 上的 `--dsw-specific-sidebar-fill`
+ * 来决定右上角三个原生按钮的底色。
+ *
+ * ## 设计取舍（2026-10-23 用户拍板：优先「不闪」）
+ *
+ * Windows 的 `setTitleBarOverlay` **每改一次颜色就重绘一次原生非客户区**，
+ * 这个重绘在视觉上就是一次跳变。因此「顶栏随弹窗遮罩变暗」与「打开弹窗不闪」
+ * 在物理上不可兼得 —— 联动必然伴随一次可见跳变。
+ *
+ * 用户选择不闪，于是本函数的策略是：
+ * - **常态**：只回主题实色，与左侧顶栏逐像素同色，任何弹窗开合都不改色 → 零跳变。
+ * - **例外（全屏舞台层）**：仅当出现铺满视口的纯色舞台层（如 dsh-ink-whale 开屏动画
+ *   `#000`/`#fff`）时才跟随。这类层只在启动瞬间出现一次、且此时页面尚无内容，
+ *   一次颜色变化不会表现为"闪烁"，而能避免按钮孤零零地亮在整屏黑/白之上。
+ *
+ * **不跟随模态弹窗遮罩**是刻意的：设置面板这类高频开合场景，一次跳变就是用户
+ * 反复抱怨的"闪烁"；那种情况下按钮与顶栏同色（略亮于遮罩）是更小的代价。
+ * @param base - 该主题顶栏的实色（alpha=1）。
+ * @returns 探针色；舞台层色尚未就绪时返回 undefined，调用方应跳过本轮写入。
+ */
+function resolveTitlebarProbeColor(base: string | undefined): string | undefined {
+  if (base === undefined || base === '') return undefined
+  const stage = findStageMask()
+  if (stage === null) return base
+  const stageColor = getComputedStyle(stage).backgroundColor
+  // 未就绪就不发：避免「先发主题实色、再发舞台色」的两次 IPC 造成闪烁。
+  if (!maskColorReady(stageColor)) return undefined
+  return compositeOver(stageColor, base)
+}
+
+/**
+ * 上一次实际写入 body/html 的顶栏探针色。
+ *
+ * 存在的唯一目的：掐断自触发循环。官方 preload 监听 `body` 的 `style` 属性，
+ * 我们自己写 `--dsw-specific-sidebar-fill` 也会让那个 observer 回调、进而触发
+ * 一次原生 `setTitleBarOverlay` 重绘。若每次 MutationObserver 回调都无脑重写，
+ * 就会形成「写 → 回调 → 再写」的抖动，表现为顶栏右侧闪烁。
+ */
+let lastTitlebarProbeColor: string | undefined
+
+/**
+ * 把顶栏底色写到 **html 与 body 双端**（值未变时完全不动 DOM）。
+ *
+ * 为什么必须双写（层叠陷阱，AGENTS.md §6.3 已记录同类坑）：
+ * - 官方 Windows 壳的 40px 顶栏填充规则是
+ *   `[data-windows-titlebar] .frame { background: var(--dsw-specific-sidebar-fill) }`，
+ *   该元素在 html 树下，读到的是 **html 上的同名变量**；
+ * - 官方 preload 的探针 span 挂在 body 下，读到的是 **body 上的同名变量**；
+ * - 两者若只写一端，另一端仍取旧值 → 顶栏与右上角按钮颜色不一致，正是
+ *   「遮罩下三个按钮凸显」（或顶栏与按钮暗暗分家）的直接成因。
+ * @param color - 已合成到 alpha=1 的实色。
+ * @returns 是否真的写了 DOM。
+ */
+function writeTitlebarProbeColor(color: string): boolean {
+  if (color === lastTitlebarProbeColor) return false
+  lastTitlebarProbeColor = color
+  document.documentElement.style.setProperty('--dsw-specific-sidebar-fill', color)
+  document.body.style.setProperty('--dsw-specific-sidebar-fill', color)
+  return true
+}
+
 /** Token names this plugin wrote inline (its retraction set). */
 const APPLIED_TOKEN_NAMES = new Set<string>()
 
@@ -2342,12 +2503,33 @@ function applyTokens(
     document.body.style.removeProperty('--dsw-font-family')
   }
   for (const [key, value] of Object.entries(tokens)) {
+    // 跳过探针变量：它由下方 writeTitlebarProbeColor 统一以 alpha=1 实色写入。
+    // 若这里先写主题自带的半透明值，紧接着再写实色，body.style 在一次主题应用里
+    // 会变更两次 —— 官方 preload 的 observer 会先读到半透明中间态并发一次 IPC，
+    // 再读到实色发第二次，原生层两次重绘就是可见的闪烁。
+    // 只在「本插件自己写这个变量」时跳过；token 表里没有它时无需处理。
+    if (key === '--dsw-specific-sidebar-fill' && themeId !== undefined) continue
     document.documentElement.style.setProperty(key, value)
     document.body.style.setProperty(key, value)
     APPLIED_TOKEN_NAMES.add(key)
   }
   const titlebar = themeId ? TITLEBAR_PRESETS[themeId] : undefined
-  syncDesktopTitlebar(colorScheme, titlebar?.bg ?? tokens['--dsw-alias-bg-base'], titlebar)
+  const titlebarBg = titlebar?.bg ?? tokens['--dsw-alias-bg-base']
+  // 去重缓存与 DOM 可能已被上面的循环改过，失效以防误判。
+  lastTitlebarProbeColor = undefined
+  // 官方 Windows preload 探测挂在 body 上的 --dsw-specific-sidebar-fill 来设置
+  // 右上角三个原生控制按钮 (WCO) 的底色。三个坑都在这里收口：
+  // ① 带 alpha 的颜色会被 Windows DWM 与窗口黑底强制预乘（0.66 的 #f5f5f7 → #a2a2a3），
+  //    表现为顶栏右侧一块脏灰；② 模态/舞台遮罩生效时顶栏已被压暗，探针若仍给主题实色，
+  //    按钮就会比周围亮一大截而"凸显"；③ 半透明值必须先合成到 alpha=1。
+  // 故探针色统一走 resolveTitlebarProbeColor。
+  const probe = resolveTitlebarProbeColor(titlebarBg)
+  if (probe !== undefined) writeTitlebarProbeColor(probe)
+  // 探针变量被跳过写入，但仍属本插件写的内联变量，必须登记以便切回内置主题时清理。
+  if (themeId !== undefined && tokens['--dsw-specific-sidebar-fill'] !== undefined) {
+    APPLIED_TOKEN_NAMES.add('--dsw-specific-sidebar-fill')
+  }
+  syncDesktopTitlebar(colorScheme, titlebarBg, titlebar)
 }
 
 /**
@@ -2446,6 +2628,67 @@ export function apply(ctx: Context): void {
   ctx.effect(() => () => {
     theme.setTheme = originalSetTheme
   }, 'ui-theme-custom: restore setTheme wrapper')
+
+  // ── 主题偏好与 adopt 防抖保护 ───────────────────────────────────────
+  // 官方 ThemeRuntime.adopt() 收到 settings 镜像时，若发现 preference !== section.preference，
+  // 会无条件回退为内置主题并 publish()。由于科技主题 ID 无法存入官方 settings schema，
+  // 任何外部插件保存配置（广播 settings/document-updated）都会导致 adopt() 误判回滚，
+  // 造成 DOM 剧烈抖动与 Windows 原生标题栏 WCO 黑闪。
+  // 此处包装 adopt：当启用了科技主题且用户未显式切回内置主题时，锁定 preference 为科技主题，
+  // 仅在字号/字体发生真实变更时同步并 publish，从源头阻断回滚和黑闪。
+  const rawTheme = theme as any
+  const originalAdopt = rawTheme.adopt ?? Object.getPrototypeOf(theme)?.adopt
+  if (typeof originalAdopt === 'function') {
+    rawTheme.adopt = function (this: any): void {
+      const desired = readSaved()
+      if (desired && !builtinPickWins(this.preference, liveBuiltinPick)) {
+        if ((this.pendingWrites ?? 0) > 0) return
+        const section = this.host?.getSnapshot?.()?.value
+        if (!section) return
+        const sizesChanged = this.fontSizes && (
+          (section.fontSize !== undefined && this.fontSizes.text !== section.fontSize) ||
+          (section.codeFontSize !== undefined && this.fontSizes.code !== section.codeFontSize) ||
+          (section.terminalFontSize !== undefined && this.fontSizes.terminal !== section.terminalFontSize)
+        )
+        const fontsChanged = this.fontFamilies && (
+          (section.textFontFamily !== undefined && this.fontFamilies.text !== (section.textFontFamily || '')) ||
+          (section.codeFontFamily !== undefined && this.fontFamilies.code !== (section.codeFontFamily || '')) ||
+          (section.terminalFontFamily !== undefined && this.fontFamilies.terminal !== (section.terminalFontFamily || ''))
+        )
+        if (this.preference === desired && !sizesChanged && !fontsChanged) {
+          return
+        }
+        if (sizesChanged || fontsChanged) {
+          if (sizesChanged && this.fontSizes) {
+            this.fontSizes = Object.freeze({
+              text: section.fontSize ?? this.fontSizes.text,
+              code: section.codeFontSize ?? this.fontSizes.code,
+              terminal: section.terminalFontSize ?? this.fontSizes.terminal,
+            })
+          }
+          if (fontsChanged && this.fontFamilies) {
+            this.fontFamilies = Object.freeze({
+              text: section.textFontFamily !== undefined ? (section.textFontFamily || '') : this.fontFamilies.text,
+              code: section.codeFontFamily !== undefined ? (section.codeFontFamily || '') : this.fontFamilies.code,
+              terminal: section.terminalFontFamily !== undefined ? (section.terminalFontFamily || '') : this.fontFamilies.terminal,
+            })
+          }
+          this.preference = desired
+          this.publish?.()
+          return
+        }
+        if (this.preference !== desired) {
+          this.preference = desired
+          this.publish?.()
+          return
+        }
+      }
+      return originalAdopt.call(this)
+    }
+    ctx.effect(() => () => {
+      rawTheme.adopt = originalAdopt
+    }, 'ui-theme-custom: restore adopt wrapper')
+  }
 
   // ── 字号持久化意图保护 ──────────────────────────────────────────────
   // 官方 ThemeRuntime.setFontSize(role, px) 先乐观改本地 fontSizes[role]，
@@ -2984,6 +3227,59 @@ export function apply(ctx: Context): void {
       document.body.removeAttribute('data-dsh-home-hero')
     }
   }, 'ui-theme-custom: home studio layout & usage panel sync')
+
+  // ── 模态遮罩与 Windows 标题栏底色动态联动 ─────────────────────────
+  // ── 开屏舞台层与标题栏底色联动 ────────────────────────────────────
+  // Windows 原生 WCO 三按钮在硬件层浮于 DOM 之上，网页覆盖层盖不住它。
+  // 但 setTitleBarOverlay 每改一次颜色就重绘一次原生非客户区（= 一次可见跳变），
+  // 所以这里**只跟随启动期开屏舞台层**（整屏纯黑/纯白，启动时只出现一次），
+  // 不跟随模态弹窗遮罩（每次开合都跳变 = 用户反复报的闪烁）。
+  // 详见 resolveTitlebarProbeColor 的取舍说明与 findStageMask 的排除条件。
+  ctx.effect(() => {
+    let retryFrame: number | undefined
+    /** 重新计算探针色并落到 html + body（重复值由 writeTitlebarProbeColor 去重）。 */
+    const refresh = (): void => {
+      if (retryFrame !== undefined) {
+        cancelAnimationFrame(retryFrame)
+        retryFrame = undefined
+      }
+      const activeTheme = readSaved()
+      const base = activeTheme !== undefined
+        ? (TITLEBAR_PRESETS[activeTheme]?.bg ?? THEME_TOKEN_MAP[activeTheme]?.['--dsw-alias-bg-base'])
+        : getComputedStyle(document.body).getPropertyValue('--dsw-alias-bg-base').trim()
+      const probe = resolveTitlebarProbeColor(base)
+      if (probe !== undefined) {
+        // writeTitlebarProbeColor 自己会去重：值没变就不碰 DOM，
+        // 从而不会再次触发监听 body style 的 observer（那会引发原生重绘抖动）。
+        writeTitlebarProbeColor(probe)
+        return
+      }
+      // 舞台层色未就绪：保持现状，下一帧再试，避免把中间态推给原生层。
+      retryFrame = requestAnimationFrame(() => {
+        retryFrame = undefined
+        refresh()
+      })
+    }
+    const sync = (): void => {
+      refresh()
+    }
+
+    // childList 覆盖舞台层的挂载与卸载；attributes 覆盖开屏主题切换带来的
+    // background-color 变动。
+    const observer = new MutationObserver(sync)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'data-ds-dark-theme', 'data-ds-custom-theme'],
+    })
+    sync()
+
+    return () => {
+      observer.disconnect()
+      if (retryFrame !== undefined) cancelAnimationFrame(retryFrame)
+    }
+  }, 'ui-theme-custom: splash stage titlebar sync')
 
   // Restore the user's saved custom theme preference now that themes are
   // registered. Runs during apply() (before first React render when

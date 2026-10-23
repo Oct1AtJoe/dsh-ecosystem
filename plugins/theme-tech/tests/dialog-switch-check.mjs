@@ -49,4 +49,14 @@ assert(
   'dialog switch off-state must have a visible neutral track in both light and dark themes'
 )
 
-console.log('[PASS] dialog-switch-check: 弹窗 Switch 防污染、aria-checked 判据与宽通配负向对照全部通过')
+// ── 5. 必须显式排除第三方自绘开关（dsh-notify-me 的 .dnm-switch，防双重 translateX 叠加） ──
+assert(
+  clientCode.includes('button[aria-checked]:not([class*="dnm-switch"])'),
+  'dialog switch reset must explicitly exclude .dnm-switch from geometric/transform overrides'
+)
+assert(
+  clientCode.includes('button[aria-checked="true"]:not([class*="dnm-switch"]) > span'),
+  'dialog switch thumb travel rule must explicitly exclude .dnm-switch to prevent 32px double travel'
+)
+
+console.log('[PASS] dialog-switch-check: 弹窗 Switch 防污染、aria-checked 判据、第三方自绘开关排除与宽通配负向对照全部通过')
