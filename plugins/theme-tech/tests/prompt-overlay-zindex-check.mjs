@@ -23,6 +23,34 @@ assert(
   'overlay guard must anchor on the official right-panel fullscreen state'
 )
 
+// 2b. 断言：回答选择面板与计划审查面板也属遮挡层（宿主自带 data-* 属性，
+//     QuestionComposer.tsx:433 / PlanReviewPanel.tsx:58）。
+//     回归背景：这两个面板弹出时输入坞 host 仍 isConnected，
+//     第三方 tick 不会收起浮层，提示语就压在面板之上。
+assert(
+  clientCode.includes('[data-question-key]'),
+  'overlay guard must treat the answer-question panel (data-question-key) as a covering layer'
+)
+assert(
+  clientCode.includes('[data-plan-review-key]'),
+  'overlay guard must treat the plan-review panel (data-plan-review-key) as a covering layer'
+)
+
+// 2c. 负向对照：禁止用通配类名去锚定这两个面板（CSS Modules 哈希后类名不可靠，
+//     且 [class*="card"] 会误伤输入坞与其它卡片）。
+assert(
+  !/data-ds-custom-theme\]:has\(:is\([\s\S]{0,600}\[class\*="card"\]/.test(clientCode),
+  'NEGATIVE: the guard must not anchor on a [class*="card"] wildcard'
+)
+
+// 2d. 负向对照：聊天目录（.dsh-ph-toc*）刻意不纳入遮挡收起 ——
+//     它是用户主动拖出的浮层，面板出现时消失会被读成"目录自己丢了"。
+assert(
+  !/:is\(\.dsh-ph-suggest, \.dsh-ph-ghost[^)]*dsh-ph-toc/.test(clientCode)
+    && !/dsh-ph-toc[\s\S]{0,200}display:\s*none/.test(clientCode),
+  'NEGATIVE: the chat TOC (.dsh-ph-toc*) must stay out of the covering-layer hide rule'
+)
+
 // 3. 断言：必须用 display:none 收起，而不是改 z-index 下压（body 直接子级下压会掉到内容层之下）
 assert(
   /body\[data-ds-custom-theme\]:has\(:is\([\s\S]*?\)\) :is\(\.dsh-ph-suggest, \.dsh-ph-ghost\)\s*\{\s*display:\s*none/.test(clientCode),

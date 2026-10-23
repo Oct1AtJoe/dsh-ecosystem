@@ -1037,15 +1037,23 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
      · [data-sidebar-right-panel="fullscreen"]（官方右栏通栏态，SidebarRight.tsx）
    弹窗关闭 / 视图切回后 :has() 自动失效，浮层恢复，无需 JS 配合。
 
+      ④ 回答选择面板（ui-user-questions 的 QuestionComposer）弹出 —— 它是
+         conversation.composer 链的 takeover，输入坞 host 依然 isConnected。
+
    ⚠️ 不用 z-index 下压：这两个节点是 body 直接子级，下压会掉到内容层之下，
    反而在正常输入场景里不可见。
-   ⚠️ 三条判据合并进一个 :is() 里传给 :has()，只触发一次全文档匹配。
+   ⚠️ 判据合并进一个 :is() 里传给 :has()，只触发一次全文档匹配。
    ⚠️ 门控到自定义主题（body[data-ds-custom-theme]）：本样式只在装了本主题时
-   注入，避免影响内置主题的原始表现。 */
+   注入，避免影响内置主题的原始表现。
+   ⚠️ 只处理提示语/补全（.dsh-ph-suggest / .dsh-ph-ghost）。同插件的聊天目录
+   （.dsh-ph-toc*）是用户主动拖出的浮层，刻意不纳入，避免「目录自己在面板上
+   消失」的新问题。 */
 body[data-ds-custom-theme]:has(:is(
   [role="presentation"] > [role="dialog"],
   [data-conversation-composer-overlay],
-  [data-sidebar-right-panel="fullscreen"]
+  [data-sidebar-right-panel="fullscreen"],
+  [data-question-key],
+  [data-plan-review-key]
 )) :is(.dsh-ph-suggest, .dsh-ph-ghost) {
   display: none !important;
 }
