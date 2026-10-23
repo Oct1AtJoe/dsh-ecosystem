@@ -23,16 +23,46 @@ const indexSrc = readFileSync(join(here, '..', 'src', 'client', 'index.ts'), 'ut
 // 因此按「候选列表取第一个存在的」探测，避免把「换 profile 安装」误报成门禁失败。
 // ⚠️ 用户名不能写死：曾硬编码 C:/Users/Administrator，在用户名不同的机器上
 // 会以「profile 产物不可读」报假失败（与本门禁要验的内容无关）。
-const PROFILE_CANDIDATES = [
-  join(homedir(), '.dsh', 'profiles', 'desktop', 'node_modules', 'dsh-theme-tech', 'lib', 'client.js'),
-  join(homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-theme-tech', 'lib', 'client.js'),
+const PROFILE_DIRS = [
+  join(homedir(), '.dsh', 'profiles', 'desktop'),
+  join(homedir(), '.dsh', 'profiles', 'web'),
 ]
-const profile = PROFILE_CANDIDATES.find(p => existsSync(p)) ?? PROFILE_CANDIDATES[0]
+const PROFILE_CANDIDATES = PROFILE_DIRS.map(d => join(d, 'node_modules', 'dsh-theme-tech', 'lib', 'client.js'))
+const profileIndex = Math.max(0, PROFILE_CANDIDATES.findIndex(p => existsSync(p)))
+const profile = PROFILE_CANDIDATES[profileIndex] ?? PROFILE_CANDIDATES[0]
+const profileDir = PROFILE_DIRS[profileIndex] ?? PROFILE_DIRS[0]
 
 let failed = 0
 const check = (name, ok, extra = '') => {
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : extra}`)
+}
+
+/**
+ * Record a deliberately-skipped assertion. Skips never fail the gate — they mark
+ * an invariant that does not apply to the profile's current resolution mode.
+ * @param name - assertion label.
+ * @param reason - why it does not apply (printed for auditability).
+ */
+const skip = (name, reason) => {
+  console.log(`SKIP  ${name}${reason ? `  (${reason})` : ''}`)
+}
+
+/**
+ * The plugin's dependency spec inside the profile: `link:<path>` during local
+ * development, an https tarball URL once switched to the published version.
+ * Same judgement as `scripts/plugin-dev-link.mjs status`.
+ * @returns the spec string, or null when unreadable/absent.
+ */
+function profileSpec() {
+  try {
+    const pkg = JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))
+    const deps = pkg.dependencies ?? {}
+    const devDeps = pkg.devDependencies ?? {}
+    return deps['dsh-theme-tech'] ?? devDeps['dsh-theme-tech'] ?? null
+  } catch {
+    return null
+  }
 }
 
 /** 取 sequoia 专属 CSS 规则块（模板串里 body[data-ds-custom-theme="sequoia"] 起）。 */
@@ -418,10 +448,29 @@ check(
 )
 
 console.log('\n=== E. profile 产物已同步 ===')
+// ⚠️ 「源与 profile 字节一致」只在 **link 模式**下有定义：
+//     · link 模式：profile 是对源码目录的 junction，两边是同一个物理文件，
+//       大小必须相等 —— 这条断言能兜住「改了源码忘了重建产物」。
+//     · 发布版模式：profile 里是**另一台机器构建**的 tarball 产物，
+//       与本机构建产物的字节数必然不同；此时比大小属于恒假，只会掩盖真问题
+//       （历史表现：每次切发布版都亮一条与本次改动无关的红灯）。
+// 故按 profile 的依赖 spec 分流。内容断言（含纯色 bg-base）与构建机器无关，
+// 两种模式都必须继续跑，不随 spec 跳过。
+const spec = profileSpec()
+const isLinked = typeof spec === 'string' && spec.startsWith('link:')
 try {
-  const a = statSync(join(here, '..', 'lib', 'client.js')).size
   const b = statSync(profile).size
-  check('源与 profile 大小一致', a === b, `  源=${a} profile=${b}`)
+  if (spec === null) {
+    // 读不到 spec 不是「不适用」，而是 profile 本身有问题（package.json 缺失/损坏/
+    // 未登记该依赖）—— 必须判失败，绝不能静默 SKIP 放行。
+    failed++
+    console.log(`FAIL  无法读取 profile 依赖 spec（${join(profileDir, 'package.json')}）`)
+  } else if (isLinked) {
+    const a = statSync(join(here, '..', 'lib', 'client.js')).size
+    check('源与 profile 大小一致', a === b, `  源=${a} profile=${b}`)
+  } else {
+    skip('源与 profile 大小一致', '发布版模式（profile 装的是 tarball 产物，与本机构建不同源）')
+  }
   check('profile 含纯色 bg-base', readFileSync(profile, 'utf8').includes('rgb(245, 245, 247)'))
 } catch (e) {
   failed++
