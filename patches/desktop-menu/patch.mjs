@@ -31,7 +31,14 @@ function appVersion(fd, header) {
     const entry = entryAt(header.json, 'package.json')
     if (entry === undefined) return 'unknown'
     const raw = readPacked(fd, entry, header.dataStart).toString('utf8')
-    return JSON.parse(raw).version ?? 'unknown'
+    try {
+      return JSON.parse(raw).version ?? 'unknown'
+    } catch {
+      // 官方 asar 头的 size 可能比实际内容少几个字节（0.2.1-rc.3 实测少 2 字节，
+      // 末尾的 `\n}` 缺失），整段 JSON.parse 会在 EOF 失败。退回正则只取版本号，
+      // 否则备份会被命名成 orig-unknown，下次升级时 existsSync 命中旧文件而跳过备份。
+      return /"version"\s*:\s*"([^"]+)"/u.exec(raw)?.[1] ?? 'unknown'
+    }
   } catch {
     return 'unknown'
   }

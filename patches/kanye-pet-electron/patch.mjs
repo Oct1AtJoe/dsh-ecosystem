@@ -54,7 +54,14 @@ try {
     if (pkg !== undefined) {
       const raw = Buffer.alloc(pkg.size)
       readSync(archive.fd, raw, 0, pkg.size, header.dataStart + Number(pkg.offset))
-      version = JSON.parse(raw.toString('utf8')).version ?? 'unknown'
+      const text = raw.toString('utf8')
+      try {
+        version = JSON.parse(text).version ?? 'unknown'
+      } catch {
+        // 同 desktop-menu/patch.mjs：官方 asar 头的 size 可能少几个字节，退回正则取版本号，
+        // 避免备份被命名成 orig-unknown 而在下次升级时被 existsSync 跳过。
+        version = /"version"\s*:\s*"([^"]+)"/u.exec(text)?.[1] ?? 'unknown'
+      }
     }
   } catch { /* 版本号仅用于备份命名与报告，读不到不阻断 */ }
 } finally {

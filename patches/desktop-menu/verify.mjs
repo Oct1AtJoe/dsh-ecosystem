@@ -40,10 +40,20 @@ check('该条目已标记 unpacked', entry?.unpacked === true, entry?.unpacked =
 check('unpacked 正文文件存在', existsSync(TARGET_DISK), TARGET_DISK)
 const body = existsSync(TARGET_DISK) ? readFileSync(TARGET_DISK) : Buffer.alloc(0)
 check('正文带补丁标识', body.toString('utf8', 0, 200).includes(PATCH_MARK))
-check('条目 size 与磁盘文件一致', entry?.size === body.length, `entry=${entry?.size} disk=${body.length}`)
+
+/**
+ * patches/kanye-pet-electron 会继续往这个已解包的 main.js 里注入代码，但它**故意不重写 asar 头**
+ * （见该补丁 README：不碰头，风险面最小）。于是 asar 头里的 size / integrity 记的是
+ * desktop-menu 打完那一刻的正文，和现在的磁盘文件必然对不上 —— 这是设计使然，不是损坏。
+ * 该 fuse（EnableEmbeddedAsarIntegrityValidation）实测为关闭，Electron 对 unpacked 条目直接读磁盘。
+ */
+const overlayMark = '/* dsh-ecosystem:kanye-pet-electron'
+const overlaid = body.toString('utf8', 0, 200).includes(overlayMark)
+check('条目 size 与磁盘文件一致', overlaid || entry?.size === body.length,
+  overlaid ? `跳过：已叠加 kanye-pet-electron（头记录 ${entry?.size}，磁盘 ${body.length}）` : `entry=${entry?.size} disk=${body.length}`)
 const hash = createHash('sha256').update(body).digest('hex')
-check('条目 integrity 哈希与磁盘文件一致', entry?.integrity?.hash === hash,
-  entry?.integrity?.hash === hash ? '' : `entry=${entry?.integrity?.hash?.slice(0, 12)} disk=${hash.slice(0, 12)}`)
+check('条目 integrity 哈希与磁盘文件一致', overlaid || entry?.integrity?.hash === hash,
+  overlaid ? '跳过：已叠加 kanye-pet-electron' : (entry?.integrity?.hash === hash ? '' : `entry=${entry?.integrity?.hash?.slice(0, 12)} disk=${hash.slice(0, 12)}`))
 
 // ── 3. 语法 ──
 const text = body.toString('utf8')
