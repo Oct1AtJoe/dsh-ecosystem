@@ -39,7 +39,7 @@
 
 | 包 | 固化版本 | 覆盖原因 |
 |---|---|---|
-| `@deepseek-ai/dsh-client-ui-chat` | `0.2.1-rc.2` | 「本轮用量」悬浮窗补回 TPS 行 |
+| `@deepseek-ai/dsh-client-ui-chat` | `0.2.1-rc.3` | 「本轮用量」悬浮窗补回 TPS 行与「首字用时」行 |
 
 目录：`C:\dsh-ecosystem\packages\<包名>-patched\`
 
@@ -100,18 +100,31 @@ $c = Get-Content $f -Raw
 
 #### 分支 B：官方没有 → 重打补丁
 
-- [ ] 在 `E:\vibeCoding\deepseek-harness` 里 `git pull` 到新版
-- [ ] 按 `LOCAL-CHANGES.md` §12 的六处改动重打补丁
-- [ ] 重建：
+- [ ] 在 `E:\vibeCoding\deepseek-harness` 里切到新版本 tag：
+      ```powershell
+      git fetch upstream --tags
+      git checkout dsh-v<新版本>          # detached HEAD，不动 master
+      git checkout master -- packages/client/ui-chat/src/ packages/client/ui-chat/tests/
+      ```
+- [ ] 重建（`tsc` 必须 exit 0，**不许**「有报错但 emit 了就放过」）：
       ```powershell
       cd E:\vibeCoding\deepseek-harness\packages\client\ui-chat
+      $env:NODE_OPTIONS=""
+      node E:\vibeCoding\deepseek-harness\node_modules\typescript\bin\tsc -p tsconfig.json
       node E:\vibeCoding\deepseek-harness\node_modules\tsdown\dist\run.mjs --config tsdown.config.ts
       ```
 - [ ] 重新固化到 `C:\dsh-ecosystem\packages\ui-chat-patched`：
-      只拷 `package.json` / `lib/index.js` / `lib/client.js` /
-      `lib/types/**/*.d.ts` / `locale/*.json`（**不拷** `src/`、`*.js`/`.map` 副产物）
-- [ ] 更新 `VENDORED-FROM.md` 里的版本号
-- [ ] 重启宿主验证
+      只拷 `lib/index.js` / `lib/client.js` / `lib/types/**/*.d.ts` / `locale/*.json`
+      （**不拷** `src/`、`*.map`、`tsconfig`）
+- [ ] `package.json` 只改两处：
+      - `version` → 与 asar 内新版本一致
+      - `peerDependencies["@deepseek-ai/cordis"]` → `~4.0.5`
+        （源码里是 `workspace:~`，profile 解析不了；profile 的
+        `pnpm-workspace.yaml` 已设 `autoInstallPeers: false`，不会触发下载）
+- [ ] 验证补丁符号：`deriveTurnMetrics` ≥ 2、`message.turnUsage.ttft` ≥ 3
+      （**不要**用 CSS 类名前缀或 locale 文案键当判据，会撞车）
+- [ ] 更新 `VENDORED-FROM.md` 里的版本号与补丁提交
+- [ ] 重启宿主验证（`link:` 已在则无需 `pnpm install`，但必须完整重启）
 - [ ] 更新 §2 表格与本文件
 
 ---
