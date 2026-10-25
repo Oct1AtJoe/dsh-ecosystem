@@ -181,15 +181,32 @@ function cmdLink(dirName, profileName) {
 
   const before = currentSpec(profile, name)
   const spec = `link:${dir.replace(/\\/g, '/')}`
+  let changed = false
   if (before === spec) {
     console.log(`already linked: ${name} -> ${dir}`)
   } else {
     profile.pkg.dependencies ??= {}
     profile.pkg.dependencies[name] = spec
     writeProfile(profile, pkg)
+    changed = true
     console.log(`rewrote dependency: ${name}`)
     console.log(`  from: ${before ?? '(none)'}`)
     console.log(`  to:   ${spec}`)
+  }
+
+  // 只有 spec 真的变了才重装。
+  //
+  // 为什么：`pnpm install` 会重写 profile 的整个 node_modules（本机是
+  // `nodeLinker: hoisted`，包是实目录，不是 symlink），而运行中的 Host 已经
+  // 把每个插件的 client.js 物理路径解析并缓存进 pkgMeta。目录在运行中被替换后
+  // 缓存路径失效，依赖宿主上半（如 dsh-git-panel 的 webServer 路由）的插件立刻
+  // 不可用，必须重启宿主才能恢复 —— 这正是「每次发布后 git 面板用不了」的根因。
+  // spec 没变时重装没有任何收益，纯属把整个 node_modules 推倒重建。
+  if (!changed) {
+    console.log('')
+    console.log('spec unchanged — skipping pnpm install (nothing to re-resolve).')
+    console.log('Rebuild only, then hard-refresh (Ctrl+F5); no host restart needed.')
+    return
   }
 
   pnpmInProfile(profile.dir, ['install', '--no-frozen-lockfile'])
@@ -216,15 +233,27 @@ function cmdRelease(dirName, profileName) {
 
   const url = publishedUrl(pkg)
   const before = currentSpec(profile, name)
+  let changed = false
   if (before === url) {
     console.log(`already on published tarball: ${name} -> ${url}`)
   } else {
     profile.pkg.dependencies ??= {}
     profile.pkg.dependencies[name] = url
     writeProfile(profile, pkg)
+    changed = true
     console.log(`restored published dependency: ${name}`)
     console.log(`  from: ${before ?? '(none)'}`)
     console.log(`  to:   ${url}`)
+  }
+
+  // 同 cmdLink：spec 没变就不重装。这个分支常见于「刚发布完同一个版本，
+  // 又跑一次 release 收尾」，此时全量 install 只会白扔一遍 node_modules，
+  // 顺带把依赖宿主上半的插件打成不可用。
+  if (!changed) {
+    console.log('')
+    console.log('spec unchanged — skipping pnpm install (already resolved).')
+    console.log('No host restart needed for this plugin.')
+    return
   }
 
   pnpmInProfile(profile.dir, ['install', '--no-frozen-lockfile'])
