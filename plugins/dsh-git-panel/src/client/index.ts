@@ -273,26 +273,38 @@ export function apply(ctx: PanelClientContext): void {
   })
 
   // 2. 官方右侧栏集成 (适配新版 DSH 0.1.5-alpha.2+ 原生多 Tab 系统)
+  //
+  //    ⚠️ 注册必须包在 ctx.effect 里（本地补丁，见 docs/git-panel-hmr-patch.md）。
+  //
+  //    ctx.inject 的回调**不在 fiber 生命周期内**：热重载时旧 fiber 销毁，
+  //    但裸调 sidebarRightTabs.register 返回的 disposer 没有被持有，旧类型留在
+  //    注册表里；新 fiber 再注册一次，同 id 两份定义。官方 TabSlot 用
+  //    `entryKey = definition.id` 去 renderSlot 里找渲染器，拿到脏定义就找不到
+  //    entry，退到 fallback —— 也就是面板里那句「这类内容还没有可用的查看方式」。
+  //    theme-tech 之类能自愈，正是因为它们用了 ctx.effect。
   ctx.inject(['sidebarRightTabs', 'slots'], (scope: any) => {
     try {
       if (scope.sidebarRightTabs) {
-        scope.sidebarRightTabs.register({
-          id: TAB_ID,
-          kind: 'git',
-          priority: 'extension',
-          title: () => 'Git',
-          // 与官方 provider（sidebar-files / sidebar-terminal）保持完全一致的
-          // guide 契约：id + order + title + description + icon 五件套。
-          // 缺 description/icon 会让工作区启动卡只剩一行标题，行距与留白都和
-          // 官方卡片对不齐——补全后才与「工作区文件」「新建终端」长得一样。
-          guide: [{
-            id: 'git',
-            order: 12,
-            title: () => t('tab.gitTitle'),
-            description: () => t('guide.gitDescription'),
-            icon: GitGuideIcon,
-          }],
-        })
+        ctx.effect(
+          () => scope.sidebarRightTabs.register({
+            id: TAB_ID,
+            kind: 'git',
+            priority: 'extension',
+            title: () => 'Git',
+            // 与官方 provider（sidebar-files / sidebar-terminal）保持完全一致的
+            // guide 契约：id + order + title + description + icon 五件套。
+            // 缺 description/icon 会让工作区启动卡只剩一行标题，行距与留白都和
+            // 官方卡片对不齐——补全后才与「工作区文件」「新建终端」长得一样。
+            guide: [{
+              id: 'git',
+              order: 12,
+              title: () => t('tab.gitTitle'),
+              description: () => t('guide.gitDescription'),
+              icon: GitGuideIcon,
+            }],
+          }),
+          'dsh-git-panel: sidebar git tab type',
+        )
 
         scope.slots.inject('sidebar.right.pane.tab', () =>
           scope.slots.register({
@@ -326,22 +338,26 @@ export function apply(ctx: PanelClientContext): void {
   // 3. Git 变更对比标签：按 kind: 'git-diff' 打开。
   //    不声明全局匹配模式（patterns: []），避免劫持用户在对话中或文件树中点击普通文件时的默认预览行为；
   //    仅在 Git 面板明确点击变更文件时（带 { kind: 'git-diff' }）才打开此标签类型。
+  //    ⚠️ 同第 2 条：注册包 ctx.effect，否则热重载后旧类型残留、新定义找不到。
   ctx.inject(['sidebarRightTabs', 'slots', 'sessions', 'sidebarRight'], (scope: any) => {
     try {
       if (!scope.sidebarRightTabs) return
-      scope.sidebarRightTabs.register({
-        id: DIFF_TAB_ID,
-        kind: DIFF_KIND,
-        priority: 'extension',
-        canOpen: (address: string): boolean => {
-          const parsed = parseFileAddress(address)
-          return parsed !== undefined && parsed.sessionId !== ''
-        },
-        title: (address: string) => {
-          const parsed = parseFileAddress(address)
-          return `± ${basenameOf(parsed?.path ?? address)}`
-        },
-      })
+      ctx.effect(
+        () => scope.sidebarRightTabs.register({
+          id: DIFF_TAB_ID,
+          kind: DIFF_KIND,
+          priority: 'extension',
+          canOpen: (address: string): boolean => {
+            const parsed = parseFileAddress(address)
+            return parsed !== undefined && parsed.sessionId !== ''
+          },
+          title: (address: string) => {
+            const parsed = parseFileAddress(address)
+            return `± ${basenameOf(parsed?.path ?? address)}`
+          },
+        }),
+        'dsh-git-panel: sidebar git-diff tab type',
+      )
 
       scope.slots.inject('sidebar.right.pane.tab', () =>
         scope.slots.register({

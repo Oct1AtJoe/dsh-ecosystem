@@ -7106,23 +7106,26 @@ function apply(ctx) {
   ctx.inject(["sidebarRightTabs", "slots"], (scope) => {
     try {
       if (scope.sidebarRightTabs) {
-        scope.sidebarRightTabs.register({
-          id: TAB_ID,
-          kind: "git",
-          priority: "extension",
-          title: () => "Git",
-          // 与官方 provider（sidebar-files / sidebar-terminal）保持完全一致的
-          // guide 契约：id + order + title + description + icon 五件套。
-          // 缺 description/icon 会让工作区启动卡只剩一行标题，行距与留白都和
-          // 官方卡片对不齐——补全后才与「工作区文件」「新建终端」长得一样。
-          guide: [{
-            id: "git",
-            order: 12,
-            title: () => t("tab.gitTitle"),
-            description: () => t("guide.gitDescription"),
-            icon: GitGuideIcon
-          }]
-        });
+        ctx.effect(
+          () => scope.sidebarRightTabs.register({
+            id: TAB_ID,
+            kind: "git",
+            priority: "extension",
+            title: () => "Git",
+            // 与官方 provider（sidebar-files / sidebar-terminal）保持完全一致的
+            // guide 契约：id + order + title + description + icon 五件套。
+            // 缺 description/icon 会让工作区启动卡只剩一行标题，行距与留白都和
+            // 官方卡片对不齐——补全后才与「工作区文件」「新建终端」长得一样。
+            guide: [{
+              id: "git",
+              order: 12,
+              title: () => t("tab.gitTitle"),
+              description: () => t("guide.gitDescription"),
+              icon: GitGuideIcon
+            }]
+          }),
+          "dsh-git-panel: sidebar git tab type"
+        );
         scope.slots.inject(
           "sidebar.right.pane.tab",
           () => scope.slots.register({
@@ -7159,19 +7162,22 @@ function apply(ctx) {
   ctx.inject(["sidebarRightTabs", "slots", "sessions", "sidebarRight"], (scope) => {
     try {
       if (!scope.sidebarRightTabs) return;
-      scope.sidebarRightTabs.register({
-        id: DIFF_TAB_ID,
-        kind: DIFF_KIND,
-        priority: "extension",
-        canOpen: (address) => {
-          const parsed = parseFileAddress(address);
-          return parsed !== void 0 && parsed.sessionId !== "";
-        },
-        title: (address) => {
-          const parsed = parseFileAddress(address);
-          return `\xB1 ${basenameOf(parsed?.path ?? address)}`;
-        }
-      });
+      ctx.effect(
+        () => scope.sidebarRightTabs.register({
+          id: DIFF_TAB_ID,
+          kind: DIFF_KIND,
+          priority: "extension",
+          canOpen: (address) => {
+            const parsed = parseFileAddress(address);
+            return parsed !== void 0 && parsed.sessionId !== "";
+          },
+          title: (address) => {
+            const parsed = parseFileAddress(address);
+            return `\xB1 ${basenameOf(parsed?.path ?? address)}`;
+          }
+        }),
+        "dsh-git-panel: sidebar git-diff tab type"
+      );
       scope.slots.inject(
         "sidebar.right.pane.tab",
         () => scope.slots.register({
