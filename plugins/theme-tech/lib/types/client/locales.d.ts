@@ -28,6 +28,8 @@ export declare const zh: {
     'home-layout.studio': string;
     'schedule-entry.title': string;
     'schedule-entry.description': string;
+    'more-entry.title': string;
+    'more-entry.description': string;
 };
 /** English dictionary checked against the Chinese key set. */
 export declare const en: {
@@ -56,6 +58,8 @@ export declare const en: {
     'home-layout.studio': string;
     'schedule-entry.title': string;
     'schedule-entry.description': string;
+    'more-entry.title': string;
+    'more-entry.description': string;
 };
 /** Copy keys shared by both dictionaries. */
 export type TechThemeKey = keyof typeof zh;

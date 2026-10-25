@@ -7,17 +7,18 @@ import { JADE_TOKENS } from "./jade.js";
 import { SOLAR_TOKENS } from "./solar.js";
 import { PARCHMENT_TOKENS } from "./parchment.js";
 import { en, zh } from "./locales.js";
-import { createHomeLayoutStore, createMascotStore, createRightbarWidthStore, createScheduleEntryStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
+import { createHomeLayoutStore, createMascotStore, createMoreEntryStore, createRightbarWidthStore, createScheduleEntryStore, createSidebarFontStore, createTechThemeStore } from "./settings-store.js";
 import { SETTINGS_NS, TechThemeRow } from "./TechThemeRow.js";
 import { SidebarFontRow } from "./SidebarFontRow.js";
 import { MascotRow } from "./MascotRow.js";
 import { RightbarWidthRow } from "./RightbarWidthRow.js";
 import { HomeLayoutRow } from "./HomeLayoutRow.js";
 import { ScheduleEntryRow } from "./ScheduleEntryRow.js";
+import { MoreEntryRow } from "./MoreEntryRow.js";
 import { applySidebarFont, normalizeSidebarFont, readSidebarFont, writeSidebarFont } from "./sidebar-font.js";
 import { normalizeRightbarRatio, readRightbarRatio, writeRightbarRatio } from "./rightbar-width.js";
 import { initMascot, notifyMascotChange, readMascotEnabled, writeMascotEnabled } from "./mascot.js";
-import { applyScheduleEntryVisible, readScheduleEntryVisible, writeScheduleEntryVisible } from "./schedule-entry.js";
+import { applyMoreEntryVisible, applyScheduleEntryVisible, readMoreEntryVisible, readScheduleEntryVisible, writeMoreEntryVisible, writeScheduleEntryVisible, } from "./schedule-entry.js";
 import { HomeUsagePanel } from "./usage/HomeUsagePanel.js";
 import { SaulFingerGunIcon } from "./usage/SaulIcon.js";
 import { createHomeUsage } from "./usage/data.js";
@@ -2065,6 +2066,21 @@ html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panel
 body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]) {
   margin-bottom: 0 !important;
 }
+
+/* 左侧边栏面板列表「更多」入口显隐控制。
+   官方 PanelMoreMenu 由 sidebar.panellist.actions 槽是否有注册项决定，本机注册者是
+   dsh-client-ui-entry-customization，无法从插件侧注销，因此用 DOM 标记隐藏。
+   锚点优先用语言无关的 aria-haspopup：PanelRow 的 button 没有这个属性，不会误伤。 */
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="moreAnchor"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="moreAnchor"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="更多"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="更多"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="More"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="More"] {
+  display: none !important;
+}
 `;
 /** localStorage key for the user's custom theme preference. */
 const LS_KEY = 'dsh-theme-preference';
@@ -3070,6 +3086,34 @@ export function apply(ctx) {
         locale: SETTINGS_NS,
         inject: scheduleEntryInjected,
     }, ScheduleEntryRow));
+    // ── 面板列表「更多」入口显隐设置行 ───────────────────────────────────
+    // order 10.86：紧随自动化任务入口(10.85)，同在右侧边栏宽度(10.8)与官方字号(11)之间。
+    applyMoreEntryVisible(readMoreEntryVisible());
+    const moreEntryStore = createMoreEntryStore();
+    let moreEntryBound;
+    let moreEntryRevision = 0;
+    const syncMoreEntryRow = () => {
+        moreEntryBound?.sync(readMoreEntryVisible(), ++moreEntryRevision);
+    };
+    const moreEntryInjected = (actions) => {
+        moreEntryBound = actions;
+        syncMoreEntryRow();
+        return {
+            setMoreEntryVisible: (visible) => {
+                writeMoreEntryVisible(visible);
+                applyMoreEntryVisible(visible);
+                syncMoreEntryRow();
+            },
+        };
+    };
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+        name: 'settings.general.item',
+        id: 'more-entry-custom',
+        order: 10.86,
+        store: moreEntryStore,
+        locale: SETTINGS_NS,
+        inject: moreEntryInjected,
+    }, MoreEntryRow));
     // ── 侧边栏字号行 ───────────────────────────────────────────────────
     // order 11.5：紧随官方「字号大小」行(11)，与它构成连续的字号控制组。
     // 对话区字号归官方(11)，侧边栏字号归本插件(11.5)，随后才是对话显示(12)。

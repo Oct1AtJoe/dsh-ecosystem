@@ -76,6 +76,50 @@ test('构建产物：lib/client.js 包含新行与标记', () => {
   assert.ok(client.includes('dsh-show-schedule-entry'))
 })
 
+// 7. 「更多」入口（独立开关）
+test('更多入口：模块存在且默认显示', () => {
+  assert.ok(fs.existsSync(path.join(root, 'src/client/MoreEntryRow.tsx')))
+  const content = fs.readFileSync(path.join(root, 'src/client/schedule-entry.ts'), 'utf-8')
+  assert.ok(content.includes("MORE_ENTRY_STORAGE_KEY = 'dsh-show-more-entry'"))
+  assert.ok(content.includes("MORE_HIDE_ATTR = 'data-dsh-hide-more'"))
+})
+
+test('更多入口：DOM 标记复用 html 与 body 双写', () => {
+  const content = fs.readFileSync(path.join(root, 'src/client/schedule-entry.ts'), 'utf-8')
+  assert.ok(content.includes('applyMoreEntryVisible'))
+  assert.ok(content.includes('readMoreEntryVisible'))
+  assert.ok(content.includes('writeMoreEntryVisible'))
+  // 双写由共享 applyHideAttr 实现，此处断言它仍是唯一落点
+  assert.ok(content.includes('const targets = [document.documentElement, document.body]'))
+})
+
+test('更多入口：中英双语文案齐备', () => {
+  const locales = fs.readFileSync(path.join(root, 'src/client/locales.ts'), 'utf-8')
+  assert.ok(locales.includes("'more-entry.title': '更多入口'"))
+  assert.ok(locales.includes("'more-entry.title': 'More Menu'"))
+})
+
+test('更多入口：设置行 order 10.86 紧随自动化任务入口', () => {
+  const index = fs.readFileSync(path.join(root, 'src/client/index.ts'), 'utf-8')
+  assert.ok(index.includes("id: 'more-entry-custom'"))
+  assert.ok(index.includes('order: 10.86'))
+})
+
+test('更多入口：CSS 用语言无关锚点 aria-haspopup，且限于 panelList 内', () => {
+  const index = fs.readFileSync(path.join(root, 'src/client/index.ts'), 'utf-8')
+  assert.ok(index.includes('html[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"]'))
+  assert.ok(index.includes('body[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"]'))
+  // 负向对照：不得放宽到整个文档，否则会误伤右栏/会话视图的菜单按钮
+  assert.ok(!index.includes('html[data-dsh-hide-more="true"] button[aria-haspopup="menu"]'))
+})
+
+test('更多入口：产物包含标记与注册 id', () => {
+  const client = fs.readFileSync(path.join(root, 'lib/client.js'), 'utf-8')
+  assert.ok(client.includes('more-entry-custom'))
+  assert.ok(client.includes('data-dsh-hide-more'))
+  assert.ok(client.includes('dsh-show-more-entry'))
+})
+
 if (process.exitCode) {
   console.error('\n门禁检查失败')
   process.exit(1)

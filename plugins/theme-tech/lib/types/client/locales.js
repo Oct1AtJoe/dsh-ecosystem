@@ -28,6 +28,8 @@ export const zh = {
     'home-layout.studio': '工作室',
     'schedule-entry.title': '自动化任务入口',
     'schedule-entry.description': '在左侧边栏工作区上方显示或隐藏自动化任务面板入口',
+    'more-entry.title': '更多入口',
+    'more-entry.description': '显示或隐藏左侧边栏面板列表末尾的「更多」菜单。它用于固定或取消固定面板',
 };
 /** English dictionary checked against the Chinese key set. */
 export const en = {
@@ -56,5 +58,7 @@ export const en = {
     'home-layout.studio': 'Studio',
     'schedule-entry.title': 'Automation Tasks Entry',
     'schedule-entry.description': 'Show or hide the automation tasks entry above workspaces in the left sidebar',
+    'more-entry.title': 'More Menu',
+    'more-entry.description': 'Show or hide the "More" menu at the end of the sidebar panel list. It pins or unpins panels',
 };
 //# sourceMappingURL=locales.js.map

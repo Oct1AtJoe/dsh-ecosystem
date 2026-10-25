@@ -76,18 +76,23 @@ type HomeLayoutRowActions = {
     sync: (draft: HomeLayoutRowState, layout: 'classic' | 'studio', revision: number) => void;
 };
 export declare function createHomeLayoutStore(): EngineStoreHandle<HomeLayoutRowState, HomeLayoutRowActions>;
-/** 自动化任务入口显隐开关行的状态。 */
-export interface ScheduleEntryRowState {
+/** 侧边栏入口显隐开关行的状态（自动化任务入口与「更多」入口共用形状）。 */
+export interface EntryVisibilityRowState {
     visible: boolean;
     revision: number;
 }
-type ScheduleEntryRowActions = {
-    sync: (draft: ScheduleEntryRowState, visible: boolean, revision: number) => void;
+type EntryVisibilityRowActions = {
+    sync: (draft: EntryVisibilityRowState, visible: boolean, revision: number) => void;
 };
 /**
  * 自动化任务入口显隐开关行的 store。
  * @returns store 句柄。
  */
-export declare function createScheduleEntryStore(): EngineStoreHandle<ScheduleEntryRowState, ScheduleEntryRowActions>;
+export declare function createScheduleEntryStore(): EngineStoreHandle<EntryVisibilityRowState, EntryVisibilityRowActions>;
+/**
+ * 面板列表「更多」入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export declare function createMoreEntryStore(): EngineStoreHandle<EntryVisibilityRowState, EntryVisibilityRowActions>;
 export {};
 //# sourceMappingURL=settings-store.d.ts.map

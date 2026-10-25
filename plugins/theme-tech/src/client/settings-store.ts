@@ -149,21 +149,22 @@ export function createHomeLayoutStore(): EngineStoreHandle<HomeLayoutRowState, H
   })
 }
 
-/** 自动化任务入口显隐开关行的状态。 */
-export interface ScheduleEntryRowState {
+/** 侧边栏入口显隐开关行的状态（自动化任务入口与「更多」入口共用形状）。 */
+export interface EntryVisibilityRowState {
   visible: boolean
   revision: number
 }
 
-type ScheduleEntryRowActions = {
-  sync: (draft: ScheduleEntryRowState, visible: boolean, revision: number) => void
+type EntryVisibilityRowActions = {
+  sync: (draft: EntryVisibilityRowState, visible: boolean, revision: number) => void
 }
 
 /**
- * 自动化任务入口显隐开关行的 store。
+ * 侧边栏入口显隐开关行的 store 工厂：两个入口共用一套「镜像 + revision 守卫」逻辑，
+ * 各自持有独立实例。
  * @returns store 句柄。
  */
-export function createScheduleEntryStore(): EngineStoreHandle<ScheduleEntryRowState, ScheduleEntryRowActions> {
+function createEntryVisibilityStore(): EngineStoreHandle<EntryVisibilityRowState, EntryVisibilityRowActions> {
   return defineStore({
     init: () => ({ visible: true, revision: -1 }),
     actions: {
@@ -174,6 +175,22 @@ export function createScheduleEntryStore(): EngineStoreHandle<ScheduleEntryRowSt
       },
     },
   })
+}
+
+/**
+ * 自动化任务入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createScheduleEntryStore(): EngineStoreHandle<EntryVisibilityRowState, EntryVisibilityRowActions> {
+  return createEntryVisibilityStore()
+}
+
+/**
+ * 面板列表「更多」入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createMoreEntryStore(): EngineStoreHandle<EntryVisibilityRowState, EntryVisibilityRowActions> {
+  return createEntryVisibilityStore()
 }
 
 

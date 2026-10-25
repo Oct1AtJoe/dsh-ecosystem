@@ -758,7 +758,9 @@ window.__ModuleLoader__.load({
 			"home-layout.classic": "经典",
 			"home-layout.studio": "工作室",
 			"schedule-entry.title": "自动化任务入口",
-			"schedule-entry.description": "在左侧边栏工作区上方显示或隐藏自动化任务面板入口"
+			"schedule-entry.description": "在左侧边栏工作区上方显示或隐藏自动化任务面板入口",
+			"more-entry.title": "更多入口",
+			"more-entry.description": "显示或隐藏左侧边栏面板列表末尾的「更多」菜单。它用于固定或取消固定面板"
 		};
 		/** English dictionary checked against the Chinese key set. */
 		const en = {
@@ -786,7 +788,9 @@ window.__ModuleLoader__.load({
 			"home-layout.classic": "Classic",
 			"home-layout.studio": "Studio",
 			"schedule-entry.title": "Automation Tasks Entry",
-			"schedule-entry.description": "Show or hide the automation tasks entry above workspaces in the left sidebar"
+			"schedule-entry.description": "Show or hide the automation tasks entry above workspaces in the left sidebar",
+			"more-entry.title": "More Menu",
+			"more-entry.description": "Show or hide the \"More\" menu at the end of the sidebar panel list. It pins or unpins panels"
 		};
 		//#endregion
 		//#region src/client/sidebar-font.ts
@@ -970,10 +974,11 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/**
-		* 自动化任务入口显隐开关行的 store。
+		* 侧边栏入口显隐开关行的 store 工厂：两个入口共用一套「镜像 + revision 守卫」逻辑，
+		* 各自持有独立实例。
 		* @returns store 句柄。
 		*/
-		function createScheduleEntryStore() {
+		function createEntryVisibilityStore() {
 			return (0, _deepseek_ai_dsh_client_store.defineStore)({
 				init: () => ({
 					visible: true,
@@ -985,6 +990,20 @@ window.__ModuleLoader__.load({
 					d.revision = revision;
 				} }
 			});
+		}
+		/**
+		* 自动化任务入口显隐开关行的 store。
+		* @returns store 句柄。
+		*/
+		function createScheduleEntryStore() {
+			return createEntryVisibilityStore();
+		}
+		/**
+		* 面板列表「更多」入口显隐开关行的 store。
+		* @returns store 句柄。
+		*/
+		function createMoreEntryStore() {
+			return createEntryVisibilityStore();
 		}
 		//#endregion
 		//#region E:/vibeCoding/deepseek-harness/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
@@ -1540,6 +1559,42 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/MoreEntryRow.tsx
+		/**
+		* 渲染「更多」入口显隐偏好行。
+		* @param props - 槽位组合 props。
+		* @returns 该行的元素树。
+		*/
+		function MoreEntryRow({ t, setMoreEntryVisible, useStore }) {
+			const visible = useStore((s) => s.visible);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: ScheduleEntryRow_module_css_default.row,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: ScheduleEntryRow_module_css_default.rowText,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: ScheduleEntryRow_module_css_default.title,
+						children: t("more-entry.title")
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: ScheduleEntryRow_module_css_default.desc,
+						children: t("more-entry.description")
+					})]
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: ScheduleEntryRow_module_css_default.control,
+					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						role: "switch",
+						"aria-checked": visible,
+						"aria-label": t("more-entry.title"),
+						className: ScheduleEntryRow_module_css_default.switch,
+						onClick: () => {
+							setMoreEntryVisible(!visible);
+						},
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: ScheduleEntryRow_module_css_default.thumb })
+					})
+				})]
+			});
+		}
+		//#endregion
 		//#region src/client/pet-data.ts
 		/** The distinct strips, keyed by asset name. */
 		const PET_IMAGES = {
@@ -2056,40 +2111,102 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/schedule-entry.ts
 		/**
-		* 左侧边栏自动化任务入口显隐控制与持久化。
+		* 左侧边栏入口显隐控制与持久化。
+		*
+		* 目前管两个独立入口：
+		* - 自动化任务面板行（`PanelRow`，`aria-label` 为「自动化任务」）
+		* - 面板列表的「更多」菜单（`PanelMoreMenu`，`aria-haspopup="menu"`）
+		*
+		* 两者都是官方 ui-sidebar 渲染的，插件只能在 DOM 上打标记后由 CSS 隐藏。
+		* 标记统一写 html + body 双写：浅色兜底调色板挂在 body 上，只写 html 会被层叠覆盖。
 		*/
+		/** 自动化任务入口的 localStorage 键。 */
 		const SCHEDULE_ENTRY_STORAGE_KEY = "dsh-show-schedule-entry";
+		/** 「更多」入口的 localStorage 键。 */
+		const MORE_ENTRY_STORAGE_KEY = "dsh-show-more-entry";
+		/** 自动化任务入口的隐藏标记属性名。 */
+		const SCHEDULE_HIDE_ATTR = "data-dsh-hide-schedule";
+		/** 「更多」入口的隐藏标记属性名。 */
+		const MORE_HIDE_ATTR = "data-dsh-hide-more";
 		/**
-		* 从 localStorage 读取自动化任务入口是否显示。
-		* 默认开启（true）。
+		* 读取一个布尔偏好：只有显式存成 'false' 才算关闭，其余（含未设置）都算开启。
+		* @param key - localStorage 键。
+		* @returns 是否显示。
 		*/
-		function readScheduleEntryVisible() {
+		function readVisible(key) {
 			if (typeof localStorage === "undefined") return true;
 			try {
-				if (localStorage.getItem("dsh-show-schedule-entry") === "false") return false;
+				if (localStorage.getItem(key) === "false") return false;
 			} catch {}
 			return true;
 		}
 		/**
-		* 持久化自动化任务入口显隐状态。
+		* 持久化一个布尔偏好。
+		* @param key - localStorage 键。
+		* @param visible - 是否显示。
 		*/
-		function writeScheduleEntryVisible(visible) {
+		function writeVisible(key, visible) {
 			if (typeof localStorage === "undefined") return;
 			try {
-				localStorage.setItem(SCHEDULE_ENTRY_STORAGE_KEY, visible ? "true" : "false");
+				localStorage.setItem(key, visible ? "true" : "false");
 			} catch {}
 		}
 		/**
-		* 将显隐标记应用至 DOM（html 与 body 双写，防止层叠与加载时序问题）。
+		* 把隐藏标记落到 DOM：隐藏时设属性为 'true'，显示时移除属性。
+		* html 与 body 双写，避免层叠与加载时序问题。
+		* @param attr - 标记属性名。
+		* @param visible - 是否显示。
 		*/
-		function applyScheduleEntryVisible(visible) {
+		function applyHideAttr(attr, visible) {
 			if (typeof document === "undefined") return;
 			const targets = [document.documentElement, document.body];
 			for (const el of targets) {
 				if (!el) continue;
-				if (visible) el.removeAttribute("data-dsh-hide-schedule");
-				else el.setAttribute("data-dsh-hide-schedule", "true");
+				if (visible) el.removeAttribute(attr);
+				else el.setAttribute(attr, "true");
 			}
+		}
+		/**
+		* 从 localStorage 读取自动化任务入口是否显示。
+		* @returns 默认开启（true）。
+		*/
+		function readScheduleEntryVisible() {
+			return readVisible(SCHEDULE_ENTRY_STORAGE_KEY);
+		}
+		/**
+		* 持久化自动化任务入口显隐状态。
+		* @param visible - 是否显示。
+		*/
+		function writeScheduleEntryVisible(visible) {
+			writeVisible(SCHEDULE_ENTRY_STORAGE_KEY, visible);
+		}
+		/**
+		* 将自动化任务入口显隐标记应用至 DOM。
+		* @param visible - 是否显示。
+		*/
+		function applyScheduleEntryVisible(visible) {
+			applyHideAttr(SCHEDULE_HIDE_ATTR, visible);
+		}
+		/**
+		* 从 localStorage 读取「更多」入口是否显示。
+		* @returns 默认开启（true）。
+		*/
+		function readMoreEntryVisible() {
+			return readVisible(MORE_ENTRY_STORAGE_KEY);
+		}
+		/**
+		* 持久化「更多」入口显隐状态。
+		* @param visible - 是否显示。
+		*/
+		function writeMoreEntryVisible(visible) {
+			writeVisible(MORE_ENTRY_STORAGE_KEY, visible);
+		}
+		/**
+		* 将「更多」入口显隐标记应用至 DOM。
+		* @param visible - 是否显示。
+		*/
+		function applyMoreEntryVisible(visible) {
+			applyHideAttr(MORE_HIDE_ATTR, visible);
 		}
 		//#endregion
 		//#region src/client/usage/data.ts
@@ -5773,6 +5890,21 @@ html[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panel
 body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panelRow"]:only-child[aria-label="Automation tasks"]) {
   margin-bottom: 0 !important;
 }
+
+/* 左侧边栏面板列表「更多」入口显隐控制。
+   官方 PanelMoreMenu 由 sidebar.panellist.actions 槽是否有注册项决定，本机注册者是
+   dsh-client-ui-entry-customization，无法从插件侧注销，因此用 DOM 标记隐藏。
+   锚点优先用语言无关的 aria-haspopup：PanelRow 的 button 没有这个属性，不会误伤。 */
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="moreAnchor"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="moreAnchor"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] button[aria-haspopup="menu"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="更多"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="更多"],
+html[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="More"],
+body[data-dsh-hide-more="true"] nav[class*="panelList"] [class*="panelRow"][aria-label="More"] {
+  display: none !important;
+}
 `;
 		/** localStorage key for the user's custom theme preference. */
 		const LS_KEY = "dsh-theme-preference";
@@ -6612,6 +6744,30 @@ body[data-dsh-hide-schedule="true"] nav[class*="panelList"]:has(> [class*="panel
 				locale: SETTINGS_NS,
 				inject: scheduleEntryInjected
 			}, ScheduleEntryRow));
+			applyMoreEntryVisible(readMoreEntryVisible());
+			const moreEntryStore = createMoreEntryStore();
+			let moreEntryBound;
+			let moreEntryRevision = 0;
+			const syncMoreEntryRow = () => {
+				moreEntryBound?.sync(readMoreEntryVisible(), ++moreEntryRevision);
+			};
+			const moreEntryInjected = (actions) => {
+				moreEntryBound = actions;
+				syncMoreEntryRow();
+				return { setMoreEntryVisible: (visible) => {
+					writeMoreEntryVisible(visible);
+					applyMoreEntryVisible(visible);
+					syncMoreEntryRow();
+				} };
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "more-entry-custom",
+				order: 10.86,
+				store: moreEntryStore,
+				locale: SETTINGS_NS,
+				inject: moreEntryInjected
+			}, MoreEntryRow));
 			const sidebarStore = createSidebarFontStore();
 			let sidebarBound;
 			let sidebarRevision = 0;

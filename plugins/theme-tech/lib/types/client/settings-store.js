@@ -88,10 +88,11 @@ export function createHomeLayoutStore() {
     });
 }
 /**
- * 自动化任务入口显隐开关行的 store。
+ * 侧边栏入口显隐开关行的 store 工厂：两个入口共用一套「镜像 + revision 守卫」逻辑，
+ * 各自持有独立实例。
  * @returns store 句柄。
  */
-export function createScheduleEntryStore() {
+function createEntryVisibilityStore() {
     return defineStore({
         init: () => ({ visible: true, revision: -1 }),
         actions: {
@@ -103,5 +104,19 @@ export function createScheduleEntryStore() {
             },
         },
     });
+}
+/**
+ * 自动化任务入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createScheduleEntryStore() {
+    return createEntryVisibilityStore();
+}
+/**
+ * 面板列表「更多」入口显隐开关行的 store。
+ * @returns store 句柄。
+ */
+export function createMoreEntryStore() {
+    return createEntryVisibilityStore();
 }
 //# sourceMappingURL=settings-store.js.map
