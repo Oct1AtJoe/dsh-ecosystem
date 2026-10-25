@@ -342,7 +342,31 @@ export function initMascot(ctx) {
             stopTimers();
         }
     };
-    const mountInterval = setInterval(syncMount, 500);
+    // ── 挂载跟随：MutationObserver 替代 500ms 轮询 ─────────────────────────
+    // syncMount 的本质是「宿主重渲染后把 pet 重新挂到新锚点上」。它只看 DOM 结构，
+    // 正是 MutationObserver 的适用场景；原先 500ms 固定轮询会在空闲时也反复调用
+    // findAnchor()（内部多处 offsetHeight，属强制同步布局）。改为事件驱动后，
+    // 无 DOM 变化时零开销。
+    //
+    // 三条约束：
+    // 1. 必须 rAF 节流 —— 回调里 findAnchor() 要读 offsetHeight，
+    //    在 mutation 批次内直接读布局会触发 layout thrashing。
+    // 2. 用 { childList: true, subtree: true }，不监听 attributes：
+    //    锚点切换由结构变化驱动，属性变化（主题切换等）与本函数无关，监听会放大噪音。
+    // 3. 保留低频兜底（2s）：MutationObserver 不覆盖「纯样式变化导致的显隐切换」，
+    //    这一点与 status-rotator 的取舍一致，但间隔从 500ms 放宽到 2000ms。
+    let mountRaf = 0;
+    const scheduleSyncMount = () => {
+        if (mountRaf !== 0)
+            return;
+        mountRaf = requestAnimationFrame(() => {
+            mountRaf = 0;
+            syncMount();
+        });
+    };
+    const mountObserver = new MutationObserver(scheduleSyncMount);
+    mountObserver.observe(document.body, { childList: true, subtree: true });
+    const mountInterval = setInterval(syncMount, 2000);
     start();
     function readSessions() {
         try {
@@ -468,12 +492,56 @@ export function initMascot(ctx) {
             triggerReaction('happy', 4000);
         }
     }
-    const stateInterval = setInterval(onSessionTick, 400);
+    // ── 会话状态跟随：订阅 list 替代 400ms 轮询 ───────────────────────────
+    // onSessionTick 只做两件事：重建事件订阅、比较 running 位。
+    // ctx.sessions.list 是 ObservableSnapshot（getSnapshot + subscribe），
+    // running 变化时会主动通知 —— 没有理由每 400ms 主动读一次快照。
+    //
+    // 兜底策略：list 服务尚未就绪时 subscribe 拿不到，退回 2000ms 低频轮询；
+    // 一旦订阅成功立即清掉轮询。这是唯一需要的重试点（服务晚于插件就绪）。
+    let unsubscribeList;
+    let listFallbackTimer = null;
+    function startSessionWatch() {
+        if (unsubscribeList !== undefined)
+            return;
+        const subscribe = readSessions()?.list?.subscribe;
+        if (typeof subscribe !== 'function') {
+            // 服务未就绪：低频兜底，继续等下一轮重试订阅
+            if (listFallbackTimer === null) {
+                listFallbackTimer = setInterval(onSessionTick, 2000);
+            }
+            return;
+        }
+        if (listFallbackTimer !== null) {
+            clearInterval(listFallbackTimer);
+            listFallbackTimer = null;
+        }
+        try {
+            unsubscribeList = subscribe(onSessionTick);
+        }
+        catch {
+            unsubscribeList = undefined;
+            if (listFallbackTimer === null) {
+                listFallbackTimer = setInterval(onSessionTick, 2000);
+            }
+        }
+    }
+    startSessionWatch();
     syncEventSubscription();
     return () => {
         onEnabledChangeCallback = null;
         clearInterval(mountInterval);
-        clearInterval(stateInterval);
+        mountObserver.disconnect();
+        if (mountRaf !== 0) {
+            cancelAnimationFrame(mountRaf);
+            mountRaf = 0;
+        }
+        if (listFallbackTimer !== null) {
+            clearInterval(listFallbackTimer);
+            listFallbackTimer = null;
+        }
+        unsubscribeList?.();
+        unsubscribeList = undefined;
         unsubscribeEvents?.();
         unsubscribeEvents = undefined;
         stopTimers();

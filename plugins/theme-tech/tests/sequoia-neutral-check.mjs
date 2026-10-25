@@ -291,7 +291,23 @@ console.log('\n=== C. 玻璃强度（去的是光晕与彩色，不是玻璃） 
 check('token: glass-blur 提升到 64px（强化）', themeSrc.includes("'--dsw-alias-glass-blur': 'blur(64px) saturate(200%)'"))
 check('token: surface-glass-blur 提升到 56px', themeSrc.includes("'--dsw-alias-surface-glass-blur': 'blur(56px) saturate(190%)'"))
 check('token: 侧边栏填充 0.66（实而仍透，兼顾可读性）', themeSrc.includes("'--dsw-specific-sidebar-fill': 'rgba(245, 245, 247, 0.66)'"))
-check('CSS: 侧边栏 ::before 毛玻璃提升到 56px', /sequoia"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*blur\(56px\)/.test(indexSrc))
+// 【策略变更（性能）】原断言锁 blur(56px)，现翻转为断言零收益层已归零：
+//   sequoia 的 bg-app-image 为 none（B 组第 1 条已锁死），侧栏背后恒为纯色
+//   rgb(245,245,247) → blur(纯色)=纯色，该层无任何像素差异，却每帧分配全高
+//   合成纹理。与 B 组「不要光晕」同一决策链，故一并归零。
+//   ⚠️ 只对 sequoia 生效；sonoma 背后有静态径向光斑，其 34px 保持不变。
+check(
+  'CSS: 液态侧栏 ::before 零收益 blur 已归零（纯色底 blur=纯色）',
+  /sequoia"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*none/.test(indexSrc),
+)
+check(
+  'CSS: 液态右栏 ::before 零收益 blur 已归零',
+  /sequoia"\] \[class\*="rightbarCol"\]::before\s*\{[^}]*backdrop-filter:\s*none/.test(indexSrc),
+)
+check(
+  'CSS: 曜黑侧栏 blur 保留（背后有光斑，非零收益）',
+  /sonoma"\] \[class\*="sidebarCol"\]::before\s*\{[^}]*backdrop-filter:\s*blur\(34px\)/.test(indexSrc),
+)
 
 // ── C3. 毛玻璃材质（与「磨砂颗粒」的本质区别）──
 // 【材质定义已变更，本组断言随之改写】

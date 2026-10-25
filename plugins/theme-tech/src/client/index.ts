@@ -864,6 +864,13 @@ body:not([data-ds-dark-theme]) .dsh-ff__folder-icon.dsh-ff__icon-accent svg {
     radial-gradient(440px 320px at 78% 68%, var(--dsw-alias-surface-glass-spot, transparent), transparent 56%);
   box-shadow:inset -1px 0 0 rgba(255,255,255,0.04),inset 0 0 0 1px rgba(255,255,255,0.02);
 }
+/* 零收益项归零（性能）：与左侧栏同因 —— sequoia 右栏背景是
+   bg-app-image(none) + bg-base 纯色，blur 无像素差异。
+   sonoma 右栏背后有紫/蓝径向光斑，保留其 backdrop-filter 不动。 */
+body[data-ds-custom-theme="sequoia"] [class*="rightbarCol"]::before{
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
 /* 右栏面板同样补「顶部同色融合屏障」（六主题通用，与左侧栏一致）。
    缺失时其顶部会直接暴露半透明填充与光斑，与顶栏形成亮度断层。 */
 /* :not([aria-hidden="true"]) —— 面板壳只在「展开」时上色。
@@ -1139,8 +1146,11 @@ body[data-ds-custom-theme="sequoia"] [role="dialog"]{
   background:
     linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 30%, transparent 100%),
     rgba(255, 255, 255, 0.54) !important;
-  backdrop-filter:var(--dsh-glass-blur) saturate(190%) !important;
-  -webkit-backdrop-filter:var(--dsh-glass-blur) saturate(190%) !important;
+  /* --dsh-glass-blur 自带 saturate(180%)（index.ts:170 默认，sequoia 为
+     saturate(200%)）。此处再串 saturate(190%) 等于让 GPU 每帧多跑一次色彩矩阵，
+     视觉无可辨收益。统一走变量本身。 */
+  backdrop-filter:var(--dsh-glass-blur) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
   border-radius:24px !important;
   border:none !important;
   box-shadow:
@@ -1165,8 +1175,9 @@ body[data-ds-custom-theme="sonoma"] [role="dialog"]{
   background:
     linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 32%, transparent 100%),
     rgba(22, 25, 32, 0.76) !important;
-  backdrop-filter:var(--dsh-glass-blur) saturate(180%) !important;
-  -webkit-backdrop-filter:var(--dsh-glass-blur) saturate(180%) !important;
+  /* 同浅色分支：变量已含 saturate，不再叠加。 */
+  backdrop-filter:var(--dsh-glass-blur) !important;
+  -webkit-backdrop-filter:var(--dsh-glass-blur) !important;
   border-radius:24px !important;
   border:none !important;
   box-shadow:
@@ -1735,8 +1746,16 @@ body[data-ds-custom-theme="sonoma"] [class*="userStack"] > [class$="_bubble"] * 
 body[data-ds-custom-theme="sequoia"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]),
 body[data-ds-custom-theme="sonoma"] [data-slot="main.conversation"] [class*="flowItem"]:not([hidden]):not([data-turn-process-hidden="true"]):is([data-chat-group-part="response"], :not([data-turn-process-member])):has([class*="_markdown_"]) {
   background:var(--dsh-glass-sheen),var(--dsh-glass-fill) !important;
-  backdrop-filter:var(--dsh-glass-blur,none) !important;
-  -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
+  /* ── 零收益项归零（性能）─────────────────────────────────────────────
+     卡片躺在 flowItem 内，背后是 centerCol 的背景层，**不会有内容从卡片下方
+     滚过** → blur 的输入恒为静态底色，输出与静态填充无异，纯浪费。
+     长会话里每张卡片都是一个永久合成层，N 张 = N 份全尺寸纹理。
+     本文件 97-99 行已记录同一判断：「纯色背景下 blur(纯色)=纯色，AI 卡片
+     这类大面板不会有深色主题那样的通透感，是不要光晕的必然代价」。
+     故只保留 sheen + fill 的静态玻璃外观（观感不变），去掉滤镜。
+     ✅ 输入坞 / 任务卡 / 撤回气泡（303 行）背后有内容滚过，**保留 blur**。 */
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
   border-radius: 18px !important;
   padding: 16px 20px !important;
   box-shadow:
@@ -1760,8 +1779,15 @@ body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"] {
 /* 侧边栏毛玻璃：blur 半径拉大（56px），配合下方 0.34 的极淡填充，
    玻璃通透度显著提升（观感 = 模糊半径 ÷ 填充不透明度）。 */
 body[data-ds-custom-theme="sequoia"] [class*="sidebarCol"]::before {
-  backdrop-filter: blur(56px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(56px) saturate(190%) !important;
+  /* ── 零收益项归零（性能）─────────────────────────────────────────────
+     sequoia 的 --dsw-alias-bg-app-image 是 none（用户明确不要光晕），
+     故侧栏背后恒为纯色 rgb(245,245,247)。blur(纯色)=纯色 —— 该层在数学上
+     不产生任何像素差异，却要每帧为整条侧栏分配一张全高合成纹理并跑高斯卷积。
+     按本文件「观感 = 模糊半径 ÷ 填充不透明度」公式衡量：此处分子零收益。
+     门禁 sequoia-neutral-check C 组相应由「断言 56px」翻转为「断言 none」。
+     ⚠️ sonoma 背后有静态径向光斑（1807 行），保留其 34px 不动。 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 /* 侧边栏内容层：半透明填充 + 顶部与顶栏同色融合屏障。
    层次顺序（CSS background 第一项在最上）：
