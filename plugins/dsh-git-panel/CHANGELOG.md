@@ -2,6 +2,23 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.25] - 2026-10-26
+
+### Changed
+- **新会话输入框上方的分支胶囊对齐官方下拉控件样式**：原先是一枚独立药丸
+  （实心背景 + 1px 描边 + 999px 全圆角 + 12px 字号），与同一行前置的「工作区选择器」
+  「智能体预设选择器」并排时明显是另一种控件语言。现改为与官方两者逐项对齐：
+  - 背景 `transparent`、边框 `none`，与输入框上方底色完全融合；
+  - 圆角 `var(--dsw-radius-sm, 6px)`、`min-height: 28px`、`padding: 0 8px`
+    （与 `HeroShell.module.css` 的 `.workspace` / `AgentPresetSeat.module.css` 的 `.seat` 同规格）；
+  - 字号 13px / 行高 20px / 字重 500，与前两者一致；
+  - 悬浮与展开态统一走 `var(--dsw-alias-interactive-bg-hover)`，
+    补 `[aria-expanded='true']` 判据，展开下拉时保持高亮；
+  - 分支图标 12px → 14px，下拉箭头补独立类名并取 `label-caption` 辅助色，
+    与前两者的箭头同色。
+
+（弹层本身未改动：分支列表、当前项勾选、ahead/behind 计数、上下自动翻转都照旧。）
+
 ## [0.1.23] - 2026-10-23
 
 ### Fixed

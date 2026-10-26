@@ -6606,30 +6606,44 @@ var CHIP_STYLE = `
 .dsh-gpc-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: 240px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-family: inherit;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 240px);
+  min-height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: transparent;
   color: var(--gpc-fg);
-  background: var(--gpc-bg);
-  border: 1px solid var(--gpc-border);
-  border-radius: var(--dsw-radius-full, 999px);
-  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  font-family: inherit;
   white-space: nowrap;
-  overflow: hidden;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
-.dsh-gpc-chip:hover {
-  background: var(--gpc-hover);
+.dsh-gpc-chip:not(:disabled):hover,
+.dsh-gpc-chip[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, var(--gpc-hover));
 }
 .dsh-gpc-chip:disabled {
   cursor: default;
   opacity: 0.65;
 }
+.dsh-gpc-chip .icon {
+  flex: none;
+  color: var(--gpc-fg);
+}
 .dsh-gpc-chip .label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsh-gpc-chip .chevron {
+  flex: none;
+  color: var(--gpc-muted);
 }
 .dsh-gpc-spin {
   width: 12px;
@@ -6880,9 +6894,10 @@ function BranchChip(props) {
           /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
             "svg",
             {
+              className: "icon",
               viewBox: "0 0 16 16",
-              width: "12",
-              height: "12",
+              width: "14",
+              height: "14",
               fill: "none",
               stroke: "currentColor",
               strokeWidth: "1.4",
@@ -6901,9 +6916,10 @@ function BranchChip(props) {
           loading ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "dsh-gpc-spin", "aria-label": t2("aria.loading") }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
             "svg",
             {
+              className: "chevron",
               viewBox: "0 0 16 16",
-              width: "10",
-              height: "10",
+              width: "12",
+              height: "12",
               fill: "none",
               stroke: "currentColor",
               strokeWidth: "1.4",

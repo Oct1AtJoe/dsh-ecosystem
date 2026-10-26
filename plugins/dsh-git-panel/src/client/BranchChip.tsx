@@ -69,30 +69,44 @@ const CHIP_STYLE = `
 .dsh-gpc-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  max-width: 240px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-family: inherit;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 240px);
+  min-height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: transparent;
   color: var(--gpc-fg);
-  background: var(--gpc-bg);
-  border: 1px solid var(--gpc-border);
-  border-radius: var(--dsw-radius-full, 999px);
-  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  font-family: inherit;
   white-space: nowrap;
-  overflow: hidden;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
-.dsh-gpc-chip:hover {
-  background: var(--gpc-hover);
+.dsh-gpc-chip:not(:disabled):hover,
+.dsh-gpc-chip[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, var(--gpc-hover));
 }
 .dsh-gpc-chip:disabled {
   cursor: default;
   opacity: 0.65;
 }
+.dsh-gpc-chip .icon {
+  flex: none;
+  color: var(--gpc-fg);
+}
 .dsh-gpc-chip .label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsh-gpc-chip .chevron {
+  flex: none;
+  color: var(--gpc-muted);
 }
 .dsh-gpc-spin {
   width: 12px;
@@ -440,7 +454,7 @@ export function BranchChip(props: BranchChipProps): React.ReactElement | null {
               if (loading) return
               setOpen((v) => !v)
             }}>
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor"
+            <svg className="icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
               strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="4" cy="4" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="4" r="1.6" />
               <path d="M4 5.6v4.8a2.4 2.4 0 0 0 2.4 2.4H12" />
@@ -449,7 +463,7 @@ export function BranchChip(props: BranchChipProps): React.ReactElement | null {
             {loading ? (
               <span className="dsh-gpc-spin" aria-label={t('aria.loading')} />
             ) : (
-              <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor"
+              <svg className="chevron" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor"
                 strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 6l4 4 4-4" />
               </svg>
