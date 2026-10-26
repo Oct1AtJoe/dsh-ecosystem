@@ -32,7 +32,6 @@ const distDir = path.join(repoRoot, 'dist-tarballs')
 export const PUBLISHED = [
   'dsh-git-panel',
   'kanye-pet',
-  'kanye-pet-settings',
   'theme-tech',
   'queue-recall',
   'resend-failed-round',

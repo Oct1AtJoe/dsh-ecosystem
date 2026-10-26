@@ -6,8 +6,9 @@ const cfg = fs.readFileSync('C:/dsh-ecosystem/plugins/kanye-pet/lib/src/config.m
 assert(cfg.includes('desktopNotificationEnabled: true'), 'DEFAULTS must have desktopNotificationEnabled')
 assert(cfg.includes('desktopNotificationEnabled: z.boolean()'), 'buildSchema must have desktopNotificationEnabled')
 
-// 2. ui-kanye-pet bundle
-const kanyeClient = fs.readFileSync('C:/dsh-ecosystem/plugins/kanye-pet-settings/lib/client.js', 'utf8')
+// 2. kanye-pet client bundle (settings card + notification shim; merged from the
+//    retired dsh-kanye-pet-settings package, so the path moved with the code)
+const kanyeClient = fs.readFileSync('C:/dsh-ecosystem/plugins/kanye-pet/lib/client.js', 'utf8')
 assert(kanyeClient.includes('desktopNotificationEnabled'), 'kanye client bundle must include desktopNotificationEnabled')
 assert(kanyeClient.includes('桌面端通知'), 'kanye client bundle must include 桌面端通知')
 

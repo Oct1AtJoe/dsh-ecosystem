@@ -1,4 +1,4 @@
-﻿# v7 profile 迁移脚本（**必须在 DSH 桌面端完全退出后运行**）
+# v7 profile 迁移脚本（**必须在 DSH 桌面端完全退出后运行**）
 
 > 🚨 **运行前先托盘右键 → 退出**，不是关窗口。宿主进程持有 profile 的 `node_modules`，
 > 运行中执行会失败或写坏。
@@ -87,7 +87,7 @@ $map = [ordered]@{
     '@deepseek-ai/dsh-client-ui-queue-recall'        = 'dsh-queue-recall'
     '@deepseek-ai/dsh-client-ui-resend-failed-round' = 'dsh-resend-failed-round'
     '@deepseek-ai/dsh-client-ui-deliverables-custom' = 'dsh-deliverables'
-    '@deepseek-ai/dsh-client-ui-kanye-pet'           = 'dsh-kanye-pet-settings'
+    '@deepseek-ai/dsh-client-ui-kanye-pet'           = 'dsh-kanye-pet'
     '@deepseek-ai/dsh-kanye-pet'                     = 'dsh-kanye-pet'
     'dsh-session-title-custom'                       = 'dsh-session-title-gen'
     'dsh-session-folders-custom'                     = 'dsh-session-folders'
@@ -137,8 +137,7 @@ Write-Host "  共替换 $ymlChanged 条" -ForegroundColor Green
 Write-Host "`n=== 6. 安装 v7 新包（8 个；subagent-card / file-upload 已退役，不装）===" -ForegroundColor Cyan
 $urls = @(
     'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-git-panel-0.1.22.tgz'
-    'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-kanye-pet-0.2.0.tgz'
-    'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-kanye-pet-settings-0.2.0.tgz'
+    'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-kanye-pet-0.3.0.tgz'
     'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-theme-tech-0.2.0.tgz'
     'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-queue-recall-0.2.0.tgz'
     'https://github.com/Oct1AtJoe/dsh-ecosystem/releases/download/v7/dsh-resend-failed-round-0.2.0.tgz'
@@ -152,9 +151,9 @@ foreach ($u in $urls) {
 
 Write-Host "`n=== 7. 验证 ===" -ForegroundColor Cyan
 $final = Get-Content $pkgPath -Raw | ConvertFrom-Json
-Write-Host "`ndependencies 里我们的 8 条："
+Write-Host "`ndependencies 里我们的 7 条："
 $ours = $final.dependencies.PSObject.Properties |
-    Where-Object { $_.Name -match '^dsh-(git-panel|kanye-pet|kanye-pet-settings|theme-tech|queue-recall|resend-failed-round|session-title-gen|session-folders)$' }
+    Where-Object { $_.Name -match '^dsh-(git-panel|kanye-pet|theme-tech|queue-recall|resend-failed-round|session-title-gen|session-folders)$' }
 $ours | ForEach-Object { Write-Host ("  {0,-26} {1}" -f $_.Name, ($_.Value -replace '.*/download/[^/]+/', '')) }
 
 $leftover = (Get-Content $pkgPath -Raw) -match '@deepseek-ai/dsh-client-ui-|"dsh-session-title-custom"|"dsh-session-folders-custom"|"dsh-subagent-card"|"dsh-file-upload"'

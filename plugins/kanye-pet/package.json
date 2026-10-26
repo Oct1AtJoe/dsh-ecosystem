@@ -1,6 +1,6 @@
 {
   "name": "dsh-kanye-pet",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "DSH 桌面互动宠物核心：支持状态感知、气泡对话、动作表情与桌面窗口悬浮互动。",
   "icon": "./icon.svg",
@@ -8,7 +8,6 @@
   "files": [
     "lib/index.mjs",
     "lib/client.js",
-    "lib/client",
     "lib/src",
     "lib/assets/characters",
     "lib/assets/manifest.json",
@@ -31,6 +30,11 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ],
       "platform": "web"
     }
   },
@@ -38,14 +42,19 @@
     "@deepseek-ai/schemastery": ">=3.18.5 <4.0.0"
   },
   "scripts": {
-    "gates": "node scripts/gates/run.mjs",
-    "gates:ci": "node scripts/gates/run.mjs --group ci",
-    "test": "node --test 'tests/*.test.mjs'",
-    "build:client": "node scripts/build-client.mjs",
-    "check:client": "node scripts/build-client.mjs --check"
+    "build": "tsdown",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "gates": "node --test \"tests/*.test.mjs\" && node tests/jump-check.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-store": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "@types/react": "~18.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "license": "MIT",
   "repository": {
@@ -56,6 +65,12 @@
     "dsh": ">=0.2.1-rc.1 <0.3.0-0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-store": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.1.2-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1 <0.3.0",
+    "react": "^18.2.0"
   }
 }

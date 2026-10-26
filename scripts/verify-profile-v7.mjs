@@ -11,7 +11,6 @@ const nm = path.join(profile, 'node_modules')
 const NAMES = [
   'dsh-git-panel',
   'dsh-kanye-pet',
-  'dsh-kanye-pet-settings',
   'dsh-theme-tech',
   'dsh-queue-recall',
   'dsh-resend-failed-round',
@@ -85,6 +84,7 @@ const OLD = [
   '@deepseek-ai/dsh-client-ui-theme-custom', '@deepseek-ai/dsh-client-ui-queue-recall',
   '@deepseek-ai/dsh-client-ui-resend-failed-round',
   '@deepseek-ai/dsh-client-ui-deliverables-custom', '@deepseek-ai/dsh-client-ui-kanye-pet',
+  'dsh-kanye-pet-settings',
   '@deepseek-ai/dsh-kanye-pet', 'dsh-session-title-custom',
   'dsh-session-folders-custom',
 ]

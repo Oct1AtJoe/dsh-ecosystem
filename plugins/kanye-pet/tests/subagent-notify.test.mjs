@@ -37,7 +37,6 @@ function harness() {
   logs = []
   const sessions = []
   const jobList = []
-  let onJobDone = () => {}
   const ctx = {
     get: (name) => {
       if (name === 'sessions') return { list: () => sessions }
@@ -47,7 +46,7 @@ function harness() {
     on: (event, handler) => { handlers.set(event, handler) },
     effect: (fn) => { fn() },
     provide: () => {},
-    jobs: { list: () => jobList, onJobDone: (cb) => { onJobDone = cb } },
+    jobs: { list: () => jobList },
     agents: { list: () => [{ id: 'agent-1' }] },
   }
   apply(ctx)
@@ -60,7 +59,16 @@ function harness() {
     )
     return body
   }
-  return { sessions, jobList, fire, state, endJob: (snapshot) => onJobDone(snapshot), get logs() { return logs } }
+  // 0.2.1 起宿主移除了 `jobs.onJobDone`：任务终态改由会话日志的 `job/settled`
+  // 事件承载（lib/index.mjs 的 recordJobOutcome）。测试必须投事件，不能调旧回调——
+  // 调旧回调只会命中 harness 的空桩，记账与庆祝都不发生（曾经的假绿/假红来源）。
+  const endJob = (session, snapshot) => fire(session, {
+    type: 'job/settled',
+    seq: 90,
+    time: Date.now(),
+    data: { status: snapshot.status, label: snapshot.label, owner: snapshot.ownerSession },
+  })
+  return { sessions, jobList, fire, state, endJob, get logs() { return logs } }
 }
 
 /** 首见会话只记去重基线不通知——为后续回合铺路。 */
@@ -170,7 +178,7 @@ test('子代理自有 job 的事件终态不庆祝，但 XP 账本照记', async
   h.sessions.push(sub)
   h.fire(sub, toolCall(3))
   h.jobList.push({ id: 'job-own', status: 'completed', label: '子任务', ownerSession: 'sub-own' })
-  h.endJob({ id: 'job-own', status: 'completed', label: '子任务', ownerSession: 'sub-own' })
+  h.endJob(sub, { id: 'job-own', status: 'completed', label: '子任务', ownerSession: 'sub-own' })
 
   const body = await h.state()
   assert.notEqual(body.activity.name, 'celebrate')
@@ -184,6 +192,6 @@ test('主会话自有 job 的事件终态照常庆祝', async () => {
   h.sessions.push(main)
   const snapshot = { id: 'job-mine', status: 'completed', label: '自己的任务', ownerSession: 'session-own' }
   h.jobList.push(snapshot)
-  h.endJob(snapshot)
+  h.endJob(main, snapshot)
   assert.equal((await h.state()).activity.name, 'celebrate')
 })
