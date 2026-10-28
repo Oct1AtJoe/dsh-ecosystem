@@ -161,6 +161,47 @@ node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 
 ---
 
+## 4.1 重打 asar 补丁（升级必丢）
+
+> 🚨 **升级会整体替换 `app.asar`，`patches/` 下的补丁全部丢失。**
+> 必须按顺序重打，`desktop-menu` 是前置（它把 `lib/main.js` 摊到 `app.asar.unpacked/`），
+> 后面的补丁只改那个磁盘文件，不重写 asar 头。
+
+```powershell
+cd C:\dsh-ecosystem
+# 前置：摊开 lib/main.js
+node patches\desktop-menu\patch.mjs
+# 其余按需
+node patches\kanye-pet-electron\patch.mjs
+node patches\dsh-gateway-heartbeat\patch.mjs
+node patches\dsh-desktop-net-fetch\patch.mjs
+node patches\dsh-desktop-window-state\patch.mjs
+# 每个都必须 verify exit 0
+node patches\dsh-desktop-window-state\verify.mjs
+```
+
+### 补丁清单
+
+| 补丁 | 作用 | 前置 |
+|---|---|---|
+| `desktop-menu` | 应用菜单与托盘加「刷新页面」「重启应用」；摊开 `lib/main.js` | — |
+| `kanye-pet-electron` | 注入透明置顶宠物窗与 IPC 桥 | `desktop-menu` |
+| `dsh-gateway-heartbeat` | 网关心跳修复 | `desktop-menu` |
+| `dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 | `desktop-menu` |
+| `dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆 | `desktop-menu` |
+
+> `dsh-desktop-window-state` 的状态文件是 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`。
+> 窗口跑到屏幕外打不开时，删掉该文件即可回到默认 1280×820。
+> 读取时会用 `screen.getAllDisplays()` 校验：落在任何屏幕 `workArea` 之外的坐标一律丢弃。
+
+> ⚠️ 别和 `%APPDATA%\ai.deepseek.harness.desktop\window-geometry.json` 搞混：那是**已弃用的 Tauri 壳**留下的，
+> 当前 Electron 端从不读写它。Electron 端的 userData 是 `%APPDATA%\@deepseek-ai\dsh-desktop`。
+
+> ⚠️ `--revert` 只对本补丁做纯文本逆操作，**不会**回写任何 `main.js.orig-*` 备份 ——
+> 那些备份是原始未打补丁的文件，回写会连带冲掉 `desktop-menu` 等兄弟补丁。
+
+---
+
 ## 5. 升级后必须重启
 
 > 🚨 **`Ctrl+F5` 不够。** 宿主在**启动时**解析并缓存每个插件的 `client.js` 路径

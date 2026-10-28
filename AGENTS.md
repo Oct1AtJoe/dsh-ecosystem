@@ -37,6 +37,9 @@
 | `patches/kanye-pet-electron` | 给官方 Electron 壳注入透明置顶宠物窗与 IPC 桥，配套 `kanye-pet` 插件的 `GET /kanye-pet/window` |
 | `patches/chat-virtual-rows` | 聊天区只画可见行（`content-visibility`），切长会话不再卡顿 |
 | `patches/cost-meter-lock` | `dsh-cost-meter` 的 Windows 锁身份不再同步调 PowerShell |
+| `patches/dsh-gateway-heartbeat` | 网关心跳修复 |
+| `patches/dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 |
+| `patches/dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆（状态存 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`） |
 
 > 🚨 **打补丁前必须完全退出 DSH 桌面端**（托盘退出，不是关窗口）：`main.js` 在运行期被映射进进程。
 > 🚨 **`desktop-menu` 是前置**：它把 `lib/main.js` 摊到 `app.asar.unpacked/lib/main.js`，后续补丁只改那个磁盘文件，**不重写 asar 头**。
