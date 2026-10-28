@@ -18,11 +18,11 @@ import { resolveModelChain } from './lib/index.js'
 // ---- 与 lib/index.js 保持一致的 schema 形状（同源校验，改坏立刻报警）----
 const DEFAULTS = Object.freeze({
   enabled: true,
-  models: [{ id: '1', provider: 'xiaomi', model: 'mimo-v2.5', reasoningEffort: 'off' }],
-  provider: 'xiaomi',
-  model: 'mimo-v2.5',
+  models: [{ id: '1', provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'off' }],
+  provider: 'deepseek-official',
+  model: 'deepseek-flash',
   reasoningEffort: 'off',
-  maxTokens: 96,
+  maxTokens: 512,
   maxInputChars: 2000,
   timeoutMs: 30000,
   maxTitleLength: 80,
@@ -47,7 +47,7 @@ const schema = z.object({
 
 // 1. schema 能构建（回归：.optional() 会让这里抛错）
 const built = schema({})
-assert.equal(built.maxTokens, 96, 'defaults should apply')
+assert.equal(built.maxTokens, 512, 'defaults should apply')
 assert.ok(Array.isArray(built.models), 'models must be an array')
 
 // 2. 旧配置不被覆盖
@@ -76,8 +76,10 @@ const both = resolveModelChain({ models: [{ provider: 'a', model: 'a1' }], provi
 assert.equal(both[0].provider, 'a', 'models list wins over legacy scalar')
 
 // 空配置 / 全无效列表 -> 内置默认
-assert.equal(resolveModelChain({})[0].provider, 'xiaomi')
-assert.equal(resolveModelChain({ models: [{ provider: '', model: 'x' }] })[0].provider, 'xiaomi')
+assert.equal(resolveModelChain({})[0].provider, 'deepseek-official')
+assert.equal(resolveModelChain({})[0].model, 'deepseek-flash')
+assert.equal(resolveModelChain({})[0].reasoningEffort, 'off', '内置默认档位必须是 off')
+assert.equal(resolveModelChain({ models: [{ provider: '', model: 'x' }] })[0].provider, 'deepseek-official')
 
 // 5. 排序语义：moveUp/moveDown 交换后首项即最高优先级（同时是写回 provider/model 的项）
 const rows = [
@@ -123,18 +125,26 @@ const five = Array.from({ length: 5 }, (_, i) => ({ id: String(i + 1) }))
 assert.equal(addRow(five, { id: '6' }).length, 5, 'cannot exceed five rows')
 assert.equal(addRow(rows, { id: '4' }).length, 4)
 
-// 7. 思考档位默认值必须是 ''（跟随模型默认），绝不能硬编码 'off'
-// 回归背景：'off' 只是模型可逐个声明的档位之一，并非通用值。早期把它当默认值
-// 硬编码后，写进配置而模型又不支持它，且下拉里不存在该选项 → 用户既选不回
-// 「跟随默认」也改不掉，三行配置全废、提交信息生成直接失败（已踩坑）。
+// 7. 思考档位默认值统一为 'off'（显式关闭思考），与宿主 DEFAULTS 同源。
+// 回归背景：默认值曾在两侧分叉 —— 宿主写 'off'、客户端写 ''（跟随模型默认），
+// 于是「maxTokens 够用」的推导（依赖不产生 reasoning token）在客户端保存一次后即失效。
+// 'off' 不被模型支持的风险由两处兜住：下拉标红（effortUnsupported）+ 宿主丢档重试。
 const clientSrc = readFileSync(new URL('./lib/client.js', import.meta.url), 'utf8')
-const hardcodedOffDefaults = clientSrc.match(/reasoningEffort:\s*'off'/g) ?? []
-assert.equal(
-  hardcodedOffDefaults.length,
-  0,
-  `lib/client.js 不得再出现硬编码的 reasoningEffort: 'off' 默认值，实得 ${hardcodedOffDefaults.length} 处`,
-)
+// 字面量 2 处（空表兜底 + 新增行）、赋值 2 处（换 provider / 换 model 后回落）
+assert.equal(clientSrc.match(/reasoningEffort:\s*'off'/g)?.length ?? 0, 2, 'client.js 对象字面量默认档位必须为 off')
+assert.equal(clientSrc.match(/reasoningEffort = 'off'/g)?.length ?? 0, 2, 'client.js 换模型后回落也必须为 off')
+assert.doesNotMatch(clientSrc, /reasoningEffort:\s*''/, 'client.js 不得残留空串默认档位')
+assert.doesNotMatch(clientSrc, /provider:\s*'xiaomi'|model:\s*'mimo-v2\.5'/, 'client.js 不得残留旧默认模型')
 assert.match(clientSrc, /effortUnsupported/, 'client.js 必须对不受支持的档位给出标红提示')
+
+// 7b. 宿主丢档重试的判定：只认「档位 + 不支持/非法」同时出现
+const { isEffortRejection } = await import('./lib/index.js')
+assert.equal(isEffortRejection('Reasoning effort not supported.'), true)
+assert.equal(isEffortRejection('{"error":"invalid reasoning_effort value"}'), true)
+assert.equal(isEffortRejection('thinking level unsupported'), true)
+assert.equal(isEffortRejection('insufficient balance'), false, '欠费不能靠丢档位掩盖')
+assert.equal(isEffortRejection('request timed out'), false, '超时不能靠丢档位掩盖')
+assert.equal(isEffortRejection('401 unauthorized'), false, '鉴权失败不能靠丢档位掩盖')
 
 // 8. 档位下拉必须始终含「跟随模型默认」（空 id），否则用户无法回退
 assert.match(clientSrc, /id:\s*''\s*,\s*name:\s*this\.t\('effortDefault'\)/, '档位下拉必须含空值=跟随模型默认')

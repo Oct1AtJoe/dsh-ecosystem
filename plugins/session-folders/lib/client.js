@@ -150,6 +150,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"error.sessionNotLive": "请先在聊天中打开该会话，再试一次",
 			"error.badRequest": "请求数据无效",
 			"error.autoRenameInProgress": "该会话已在自动命名中，请稍候。",
+			"error.autoRenameFailed": "自动命名失败：{reason}",
 			"status.running": "进行中",
 			"status.waitingApproval": "等待审批",
 			"status.planReview": "计划待审",
@@ -247,6 +248,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"error.sessionNotLive": "Open the session in chat first, then retry",
 			"error.badRequest": "Bad request data",
 			"error.autoRenameInProgress": "Auto rename is already running for this session.",
+			"error.autoRenameFailed": "Auto rename failed: {reason}",
 			"status.running": "Running",
 			"status.waitingApproval": "Waiting for approval",
 			"status.planReview": "Plan awaiting review",
@@ -1314,8 +1316,22 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			}
 			return data;
 		}
+		/** 宿主可能返回的**错误码**（区别于可直接展示的原始报错原文）。 */
+		const KNOWN_ERROR_CODES = new Set([
+			"request-failed", "name-conflict", "folder-not-found", "session-not-in-workspace",
+			"workspace-not-found", "no-user-message", "session-has-no-model", "empty-title",
+			"session-not-live", "auto-rename-in-progress", "path-not-found", "auto-rename-failed",
+		]);
 		/** Map a host error code to a localized message. */
 		function folderErrorText(code, t) {
+			// 「自动命名」失败时宿主会在 message 里带上**真实原因**（如
+			// `empty output from model（finish=max-tokens：maxTokens=512 被推理耗尽…）`）。
+			// 这里的入参因此可能是错误码、也可能是任意原始报错串：命中已知码走字典，
+			// 未命中的非空串原样透传 —— 否则一律落到「操作失败，请重试」，
+			// 用户看不到任何可操作的信息（已踩坑）。
+			if (typeof code === "string" && code !== "" && !KNOWN_ERROR_CODES.has(code)) {
+				return t("error.autoRenameFailed", { reason: code });
+			}
 			const key = "error." + (code === "request-failed" ? "requestFailed"
 				: code === "name-conflict" ? "nameConflict"
 				: code === "folder-not-found" ? "folderNotFound"
@@ -1326,6 +1342,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				: code === "empty-title" ? "emptyTitle"
 				: code === "session-not-live" ? "sessionNotLive"
 				: code === "auto-rename-in-progress" ? "autoRenameInProgress"
+				: code === "auto-rename-failed" ? "actionFailed"
 				: code === "path-not-found" ? "pathNotFound"
 				: "actionFailed");
 			return t(key);

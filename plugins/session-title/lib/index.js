@@ -11,29 +11,31 @@ const inject = ['sessionTitle', 'llm', 'sessions']
  */
 const DEFAULT_MODEL_ITEM = Object.freeze({
   id: '1',
-  provider: 'xiaomi',
-  model: 'mimo-v2.5',
+  provider: 'deepseek-official',
+  model: 'deepseek-flash',
   reasoningEffort: 'off',
 })
 
 const DEFAULTS = Object.freeze({
   enabled: true,
   models: [DEFAULT_MODEL_ITEM],
-  provider: 'xiaomi',
-  model: 'mimo-v2.5',
-  /** '' = follow the model's own default effort; 'off' disables thinking. */
+  provider: 'deepseek-official',
+  model: 'deepseek-flash',
+  /** 'off' = 显式关闭思考（默认）；'' = 跟随模型自身默认档位（不传该字段）。 */
   reasoningEffort: 'off',
   /**
-   * 预算只需容纳「一行标题」的正文，因为本插件默认 reasoningEffort=off
-   * （适配器会映射成 thinking:{type:'disabled'}，不产生 reasoning token）。
-   * 实测关闭思考时一次标题只花 4–6 tokens，96 足够有余。
+   * 512 = 「关闭思考时绰绰有余」+「万一模型仍产生 reasoning 也留足余量」。
    *
-   * ⚠️ 只有当输出预算被 reasoning 吃光时才会失败：此时 finish_reason=length
-   * 且 content 为空串 → 插件抛 `empty output from model` → 整条托底链全灭
-   * → 宿主静默退回 fallback 标题（表现为「自动命名操作失败」）。
-   * 因此若把 reasoningEffort 改成 low/high/max 开启思考，务必同步调高此值。
+   * 历史值 96 在 reasoningEffort=off 时实测只花 4–6 tokens，本身够用；但一旦
+   * 档位被模型拒绝、回退到「跟随模型默认」（见 isEffortRejection 的丢档重试），
+   * 96 极易被 reasoning 吃光 → finish=max-tokens 且 content 为空串 → 插件抛
+   * `empty output from model` → 整条托底链全灭 → 宿主静默退回内置标题
+   * （表现为「自动命名操作失败」）。512 是这一场景的安全余量。
+   *
+   * 仍不足时**不改代码**：错误文案会带出 finish=max-tokens 与当前 maxTokens
+   * 数值，经 session-folders 的提示条原样透传给用户，由其调高本值或关闭思考。
    */
-  maxTokens: 96,
+  maxTokens: 512,
   maxInputChars: 2000,
   timeoutMs: 30000,
   maxTitleLength: 80,
@@ -91,6 +93,20 @@ export function resolveModelChain(config) {
     model: DEFAULTS.model,
     reasoningEffort: DEFAULTS.reasoningEffort,
   }]
+}
+
+/**
+ * 该失败是否明确因为思考档位不被模型支持（此时丢弃档位重试是安全的）。
+ *
+ * 移植自 `dsh-git-panel/src/host/commit-message.ts` 的同名判定，刻意收窄：
+ * 只认「思考档位 + 不支持/非法」同时出现的报错。欠费、超时、鉴权失败一律
+ * 不匹配 —— 那些丢弃档位也救不回来，绝不能靠丢参数掩盖真问题。
+ * @param message - provider 原始报错文本。
+ * @returns 匹配时为 true。
+ */
+export function isEffortRejection(message) {
+  return /reasoning effort|reasoning_effort|thinking level/i.test(message)
+    && /not support|unsupported|invalid/i.test(message)
 }
 
 const TYPES = ['功能', '设计', '修复', '优化', '发布', '探索', '文档', '研究']
@@ -231,35 +247,59 @@ function apply(ctx, config) {
       let lastError = null
       let successResult = null
 
+      /**
+       * 单次调用：返回原始正文，或抛出错误。
+       * @param effort - 显式思考档位；undefined = 完全不传该字段（跟随模型默认）。
+       */
+      const callOnce = async (route, effort) => {
+        const timeout = AbortSignal.timeout(config.timeoutMs)
+        const signal = incoming === undefined ? timeout : AbortSignal.any([incoming, timeout])
+
+        const assembler = new BlockAssembler()
+        for await (const chunk of ctx.llm.stream({
+          provider: route.provider,
+          model: route.model,
+          // undefined = 跟随模型默认档位（不传该字段）
+          ...effort === undefined || effort === '' ? {} : { reasoningEffort: effort },
+          system: SYSTEM_PROMPT,
+          messages: [createUserMessage({
+            content: [{ type: 'text', text: userPrompt }],
+            source: { kind: 'plugin', plugin: 'dsh-session-title-gen' },
+          })],
+          maxTokens: config.maxTokens,
+          purpose: 'session-title',
+          signal,
+        })) {
+          assembler.push(chunk)
+        }
+        incoming?.throwIfAborted()
+        if (assembler.finish.kind === 'error' || assembler.finish.kind === 'aborted') {
+          throw (assembler.finish.failure instanceof Error
+            ? assembler.finish.failure
+            : new Error(assembler.finish.failure?.message ?? 'stream failure'))
+        }
+        return assembler
+      }
+
       for (let i = 0; i < chain.length; i++) {
         const route = chain[i]
         incoming?.throwIfAborted()
         try {
-          const timeout = AbortSignal.timeout(config.timeoutMs)
-          const signal = incoming === undefined ? timeout : AbortSignal.any([incoming, timeout])
-
-          const assembler = new BlockAssembler()
-          for await (const chunk of ctx.llm.stream({
-            provider: route.provider,
-            model: route.model,
-            // 空串 = 跟随模型默认档位（不传该字段）
-            ...route.reasoningEffort === '' ? {} : { reasoningEffort: route.reasoningEffort },
-            system: SYSTEM_PROMPT,
-            messages: [createUserMessage({
-              content: [{ type: 'text', text: userPrompt }],
-              source: { kind: 'plugin', plugin: 'dsh-session-title-gen' },
-            })],
-            maxTokens: config.maxTokens,
-            purpose: 'session-title',
-            signal,
-          })) {
-            assembler.push(chunk)
-          }
-          incoming?.throwIfAborted()
-          if (assembler.finish.kind === 'error' || assembler.finish.kind === 'aborted') {
-            throw (assembler.finish.failure instanceof Error
-              ? assembler.finish.failure
-              : new Error(assembler.finish.failure?.message ?? 'stream failure'))
+          let assembler
+          try {
+            assembler = await callOnce(route, route.reasoningEffort)
+          } catch (err) {
+            // 档位不被该模型支持时，丢弃档位（= 跟随模型默认）重试一次。
+            // 这不是隐形兜底：模型仍是用户配的那个，只是剔除一个明显无效的参数。
+            if (route.reasoningEffort !== '' && route.reasoningEffort !== undefined
+              && isEffortRejection(String(err?.message ?? err))) {
+              ctx.logger?.warn?.(
+                `[dsh-session-title-gen] 第 ${i + 1}/${chain.length} 级 ${route.provider}/${route.model} 不支持思考档位 ${route.reasoningEffort}，丢弃档位重试`,
+              )
+              assembler = await callOnce(route, undefined)
+            } else {
+              throw err
+            }
           }
 
           // 提取 LLM 输出并解析
@@ -273,8 +313,8 @@ function apply(ctx, config) {
             // 只会看到无信息量的 empty output，排查时完全看不出是预算问题。
             const finishKind = assembler.finish?.kind
             const hint = finishKind === 'max-tokens'
-              ? `（finish=max-tokens：${config.maxTokens} tokens 在正文前就耗尽，调高 maxTokens 或设 reasoningEffort=off）`
-              : ''
+              ? `（finish=max-tokens：maxTokens=${config.maxTokens} 被推理耗尽、正文为空。请到「设置 → 会话标题与git提交」把最大输出 Tokens 调高，或把思考档位设为 off）`
+              : (finishKind === undefined ? '' : `（finish=${finishKind}，正文为空）`)
             throw new Error(`empty output from model${hint}`)
           }
 

@@ -331,10 +331,10 @@ dsh-session-title-custom/
 | 字段 | 默认 | 范围 | 作用 |
 |------|------|------|------|
 | `enabled` | true | — | 关闭后抛错回退内置命名 |
-| `provider` | xiaomi | catalog | 标题请求路由 provider |
-| `model` | mimo-v2.5 | catalog | 标题生成模型 |
-| `reasoningEffort` | off | 模型 efforts + `''` | `''` = 跟随模型默认（不传该字段） |
-| `maxTokens` | 48 | 16–8192 | 输出上限 |
+| `provider` | deepseek-official | catalog | 标题请求路由 provider |
+| `model` | deepseek-flash | catalog | 标题生成模型 |
+| `reasoningEffort` | off | 模型 efforts + `''` | `off` = 关闭思考（默认，两侧同源）；`''` = 跟随模型默认（不传该字段），仅兼容存量配置 |
+| `maxTokens` | 512 | 32–8192 | 输出上限；不足时错误文案带 finish=max-tokens 提示用户调高 |
 | `maxInputChars` | 2000 | 200–8000 | 首条消息截断 |
 | `timeoutMs` | 30000 | 3000–120000 | `AbortSignal.timeout` 与调用方信号合并 |
 | `maxTitleLength` | 80 | 20–200 | `normalizeSessionTitle` 上限 |

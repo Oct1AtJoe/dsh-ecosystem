@@ -47,7 +47,7 @@ window.__ModuleLoader__.load({
 
     /** Reset targets, kept equal to the host DEFAULTS. */
     const RESET = {
-      maxTokens: '96',
+      maxTokens: '512',
       maxInputChars: '2000',
       timeoutMs: '30000',
       maxTitleLength: '80',
@@ -74,7 +74,7 @@ window.__ModuleLoader__.load({
       effortDefault: '跟随模型默认',
       effortUnsupported: '（该模型不支持，请更换）',
       maxTokens: '最大输出 Tokens',
-      maxTokensHint: '单次标题生成的输出上限（32–8192；关闭思考时 96 足够）。',
+      maxTokensHint: '单次标题生成的输出上限（32–8192）。默认 512；若提示 finish=max-tokens 正文为空，请调高。',
       maxInputChars: '首条消息截断',
       maxInputCharsHint: '送给模型的首条消息最大字符数（200–8000）。',
       timeoutMs: '超时（毫秒）',
@@ -109,7 +109,7 @@ window.__ModuleLoader__.load({
       effortDefault: 'Model default',
       effortUnsupported: ' (unsupported, change it)',
       maxTokens: 'Max output tokens',
-      maxTokensHint: 'Output cap for one title generation (32–8192; 96 suffices with thinking off).',
+      maxTokensHint: 'Output cap for one title generation (32–8192). Default 512; raise it if you see finish=max-tokens with empty output.',
       maxInputChars: 'First message cap',
       maxInputCharsHint: 'Max characters of the first message sent to the model (200–8000).',
       timeoutMs: 'Timeout (ms)',
@@ -252,18 +252,23 @@ window.__ModuleLoader__.load({
       /**
        * 归一化获取 models 列表，保证老旧单个配置平滑读取为数组第一项。
        *
-       * 档位默认值是 `''`（跟随模型默认），**不是 `'off'`**：`off` 只是模型可在
-       * 其 reasoningEfforts 里逐个声明的档位之一，并非通用值。早期把它硬编码为
-       * 默认值，导致写进配置后该模型又不支持它，且下拉里根本不存在这个选项 →
-       * 用户既选不回「跟随默认」也改不掉，三行配置全废（已踩坑）。
+       * 档位默认值取 `'off'`，与宿主 `DEFAULTS.reasoningEffort` 保持同源
+       * （PLAN.md「client RESET = host DEFAULTS」的约定）。`off` 关闭思考，
+       * 让 maxTokens 全部用于正文，这是本插件标题场景想要的行为。
+       *
+       * 早期版本此处用 `''`（跟随模型默认）是为了避开「模型不声明 off 档」的坑：
+       * 那种情况下写死 `off` 会造出非法档位。现在由两侧共同兜住——
+       * ① 下拉会把不受支持的存量档位标红（effortUnsupported），用户看得见；
+       * ② 宿主 `isEffortRejection` 在请求被明确拒绝时丢弃档位重试一次。
+       * 因此默认值可以收敛到 `off`，语义比空串更明确。
        */
       normalizeModels(rawModels, val) {
         if (Array.isArray(rawModels) && rawModels.length > 0) {
           return rawModels.map((m, idx) => ({
             id: m.id || String(idx + 1),
-            provider: m.provider || 'xiaomi',
-            model: m.model || 'mimo-v2.5',
-            reasoningEffort: typeof m.reasoningEffort === 'string' ? m.reasoningEffort : '',
+            provider: m.provider || 'deepseek-official',
+            model: m.model || 'deepseek-flash',
+            reasoningEffort: typeof m.reasoningEffort === 'string' && m.reasoningEffort !== '' ? m.reasoningEffort : 'off',
           }));
         }
         if (val && val.provider && val.model) {
@@ -271,14 +276,14 @@ window.__ModuleLoader__.load({
             id: '1',
             provider: val.provider,
             model: val.model,
-            reasoningEffort: typeof val.reasoningEffort === 'string' ? val.reasoningEffort : '',
+            reasoningEffort: typeof val.reasoningEffort === 'string' && val.reasoningEffort !== '' ? val.reasoningEffort : 'off',
           }];
         }
         return [{
           id: '1',
-          provider: 'xiaomi',
-          model: 'mimo-v2.5',
-          reasoningEffort: '',
+          provider: 'deepseek-official',
+          model: 'deepseek-flash',
+          reasoningEffort: 'off',
         }];
       }
 
@@ -360,7 +365,7 @@ window.__ModuleLoader__.load({
       saveModels(nextModels) {
         const snapshot = this.scope.getSnapshot();
         if (this.disposed || snapshot.status !== 'ready' || !snapshot.writable || this.saving) return;
-        // 空字符串 = 跟随模型默认，是合法且首选的缺省值（不要兜成 'off'）
+        // 空字符串 = 跟随模型默认，是合法值：用户在档位下拉里显式选了「跟随模型默认」时应原样保留
         const payload = nextModels.map((m, idx) => ({
           id: m.id || String(idx + 1),
           provider: m.provider,
@@ -386,8 +391,8 @@ window.__ModuleLoader__.load({
           const group = this.groups.find(g => g.id === val);
           if (group && !group.models.some(m => m.id === target.model)) {
             target.model = group.models[0]?.id || '';
-            // 换模型后用「跟随模型默认」而不是硬编码 'off'：新模型不一定声明 off 档
-            target.reasoningEffort = '';
+            // 换模型后回落到与宿主默认一致的 'off'；若新模型不支持，下拉会标红提示
+            target.reasoningEffort = 'off';
           }
         } else if (field === 'model') {
           target.model = val;
@@ -395,7 +400,7 @@ window.__ModuleLoader__.load({
           const m = group?.models.find(entry => entry.id === val);
           const allowedEfforts = this.effortIds(m);
           if (target.reasoningEffort && !allowedEfforts.includes(target.reasoningEffort)) {
-            target.reasoningEffort = '';
+            target.reasoningEffort = 'off';
           }
         } else if (field === 'effort') {
           target.reasoningEffort = val;
@@ -437,8 +442,8 @@ window.__ModuleLoader__.load({
           id: String(Date.now()),
           provider: firstGroup?.id || 'deepseek-official',
           model: firstModel?.id || 'deepseek-flash',
-          // 新行一律「跟随模型默认」：不知道新模型声明了哪些档位，硬给 off 会造出非法配置
-          reasoningEffort: '',
+          // 新行沿用宿主默认 'off'（关闭思考）；档位不被支持时由标红 + 宿主丢档重试兜住
+          reasoningEffort: 'off',
         });
         this.saveModels(list);
       }
