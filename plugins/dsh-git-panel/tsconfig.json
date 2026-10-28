@@ -13,6 +13,13 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    /* @types/node 只装在 harness 与生态根，插件自身没有 node_modules/@types。
+       显式列出 typeRoots（与 theme-tech 同范式），否则 tsc 直接 TS2688 起不来，
+       类型门禁形同虚设。 */
+    "typeRoots": [
+      "E:/vibeCoding/deepseek-harness/node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.mjs"]

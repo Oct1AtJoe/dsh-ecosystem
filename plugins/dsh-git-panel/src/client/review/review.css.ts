@@ -23,9 +23,9 @@ export const REVIEW_STYLE = `
   min-height: 0;
   color: var(--dsw-alias-label-primary, var(--fg, #1f2328));
   background: var(--dsw-alias-bg-layer-1, var(--bg, #ffffff));
-  --review-border: var(--dsw-alias-border-secondary, var(--dsw-alias-border-l2, rgba(128,128,128,0.18)));
-  --review-hover: var(--dsw-alias-fill-hover, var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.06)));
-  --review-active: var(--dsw-alias-fill-active, var(--dsw-alias-interactive-bg-active, rgba(128,128,128,0.12)));
+  --review-border: var(--dsw-alias-border-l2, rgba(128,128,128,0.18));
+  --review-hover: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.06));
+  --review-active: var(--dsw-alias-interactive-bg-active, rgba(128,128,128,0.12));
   --review-muted: var(--dsw-alias-label-tertiary, var(--muted, #656d76));
   --review-secondary: var(--dsw-alias-label-secondary, #57606a);
   --review-add-color: var(--dsw-alias-state-success-primary, #1a7f37);

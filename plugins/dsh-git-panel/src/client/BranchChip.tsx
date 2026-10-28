@@ -40,11 +40,11 @@ const CHIP_STYLE = `
 .dsh-gpc {
   --gpc-fg: var(--dsw-alias-label-primary, #24292f);
   --gpc-border: var(--dsw-alias-border-l1, rgba(128,128,128,0.35));
-  --gpc-hover: var(--dsw-alias-bg-hover, rgba(0,0,0,0.06));
-  --gpc-bg: var(--dsw-alias-bg-layer2, #ffffff);
+  --gpc-hover: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.06));
+  --gpc-bg: var(--dsw-alias-bg-layer-2, #ffffff);
   --gpc-muted: var(--dsw-alias-label-caption, #6e7781);
   --gpc-accent: var(--dsw-alias-brand-primary, #1976d2);
-  --gpc-danger: var(--dsw-alias-status-danger, #cf222e);
+  --gpc-danger: var(--dsw-alias-state-error-primary, #cf222e);
   --gpc-pop-bg: var(--dsw-specific-menu, #ffffff);
   position: relative;
   display: flex;
@@ -55,11 +55,11 @@ const CHIP_STYLE = `
 [data-ds-dark-theme] .dsh-gpc {
   --gpc-fg: var(--dsw-alias-label-primary, #d1d9e0);
   --gpc-border: var(--dsw-alias-border-l1, rgba(255,255,255,0.22));
-  --gpc-hover: var(--dsw-alias-bg-hover, rgba(255,255,255,0.08));
-  --gpc-bg: var(--dsw-alias-bg-layer2, #21262d);
+  --gpc-hover: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,0.08));
+  --gpc-bg: var(--dsw-alias-bg-layer-2, #21262d);
   --gpc-muted: var(--dsw-alias-label-caption, #9198a1);
   --gpc-accent: var(--dsw-alias-brand-primary, #58a6ff);
-  --gpc-danger: var(--dsw-alias-status-danger, #f85149);
+  --gpc-danger: var(--dsw-alias-state-error-primary, #f85149);
   --gpc-pop-bg: var(--dsw-specific-menu, #1f2328);
 }
 .dsh-gpc-anchor {

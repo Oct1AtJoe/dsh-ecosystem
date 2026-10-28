@@ -18,24 +18,56 @@ import { hideTip, showTip } from './tooltip.ts'
 import { reviewStore } from './review/review-store.ts'
 
 const STYLE = `
-.dsh-gp { --bg:#ffffff; --fg:#24292f; --muted:#6e7781; --border:rgba(128,128,128,0.25);
-  --accent:#1976d2; --hover:rgba(0,0,0,0.05); --current:#1a7f37; --danger:#cf222e;
+.dsh-gp { --bg:var(--dsw-alias-bg-base,#ffffff);
+  --fg:var(--dsw-alias-label-primary,#24292f);
+  --muted:var(--dsw-alias-label-caption,#6e7781);
+  --border:var(--dsw-alias-border-l1,rgba(128,128,128,0.25));
+  /* 令牌一律「var(--dsw-…, 原兜底色)」双写：宿主或自定义主题未定义时退回原值，
+     非主题用户视觉零变化。--current 是「当前」徽标的底色（白字），保持硬编码绿，
+     不接 state-success-primary —— 宿主绿更亮，白字对比度不达标。 */
+  --accent:var(--dsw-alias-brand-primary,#1976d2);
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,0.05));
+  --current:#1a7f37;
+  --danger:var(--dsw-alias-state-error-primary,#cf222e);
   /* 变更字母「已修改」的琥珀：选 --dsh-gp-warn 的浅色值，白底对比度约 5.4:1。
      刻意不沿用文件树 STATUS_COLORS 的 #e2c08d——那是 VS Code 深色主题色，
      白底上对比度不足 1.5:1，几乎看不清。 */
   --dsh-gp-modified:#9a6700;
-  --panel-bg:#f6f8fa; color:var(--fg); background:var(--bg);
+  --panel-bg:var(--dsw-alias-bg-layer-2,#f6f8fa);
+  color:var(--fg);
+  /* 自定义主题下壳透明，让右栏面板自身的玻璃层透出来；非主题（内置 light/dark）
+     仍走实色 --bg，行为与改动前完全一致。 */
+  background:var(--bg);
   --dsh-gp-lane-0:#1565c0; --dsh-gp-lane-1:#c62828; --dsh-gp-lane-2:#2e7d32; --dsh-gp-lane-3:#6a1b9a;
   --dsh-gp-lane-4:#00838f; --dsh-gp-lane-5:#e65100; --dsh-gp-lane-6:#4527a0; --dsh-gp-lane-7:#558b2f;
   --dsh-gp-lane-8:#ad1457; --dsh-gp-lane-9:#0277bd; --dsh-gp-lane-10:#ef6c00; --dsh-gp-lane-11:#00695c;
   display:flex; flex-direction:column; height:100%; font-size:13px; }
-[data-ds-dark-theme] .dsh-gp { --bg:#1f2328; --fg:#d1d9e0; --muted:#9198a1;
-  --border:rgba(255,255,255,0.14); --accent:#58a6ff; --hover:rgba(255,255,255,0.07);
-  --current:#3fb950; --danger:#f85149; --panel-bg:#161b22;
+[data-ds-dark-theme] .dsh-gp { --bg:var(--dsw-alias-bg-base,#1f2328);
+  --fg:var(--dsw-alias-label-primary,#d1d9e0);
+  --muted:var(--dsw-alias-label-caption,#9198a1);
+  --border:var(--dsw-alias-border-l1,rgba(255,255,255,0.14));
+  --accent:var(--dsw-alias-brand-primary,#58a6ff);
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,0.07));
+  --current:#3fb950;
+  --danger:var(--dsw-alias-state-error-primary,#f85149);
+  --panel-bg:var(--dsw-alias-bg-layer-2,#161b22);
   --dsh-gp-modified:#e3b341;
   --dsh-gp-lane-0:#58a6ff; --dsh-gp-lane-1:#ff7b72; --dsh-gp-lane-2:#3fb950; --dsh-gp-lane-3:#bc8cff;
   --dsh-gp-lane-4:#39c5cf; --dsh-gp-lane-5:#f0883e; --dsh-gp-lane-6:#a371f7; --dsh-gp-lane-7:#7ee787;
   --dsh-gp-lane-8:#ffa198; --dsh-gp-lane-9:#76e3ea; --dsh-gp-lane-10:#e3b341; --dsh-gp-lane-11:#56d364; }
+/* 自定义主题：壳透明，露出右栏面板自身的玻璃层（主题在
+   [data-sidebar-right-panel] 上画的填充 + 模糊 + 光斑）。
+   特异性 (0,2,1) 高于上面的 [data-ds-dark-theme] .dsh-gp (0,2,0)，
+   且只对 data-ds-custom-theme 生效 —— 内置 light/dark 用户完全不受影响。
+   fullscreen 态由主题侧的实心分支兜住，这里不用另写。 */
+body[data-ds-custom-theme] .dsh-gp { background:transparent; }
+/* 变更 diff 预览是面板内唯一的大面积阅读块（max-height:240px 的代码区），
+   壳透明后若仍用 bg-base 实色，会在玻璃面板里糊出一块死黑的补丁 —— 那正是
+   用户截图里最刺眼的那块。改为半透明底衬：可读性保住，玻璃质感不被切断。
+   其余小控件（badge / 输入框 / 按钮）保留 --panel-bg，那是控件层次，不是遮挡。 */
+body[data-ds-custom-theme] .dsh-gp-changes-pre {
+  background:color-mix(in srgb, var(--panel-bg) 55%, transparent);
+}
 .dsh-gp * { box-sizing:border-box; }
 .dsh-gp-head { display:flex; align-items:center; gap:6px; padding:8px 10px;
   border-bottom:1px solid var(--border); font-weight:600; }

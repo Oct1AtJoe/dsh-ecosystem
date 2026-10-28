@@ -2,6 +2,47 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.26] - 2026-10-28
+
+### Fixed
+- **Git 面板不再「无视」自定义主题（dsh-theme-tech 等）变成一块死灰贴纸**：
+  症状是右栏 Git 面板与旁边半透明的玻璃侧栏明显割裂，切换 6 套科技主题时面板底色
+  纹丝不动。根因是三层叠加，缺一不可：
+  1. `Panel.tsx` 自建了一整套局部变量（`--bg:#ffffff`、`--panel-bg:#f6f8fa`…），
+     **全文 `var(--dsw-*)` 引用数为 0** —— 面板压根没打算跟主题走；
+  2. `.dsh-gp` 又用 `background:var(--bg)` 把这套实色刷满整块，
+     而主题在 `[data-sidebar-right-panel]` 上画的玻璃填充/模糊/光斑被它整块盖死；
+  3. 即便想接令牌也接不上：3 个令牌名拼错，静默掉进硬编码兜底。
+  修法：
+  - `--bg / --fg / --muted / --border / --accent / --hover / --danger / --panel-bg`
+    全部改为「令牌优先 + 原色兜底」（`var(--dsw-alias-bg-base, #ffffff)` 形态），
+    深色分支同步处理。宿主或主题未定义令牌时退回原值，**未启用自定义主题的用户视觉零变化**；
+  - 新增 `body[data-ds-custom-theme] .dsh-gp{background:transparent}`，
+    露出主题自己的玻璃层。特异性 (0,2,1) 高于 `[data-ds-dark-theme] .dsh-gp` (0,2,0)，
+    且只对自定义主题生效，内置 light/dark 完全不受影响；
+  - 变更 diff 预览（面板内唯一的大面积阅读块）在自定义主题下改为 55% 半透明底衬，
+    否则壳透明后会在玻璃面板里糊出一块死色补丁。
+
+### Added
+- `scripts/test-theme-token-check.mjs`：主题令牌门禁，21 条断言锁住
+  「核心变量必须令牌优先」「8 个已知错名禁止出现」「壳透明规则不得漏掉主题门控」
+  「图谱 lane 调色板必须保持硬编码」四条不变式，含 4 条负向对照。
+
+### Changed
+- **修正 8 处从未存在过的令牌名**（接上只会静默掉兜底，等于主题永远不生效）：
+  `--dsw-alias-bg-layer2` → `layer-2`、`--dsw-alias-bg-hover` → `interactive-bg-hover`、
+  `--dsw-alias-status-danger` → `state-error-primary`、
+  `--dsw-alias-color-brand` → `brand-primary`、
+  `--dsw-alias-border-secondary` → `border-l2`、
+  `--dsw-alias-fill-hover` → `interactive-bg-hover`、
+  `--dsw-alias-fill-active` → `interactive-bg-active`；
+  `--dsw-font-mono` 宿主本就未定义，直接改用 `ui-monospace` 系统栈。
+- `tsconfig.json` 补 `typeRoots`：原先 `types:["node"]` 但本目录没有
+  `node_modules/@types`，`tsc` 直接以 `TS2688` 退出，类型门禁形同虚设。
+
+### Unchanged（刻意不动）
+- 提交图谱的 12 色 lane 调色板。那是数据可视化色，跟主题走反而会降低分支辨识度。
+
 ## [0.1.25] - 2026-10-26
 
 ### Changed
