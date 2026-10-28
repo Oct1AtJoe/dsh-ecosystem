@@ -132,7 +132,7 @@ node verify.mjs
 ```
 patches/kanye-pet-electron/
 ├── patch.mjs          打补丁（幂等，带语法自检与备份）
-├── verify.mjs         产物级校验（15 项）
+├── verify.mjs         产物级校验（18 项）
 ├── revert.mjs         从备份还原 + 清理 preload
 ├── lib/asar.mjs       最小 asar 读工具（仅用于定位与前置检查）
 ├── lib/rules.mjs      注入规则 + preload 源码（唯一真值来源）
@@ -145,9 +145,10 @@ patches/kanye-pet-electron/
 
 | 症状 | 查什么 |
 |---|---|
-| 宠物窗完全不出现 | ①`node verify.mjs` 是否 15/15；②壳日志有无 `kanye-pet:` 报错；③`curl` 插件 `/kanye-pet/window` 是否 200 |
+| 宠物窗完全不出现 | ①`node verify.mjs` 是否 18/18；②壳日志有无 `kanye-pet:` 报错；③`curl` 插件 `/kanye-pet/window` 是否 200 |
 | 窗口出现但全白/全透明 | Host 未就绪或插件未挂载 → `dsh-app://app/kanye-pet/window` 返 503；补丁会自动每 2s 重试 |
 | 拖拽不生效 | `window.petDesktop` 未注入 → `preload-pet.cjs` 是否在 `main.js` 同目录；preload 报错会在壳日志的 `preload-error` 里 |
 | 点气泡不跳会话 | 主窗口是否加载了 `dsh-kanye-pet` 的 client bundle（它注册 `dsh:open-session` 监听；设置面板已并入该包） |
 | 关掉桌宠开关后宠物还在 | `desktopPetEnabled` 未写入 profile 的 `cordis.patch.yml` 的 `- id: kanye-pet` 节 |
 | 桌宠开着仍弹 Windows Toast | `dsh-kanye-pet` 的 Notification shim 未加载或版本旧，需重建 client bundle（`npm run build`） |
+| 桌宠「先按默认 150×255 出现、几秒后才变成设置尺寸」 | 壳侧 `setSize` 的竞态：`setSize()` 会**同步**触发 `resize` 事件，而 resize 守卫按 `desiredSize` 纠偏。旧实现先 `setSize` 再写 `desiredSize`，守卫读到旧值把这次设置回滚（壳日志实证 `setSize req=130x221 before=150x255 after=150x255`，第三次轮询才成功）。v2 起改为**先写 `desiredSize = requested` 再 `setSize`**，见 `lib/rules.mjs`；`verify.mjs` 有顺序断言。改动后必须 revert → 重打 → 完全退出应用重启 |

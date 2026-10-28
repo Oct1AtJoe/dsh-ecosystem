@@ -208,16 +208,22 @@ Electron 的节流是**可显式关闭**的：建窗时 `backgroundThrottling: f
 `hide()/show()` 语义干净，轮询永不断。**不要照搬 0×0 那套 workaround。**
 
 ```javascript
-// pet.js
-window.petDesktop?.setVisible(show);          // 主进程 hide()/showInactive()
+// pet.js —— 顺序是契约：先 setSize，再 setVisible
 // 开启态才设尺寸；关闭态不缩窗
 if (show && hasSize) {
   const FRAME_W = 122, FRAME_H = 207;
   await window.petDesktop?.setSize(Math.round(newSize), Math.round(newSize * FRAME_H / FRAME_W));
 }
+window.petDesktop?.setVisible(show);          // 主进程 hide()/showInactive()
 ```
 
 > **为什么用 `showInactive()` 而不是 `show()`**：开启桌宠不该抢走主窗口的输入焦点。
+
+> 🚨 **顺序不可颠倒（2026-10-27 实测）**：壳侧建窗恒为默认 `PET_W×PET_H`（150×255），
+> 用户尺寸只能由页内 `setSize` 下发。若先 `setVisible(true)` 再 `setSize`，窗口会以 150×255
+> 先亮一帧、下一帧才被拉成设置尺寸 —— 表现为「桌宠加载出来后尺寸才跳变」。
+> 隐藏态改尺寸不可见，**先设尺寸再显示**，首帧就是用户设置的像素尺寸。
+> 门禁：`tests/pet-window.test.mjs` 的「先设尺寸再显示」用例（比较两处调用在源码里的先后）。
 
 ### 3.5 IPC 桥（`window.petDesktop`）
 
@@ -734,6 +740,8 @@ node revert.mjs            # 从 main.js.orig-<版本> 还原并删 preload
 | 47 | ⚠️［Electron］宠物跑到屏幕外不见了 | 位置记忆写的是副屏坐标，副屏拔了。`clampPetPosition` 会把完全出屏的落点拉回主屏右下角；若仍丢失，删 `%APPDATA%\@deepseek-ai\dsh-desktop\pet-window.json` |
 | 48 | ⚠️［Electron］官方更新后宠物/菜单一起消失 | 官方「检查更新」整包覆盖 `app.asar` 与 `app.asar.unpacked`。按序重跑两个补丁：先 `patches/desktop-menu`，再 `patches/kanye-pet-electron` |
 | 49 | ⚠️［通用］桌宠 tab 在、内容整块空白（2026-10-26 实踩） | **profile 的 `cordis.patch.yml` 里 `- id: kanye-pet` 出现两次**（一条带 `name/config`，末尾又有一条 `disabled: false`）。宿主 `ConfigEditor.entries()` 用 `counts.get(id) === 1` 过滤，重复 id 被整条丢弃 → `volatileForm` 拿不到 schema → client `configForms.get('kanye-pet')` 恒 `unavailable` → 卡片 `if (!state.available) return null` → **tab 在、零报错、整块空白**（与 #40 同款静默失败）。查法：`Select-String -Path <profile>\cordis.patch.yml -Pattern '^- id: kanye-pet'` 必须只有 1 条；改完**必须重启宿主**（entries 在启动期构建，刷新页面无效） |
+| 50 | ⚠️［通用］桌宠「加载出来后才变大小」 | `pet.js` 的 `applyConfig` 里 **`setVisible` 排在 `setSize` 之前**：窗口先以建窗默认 150×255 亮起，下一帧才被拉成设置尺寸。改成「先 `await setSize` 再 `setVisible`」（隐藏态改尺寸不可见）。门禁 `tests/pet-window.test.mjs` 断言调用先后 |
+| 51 | ⚠️［Electron］改了顺序仍「先默认尺寸再变」（2026-10-28 实踩，真正根因） | 页内顺序只是**一半**。壳侧 `setSize` 有竞态：`petWindow.setSize()` **同步触发 `resize` 事件**，而 resize 守卫拿 `desiredSize` 纠偏；旧实现先 `setSize` 再写 `desiredSize` → 守卫用旧值（建窗 150×255）把这次设置**原样回滚**。壳日志实证：`setSize req=130x221 before=150x255 after=150x255`，随后 `resize event 130x221 -> restore 150x255`，要等第三次轮询才碰巧成功 —— 用户看到的就是「先 150×255 出来、5 秒后才变」。修法：**先 `desiredSize = requested` 再 `setSize`**（`patches/kanye-pet-electron/lib/rules.mjs`，补丁标记升 v2）。改完必须 `node revert.mjs` → `node patch.mjs` → **完全退出应用**重开；`verify.mjs` 18 项含顺序断言 |
 
 ## 八、相关文件清单
 

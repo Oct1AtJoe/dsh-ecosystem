@@ -141,6 +141,16 @@ check('main.js 语法可解析', () => {
   return 'syntax ok'
 })
 
+check('setSize 先写期望尺寸再改窗口（防 resize 守卫回滚）', () => {
+  // 顺序反了就会被 resize 守卫按旧 desiredSize 回滚：日志实证 req=130x221 after=150x255
+  const assignAt = source.indexOf('desiredSize = requested;')
+  const setSizeAt = source.indexOf('petWindow.setSize(requested.width, requested.height);')
+  assert(assignAt > -1, '缺少 desiredSize = requested 竞态修复')
+  assert(setSizeAt > -1, '缺少 setSize(requested…) 调用')
+  assert(assignAt < setSizeAt, 'desiredSize 必须在 setSize 之前赋值')
+  return 'desiredSize-first'
+})
+
 check('宠物页不再调用 Tauri API（负向对照）', () => {
   // 前端已迁到插件 assets；这里只对本补丁能看到的范围做负向断言：
   // 补丁注入的代码里不得出现任何 __TAURI 残留。

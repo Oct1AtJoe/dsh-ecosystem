@@ -12,7 +12,7 @@
  */
 
 /** 补丁标识：写在文件首行（在既有标记之后），用于幂等判断与版本追溯。 */
-export const PATCH_MARK = '/* dsh-ecosystem:kanye-pet-electron v1 */'
+export const PATCH_MARK = '/* dsh-ecosystem:kanye-pet-electron v2 */'
 
 /** 宠物窗口页（Host 路由，见插件 src/routes.mjs 的 WINDOW_PATH）。 */
 const PET_URL = 'dsh-app://app/kanye-pet/window'
@@ -218,8 +218,14 @@ function installKanyePetWindow(getMainWindow) {
 		if (!fromPet(event)) throw new Error("kanye-pet: rejected IPC from an unowned renderer");
 		if (!Number.isFinite(width) || !Number.isFinite(height) || petWindow.isDestroyed()) return;
 		if (width <= 0 || height <= 0) return;
+		const requested = { width: Math.round(width), height: Math.round(height) };
 		const before = petWindow.getBounds();
-		petWindow.setSize(Math.round(width), Math.round(height));
+		// 顺序是竞态关键：setSize() 会同步触发 resize 事件，而 resize 守卫按 desiredSize 纠偏。
+		// 若先 setSize 再写 desiredSize，守卫读到旧值（建窗默认 150x255）会把这次设置原样回滚。
+		// 日志实证：req=130x221 before=150x255 after=150x255，第三次轮询才碰巧成功，
+		// 表现为「先按默认尺寸出现、几秒后才变」。所以先写期望值，再让窗口跟上。
+		desiredSize = requested;
+		petWindow.setSize(requested.width, requested.height);
 		const after = petWindow.getBounds();
 		// 以「设完之后真实生效的尺寸」为准：DPI 缩放下 Electron 会做一次换算。
 		desiredSize = { width: after.width, height: after.height };

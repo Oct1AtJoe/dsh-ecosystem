@@ -356,12 +356,12 @@ async function applyConfig(config) {
   document.body.style.pointerEvents = show ? 'auto' : 'none';
   // 内联 display 是权威：宿主/缓存不参与，透明内容也不会漏出点击面
   document.body.style.display = show ? '' : 'none';
-  // 显隐交给主进程：hide()/show() 而非缩 0×0。窗口建时已关 backgroundThrottling，
-  // 隐藏期间本文件的 setInterval 轮询照常跑，重新开启时下一个周期即可自愈。
-  window.petDesktop?.setVisible(show);
   // 尺寸：开关开启时按角色尺寸设窗。
   const newSize = Math.min(300, Number(config.size));
   const hasSize = Number.isFinite(newSize) && newSize > 0;
+  // 顺序是契约：**先 setSize 再 setVisible**。反序会让窗口以建窗默认 150×255 先亮一帧，
+  // 下一帧才被拉到用户尺寸 —— 用户看到的就是「加载出来后才变大小」。
+  // 隐藏态改尺寸不可见，所以首次显示的第一帧就是设置里的像素尺寸。
   if (show && hasSize) {
     const FRAME_W = 122, FRAME_H = 207; // 裁剪后每帧尺寸
     try {
@@ -370,6 +370,9 @@ async function applyConfig(config) {
       console.warn('[pet] resize failed:', e);
     }
   }
+  // 显隐交给主进程：hide()/show() 而非缩 0×0。窗口建时已关 backgroundThrottling，
+  // 隐藏期间本文件的 setInterval 轮询照常跑，重新开启时下一个周期即可自愈。
+  window.petDesktop?.setVisible(show);
 }
 
 // ---- Asset loading ----

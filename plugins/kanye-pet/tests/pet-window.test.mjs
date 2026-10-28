@@ -94,6 +94,16 @@ test('pet.js 走 window.petDesktop 五个动作', () => {
   }
 })
 
+test('pet.js 先设尺寸再显示（首帧即用户尺寸，无跳变）', () => {
+  const source = readFileSync(join(ROOT, 'lib/assets/pet/pet.js'), 'utf8')
+  const sizeAt = source.indexOf('petDesktop?.setSize')
+  const visibleAt = source.indexOf('petDesktop?.setVisible')
+  assert.ok(sizeAt > -1, '缺少 setSize 调用')
+  assert.ok(visibleAt > -1, '缺少 setVisible 调用')
+  // 反序 = 窗口先以建窗默认 150×255 显示，下一帧才变尺寸（用户可见闪变）
+  assert.ok(sizeAt < visibleAt, 'setSize 必须在 setVisible 之前')
+})
+
 test('pet.js 不再硬编码 Host 端口', () => {
   const source = readFileSync(join(ROOT, 'lib/assets/pet/pet.js'), 'utf8')
   // Electron 桌面端 Host 端口随机：任何 3080 硬编码都会打空
