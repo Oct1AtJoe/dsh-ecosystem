@@ -1,7 +1,7 @@
 import type { HeatCell, HomeModel, HomeUsageState, ListSummary, UsageDay, UsageModel, UsageReport, UsageTotals } from './types.ts';
 export declare const USAGE_ROUTE = "/ui-theme-custom/usage";
-export declare const HOME_POLL_MS = 800;
-export declare const HOME_POLL_MAX = 15;
+export declare const HOME_POLL_MS = 1500;
+export declare const HOME_POLL_MAX = 8;
 export declare const HOME_HEAT_WEEKS = 26;
 export declare const HOME_HEAT_STEPS = 4;
 export declare const HOME_CHART_DAYS = 30;
@@ -62,6 +62,7 @@ export declare function createHomeUsage(ctx: any): {
     subscribe: (listener: () => void) => () => void;
     notify: () => void;
     load: (force?: boolean) => void;
+    setPollEnabled: (allowed: boolean) => void;
     loadList: () => void;
     stop(): void;
 };

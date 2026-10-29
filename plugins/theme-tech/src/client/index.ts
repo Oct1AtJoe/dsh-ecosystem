@@ -537,11 +537,21 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]
   backdrop-filter:var(--dsh-glass-blur,none) !important;
   -webkit-backdrop-filter:var(--dsh-glass-blur,none) !important;
 }
-/* 卡片内含浮层时抬层，确保菜单浮在卡片内容之上（用 :has 自适应，无需改 JS） */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([role="menu"]),
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([class*="overlayAnchor"] [class$="_menu"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([role="menu"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([class*="overlayAnchor"] [class$="_menu"]){
+/* 卡片内含浮层时抬层，确保菜单浮在卡片内容之上（用 :has 自适应，无需改 JS）。
+   🚨 性能（2026-10-29）：原先这里是 4 条独立 :has()（菜单 ×2 + 弹窗 ×2，同一值），
+   而输入坞卡片**每敲一个字符**内容就变 → 这 4 条各自重跑一次子树匹配。
+   现合并为「2 条主题门控 × 1 个 :has(:is(...))」，与下方 1078 行同一范式
+   （判据合并进 :is() 只触发一次匹配）。视觉效果逐像素不变。 */
+body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has(:is(
+  [role="menu"],
+  [class*="overlayAnchor"] [class$="_menu"],
+  [role="dialog"][class$="_panel"]
+)),
+body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has(:is(
+  [role="menu"],
+  [class*="overlayAnchor"] [class$="_menu"],
+  [role="dialog"][class$="_panel"]
+)){
   z-index:9500 !important;
 }
 /* 上下文占用弹窗（官方 ContextMeter 的 role="dialog"）同为**卡片内浮层**：
@@ -552,10 +562,8 @@ body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]
    给卡片加了 z-index:0，其余主题不建立该 context，本就不冲突。）
    选择器收窄到 ContextMeter 面板本体（[role="dialog"][class$="_panel"]），
    与既有 [class$="_menu"] / [class$="_card"] 同一后缀范式，不波及其它卡片内浮层。 */
-body[data-ds-custom-theme="sequoia"] [class*="composerSeat"] [data-composer-card]:has([role="dialog"][class$="_panel"]),
-body[data-ds-custom-theme="sonoma"] [class*="composerSeat"] [data-composer-card]:has([role="dialog"][class$="_panel"]){
-  z-index:9500 !important;
-}
+/* ↑ 上下文占用弹窗（ContextMeter 的 [role="dialog"][class$="_panel"]）的抬层
+   已并入上一条 :has(:is(...))，不再单独成规则。 */
 
 /* ── 输入坞底部状态药丸栏（StatsPills / data-composer-dock）防透与毛玻璃 ──
    宿主 0.2.1-rc.2 架构重构：删除了 _MG5Va_root 与 [data-composer-stats]，将统计条目拆分为
@@ -1028,6 +1036,43 @@ body[data-ds-dark-theme] [class*="gitCommitButton"]:hover:not(:disabled){
 }
 :is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) .dsh-composer-pet {
   display: none !important;
+}
+
+/* ── 长会话渲染裁剪：视口外的历史行不参与布局/绘制 ────────────────────────
+   🚨 为什么必须加（2026-10-29 实测对比 dsh-claude-style）：
+   同为长会话流式输出，claude-style 丝滑、本插件明显掉帧。逐项量化后，
+   唯一的结构性差距是 **content-visibility：本插件 0 条，它 1 条**。
+   其余差异（[class*=] 选择器数、backdrop-filter 数）都只在 DOM 抖动时才会重算，
+   而 content-visibility 直接决定「屏幕上几百个历史行要不要每帧参与渲染树」。
+
+   流式输出时，模型每吐一个 token 都会触发宿主重排后续内容。若全部历史行都在
+   渲染树里，每次重排的代价 ∝ 会话总长度 —— 这就是「会话越长越卡」的根因，
+   也是纯 JS 侧优化（早先的 P0-1/P0-2）完全无感的原因：它们省的是查询与布局读取，
+   省不掉「几百个已渲染节点参与每一帧」这笔固定开销。
+
+   判据与排除清单直接沿用 dsh-claude-style 的成熟沉淀（它踩过的坑）：
+     · [data-chat-flow-kind] 是宿主 ChatNodeSeat.tsx:155 自带的结构标记，
+       不猜类名、不用 :has()；
+     · 排除 user 行 —— 用户消息要常驻可见，不折叠；
+     · 排除 [data-turn-process-answer] —— **正在生成的那条答案**。折叠它会让
+       用户看到一片空白（这是最关键的一条）；
+     · 排除 [data-turn-process-hidden] / [hidden] —— 已隐藏的成员无需再折叠，
+       且折叠会破坏宿主的展开态测量；
+     · 排除 [data-disclosure-row] [hidden] —— 折叠面板内的隐藏行同理。
+
+   尺寸占位用 contain-intrinsic-size 的 **auto** 关键字：首次按 240px 估高，
+   之后**记住上次渲染的真实高度**。因此反复滚动不会每次都用估值，避免滚动条
+   持续跳动。 */
+
+/* 只给「非用户行、且不在排除清单内」的会话行加裁剪。 */
+[data-chat-flow-kind]:not([data-chat-flow-kind="user"]):not(
+  [hidden],
+  [data-turn-process-answer],
+  [data-turn-process-hidden],
+  [data-disclosure-row] [hidden]
+) {
+  contain-intrinsic-size: auto 240px;
+  content-visibility: auto;
 }
 
 /* ── 第三方输入框浮层（dsh-prompt-history）的层级纠正 ────────────────────────
@@ -2897,8 +2942,9 @@ export function apply(ctx: Context): void {
     // (the context-usage dialog renders `<span class="…_headline">上下文已用</span>`),
     // which flipped this predicate on an ordinary conversation and made the
     // usage panel appear when that popover opened.
+    // ⚠️ 通配 [class*="_composerHero"] 是 [class*="composerHero"] 的子集，
+    // 两者并列属于纯冗余（每次调用多一次全文档子串扫描），已合并。
     return document.querySelector('[data-phase="hero"]') !== null
-      || document.querySelector('[class*="_composerHero"]') !== null
       || document.querySelector('[class*="composerHero"]') !== null
   }
 
@@ -2913,9 +2959,13 @@ export function apply(ctx: Context): void {
     coldSeat = null
   }
 
-  function syncColdSeat() {
+  /**
+   * @param isHeroProbe - 调用方已算出的 hero 判定；省略则自行探测。
+   *   syncHeroAttrs 每次都会先算一次，传进来可省掉一整轮全文档 querySelector。
+   */
+  function syncColdSeat(isHeroProbe?: boolean) {
     if (typeof document === 'undefined') return
-    const isHero = isHeroPhase()
+    const isHero = isHeroProbe ?? isHeroPhase()
     const studioHero = currentHomeLayout === 'studio' && isHero
     const stack = studioHero
       ? document.querySelector('[class*="_composerStack"][class*="_composerHero"]')
@@ -2944,6 +2994,9 @@ export function apply(ctx: Context): void {
     if (typeof document === 'undefined') return
     const hero = isHeroPhase()
     const studioHero = currentHomeLayout === 'studio' && hero
+    // 用量轮询只在「工作室版首页」有意义：离开首页或页面进入后台立即停，
+    // 否则服务端算完后仍在空转拉取（详见 usage/data.ts 的 setPollEnabled）。
+    homeUsage.setPollEnabled(studioHero && !document.hidden)
     if (studioHero) {
       document.body.setAttribute('data-dsh-home-hero', '')
     } else {
@@ -2964,7 +3017,7 @@ export function apply(ctx: Context): void {
       }
       homeUsage.notify()
     }
-    syncColdSeat()
+    syncColdSeat(hero)
   }
 
   function applyHomeLayout(layout: 'classic' | 'studio') {
@@ -3287,16 +3340,44 @@ export function apply(ctx: Context): void {
         syncHeroAttrs()
       })
     }
-    const observer = new MutationObserver(() => {
-      scheduleSync()
+    // 🚨 性能（2026-10-29）：这里原本还有 setInterval(syncHeroAttrs, 200)。
+    // 它每秒 5 次无条件跑 isHeroPhase()（3 次全文档 querySelector，
+    // 含 [class*="composerHero"] 这条子串选择器），空闲时也烧 CPU。
+    // 现改为纯事件驱动 + 精确过滤：
+    //   · attributes 只过滤真正影响 hero 判定的属性（原先裸 attributes:true 会订阅
+    //     全文档所有属性变化，包括聊天区每帧的 class/style 抖动）；
+    //   · 回调先在原始记录上过滤，只有「确实出现/移除了 data-phase 容器」才排帧，
+    //     否则连 rAF 都不开。
+    const HERO_ATTRS = ['data-phase', 'data-content-phase', 'class']
+    const observer = new MutationObserver((records) => {
+      for (let i = 0; i < records.length; i += 1) {
+        const record = records[i]
+        if (record === undefined) continue
+        // 结构变化：与改造前同样直接排帧（合并到每帧至多一次），
+        // 逐节点做子树匹配反而更贵，且首页/对话页切换都由它驱动。
+        if (record.type === 'childList') { scheduleSync(); return }
+        const target = record.target
+        if (!(target instanceof Element)) continue
+        // data-phase / data-content-phase 变化只发生在持有者身上（ConversationMainPanel
+        // 的 hero|active|settling 等），出现即可能翻转判定 —— 频率极低，直接放行。
+        if (record.attributeName !== 'class') { scheduleSync(); return }
+        // class 变化是高频噪音（聊天区每帧大量节点改 class），必须收窄：
+        // 只有「hero 容器类持有者」或「phase 属性持有者」的 class 才影响判定。
+        // ⚠️ data-phase 在普通对话页取值 'active'，不能用 closest 当 hero 判据。
+        if (target.hasAttribute('data-phase') || target.hasAttribute('data-content-phase')
+          || (target.getAttribute('class') ?? '').includes('composerHero')) {
+          scheduleSync()
+          return
+        }
+      }
     })
-    observer.observe(document.body, { attributes: true, subtree: true, childList: true })
-    const interval = setInterval(() => {
-      syncHeroAttrs()
-    }, 200)
+    observer.observe(document.body, { attributes: true, subtree: true, childList: true, attributeFilter: HERO_ATTRS })
+    // 页面切到后台：停掉用量轮询；切回前台：按当前版面恢复。
+    const onVisibility = (): void => { syncHeroAttrs() }
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       observer.disconnect()
-      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
       if (heroPollTimer) clearTimeout(heroPollTimer)
       unmountColdSeat()
       homeUsage.stop()

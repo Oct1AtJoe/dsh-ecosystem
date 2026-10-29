@@ -254,16 +254,21 @@ check(
   '浮层：卡片 ::before 有 z-index:-1（需卡片自身建立 stacking context 才可见）',
   /\[class\*="composerSeat"\] \[data-composer-card\]::before\s*\{[\s\S]{0,300}?z-index:-1/.test(indexSrc),
 )
+// ⚠️ 判据允许两种写法：独立 :has([role="menu"])，或（现行）合并式
+// :has(:is([role="menu"], …))。合并是为性能：输入坞卡片每敲一字符内容就变，
+// 4 条独立 :has 会各自重跑一次子树匹配；合进一个 :is() 只跑一次。
+// 断言意图不变 —— 仍要求「卡片含菜单时抬到 z-index:9500」。
+const LIFT_MENU = /\[class\*="composerSeat"\] \[data-composer-card\]:has\((?:\[role="menu"\]|:is\([\s\S]{0,300}?\[role="menu"\])[\s\S]{0,350}?z-index:9500/
 check(
   '浮层：卡片含菜单时抬层（:has([role="menu"]) → z-index:9500）',
-  /\[class\*="composerSeat"\] \[data-composer-card\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
+  LIFT_MENU.test(indexSrc),
 )
 // 上下文占用弹窗（官方 ContextMeter，role="dialog"）也是卡片内浮层：卡片自身
 // z-index:0 建了 stacking context，弹窗的 z-index:100 出不去，会被同层的挂件
 // `.dsh-composer-pet`（z-index:50）压住。含弹窗时同样抬卡片。
 check(
   '浮层：卡片含上下文弹窗时抬层（:has([role="dialog"][class$="_panel"]) → z-index:9500，须高于挂件 50）',
-  /\[class\*="composerSeat"\] \[data-composer-card\]:has\(\[role="dialog"\]\[class\$="_panel"\]\)[\s\S]{0,200}?z-index:9500/.test(indexSrc),
+  /\[class\*="composerSeat"\] \[data-composer-card\]:has\((?:\[role="dialog"\]\[class\$="_panel"\]|:is\([\s\S]{0,300}?\[role="dialog"\]\[class\$="_panel"\])[\s\S]{0,350}?z-index:9500/.test(indexSrc),
 )
 check(
   '浮层：指令面板纳入 C 组统一毛玻璃',
@@ -378,7 +383,7 @@ check(
 check(
   '推广：::before 迁移与 :has 抬层成对存在（缺一即漏修）',
   /\[data-composer-card\]::before[\s\S]{0,400}?backdrop-filter:var\(--dsh-glass-blur/.test(indexSrc)
-  && /\[data-composer-card\]:has\(\[role="menu"\]\)[\s\S]{0,350}?z-index:9500/.test(indexSrc),
+  && LIFT_MENU.test(indexSrc),
 )
 // ── 适用范围收窄（用户实测确认）──
 // 玻璃材质**只服务 sequoia 与 sonoma**。本组断言防止它重新扩散到其余四主题。

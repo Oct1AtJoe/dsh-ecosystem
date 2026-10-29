@@ -84,7 +84,12 @@ ctx.slots.inject = (_name, callback) => {
 ctx.slots.register = (meta) => { captured.push(meta); return () => {} }
 plugin.apply(ctx)
 
-assert.equal(captured.length, 2, 'sidebar.workspaces plus the settings launcher')
+// sidebar.workspaces + settings.launcher + the three General preference rows.
+assert.equal(captured.length, 5, 'sidebar.workspaces, settings.launcher, three preference rows')
+assert.deepEqual(
+  captured.filter(entry => entry.name === 'settings.general.item').map(entry => entry.id),
+  ['folders-sidebar-width', 'folders-rightbar-width', 'folders-sidebar-font'],
+  'the layout preference rows register in the General section')
 const workspaces = captured.find(entry => entry.name === 'sidebar.workspaces')
 assert.ok(workspaces, 'sidebar.workspaces registration')
 const face = workspaces.inject()

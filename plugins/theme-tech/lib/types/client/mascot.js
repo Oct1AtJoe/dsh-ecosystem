@@ -245,6 +245,27 @@ export function initMascot(ctx) {
      * （它同时包含排队消息、目标任务、待办与输入框，因此挂件永远在所有元素之上）；
      * 替代面板（授权/提问）接管输入卡片时站在面板上沿。
      */
+    /**
+     * composer 区域：只有落在这个子树里的结构变化才可能改变挂件站位。
+     * 聊天区流式输出每帧几十上百条 MutationRecord，全部落在对话列里 ——
+     * 用 closest 逐条短路，比在 rAF 里对每条变化读 offsetHeight（强制同步布局）便宜两个数量级。
+     */
+    const COMPOSER_ZONE = '[data-composer-seat], [class*="composerSeat"], [data-phase="hero"], [data-content-phase="hero"], [class*="composerHero"]';
+    /**
+     * 锚点缓存：一次 DOM 变化风暴里可能连续排多次 syncMount，
+     * 而 findAnchor() 内部有多处 offsetHeight（每次都是一次强制同步布局）。
+     * 150ms 内的重复请求直接复用，并校验连通性，避免把已卸载的节点当锚点。
+     */
+    let anchorCache = null;
+    function findAnchorCached() {
+        if (anchorCache !== null && anchorCache.value.element.isConnected
+            && performance.now() - anchorCache.at < 150) {
+            return anchorCache.value;
+        }
+        const fresh = findAnchor();
+        anchorCache = fresh === null ? null : { value: fresh, at: performance.now() };
+        return fresh;
+    }
     function findAnchor() {
         const isHero = document.querySelector('[data-phase="hero"], [data-content-phase="hero"]') !== null
             || document.querySelector('[class*="composerHero"]') !== null;
@@ -284,7 +305,7 @@ export function initMascot(ctx) {
             detach();
             return;
         }
-        const anchor = findAnchor();
+        const anchor = findAnchorCached();
         if (!anchor) {
             detach();
             return;
@@ -348,16 +369,63 @@ export function initMascot(ctx) {
     // findAnchor()（内部多处 offsetHeight，属强制同步布局）。改为事件驱动后，
     // 无 DOM 变化时零开销。
     //
-    // 三条约束：
+    // 四条约束：
     // 1. 必须 rAF 节流 —— 回调里 findAnchor() 要读 offsetHeight，
     //    在 mutation 批次内直接读布局会触发 layout thrashing。
     // 2. 用 { childList: true, subtree: true }，不监听 attributes：
     //    锚点切换由结构变化驱动，属性变化（主题切换等）与本函数无关，监听会放大噪音。
     // 3. 保留低频兜底（2s）：MutationObserver 不覆盖「纯样式变化导致的显隐切换」，
     //    这一点与 status-rotator 的取舍一致，但间隔从 500ms 放宽到 2000ms。
+    //
+    // 4. **按记录过滤后才排帧**（2026-10-29 性能修复，掉帧主因）：
+    //    body 级观察器对聊天区每个 token 都会收到记录，原实现在每帧无条件跑
+    //    syncMount() → findAnchor() 的 8 处 offsetHeight，等于流式输出期间
+    //    「每帧一次强制同步布局」。现在只有下列两种情况才算「站位可能变」：
+    //      a. 挂件已脱离原位（宿主重渲染把 pet 摘掉 / 锚点断开）；
+    //      b. 变化落在 composer 区域内，或落在锚点自身的子树里。
+    //    聊天区 token 变化既不在 composer 区域也不在锚点内 → 直接丢弃。
+    /** 这批变化是否可能影响挂件站位。 */
+    function affectsMascot(records) {
+        const anchor = pet.parentElement;
+        // 锚点还在 DOM 里的情况下被断开（宿主重渲染换了容器）：必须重算。
+        if (anchor !== null && !anchor.isConnected)
+            return true;
+        // anchor === null 表示挂件尚未挂载。此时不必急着重算 —— findAnchor() 的
+        // 全部候选都锚在 composer 区域内，所以只有 composer 区域的变化才可能让它命中。
+        for (let i = 0; i < records.length; i += 1) {
+            const record = records[i];
+            if (record === undefined)
+                continue;
+            const target = record.target;
+            const el = target instanceof Element ? target : target.parentElement;
+            if (el === null)
+                continue;
+            if (anchor !== null) {
+                // ⚠️ 锚点**内部**的变化不改变锚点身份 —— 挂件用 CSS bottom:100% 定位，
+                // 锚点变高变矮由 CSS 自动跟随，无需 JS 重算。
+                // 🚨 这一条是「打字掉帧」的关键：输入框就在锚点子树里，每敲一个字符都会
+                // 产生 childList 记录；若不排除，等于每次击键都跑一遍 findAnchor() 的 8 处
+                // offsetHeight（强制同步布局）。P0-1 首版只优化了流式输出，漏了这条。
+                if (el === anchor || anchor.contains(el))
+                    continue;
+                // 锚点的**祖先**被改写（容器替换 / 祖先被摘除）→ 锚点可能整体失效。
+                if (el.contains(anchor))
+                    return true;
+            }
+            // composer 区域出现新节点（首页 ↔ 对话页切换、输入坞重建、替代面板接管）。
+            if (el.closest(COMPOSER_ZONE) !== null)
+                return true;
+        }
+        return false;
+    }
     let mountRaf = 0;
-    const scheduleSyncMount = () => {
+    const scheduleSyncMount = (records) => {
+        // 后台标签页不排版，等可见后再补。
+        if (document.hidden)
+            return;
         if (mountRaf !== 0)
+            return;
+        if (records !== undefined && !affectsMascot(records))
             return;
         mountRaf = requestAnimationFrame(() => {
             mountRaf = 0;
@@ -366,7 +434,12 @@ export function initMascot(ctx) {
     };
     const mountObserver = new MutationObserver(scheduleSyncMount);
     mountObserver.observe(document.body, { childList: true, subtree: true });
-    const mountInterval = setInterval(syncMount, 2000);
+    // 兜底：MutationObserver 不覆盖「纯样式变化导致的显隐切换」，低频补扫。
+    const mountInterval = setInterval(() => {
+        if (document.hidden)
+            return;
+        scheduleSyncMount();
+    }, 2000);
     start();
     function readSessions() {
         try {

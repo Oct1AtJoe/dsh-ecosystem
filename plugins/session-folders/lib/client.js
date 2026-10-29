@@ -56,6 +56,21 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		const STYLE_ID = "dsh-session-folders-custom-style";
 		/** View store persist key (collapsed groups + collapsed folders). */
 		const VIEW_PERSIST_KEY = "dsh.session-folders-custom.view.v1";
+		/** 布局偏好键：左右栏宽度与侧边栏字号（宿主 layout store 不持久化，由本插件代记）。 */
+		const PREF_KEY_SIDEBAR = "dsh.session-folders-custom.sidebar-width";
+		const PREF_KEY_RIGHTBAR = "dsh.session-folders-custom.rightbar-width";
+		/** Right panel px memory: the exact drag width, restored on the next open. */
+		const PREF_KEY_RIGHTBAR_PX = "dsh.session-folders-custom.rightbar-px";
+		const PREF_KEY_FONT = "dsh.session-folders-custom.sidebar-font";
+		/**
+		 * 宿主契约区间（ui-layout/src/client/columns.ts），越界由宿主夹取。
+		 * 左栏 264~420 是硬契约，故用 px 而非百分比；右栏上限随视口比例。
+		 */
+		const SIDEBAR_PX = { min: 264, max: 420, def: 280 };
+		const RIGHTBAR_PCT = { min: 15, max: 60, def: 24 };
+		const FONT_PX = { min: 11, max: 16, def: 13 };
+		/** 侧边栏字号的内联变量名（html + body 双写，见层叠陷阱）。 */
+		const FONT_VAR = "--dsh-ff-font";
 		/** Search debounce, mirroring the built-in browser. */
 		const SEARCH_DEBOUNCE_MS = 250;
 		/** Search query length cap, mirroring the built-in browser. */
@@ -157,6 +172,15 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.waitingAnswer": "等待回答",
 			"status.completed": "已完成",
 			"settings.launcher": "设置",
+			"pref.sidebarWidth.title": "左侧边栏宽度",
+			"pref.sidebarWidth.description": "左侧边栏展开时的宽度（264 ~ 420 像素）",
+			"pref.sidebarWidth.unit": "px",
+			"pref.rightbarWidth.title": "右侧边栏初始百分比宽度",
+			"pref.rightbarWidth.description": "右侧栏首次展开时的默认宽度占窗口宽度的百分比",
+			"pref.rightbarWidth.unit": "%",
+			"pref.font.title": "侧边栏字号",
+			"pref.font.description": "左侧边栏导航文字的大小（11 ~ 16 像素）",
+			"pref.font.unit": "px",
 			"session.new": "新会话",
 			"time.now": "刚刚",
 			"time.minutes": "{n}分钟",
@@ -255,6 +279,15 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			"status.waitingAnswer": "Waiting for answer",
 			"status.completed": "Completed",
 			"settings.launcher": "Settings",
+			"pref.sidebarWidth.title": "Left sidebar width",
+			"pref.sidebarWidth.description": "Width of the left sidebar when expanded (264 – 420 px)",
+			"pref.sidebarWidth.unit": "px",
+			"pref.rightbarWidth.title": "Right sidebar initial width",
+			"pref.rightbarWidth.description": "Default width of the right panel as a share of the window on first open",
+			"pref.rightbarWidth.unit": "%",
+			"pref.font.title": "Sidebar font size",
+			"pref.font.description": "Text size of the left sidebar navigation (11 – 16 px)",
+			"pref.font.unit": "px",
 			"session.new": "New session",
 			"time.now": "now",
 			"time.minutes": "{n}m",
@@ -577,16 +610,16 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 }
 .dsh-ff__group-row {
   padding-left: 6px;
-  font-size: 14px;
+  font-size: calc(var(--dsh-ff-font, 13px) + 1px);
   font-weight: 500;
 }
 .dsh-ff__folder-row {
   padding-left: 16px;
-  font-size: 13px;
+  font-size: var(--dsh-ff-font, 13px);
 }
 .dsh-ff__session-row {
   padding-left: 0;
-  font-size: 13px;
+  font-size: var(--dsh-ff-font, 13px);
   animation: dsh-ff__row-in .15s var(--ds-ease-in-out, ease-in-out);
 }
 .dsh-ff__folder .dsh-ff__session-row {
@@ -653,6 +686,112 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* General-section preference rows (sidebar width / right panel width / font size).
+   Geometry mirrors the host's FontSizeRow: 36px pill, r18, centered tabular digits,
+   step arrows revealed on hover or focus. */
+.dsh-ff__pref-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, .08));
+}
+.dsh-ff__pref-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 48px;
+}
+.dsh-ff__pref-title {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary, #111827);
+}
+.dsh-ff__pref-desc {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary, #9ca3af);
+}
+.dsh-ff__pref-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.dsh-ff__pref-stepper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--dsw-alias-bg-module-platform, rgba(0, 0, 0, .06));
+}
+.dsh-ff__pref-value {
+  min-width: 18px;
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center;
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary, #111827);
+  box-sizing: border-box;
+}
+.dsh-ff__pref-value:focus-visible {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary, #2563eb) !important;
+}
+.dsh-ff__pref-unit {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary, #374151);
+}
+/* Arrow column: pinned to the pill's right edge so the value stays centered. */
+.dsh-ff__pref-arrows {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+}
+.dsh-ff__pref-stepper:hover .dsh-ff__pref-arrows,
+.dsh-ff__pref-stepper:focus-within .dsh-ff__pref-arrows {
+  opacity: 1;
+}
+.dsh-ff__pref-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: var(--dsw-alias-bg-layer-1, rgba(0, 0, 0, .06));
+  color: var(--dsw-alias-label-primary, #111827);
+  cursor: pointer;
+}
+.dsh-ff__pref-arrow:hover:not(:disabled) {
+  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, .1));
+}
+.dsh-ff__pref-arrow:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
 .dsh-ff__slot {
   flex: none;
   width: 16px;
@@ -703,7 +842,8 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 20px;
+  /* Line box follows the font axis so a larger size never clips the row. */
+  line-height: calc(var(--dsh-ff-font, 13px) + 7px);
 }
 /* Inline rename: double-click the row title to edit it in place. */
 .dsh-ff__rename-input {
@@ -723,8 +863,8 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 .dsh-ff__time {
   flex: none;
   color: var(--dsw-alias-label-tertiary, #9ca3af);
-  font-size: 12px;
-  line-height: 17px;
+  font-size: calc(var(--dsh-ff-font, 13px) - 1px);
+  line-height: calc(var(--dsh-ff-font, 13px) + 4px);
 }
 
 .dsh-ff__folder-icon {
@@ -884,6 +1024,334 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 			tag.id = STYLE_ID;
 			tag.textContent = STYLE;
 			document.head.appendChild(tag);
+		}
+		/** Clamp a number into a contract range, rounding to an integer. */
+		function clampPref(raw, range) {
+			const n = typeof raw === "number" ? raw : Number.parseInt(String(raw ?? ""), 10);
+			if (!Number.isFinite(n)) return range.def;
+			return Math.min(range.max, Math.max(range.min, Math.round(n)));
+		}
+		/** Read one persisted integer preference, falling back to its default. */
+		function readPref(key, range) {
+			if (typeof localStorage === "undefined") return range.def;
+			try {
+				const raw = localStorage.getItem(key);
+				return raw === null || raw === "" ? range.def : clampPref(raw, range);
+			} catch {
+				return range.def;
+			}
+		}
+		/** Persist one integer preference (storage failures stay non-fatal). */
+		function writePref(key, value, range) {
+			if (typeof localStorage === "undefined") return;
+			try {
+				localStorage.setItem(key, String(clampPref(value, range)));
+			} catch {
+				// Private mode / quota: the preference simply does not survive a reload.
+			}
+		}
+		/**
+		 * Publish the sidebar font size as an inline CSS variable on html AND body.
+		 *
+		 * Both targets are required: the host's light fallback palette lives on
+		 * body and outranks :root, so a documentElement-only write is overridden.
+		 */
+		function applyFontPx(px) {
+			if (typeof document === "undefined") return;
+			const value = clampPref(px, FONT_PX) + "px";
+			const root = document.documentElement;
+			const body = document.body;
+			// Both writes are guarded: a non-browser composition (node-side boot, a
+			// partial test harness) has no documentElement, and losing the font variable
+			// must never abort the rest of apply().
+			if (root !== null && root !== undefined) root.style.setProperty(FONT_VAR, value);
+			if (body !== null && body !== undefined) body.style.setProperty(FONT_VAR, value);
+		}
+		/**
+		 * Coalesce a burst of writes into one trailing storage hit.
+		 *
+		 * Dragging a panel calls setSidebar/setRightbar on every pointer move; writing
+		 * localStorage per move would serialize the whole store dozens of times a second.
+		 * The pending value is still the latest one, so the final size is never lost.
+		 * @param sink - receives the last value of the burst.
+		 * @returns the schedule function.
+		 */
+		function throttledWrite(sink) {
+			let pending;
+			let timer = null;
+			const flush = () => {
+				timer = null;
+				const value = pending;
+				pending = undefined;
+				if (value !== undefined) sink(value);
+			};
+			return (value) => {
+				pending = value;
+				if (timer !== null) return;
+				timer = setTimeout(flush, 200);
+			};
+		}
+		/** Viewport width used to turn a right-panel ratio into px. */
+		function frameWidth() {
+			return typeof window !== "undefined" && window.innerWidth > 0 ? window.innerWidth : 1920;
+		}
+		/** Right-panel px range for the current frame (host clamps to 300px / 70%). */
+		function rightbarPxRange() {
+			const vw = frameWidth();
+			return {
+				min: 300,
+				max: Math.max(300, Math.round(vw * 0.7)),
+				def: Math.round(vw * RIGHTBAR_PCT.def / 100)
+			};
+		}
+		/**
+		 * Keep both column widths across reloads.
+		 *
+		 * The host's layout store is memory-only (ui-layout's stores.ts declares no
+		 * persist), so a reload drops both panels to their contract defaults; its
+		 * toggleSidebar also deliberately forgets the width on close. This plugin
+		 * owns that memory instead: restore on boot, record every width the frame
+		 * writes (drag included), and re-apply on reopen.
+		 * @param ctx - client root context; the layout service resolves lazily.
+		 * @returns the adopted panel actions, or undefined until they exist.
+		 */
+		function adoptLayoutPreferences(ctx) {
+			let adopted;
+			let restored = false;
+			/** Sidebar width remembered from the last frame write (px). */
+			const sidebarPx = () => readPref(PREF_KEY_SIDEBAR, SIDEBAR_PX);
+			/**
+			 * Right panel width remembered from the last drag, if any.
+			 *
+			 * The percentage row is the *initial* width only: once the user has dragged,
+			 * that exact px wins on every later open. Editing the row clears this memory
+			 * (see writeRightbarPct), which is how the row stays meaningful.
+			 */
+			const rightbarPx = () => {
+				if (typeof localStorage === "undefined") return null;
+				try {
+					const raw = localStorage.getItem(PREF_KEY_RIGHTBAR_PX);
+					return raw === null || raw === "" ? null : clampPref(raw, rightbarPxRange());
+				} catch {
+					return null;
+				}
+			};
+			/** Whether the sidebar is collapsed right now (host marker on the frame). */
+			const sidebarCollapsed = () =>
+				typeof document !== "undefined" && document.querySelector("[data-sidebar-collapsed]") !== null;
+			/**
+			 * Wrap one panel action. `before` runs prior to the host call (state probes),
+			 * `after` once it returned; both receive the same arguments.
+			 */
+			const wrap = (panels, name, after, before) => {
+				const original = panels[name];
+				if (typeof original !== "function") return;
+				panels[name] = function (...args) {
+					const pre = typeof before === "function" ? before(...args) : undefined;
+					const out = original.apply(this, args);
+					after(...args, pre);
+					return out;
+				};
+			};
+			const saveSidebar = throttledWrite((px) => { writePref(PREF_KEY_SIDEBAR, px, SIDEBAR_PX); });
+			const saveRightbar = throttledWrite((px) => { writePref(PREF_KEY_RIGHTBAR_PX, px, rightbarPxRange()); });
+			const hook = (layout) => {
+				const panels = layout?.panels;
+				if (adopted !== undefined || panels === undefined) return;
+				if (typeof panels.setSidebar !== "function" || typeof panels.setRightbar !== "function") return;
+				adopted = panels;
+				// Every write the frame performs — boot default, reopen, drag — is recorded.
+				wrap(panels, "setSidebar", (px) => {
+					if (px > 0) saveSidebar(px);
+				});
+				// Drags land here too; only the px memory is written, so the percentage row
+				// keeps meaning "initial width" until the user edits it.
+				wrap(panels, "setRightbar", (px) => {
+					if (px > 0) saveRightbar(px);
+				});
+				// The host zeroes the width on close and restores its contract default on
+				// open, forgetting the remembered width. Capture the pre-toggle state so an
+				// open re-applies it while a close is left alone.
+				wrap(panels, "toggleSidebar", (collapsedBefore) => {
+					// Only an open transition lost the width; a close must stay closed.
+					if (collapsedBefore !== true) return;
+					panels.setSidebar(sidebarPx());
+				}, () => sidebarCollapsed());
+				// Reopening the right panel after a close: the host fills its null preference
+				// with the contract 24%; the remembered drag width wins instead.
+				wrap(panels, "openRightbar", () => {
+					const px = rightbarPx();
+					if (px !== null) panels.setRightbar(px);
+				});
+				if (!restored) {
+					restored = true;
+					panels.setSidebar(sidebarPx());
+				}
+			};
+			const resolve = () => {
+				try {
+					return ctx.get("layout");
+				} catch {
+					return undefined;
+				}
+			};
+			hook(resolve());
+			if (adopted === undefined) {
+				try {
+					ctx.inject(["layout"], (scope) => hook(scope.layout ?? resolve()));
+				} catch {
+					// No injectable layout in this composition: the frame keeps its default widths.
+				}
+			}
+			// A getter, not the value: the layout service may resolve after this call,
+			// and the settings rows must still reach the panels it adopts later.
+			return () => adopted;
+		}
+		/**
+		 * Persist the right-panel *initial* width as a viewport percentage.
+		 *
+		 * Clears the drag memory on purpose: the row is the fallback for the next
+		 * first open, and a stale px memory would shadow it forever.
+		 * @param panels - adopted panel actions.
+		 * @param pct - viewport percentage, already clamped by the caller.
+		 */
+		function writeRightbarPct(panels, pct) {
+			writePref(PREF_KEY_RIGHTBAR, pct, RIGHTBAR_PCT);
+			if (typeof localStorage !== "undefined") {
+				try {
+					localStorage.removeItem(PREF_KEY_RIGHTBAR_PX);
+				} catch {
+					// Storage failures only skip the reset.
+				}
+			}
+			if (panels !== undefined) panels.setRightbar(Math.round(frameWidth() * clampPref(pct, RIGHTBAR_PCT) / 100));
+		}
+		/** Layout preference store: mirrors the three persisted values for the settings rows. */
+		function createLayoutPrefsStore() {
+			return runtimeClient.defineStore({
+				init: () => ({
+					sidebarPx: SIDEBAR_PX.def,
+					rightbarPct: RIGHTBAR_PCT.def,
+					fontPx: FONT_PX.def,
+					revision: -1
+				}),
+				actions: {
+					sync: (d, next, revision) => {
+						if (revision <= d.revision) return;
+						d.sidebarPx = next.sidebarPx;
+						d.rightbarPct = next.rightbarPct;
+						d.fontPx = next.fontPx;
+						d.revision = revision;
+					}
+				}
+			});
+		}
+		/**
+		 * One General-row preference stepper: pill input, hover arrows, unit suffix.
+		 *
+		 * Geometry mirrors the host's FontSizeRow (72x36 pill, r18, centered tabular
+		 * digits, arrows revealed on hover/focus). Typing accepts digits only; an
+		 * out-of-range or empty draft clamps back on blur, so nothing illegal persists.
+		 * @param props - row copy, current value, contract range, unit, commit sink.
+		 * @returns the row element tree.
+		 */
+		function PrefStepper(props) {
+			const { title, desc, unit, value, min, max, onCommit } = props;
+			const [draft, setDraft] = react.useState(null);
+			const commit = (next) => {
+				onCommit(Math.min(max, Math.max(min, Math.round(next))));
+				setDraft(null);
+			};
+			const handleInput = (ev) => {
+				setDraft(ev.target.value.replace(/[^\d]/g, "").slice(0, String(max).length));
+			};
+			const handleBlur = () => {
+				if (draft === null) return;
+				if (draft === "") { setDraft(null); return; }
+				commit(Number.parseInt(draft, 10));
+			};
+			const handleKey = (ev) => {
+				if (ev.key !== "Enter") return;
+				ev.preventDefault();
+				const typed = draft === null ? value : Number.parseInt(draft, 10);
+				commit(Number.isFinite(typed) ? typed : value);
+			};
+			return e("div", { className: "dsh-ff__pref-row" },
+				e("div", { className: "dsh-ff__pref-text" },
+					e("div", { className: "dsh-ff__pref-title" }, title),
+					e("div", { className: "dsh-ff__pref-desc" }, desc)
+				),
+				e("div", { className: "dsh-ff__pref-control" },
+					e("div", { className: "dsh-ff__pref-stepper" },
+						e("input", {
+							className: "dsh-ff__pref-value",
+							type: "text",
+							inputMode: "numeric",
+							"aria-label": title,
+							value: draft === null ? String(value) : draft,
+							onChange: handleInput,
+							onBlur: handleBlur,
+							onKeyDown: handleKey
+						}),
+						e("span", { className: "dsh-ff__pref-arrows" },
+							e("button", {
+								type: "button",
+								className: "dsh-ff__pref-arrow",
+								"aria-label": title + " +1",
+								disabled: value >= max,
+								onClick: () => { commit(value + 1); }
+							}, e(primitives.IconChevronUpOutlineRegular, { size: 9 })),
+							e("button", {
+								type: "button",
+								className: "dsh-ff__pref-arrow",
+								"aria-label": title + " -1",
+								disabled: value <= min,
+								onClick: () => { commit(value - 1); }
+							}, e(primitives.IconChevronDownOutlineRegular, { size: 9 }))
+						)
+					),
+					e("span", { className: "dsh-ff__pref-unit" }, unit)
+				)
+			);
+		}
+		/** General row: left sidebar width in px. */
+		function SidebarWidthRow(props) {
+			const px = props.useStore((s) => s.sidebarPx);
+			return e(PrefStepper, {
+				title: props.t("pref.sidebarWidth.title"),
+				desc: props.t("pref.sidebarWidth.description"),
+				unit: props.t("pref.sidebarWidth.unit"),
+				value: px,
+				min: SIDEBAR_PX.min,
+				max: SIDEBAR_PX.max,
+				onCommit: props.setSidebarPx
+			});
+		}
+		/** General row: right panel initial width as a viewport percentage. */
+		function RightbarWidthRow(props) {
+			const pct = props.useStore((s) => s.rightbarPct);
+			return e(PrefStepper, {
+				title: props.t("pref.rightbarWidth.title"),
+				desc: props.t("pref.rightbarWidth.description"),
+				unit: props.t("pref.rightbarWidth.unit"),
+				value: pct,
+				min: RIGHTBAR_PCT.min,
+				max: RIGHTBAR_PCT.max,
+				onCommit: props.setRightbarPct
+			});
+		}
+		/** General row: sidebar font size in px. */
+		function SidebarFontRow(props) {
+			const px = props.useStore((s) => s.fontPx);
+			return e(PrefStepper, {
+				title: props.t("pref.font.title"),
+				desc: props.t("pref.font.description"),
+				unit: props.t("pref.font.unit"),
+				value: px,
+				min: FONT_PX.min,
+				max: FONT_PX.max,
+				onCommit: props.setFontPx
+			});
 		}
 		/**
 		* Create the browser's view store handle: collapsed workspace groups and
@@ -3113,6 +3581,71 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				priority: -5,
 				locale: NS
 			}, SettingsLauncher));
+
+			// ── Layout preferences (General section rows) ────────────────────
+			// The host keeps both column widths in memory only, so these rows own the
+			// persistence: adoptLayoutPreferences restores them on boot and records every
+			// width the frame writes; the rows edit the same three values and push them
+			// straight back into the frame.
+			const panelsOf = adoptLayoutPreferences(ctx);
+			applyFontPx(readPref(PREF_KEY_FONT, FONT_PX));
+
+			const prefsStore = createLayoutPrefsStore();
+			let prefsBound;
+			let prefsRevision = 0;
+			const syncPrefs = () => {
+				if (prefsBound === undefined) return;
+				prefsRevision += 1;
+				prefsBound.sync({
+					sidebarPx: readPref(PREF_KEY_SIDEBAR, SIDEBAR_PX),
+					rightbarPct: readPref(PREF_KEY_RIGHTBAR, RIGHTBAR_PCT),
+					fontPx: readPref(PREF_KEY_FONT, FONT_PX)
+				}, prefsRevision);
+			};
+			const prefsInjected = (actions) => {
+				prefsBound = actions;
+				syncPrefs();
+				return {
+					setSidebarPx: (px) => {
+						writePref(PREF_KEY_SIDEBAR, px, SIDEBAR_PX);
+						panelsOf()?.setSidebar(clampPref(px, SIDEBAR_PX));
+						syncPrefs();
+					},
+					setRightbarPct: (pct) => {
+						writeRightbarPct(panelsOf(), pct);
+						syncPrefs();
+					},
+					setFontPx: (px) => {
+						writePref(PREF_KEY_FONT, px, FONT_PX);
+						applyFontPx(px);
+						syncPrefs();
+					}
+				};
+			};
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "folders-sidebar-width",
+				order: 10.81,
+				locale: NS,
+				store: prefsStore,
+				inject: prefsInjected
+			}, SidebarWidthRow));
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "folders-rightbar-width",
+				order: 10.82,
+				locale: NS,
+				store: prefsStore,
+				inject: prefsInjected
+			}, RightbarWidthRow));
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "folders-sidebar-font",
+				order: 10.83,
+				locale: NS,
+				store: prefsStore,
+				inject: prefsInjected
+			}, SidebarFontRow));
 		}
 		//#endregion
 		module.exports = { name, inject, apply };

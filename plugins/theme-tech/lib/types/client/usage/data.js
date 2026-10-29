@@ -1,6 +1,9 @@
 export const USAGE_ROUTE = '/ui-theme-custom/usage';
-export const HOME_POLL_MS = 800;
-export const HOME_POLL_MAX = 15;
+// 首页用量轮询：服务端计算完成前反复拉取。原先 800ms × 15 次 ≈ 12 秒，
+// 且离开首页后仍会跑完。现收敛为 1500ms × 8 次 ≈ 10 秒，并在页面隐藏 /
+// 离开首页时立即停止（见 setPollEnabled）。
+export const HOME_POLL_MS = 1500;
+export const HOME_POLL_MAX = 8;
 export const HOME_HEAT_WEEKS = 26;
 export const HOME_HEAT_STEPS = 4;
 export const HOME_CHART_DAYS = 30;
@@ -437,8 +440,27 @@ export function createHomeUsage(ctx) {
             pollTimer = null;
         }
     }
+    /** 轮询是否允许继续：页面隐藏或已离开首页时置 false，省掉无意义的请求。 */
+    let pollAllowed = true;
+    /**
+     * 启停用量轮询。
+     * 只在「离开首页（或页面进入后台）」时调用 false；这些场景下服务端仍可能在算，
+     * 但结果已经没有人看 —— 等下次回到首页时 loadUsage 会重新发起。
+     */
+    function setPollEnabled(allowed) {
+        if (allowed === pollAllowed)
+            return;
+        pollAllowed = allowed;
+        if (!allowed) {
+            stopPolling();
+            // 复位计数，让下次进首页重新获得完整的轮询预算。
+            usage.polls = 0;
+        }
+    }
     function loadUsage(force) {
         if (disposed || usage.loading)
+            return;
+        if (!force && !pollAllowed)
             return;
         if (!force && usage.value !== null && !usage.computing)
             return;
@@ -462,6 +484,8 @@ export function createHomeUsage(ctx) {
             emit();
             if (usage.computing) {
                 if (usage.polls >= HOME_POLL_MAX)
+                    return;
+                if (!pollAllowed)
                     return;
                 usage.polls += 1;
                 stopPolling();
@@ -582,6 +606,7 @@ export function createHomeUsage(ctx) {
         subscribe,
         notify: emit,
         load: loadUsage,
+        setPollEnabled,
         loadList: loadSessionSummary,
         stop() {
             disposed = true;
