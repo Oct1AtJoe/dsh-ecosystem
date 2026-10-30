@@ -208,9 +208,9 @@ export const CommitFileTree = memo(function CommitFileTree(props: CommitFileTree
           {node.name}
         </span>
         {(f.added > 0 || f.deleted > 0) && (
-          <span style={{ fontSize: 11, display: 'inline-flex', gap: 3, flexShrink: 0, fontFamily: 'monospace' }}>
-            {f.added > 0 && <span style={{ color: 'var(--review-add-color)' }}>+{f.added}</span>}
-            {f.deleted > 0 && <span style={{ color: 'var(--review-del-color)' }}>-{f.deleted}</span>}
+          <span className="dsh-review-delta">
+            {f.added > 0 && <span className="dsh-review-delta-add">+{f.added}</span>}
+            {f.deleted > 0 && <span className="dsh-review-delta-del">-{f.deleted}</span>}
           </span>
         )}
         {statusBadge(f.status)}

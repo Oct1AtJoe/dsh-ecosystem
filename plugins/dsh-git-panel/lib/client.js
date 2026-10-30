@@ -24,7 +24,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/client/index.ts
+// plugins/dsh-git-panel/src/client/index.ts
 var index_exports = {};
 __export(index_exports, {
   apply: () => apply,
@@ -34,7 +34,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 var import_react13 = require("react");
 
-// src/client/api.ts
+// plugins/dsh-git-panel/src/client/api.ts
 async function post(path, payload, signal) {
   let response;
   try {
@@ -239,7 +239,7 @@ var GitPanelApi = class {
   }
 };
 
-// src/client/i18n.ts
+// plugins/dsh-git-panel/src/client/i18n.ts
 var import_react = require("react");
 var DICTS = {
   zh: {
@@ -1000,14 +1000,14 @@ function useT() {
   return t;
 }
 
-// src/client/GitTab.tsx
+// plugins/dsh-git-panel/src/client/GitTab.tsx
 var import_react5 = require("react");
 
-// src/client/Panel.tsx
+// plugins/dsh-git-panel/src/client/Panel.tsx
 var import_react4 = require("react");
 var import_react_dom = require("react-dom");
 
-// src/client/batch-stage.ts
+// plugins/dsh-git-panel/src/client/batch-stage.ts
 async function runBatch(files, apply2) {
   let done = 0;
   for (const file of files) {
@@ -1018,7 +1018,7 @@ async function runBatch(files, apply2) {
   return { done, failure: null };
 }
 
-// src/client/git-status.ts
+// plugins/dsh-git-panel/src/client/git-status.ts
 var TTL_MS = 5e3;
 function statusLetter(code) {
   if (code === "??") return "U";
@@ -1155,7 +1155,7 @@ var GitStatusCache = class {
   }
 };
 
-// src/client/change-groups.ts
+// plugins/dsh-git-panel/src/client/change-groups.ts
 function changeBadgeOf(code) {
   return statusLetter(code);
 }
@@ -1180,7 +1180,7 @@ function classifyChanges(changes, stats) {
   };
 }
 
-// src/client/graph.ts
+// plugins/dsh-git-panel/src/client/graph.ts
 function layoutGraph(commits) {
   const activeLanes = [];
   const placed = [];
@@ -1226,7 +1226,7 @@ function layoutGraph(commits) {
   return placed;
 }
 
-// src/client/icons.tsx
+// plugins/dsh-git-panel/src/client/icons.tsx
 var import_react2 = require("react");
 var SHAPES = {
   refresh: [
@@ -1350,7 +1350,7 @@ function icon(name, size = 14) {
   );
 }
 
-// src/client/tooltip.ts
+// plugins/dsh-git-panel/src/client/tooltip.ts
 var node = null;
 function showTip(target, text) {
   hideTip();
@@ -1375,7 +1375,7 @@ function hideTip() {
   node = null;
 }
 
-// src/client/review/review-store.ts
+// plugins/dsh-git-panel/src/client/review/review-store.ts
 var import_react3 = require("react");
 var ReviewStore = class {
   /** 纯内存存储：按会话隔离目标提交，不写入 localStorage/sessionStorage */
@@ -1439,13 +1439,17 @@ function useReviewTarget(sessionId) {
   );
 }
 
-// src/client/Panel.tsx
+// plugins/dsh-git-panel/src/client/Panel.tsx
 var import_jsx_runtime = require("react/jsx-runtime");
 var STYLE = `
 .dsh-gp { --bg:var(--dsw-alias-bg-base,#ffffff);
   --fg:var(--dsw-alias-label-primary,#24292f);
   --muted:var(--dsw-alias-label-caption,#6e7781);
   --border:var(--dsw-alias-border-l1,rgba(128,128,128,0.25));
+  /* \u63A7\u4EF6\u8FB9\u6846\uFF08\u8F93\u5165\u6846/\u4E0B\u62C9\u6846\uFF09\u5355\u72EC\u4E00\u6863\uFF1A--border \u662F\u300C\u5206\u9694\u7EBF\u300D\u5C42\u7EA7\uFF0C\u592A\u6DE1\uFF0C
+     0.09~0.14 \u7684\u900F\u660E\u5EA6\u5728 1.25 \u7F29\u653E\u4E0B\u63A7\u4EF6\u8FB9\u754C\u51E0\u4E4E\u4E0D\u53EF\u89C1\uFF0C\u89C6\u89C9\u4E0A\u63A7\u4EF6\u548C\u80CC\u666F
+     \u7CCA\u6210\u4E00\u7247\uFF08\u7528\u6237\u62A5\u7684\u300C\u6726\u80E7\u906E\u6321\u611F\u300D\uFF09\u3002\u63A7\u4EF6\u9700\u8981\u6BD4\u5206\u9694\u7EBF\u66F4\u5B9E\u7684\u8FB9\u754C\u3002 */
+  --control-border:var(--dsw-alias-border-l2,rgba(128,128,128,0.42));
   /* \u4EE4\u724C\u4E00\u5F8B\u300Cvar(--dsw-\u2026, \u539F\u515C\u5E95\u8272)\u300D\u53CC\u5199\uFF1A\u5BBF\u4E3B\u6216\u81EA\u5B9A\u4E49\u4E3B\u9898\u672A\u5B9A\u4E49\u65F6\u9000\u56DE\u539F\u503C\uFF0C
      \u975E\u4E3B\u9898\u7528\u6237\u89C6\u89C9\u96F6\u53D8\u5316\u3002--current \u662F\u300C\u5F53\u524D\u300D\u5FBD\u6807\u7684\u5E95\u8272\uFF08\u767D\u5B57\uFF09\uFF0C\u4FDD\u6301\u786C\u7F16\u7801\u7EFF\uFF0C
      \u4E0D\u63A5 state-success-primary \u2014\u2014 \u5BBF\u4E3B\u7EFF\u66F4\u4EAE\uFF0C\u767D\u5B57\u5BF9\u6BD4\u5EA6\u4E0D\u8FBE\u6807\u3002 */
@@ -1470,6 +1474,7 @@ var STYLE = `
   --fg:var(--dsw-alias-label-primary,#d1d9e0);
   --muted:var(--dsw-alias-label-caption,#9198a1);
   --border:var(--dsw-alias-border-l1,rgba(255,255,255,0.14));
+  --control-border:var(--dsw-alias-border-l2,rgba(255,255,255,0.22));
   --accent:var(--dsw-alias-brand-primary,#58a6ff);
   --hover:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,0.07));
   --current:#3fb950;
@@ -1761,15 +1766,21 @@ body[data-ds-custom-theme] .dsh-gp-changes-pre {
 .dsh-gp-graph-search-wrap { position:relative; flex:1; min-width:0; display:flex; align-items:center; }
 .dsh-gp-graph-search-icon { position:absolute; left:7px; color:var(--muted); pointer-events:none; display:flex; align-items:center; }
 .dsh-gp-graph-search-input { width:100%; height:26px; box-sizing:border-box; padding:0 22px 0 24px;
-  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--border);
+  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--control-border);
   border-radius:6px; outline:none; transition:border-color .15s ease; }
+/* \u5360\u4F4D\u7B26\u8D70 label-tertiary \u800C\u4E0D\u662F\u6D4F\u89C8\u5668\u9ED8\u8BA4\u7684 caption \u7070\uFF1A\u9ED8\u8BA4\u5B9E\u6D4B
+   rgb(117,117,117) \u5728 #191919 \u4E0A\u53EA\u6709 3.82:1\uFF0C\u4F4E\u4E8E WCAG AA 4.5\uFF0C\u8BFB\u8D77\u6765\u53D1\u865A\u3002 */
+.dsh-gp-graph-search-input::placeholder {
+  color:var(--dsw-alias-label-tertiary,var(--muted));
+  opacity:1;
+}
 .dsh-gp-graph-search-input:focus { border-color:var(--accent); }
 .dsh-gp-graph-search-clear { position:absolute; right:4px; border:none; background:transparent;
   cursor:pointer; color:var(--muted); padding:2px; display:flex; align-items:center; }
 .dsh-gp-graph-search-clear:hover { color:var(--fg); }
 .dsh-gp-graph-branch-select-wrap { flex:none; max-width:45%; }
 .dsh-gp-graph-branch-select { height:26px; box-sizing:border-box; padding:0 6px; font-size:11.5px;
-  color:var(--fg); background:var(--panel-bg); border:1px solid var(--border); border-radius:6px;
+  color:var(--fg); background:var(--panel-bg); border:1px solid var(--control-border); border-radius:6px;
   outline:none; cursor:pointer; max-width:130px; text-overflow:ellipsis; white-space:nowrap; }
 .dsh-gp-graph-branch-select:focus { border-color:var(--accent); }
 `;
@@ -2469,7 +2480,9 @@ var GraphViewComponent = (0, import_react4.memo)(function GraphViewComponent2(pr
           width: graphWidth,
           height: 28,
           fontSize: 12,
-          color: "var(--muted)",
+          /* 表头是导航性文字，不是图注：--muted 在深色实测 3.6:1（低于 AA 4.5），
+             整块区域因此读成「朦胧挡了一层」。提亮到 label-tertiary（约 5.9:1）。 */
+          color: "var(--dsw-alias-label-tertiary, var(--muted))",
           userSelect: "none",
           borderBottom: "1px solid var(--border)"
         },
@@ -3941,7 +3954,7 @@ function GitPanel(props) {
   );
 }
 
-// src/client/GitTab.tsx
+// plugins/dsh-git-panel/src/client/GitTab.tsx
 function readPath(sessions, sessionId) {
   if (!sessions || sessionId === void 0 || sessionId === "") return "";
   const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd;
@@ -3990,10 +4003,10 @@ function GitTabBody(props) {
   return (0, import_react5.createElement)(GitPanel, { path, api, sessionId: uuid, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
 }
 
-// src/client/GitDiffView.tsx
+// plugins/dsh-git-panel/src/client/GitDiffView.tsx
 var import_react6 = require("react");
 
-// src/client/diff.ts
+// plugins/dsh-git-panel/src/client/diff.ts
 var LCS_CELL_CAP = 4e6;
 function splitLines(text) {
   if (text === "") return [];
@@ -4147,7 +4160,7 @@ function diffStat(rows) {
   return { added, removed };
 }
 
-// src/client/refs.ts
+// plugins/dsh-git-panel/src/client/refs.ts
 var FILE_PREFIX = "dsh-resource://file/";
 function parseFileAddress(address) {
   if (typeof address !== "string" || !address.startsWith(FILE_PREFIX)) return void 0;
@@ -4173,7 +4186,7 @@ function basenameOf(path) {
   return at === -1 ? normalized : normalized.slice(at + 1);
 }
 
-// src/client/GitDiffView.tsx
+// plugins/dsh-git-panel/src/client/GitDiffView.tsx
 var CONTEXT_LINES = 3;
 function readCwd(sessions, sessionId) {
   if (!sessions) return "";
@@ -4952,7 +4965,7 @@ var STYLE2 = `
   white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto; }
 `;
 
-// src/client/decorations.ts
+// plugins/dsh-git-panel/src/client/decorations.ts
 var DECO_CLASS = "dsh-git-deco";
 var styleReady2 = false;
 function ensureStyle3() {
@@ -5066,10 +5079,10 @@ var STYLE3 = `
 .dsh-git-deco[data-letter="\u2022"] { font-size:13px; line-height:1; opacity:.8; }
 `;
 
-// src/client/review/ReviewView.tsx
+// plugins/dsh-git-panel/src/client/review/ReviewView.tsx
 var import_react11 = require("react");
 
-// src/client/review/CommitDiffPanel.tsx
+// plugins/dsh-git-panel/src/client/review/CommitDiffPanel.tsx
 var import_react7 = require("react");
 var import_jsx_runtime2 = require("react/jsx-runtime");
 var CONTEXT_LINES2 = 3;
@@ -5327,7 +5340,7 @@ var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
   ] });
 });
 
-// src/client/review/CommitFileTree.tsx
+// plugins/dsh-git-panel/src/client/review/CommitFileTree.tsx
 var import_react8 = require("react");
 var import_jsx_runtime3 = require("react/jsx-runtime");
 function buildTree(files) {
@@ -5510,12 +5523,12 @@ var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
               children: node2.name
             }
           ),
-          (f.added > 0 || f.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { fontSize: 11, display: "inline-flex", gap: 3, flexShrink: 0, fontFamily: "monospace" }, children: [
-            f.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-add-color)" }, children: [
+          (f.added > 0 || f.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta", children: [
+            f.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta-add", children: [
               "+",
               f.added
             ] }),
-            f.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-del-color)" }, children: [
+            f.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta-del", children: [
               "-",
               f.deleted
             ] })
@@ -5562,7 +5575,7 @@ var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
   ] });
 });
 
-// src/client/review/CommitHeader.tsx
+// plugins/dsh-git-panel/src/client/review/CommitHeader.tsx
 var import_react9 = require("react");
 var import_jsx_runtime4 = require("react/jsx-runtime");
 var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
@@ -5687,10 +5700,10 @@ var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
   ] });
 });
 
-// src/client/review/ReviewGraphView.tsx
+// plugins/dsh-git-panel/src/client/review/ReviewGraphView.tsx
 var import_react10 = require("react");
 
-// src/client/review/review.css.ts
+// plugins/dsh-git-panel/src/client/review/review.css.ts
 var REVIEW_STYLE = `
 /* 1. \u5BBF\u4E3B\u8054\u52A8\uFF1A\u53EA\u8981\u5BA1\u67E5\u89C6\u56FE\u6302\u8F7D\uFF0C\u7ACB\u5373\u5F7B\u5E95\u9690\u85CF\u5E95\u90E8\u8F93\u5165\u6846\u4E0E\u684C\u5BA0\uFF0C\u6D88\u9664\u5E95\u90E8\u9884\u7559\u9AD8\u5EA6 */
 :is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) {
@@ -5710,7 +5723,9 @@ var REVIEW_STYLE = `
   height: 100%;
   min-height: 0;
   color: var(--dsw-alias-label-primary, var(--fg, #1f2328));
-  background: var(--dsw-alias-bg-layer-1, var(--bg, #ffffff));
+  /* \u95EE\u98982 A\uFF1A\u5BA1\u67E5\u89C6\u56FE\u5FC5\u987B\u4E0E\u5BBF\u4E3B\u4F1A\u8BDD\u533A\u540C\u8272\u3002\u539F\u5148\u53D6 layer-1\uFF08\u6DF1\u8272 #212121\uFF09\uFF0C
+     \u6BD4\u5BBF\u4E3B\u7684 bg-base\uFF08#191919\uFF09\u4EAE\u4E00\u6863\uFF0C\u9876\u90E8\u63A5\u7F1D\u56E0\u6B64\u8BFB\u6210\u300C\u53D1\u865A\u300D\u3002 */
+  background: var(--dsw-alias-bg-base, var(--bg, #ffffff));
   --review-border: var(--dsw-alias-border-l2, rgba(128,128,128,0.18));
   --review-hover: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.06));
   --review-active: var(--dsw-alias-interactive-bg-active, rgba(128,128,128,0.12));
@@ -5737,13 +5752,18 @@ var REVIEW_STYLE = `
 
 /* 3. \u9876\u90E8 CommitHeader */
 .dsh-review-header {
-  border-bottom: 1px solid var(--review-border);
+  /* \u64A4\u6389\u5E95\u90E8\u4EAE\u7EBF\uFF1A\u5B98\u65B9\u5728\u540C\u4E00\u4F4D\u7F6E\uFF08\u4F1A\u8BDD header\uFF0C--dsw-alias-border-l3\uFF09\u5728\u6DF1\u8272
+     \u4E3B\u9898\u4E0B\u5B9E\u6D4B\u4E3A\u900F\u660E\uFF0C\u6211\u4EEC\u753B\u4E00\u6761 rgba(255,255,255,.18) \u53CD\u800C\u50CF\u300C\u4E0A\u4E00\u5757\u538B\u4F4F
+     \u4E0B\u4E00\u5757\u300D\u3002\u6539\u7531 16px \u9876\u90E8\u7559\u767D + 12px \u5E95\u90E8\u7559\u767D\u627F\u63A5\u89C6\u89C9\u5206\u9694\u3002 */
+  border-bottom: none;
   flex-direction: column;
   flex: none;
   gap: 6px;
-  padding: 8px 12px;
+  /* \u9876\u90E8 16px \u8BA9\u51FA\u547C\u5438\uFF1A\u539F\u5148 8px\uFF0C\u7D27\u8D34 tab \u884C\u5206\u9694\u7EBF\uFF08\u5B9E\u6D4B\u95F4\u8DDD\u4EC5 1px\uFF09\uFF0C
+     \u5F62\u6210\u300C\u88AB\u4E0A\u8FB9\u5143\u7D20\u76D6\u4F4F\u300D\u7684\u538B\u8FEB\u611F\u3002 */
+  padding: 16px 12px 12px;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-header-top {
   align-items: center;
@@ -5813,6 +5833,25 @@ var REVIEW_STYLE = `
 .dsh-review-stat-count {
   color: var(--review-muted);
 }
+/* \u5DE6\u4FA7\u6587\u4EF6\u6811\u7684\u589E\u5220\u884C\u6570\uFF1A\u4E0E\u9876\u90E8 .dsh-review-stats \u9010\u9879\u5BF9\u9F50\uFF08\u5B57\u53F7\u7531\u8C03\u7528\u65B9\u5185\u8054\u4FDD\u7559 11px\uFF0C
+   \u8FD9\u91CC\u53EA\u5BF9\u9F50\u5B57\u91CD\u3001\u7B49\u5BBD\u6570\u5B57\u4E0E\u5B57\u4F53\u65CF\uFF09\uFF0C\u907F\u514D\u4E24\u5904\u5404\u5199\u4E00\u5957\u5199\u6CD5\u3002 */
+.dsh-review-delta {
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  display: inline-flex;
+}
+.dsh-review-delta-add {
+  color: var(--review-add-color);
+}
+.dsh-review-delta-del {
+  color: var(--review-del-color);
+}
 .dsh-review-info-grid {
   margin-top: 4px;
   padding: 8px 12px;
@@ -5834,7 +5873,7 @@ var REVIEW_STYLE = `
   flex: none;
   min-height: 0;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-tree-search {
   padding: 7px 10px;
@@ -5928,7 +5967,7 @@ var REVIEW_STYLE = `
   flex: 1;
   min-height: 0;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-diff-header {
   border-bottom: 1px solid var(--review-border);
@@ -5968,7 +6007,7 @@ var REVIEW_STYLE = `
   font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace);
   font-size: 12px;
   line-height: 1.55;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 
 /* \u7ECF\u5178 4 \u680F\u53CC\u5217 Grid (Split) - \u4E25\u683C 50% / 50% \u5BF9\u7B49\u5206\u680F\uFF0C\u786E\u4FDD\u53F3\u4FA7\u65B0\u4EE3\u7801\u9ED8\u8BA4\u5B8C\u6574\u53EF\u89C1 */
@@ -6121,7 +6160,7 @@ function ensureReviewStyle() {
   document.head.appendChild(tag);
 }
 
-// src/client/review/ReviewGraphView.tsx
+// plugins/dsh-git-panel/src/client/review/ReviewGraphView.tsx
 var import_jsx_runtime5 = require("react/jsx-runtime");
 var graphDataCache = /* @__PURE__ */ new Map();
 var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) {
@@ -6309,7 +6348,7 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
   );
 });
 
-// src/client/review/ReviewView.tsx
+// plugins/dsh-git-panel/src/client/review/ReviewView.tsx
 var import_jsx_runtime6 = require("react/jsx-runtime");
 var STORAGE_TREE_WIDTH_KEY = "dsh-git-panel.review.treeWidth";
 var DEFAULT_TREE_WIDTH = 220;
@@ -6580,7 +6619,7 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
   );
 });
 
-// src/client/BranchChip.tsx
+// plugins/dsh-git-panel/src/client/BranchChip.tsx
 var import_react12 = require("react");
 var import_jsx_runtime7 = require("react/jsx-runtime");
 var CHIP_STYLE = `
@@ -7010,7 +7049,7 @@ function BranchChip(props) {
   ] }) }) });
 }
 
-// src/client/index.ts
+// plugins/dsh-git-panel/src/client/index.ts
 var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {

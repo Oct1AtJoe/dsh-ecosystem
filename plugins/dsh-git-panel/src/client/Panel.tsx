@@ -22,6 +22,10 @@ const STYLE = `
   --fg:var(--dsw-alias-label-primary,#24292f);
   --muted:var(--dsw-alias-label-caption,#6e7781);
   --border:var(--dsw-alias-border-l1,rgba(128,128,128,0.25));
+  /* 控件边框（输入框/下拉框）单独一档：--border 是「分隔线」层级，太淡，
+     0.09~0.14 的透明度在 1.25 缩放下控件边界几乎不可见，视觉上控件和背景
+     糊成一片（用户报的「朦胧遮挡感」）。控件需要比分隔线更实的边界。 */
+  --control-border:var(--dsw-alias-border-l2,rgba(128,128,128,0.42));
   /* 令牌一律「var(--dsw-…, 原兜底色)」双写：宿主或自定义主题未定义时退回原值，
      非主题用户视觉零变化。--current 是「当前」徽标的底色（白字），保持硬编码绿，
      不接 state-success-primary —— 宿主绿更亮，白字对比度不达标。 */
@@ -46,6 +50,7 @@ const STYLE = `
   --fg:var(--dsw-alias-label-primary,#d1d9e0);
   --muted:var(--dsw-alias-label-caption,#9198a1);
   --border:var(--dsw-alias-border-l1,rgba(255,255,255,0.14));
+  --control-border:var(--dsw-alias-border-l2,rgba(255,255,255,0.22));
   --accent:var(--dsw-alias-brand-primary,#58a6ff);
   --hover:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,0.07));
   --current:#3fb950;
@@ -337,15 +342,21 @@ body[data-ds-custom-theme] .dsh-gp-changes-pre {
 .dsh-gp-graph-search-wrap { position:relative; flex:1; min-width:0; display:flex; align-items:center; }
 .dsh-gp-graph-search-icon { position:absolute; left:7px; color:var(--muted); pointer-events:none; display:flex; align-items:center; }
 .dsh-gp-graph-search-input { width:100%; height:26px; box-sizing:border-box; padding:0 22px 0 24px;
-  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--border);
+  font-size:11.5px; color:var(--fg); background:var(--panel-bg); border:1px solid var(--control-border);
   border-radius:6px; outline:none; transition:border-color .15s ease; }
+/* 占位符走 label-tertiary 而不是浏览器默认的 caption 灰：默认实测
+   rgb(117,117,117) 在 #191919 上只有 3.82:1，低于 WCAG AA 4.5，读起来发虚。 */
+.dsh-gp-graph-search-input::placeholder {
+  color:var(--dsw-alias-label-tertiary,var(--muted));
+  opacity:1;
+}
 .dsh-gp-graph-search-input:focus { border-color:var(--accent); }
 .dsh-gp-graph-search-clear { position:absolute; right:4px; border:none; background:transparent;
   cursor:pointer; color:var(--muted); padding:2px; display:flex; align-items:center; }
 .dsh-gp-graph-search-clear:hover { color:var(--fg); }
 .dsh-gp-graph-branch-select-wrap { flex:none; max-width:45%; }
 .dsh-gp-graph-branch-select { height:26px; box-sizing:border-box; padding:0 6px; font-size:11.5px;
-  color:var(--fg); background:var(--panel-bg); border:1px solid var(--border); border-radius:6px;
+  color:var(--fg); background:var(--panel-bg); border:1px solid var(--control-border); border-radius:6px;
   outline:none; cursor:pointer; max-width:130px; text-overflow:ellipsis; white-space:nowrap; }
 .dsh-gp-graph-branch-select:focus { border-color:var(--accent); }
 `
@@ -1233,7 +1244,9 @@ export const GraphViewComponent = memo(function GraphViewComponent(props: {
           width: graphWidth,
           height: 28,
           fontSize: 12,
-          color: 'var(--muted)',
+          /* 表头是导航性文字，不是图注：--muted 在深色实测 3.6:1（低于 AA 4.5），
+             整块区域因此读成「朦胧挡了一层」。提亮到 label-tertiary（约 5.9:1）。 */
+          color: 'var(--dsw-alias-label-tertiary, var(--muted))',
           userSelect: 'none',
           borderBottom: '1px solid var(--border)',
         }}

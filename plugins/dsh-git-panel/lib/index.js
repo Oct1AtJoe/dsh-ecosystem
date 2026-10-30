@@ -1,7 +1,7 @@
-// src/index.ts
+// plugins/dsh-git-panel/src/index.ts
 import { realpath as realpath2 } from "node:fs/promises";
 
-// src/host/git-service.ts
+// plugins/dsh-git-panel/src/host/git-service.ts
 import { spawn } from "node:child_process";
 import { readFile as readBytes, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -934,7 +934,7 @@ var GitService = class {
   }
 };
 
-// src/host/commit-message.ts
+// plugins/dsh-git-panel/src/host/commit-message.ts
 var DIFF_CAP_CHARS = 24e3;
 var MESSAGE_CAP_CHARS = 2e3;
 var TIMEOUT_MS = 6e4;
@@ -1196,7 +1196,7 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
   return { ok: false, error };
 }
 
-// src/host/routes.ts
+// plugins/dsh-git-panel/src/host/routes.ts
 var BODY_CAP_BYTES = 1 << 20;
 async function readJsonBody(req) {
   const chunks = [];
@@ -1581,7 +1581,7 @@ function registerGitPanelRoutes(ctx, service) {
   return ctx.webServer.register({ kind: "prefix", path: "/git-panel", handler: route(service, ctx) });
 }
 
-// src/index.ts
+// plugins/dsh-git-panel/src/index.ts
 var inject = ["webServer", "subprocess", "workspaceRegistry"];
 function createWorkspaceGate(ctx) {
   return async (path) => {

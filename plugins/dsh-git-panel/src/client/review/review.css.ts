@@ -22,7 +22,9 @@ export const REVIEW_STYLE = `
   height: 100%;
   min-height: 0;
   color: var(--dsw-alias-label-primary, var(--fg, #1f2328));
-  background: var(--dsw-alias-bg-layer-1, var(--bg, #ffffff));
+  /* 问题2 A：审查视图必须与宿主会话区同色。原先取 layer-1（深色 #212121），
+     比宿主的 bg-base（#191919）亮一档，顶部接缝因此读成「发虚」。 */
+  background: var(--dsw-alias-bg-base, var(--bg, #ffffff));
   --review-border: var(--dsw-alias-border-l2, rgba(128,128,128,0.18));
   --review-hover: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.06));
   --review-active: var(--dsw-alias-interactive-bg-active, rgba(128,128,128,0.12));
@@ -49,13 +51,18 @@ export const REVIEW_STYLE = `
 
 /* 3. 顶部 CommitHeader */
 .dsh-review-header {
-  border-bottom: 1px solid var(--review-border);
+  /* 撤掉底部亮线：官方在同一位置（会话 header，--dsw-alias-border-l3）在深色
+     主题下实测为透明，我们画一条 rgba(255,255,255,.18) 反而像「上一块压住
+     下一块」。改由 16px 顶部留白 + 12px 底部留白承接视觉分隔。 */
+  border-bottom: none;
   flex-direction: column;
   flex: none;
   gap: 6px;
-  padding: 8px 12px;
+  /* 顶部 16px 让出呼吸：原先 8px，紧贴 tab 行分隔线（实测间距仅 1px），
+     形成「被上边元素盖住」的压迫感。 */
+  padding: 16px 12px 12px;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-header-top {
   align-items: center;
@@ -125,6 +132,25 @@ export const REVIEW_STYLE = `
 .dsh-review-stat-count {
   color: var(--review-muted);
 }
+/* 左侧文件树的增删行数：与顶部 .dsh-review-stats 逐项对齐（字号由调用方内联保留 11px，
+   这里只对齐字重、等宽数字与字体族），避免两处各写一套写法。 */
+.dsh-review-delta {
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  display: inline-flex;
+}
+.dsh-review-delta-add {
+  color: var(--review-add-color);
+}
+.dsh-review-delta-del {
+  color: var(--review-del-color);
+}
 .dsh-review-info-grid {
   margin-top: 4px;
   padding: 8px 12px;
@@ -146,7 +172,7 @@ export const REVIEW_STYLE = `
   flex: none;
   min-height: 0;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-tree-search {
   padding: 7px 10px;
@@ -240,7 +266,7 @@ export const REVIEW_STYLE = `
   flex: 1;
   min-height: 0;
   display: flex;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 .dsh-review-diff-header {
   border-bottom: 1px solid var(--review-border);
@@ -280,7 +306,7 @@ export const REVIEW_STYLE = `
   font-family: var(--ds-font-family-code, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace);
   font-size: 12px;
   line-height: 1.55;
-  background: var(--dsw-alias-bg-layer-1, var(--bg));
+  background: var(--dsw-alias-bg-base, var(--bg));
 }
 
 /* 经典 4 栏双列 Grid (Split) - 严格 50% / 50% 对等分栏，确保右侧新代码默认完整可见 */

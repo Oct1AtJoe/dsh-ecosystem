@@ -2,6 +2,37 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.27] - 2026-10-30
+
+### Fixed
+- **审查视图顶部「发虚 / 像被上边元素盖住」**：三个独立成因叠加，全部按实测修掉。
+  1. **层色错档**：`.dsh-review-root` / `.dsh-review-header` / `.dsh-review-tree` /
+     `.dsh-review-diff-pane` / `.dsh-review-diff-scroll` 五处背景取 `--dsw-alias-bg-layer-1`
+     （深色实测 `#212121`），比宿主会话区的 `--dsw-alias-bg-base`（`#191919`）亮一档，
+     两档色在 y≈95 直接相接、中间无过渡，人眼读成「上面压着一层纱」。现全部归位到
+     `--dsw-alias-bg-base`，与宿主逐字节同色。
+  2. **一条亮线压在头顶**：`.dsh-review-header` 的 `border-bottom` 用 `--review-border`
+     （`--dsw-alias-border-l2` = `rgba(255,255,255,.18)`），逐像素采样 y=143 为 `(66,66,66)`、
+     两侧底色 `(25,25,25)`，亮度跳 +41。而官方在同一位置的会话 header 用
+     `--dsw-alias-border-l3` 且本主题下实测为透明。现改为 `border-bottom: none`，
+     由留白承接分隔。
+  3. **顶部无呼吸**：`.dsh-review-header` 内边距原为 `8px`，紧贴 tab 行分隔线（实测间距仅 1px）。
+     现改为 `16px 12px 12px`，首行文字 y 从 105 → 115、距 tab 分隔线 11px → 21px。
+
+- **文件树 +/− 行数与右上角统计徽标样式不一致**：文件树用整段内联样式（`11px / monospace /
+  字重 400 / 比例数字 / gap 3px`），顶部 `.dsh-review-stats` 用类（`600 / 主题字体 /
+  tabular-nums / gap 6px`），两套写法各写一遍从未对齐。现新增
+  `.dsh-review-delta` / `-add` / `-del` 三个类对齐后者，**字号按用户要求保持 11px**。
+
+- **审查图谱页整片「蒙了一层」**：表头、占位符、控件边框三处都用了低一档的令牌，
+  实测对比度全部低于 WCAG AA 4.5:1。
+  - 四列表头（线图/提交/分支/日期）`--muted`（`#776f71`）**3.6:1** →
+    `--dsw-alias-label-tertiary`（`#9c9395`）**5.88:1**；
+  - 搜索框占位符浏览器默认 `rgb(117,117,117)` **3.82:1** → 同上 **5.88:1**；
+  - 输入框 / 分支下拉框边框 `--border`（`rgba(255,255,255,.09)`）几乎不可见，
+    新增 `--control-border` 令牌接 `--dsw-alias-border-l2`（`rgba(255,255,255,.18)`），
+    与「分隔线」层级区分开。
+
 ## [0.1.26] - 2026-10-28
 
 ### Fixed
