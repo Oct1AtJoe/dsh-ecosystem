@@ -508,8 +508,12 @@ export function apply(ctx, config) {
           if (event?.type === 'approval/asked') {
             setPetNotification(id, 'approval', session, 'approval')
           }
-          // ask_user_question / exit_plan_mode（已有快速路径）
-          const toolName = event?.data?.name
+          // ask_user_question / exit_plan_mode（已有快速路径）。
+          // 只认「调用」事件：PTC 下一问产生两条同名事件——tool/ptc-dispatch-start 是
+          // 提问开始（气泡该弹），tool/ptc-dispatch 是用户答完的结果回执（同名字段，
+          // 误命中会重复弹一次）。精确匹配 tool/call 亦须放行：非 PTC 宿主只发这一条。
+          const isToolInvocation = event?.type === 'tool/ptc-dispatch-start' || event?.type === 'tool/call'
+          const toolName = isToolInvocation ? event?.data?.name : undefined
           if (toolName === 'ask_user_question') {
             setPetNotification(id, 'question', session, 'ask')
           } else if (toolName === 'exit_plan_mode') {

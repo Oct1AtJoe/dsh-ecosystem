@@ -135,6 +135,43 @@ test('fork 世系（仅有 parentSession）仍算主会话，照常通知', () =
   assert.equal(h.logs.length, 1)
 })
 
+test('PTC 提问只弹一次：dispatch-start 弹，dispatch 结果回执不弹', () => {
+  const h = harness()
+  const main = session('session-ask', MAIN_HEADER)
+  h.sessions.push(main)
+  seed(h.fire, main)
+
+  // 真实日志时间序：tool/call(run_code) → ptc-dispatch-start(ask_user_question)
+  // → [用户作答] → ptc-dispatch(ask_user_question + content=答案) → tool/result
+  h.fire(main, {
+    type: 'tool/ptc-dispatch-start', seq: 10, time: Date.now(),
+    data: { rootCallId: 'call_1', parentCallId: 'call_1', subCallId: 'sub_1', name: 'ask_user_question' },
+  })
+  assert.equal(h.logs.length, 1, '提问开始必须弹一次气泡')
+  assert.match(h.logs[0], /session-ask: "需要你的选择"/)
+
+  h.fire(main, {
+    type: 'tool/ptc-dispatch', seq: 11, time: Date.now(),
+    data: { rootCallId: 'call_1', parentCallId: 'call_1', subCallId: 'sub_1', name: 'ask_user_question', isError: false, content: [{ type: 'text', text: '{"answers":[]}' }] },
+  })
+  assert.equal(h.logs.length, 1, '用户作答后的结果回执不得重复弹气泡')
+
+  // 同规则覆盖 exit_plan_mode
+  h.fire(main, { type: 'tool/ptc-dispatch-start', seq: 12, time: Date.now(), data: { name: 'exit_plan_mode' } })
+  h.fire(main, { type: 'tool/ptc-dispatch', seq: 13, time: Date.now(), data: { name: 'exit_plan_mode', isError: false } })
+  assert.equal(h.logs.length, 2, '评审计划同样只弹一次')
+})
+
+test('非 PTC 宿主的 tool/call 提问路径仍生效', () => {
+  const h = harness()
+  const main = session('session-ask-tc', MAIN_HEADER)
+  h.sessions.push(main)
+  seed(h.fire, main)
+  h.fire(main, { type: 'tool/call', seq: 10, time: Date.now(), data: { name: 'ask_user_question', turn: 2, callId: 'call_9' } })
+  assert.equal(h.logs.length, 1)
+  assert.match(h.logs[0], /需要你的选择/)
+})
+
 // ---- 庆祝（activity.turnCompleted / activity.name === 'celebrate'）----
 const turnEndEvent = (seq, turn) => ({ type: 'turn/end', seq, time: Date.now(), data: { turn, reason: { kind: 'completed' } } })
 

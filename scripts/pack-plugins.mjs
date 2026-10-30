@@ -39,9 +39,14 @@ export const PUBLISHED = [
   'session-folders',
 ]
 
-/** Windows bsdtar emits CRLF, so always normalise before comparing paths. */
+/**
+ * Windows bsdtar emits CRLF, so always normalise before comparing paths.
+ * tar runs with cwd = the tarball's directory and a bare filename: GNU tar on
+ * some Windows installs parses the `C:` drive prefix as an rsh host and dies
+ * with "Cannot connect to C: resolve failed".
+ */
 function listing(tgz) {
-  return execFileSync('tar', ['-tzf', tgz], { encoding: 'utf8' })
+  return execFileSync('tar', ['-tzf', path.basename(tgz)], { encoding: 'utf8', cwd: path.dirname(tgz) })
     .split(/\r?\n/)
     .filter(Boolean)
 }
@@ -62,7 +67,10 @@ export function verifyTarball(tgz) {
   if (!list.some((f) => /^package\/lib\/index\.(js|mjs)$/.test(f))) problems.push('lib entry')
   if (!list.some((f) => f.startsWith('package/lib/client'))) problems.push('lib client')
 
-  const pkg = JSON.parse(execFileSync('tar', ['-xzOf', tgz, 'package/package.json'], { encoding: 'utf8' }))
+  const pkg = JSON.parse(execFileSync('tar', ['-xzOf', path.basename(tgz), 'package/package.json'], {
+    encoding: 'utf8',
+    cwd: path.dirname(tgz),
+  }))
   const patchRel = pkg.dsh?.bundle?.patch
   if (!patchRel) problems.push('no dsh.bundle.patch')
   else if (!has('package/' + patchRel.replace(/^\.\//, ''))) problems.push('patch ' + patchRel)

@@ -157,7 +157,9 @@ function readProfile(profileName) {
   const dir = path.join(PROFILES_ROOT, profileName)
   const pkgPath = path.join(dir, 'package.json')
   if (!fs.existsSync(pkgPath)) fail(`profile "${profileName}" not found at ${dir}`)
-  return { dir, pkgPath, pkg: JSON.parse(fs.readFileSync(pkgPath, 'utf8')) }
+  // 剥 BOM：插件管理器写回的 package.json 带 UTF-8 BOM（EF BB BF），
+  // 直接 JSON.parse 会抛 "Unexpected token '﻿'"。
+  return { dir, pkgPath, pkg: JSON.parse(fs.readFileSync(pkgPath, 'utf8').replace(/^\uFEFF/, '')) }
 }
 
 /** Write a profile's package.json back, preserving the 2-space indent style. */

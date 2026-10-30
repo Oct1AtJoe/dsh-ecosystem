@@ -1,6 +1,6 @@
 {
   "name": "dsh-kanye-pet",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "DSH 桌面互动宠物核心：支持状态感知、气泡对话、动作表情与桌面窗口悬浮互动。",
   "icon": "./icon.svg",
