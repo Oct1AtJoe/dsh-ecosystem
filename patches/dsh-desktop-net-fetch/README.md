@@ -101,7 +101,10 @@ const init = { method, headers, body: request.body, signal, duplex: 'half', redi
 | `patch.mjs` | `apply` / `--check` / `--revert`，幂等 |
 | `verify.mjs` | 三层判据：独有符号 + 落在 `forwardWebRequest` 函数体内 + `node --check` |
 | `lib/rules.mjs` | 纯文本变换规则 |
-| `main.js.orig-0.2.1-rc.3` | 原始备份，回滚用 |
+
+> `--revert` 从**当前 live 文件**做纯文本逆变换，只撤本补丁，不影响兄弟补丁。
+> 本补丁**不保存快照**（早期版本 `main.js.orig-0.2.1-rc.3` 是 rc.3 时代的整份备份，
+> 拿它 revert 会把 rc.5 的 `main.js` 覆盖成 rc.3 内容 → 桌面端崩溃，已于 2026-10-30 删除）。
 
 ## ⚠ 前置与生效
 

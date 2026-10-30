@@ -39,7 +39,8 @@
 
 | 包 | 固化版本 | 覆盖原因 |
 |---|---|---|
-| `@deepseek-ai/dsh-client-ui-chat` | `0.2.1-rc.3` | 「本轮用量」悬浮窗补回 TPS 行与「首字用时」行 |
+| `@deepseek-ai/dsh-client-ui-chat` | `0.2.1-rc.5` | 「本轮用量」悬浮窗补回 TPS 行与「首字用时」行 |
+| `dsh-tabbit` | `0.4.0` | 中文 Windows 安装探测（见 §4.2） |
 
 目录：`C:\dsh-ecosystem\packages\<包名>-patched\`
 
@@ -81,6 +82,11 @@ $f = "C:\dsh-ecosystem\.tmp\asar-check\node_modules\@deepseek-ai\dsh-client-ui-c
 $c = Get-Content $f -Raw
 "deriveTurnMetrics : $($c.Contains('deriveTurnMetrics'))"
 ```
+
+> 🚨 **本分支只看固化包自己的补丁符号，与官方版本号无关。**
+> 2026-10-30 rc.5 升级实测：asar 版本从 `rc.3` 跳到 `rc.5`，但官方**仍未**自带
+> `deriveTurnMetrics` / `message.turnUsage.ttft`。版本号变了不代表补丁被官方吸收。
+> 判据永远是下面这条 grep 的结果。
 
 - [ ] 若结果是 `True` → **官方已经加回来了**。
       直接删除固化包与 profile 依赖，回官方版：
@@ -176,8 +182,10 @@ node patches\kanye-pet-electron\patch.mjs
 node patches\dsh-gateway-heartbeat\patch.mjs
 node patches\dsh-desktop-net-fetch\patch.mjs
 node patches\dsh-desktop-window-state\patch.mjs
+node patches\dsh-desktop-cookie-prune\patch.mjs
 # 每个都必须 verify exit 0
 node patches\dsh-desktop-window-state\verify.mjs
+node patches\dsh-desktop-cookie-prune\verify.mjs
 ```
 
 ### 补丁清单
@@ -189,6 +197,11 @@ node patches\dsh-desktop-window-state\verify.mjs
 | `dsh-gateway-heartbeat` | 网关心跳修复 | `desktop-menu` |
 | `dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 | `desktop-menu` |
 | `dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆 | `desktop-menu` |
+| `dsh-desktop-cookie-prune` | 握手前清失效的 `dsh-auth-*` cookie，修 431 启动崩溃 | `desktop-menu` |
+
+> `dsh-desktop-cookie-prune`：桌面端启动报 `desktop welcome: Web authentication failed` 时，
+> 大概率是 `dsh-auth-*` cookie 攒了约 70 个把请求头撑爆（Node 16 KiB 上限 → `431`）。
+> 详见 `patches/dsh-desktop-cookie-prune/README.md`，内含紧急手救 SQL。
 
 > `dsh-desktop-window-state` 的状态文件是 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`。
 > 窗口跑到屏幕外打不开时，删掉该文件即可回到默认 1280×820。
@@ -199,6 +212,103 @@ node patches\dsh-desktop-window-state\verify.mjs
 
 > ⚠️ `--revert` 只对本补丁做纯文本逆操作，**不会**回写任何 `main.js.orig-*` 备份 ——
 > 那些备份是原始未打补丁的文件，回写会连带冲掉 `desktop-menu` 等兄弟补丁。
+
+---
+
+## 4.2 `dsh-tabbit` 安装探测补丁
+
+> 这个包**不在 asar 里**，走 profile junction 指向 `packages/dsh-tabbit-patched`，
+> 所以桌面端升级**不会**动它。判据只有一条：真跑一次探测。
+
+```powershell
+node --input-type=module -e "import('file:///C:/dsh-ecosystem/packages/dsh-tabbit-patched/lib/installer/detect.js').then(async m=>console.log('installations=' + (await m.detectTabbitInstallations()).installations.length))"
+```
+
+`installations` 非空（本机为 `1`，`edition: "domestic"`）= 正常。
+`0` = 固化包被 `pnpm install` 覆盖回官方版，按
+`packages/dsh-tabbit-patched/VENDORED-FROM.md`「依赖解析」一节重建 junction。
+
+> ⚠️ `patches/dsh-tabbit-registry-identity/verify.mjs` 曾因 `MARKER` 与包内实际实现脱节
+> 而误报 `symbolHits: 0`（找的符号是 `windowsIdentityOf`，包里实际是
+> `WINDOWS_DISPLAY_NAMES.get(record.registryKey?.split(...))` 回退）。
+> **判据以上面这条真实探测为准，不要看 verify 的符号命中数。**
+
+---
+
+## 4.3 官方 checkout（`E:\vibeCoding\deepseek-harness`）的定位
+
+> **2026-10-30 起，该 checkout 是「纯参考源码」，本地补丁已全部清空。**
+
+| 事实 | 值 |
+|---|---|
+| 位置 | `E:\vibeCoding\deepseek-harness` |
+| 状态 | 与 `upstream/master` **完全对齐**（0 ahead / 0 behind），工作区干净 |
+| 用途 | 只读参考 + 插件构建期的类型来源（25 个 junction 指向它的 `packages/*`） |
+| **不再承担** | 起 `dsh web` 服务、承载本地补丁 |
+
+### 为什么可以清空
+
+桌面端跑 `app.asar` 自带的 runtime，**不经过这个 checkout**。
+原先的 12 类本地补丁，去向已逐条落定：
+
+| 原补丁 | 去向 |
+|---|---|
+| TPS / TTFT（§12） | **已固化**进 `packages/ui-chat-patched` |
+| 单波浪号 markdown | **上游已自带** `singleTilde` |
+| ui-chat 视图跳转、ui-layout 右栏宽度、llm-pi-ai `sessionHeader`、session-query `borrow()` | 桌面端不需要（仅 checkout dev 可见） |
+| `--no-open` 默认不弹浏览器 | 桌面端不跑 `dsh web` |
+| `start-dsh-web.ps1` / `stop-dsh-web.ps1` | 已弃用，已归档 |
+| `const enum` → `enum` | 上游 tsdown 已能解析 |
+| **WER 对话框抑制 / `SetErrorMode`** | ⚠️ **上游至今没有，见下方警示** |
+
+### ⚠️ 唯一需要在跑服务时手工恢复的能力
+
+`packages/sandbox/sandbox-policy` 的 `suppressCrashDialogs` 与
+`packages/subprocess/win32-process` 的 `SetErrorMode` 绑定 —— **上游没有**。
+它在 Windows 上抑制工具进程崩溃时弹出的 WER 对话框。
+
+- **桌面端：不需要**（asar 自带 runtime，不经过 checkout）
+- **哪天要在 checkout 里跑 `dsh web`：需要手工重贴**
+
+重贴依据（不是直接 apply 那个过期 patch，上下文已漂移）：
+
+```
+C:\dsh-ecosystem\archive\checkout-local-20261030-110624\LOCAL-CHANGES.md   §1、§2
+```
+
+### 存档与恢复路径（三重冗余）
+
+| 层 | 位置 |
+|---|---|
+| 本地 tag | `local/rc2-patches-20261030-110020` → `ee926e3ff4` |
+| 本地 bundle | `archive/local-fork-6commits-20261030-110020.bundle`（235 MB，verified） |
+| 远端分支 | `Oct1AtJoe/deepseek-harness` → `local/rc2-patches-20261030` |
+| 可读补丁 | `archive/checkout-local-20261030-110624/local-6commits.patch`（172 KB） |
+| 补丁说明 | `archive/checkout-local-20261030-110624/LOCAL-CHANGES.md` |
+| 弃用脚本 | `archive/checkout-local-20261030-110624/start-dsh-web.ps1` 等 |
+
+恢复整条历史：
+
+```powershell
+cd E:\vibeCoding\deepseek-harness
+git reset --hard local/rc2-patches-20261030-110020
+```
+
+> 🚨 **恢复后 checkout 就回到「有本地补丁」状态**，与上游不再对齐。
+> 只在确实要跑服务、且已确认 WER 抑制缺失会造成问题时才这么做。
+
+### 若将来又要对齐上游
+
+不要再 `reset --hard`（会丢补丁）。正确姿势是三方合并：
+
+```powershell
+git checkout -b sync/upstream-<日期>
+git merge upstream/master
+```
+
+2026-10-30 实测：38 个本地文件与上游**全部**有交集，真实内容冲突 4 个
+（`use-chat-viewport.ts`、`markdown/parse.ts`、`markdown.client.spec.tsx`、`sandbox-policy/index.ts`），
+其余 34 个可自动合并。合并前建议先用 `git merge-tree --write-tree HEAD upstream/master` 零副作用试算。
 
 ---
 
@@ -219,4 +329,4 @@ node patches\dsh-desktop-window-state\verify.mjs
 
 - [AGENTS.md](../AGENTS.md) §6 —— 覆盖官方包的机制与固化规范
 - [packages/ui-chat-patched/VENDORED-FROM.md](../packages/ui-chat-patched/VENDORED-FROM.md) —— 该固化包的详细说明
-- `E:\vibeCoding\deepseek-harness\LOCAL-CHANGES.md` §12 —— TPS 补丁的六处改动
+- [archive/checkout-local-20261030-110624/LOCAL-CHANGES.md](../archive/checkout-local-20261030-110624/LOCAL-CHANGES.md) —— 12 类本地补丁的原始说明（checkout 已清空，此文件为唯一留存）

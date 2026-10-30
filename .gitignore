@@ -45,9 +45,10 @@ Thumbs.db
 
 # ==========================================
 # asar 补丁的 apply 前快照（529KB 的 main.js，逐节点重建，不入库）
-#   dsh-desktop-window-state 的 --revert 走纯文本逆操作，不读该快照
+#   dsh-desktop-window-state / dsh-desktop-cookie-prune 的 --revert 走纯文本逆操作，不读该快照
 # ==========================================
 main.js.pre-window-state
+main.js.pre-cookie-prune
 
 # ==========================================
 # 凭据与密钥（明文 token，严禁提交）
