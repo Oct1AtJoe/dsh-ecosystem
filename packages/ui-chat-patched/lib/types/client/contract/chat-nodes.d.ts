@@ -86,6 +86,8 @@ export interface TurnTailChatData {
     readonly branchUnavailable: boolean;
     /** Decode throughput over the Turn's timed steps; absent when none were recorded. */
     readonly tokensPerSecond?: number;
+    /** First-token latency of this Turn's lowest step, in ms; absent when unrecorded. */
+    readonly ttftMs?: number;
     /** Exact per-Turn accounting; absent when the loaded evidence is incomplete. */
     readonly tokenUsage?: TurnTokenUsage;
 }

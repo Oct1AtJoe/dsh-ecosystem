@@ -1,7 +1,7 @@
 # Vendored: @deepseek-ai/dsh-client-ui-chat
 
 来源：`E:\vibeCoding\deepseek-harness\packages\client\ui-chat`
-版本：**0.2.1-rc.3**（基线 tag `dsh-v0.2.1-rc.3` = `1f81c047fc`）
+版本：**0.2.1-rc.5**（基线 tag `dsh-v0.2.1-rc.5` = `b830ec950f`）
 补丁提交：
 - `e8ce7bf5d0 fix(local): 重贴业务补丁到 0.2.1` — `use-chat-viewport.ts` 跳到折叠回合自动展开
 - `603ce1067b feat(local): 用量悬浮窗补回 TPS` — `deriveTurnMetrics()` + TPS 行
@@ -38,22 +38,26 @@ DSH 桌面端从 `E:\dshDesktop\resources\app.asar` 加载 ui-chat，那是官�
 本副本无 `src/`，**不能重新构建**。升级 `E:\dshDesktop` 后要做：
 
 1. 查 asar 里 ui-chat 的新版本号（见 `docs/desktop-upgrade-checklist.md` §2）。
-2. 若版本 ≠ **0.2.1-rc.3**，本副本可能 API 不匹配 → 整块聊天界面会崩。
+2. 若版本 ≠ **0.2.1-rc.5**，本副本可能 API 不匹配 → 整块聊天界面会崩。
    此时对策（按优先级）：
    - **先查官方是否已自带 TPS**：搜 asar 是否含 `deriveTurnMetrics`。若有 → 直接删掉本覆盖，回官方版。
    - 否则：按下方「重建流程」重做。
 
-## 重建流程（0.2.1-rc.3 实测有效）
+## 重建流程（0.2.1-rc.5 实测有效）
 
 ```powershell
 cd E:\vibeCoding\deepseek-harness
-git checkout dsh-v0.2.1-rc.3                              # detached HEAD，不动 master
-git checkout master -- packages/client/ui-chat/src/ packages/client/ui-chat/tests/
+git checkout dsh-v0.2.1-rc.5                              # detached HEAD，不动 master
+git checkout <补丁提交> -- packages/client/ui-chat/src/client/...   # 只取 8 个补丁文件
 cd packages\client\ui-chat
 $env:NODE_OPTIONS=""
-node "...\typescript\bin\tsc" -p tsconfig.json            # 必须 exit 0
+node "...\typescript\bin\tsc" -b tsconfig.json            # 必须 exit 0
 node "...\tsdown\dist\run.mjs" --config tsdown.config.ts
+git -C E:\vibeCoding\deepseek-harness checkout -- . && git checkout <补丁提交>
 ```
+
+> 🚨 rc.5 的 `tsconfig.json` 是 **project references**（`"files": []` + 两个 reference），
+> 裸 `tsc -p tsconfig.json` 不产出 `lib/types` 却 exit 0。必须用 `-b`。
 
 再把 `lib/index.js`、`lib/client.js`、`lib/types/**/*.d.ts`、`locale/*.json` 拷回来，
 `package.json` 只改两处：
@@ -77,6 +81,15 @@ node "...\tsdown\dist\run.mjs" --config tsdown.config.ts
 所以官方产物前缀是 `V4vHZW`，本地构建是 `kdtA_a`。**这不影响功能**，
 但**不要**拿类名前缀当判据去比对官方与本地产物。
 
+### rc.3 → rc.5 的经验（2026-10-30 重建）
+
+`git diff --numstat dsh-v0.2.1-rc.3 dsh-v0.2.1-rc.5 -- <8 个补丁源文件>` 输出为空：
+**rc.3 → rc.5 期间官方没动这 8 个文件**，所以整文件覆盖即可，产物语义与 rc.3 一致。
+差异只在 CSS Modules 类名前缀（见上）与 `package.json` 版本号。
+
+本版验收：`deriveTurnMetrics` / `turnUsage.ttft` / `首字用时` / `输出速度` 四个符号在
+`lib/client.js` 全命中；`version = 0.2.1-rc.5`；`cordis` peer 保持 `~4.0.5`（rc.5 官方就是它，未改）。
+
 ## 回滚
 
 删掉 profile 的这条依赖并重装即可：
@@ -88,4 +101,5 @@ cd C:\Users\Administrator\.dsh\profiles\desktop
 node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 ```
 
-升级前的完整副本：`C:\dsh-ecosystem\archive\ui-chat-patched-pre-rc3-20261024-144013\`
+升级前的完整副本：rc.5 之前 → `C:\dsh-ecosystem\archive\ui-chat-patched-pre-rc5-20261030-103943\`；
+更早（rc.3 时）→ `C:\dsh-ecosystem\archive\ui-chat-patched-pre-rc3-20261024-144013\`

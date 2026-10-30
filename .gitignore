@@ -11,6 +11,10 @@ node_modules/
 **/target/
 **/dist/
 *.tsbuildinfo
+# 固化包只放运行时 d.ts；tsc 多出来的 JS / sourcemap 是构建副产物
+packages/*-patched/lib/types/**/*.js
+packages/*-patched/lib/types/**/*.js.map
+packages/*-patched/lib/types/**/*.d.ts.map
 
 # ==========================================
 # 本地动态数据与历史归档

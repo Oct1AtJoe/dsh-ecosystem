@@ -182,6 +182,7 @@ export declare const zh: {
     'message.turnUsage.output': string;
     'message.turnUsage.reasoning': string;
     'message.turnUsage.count': string;
+    'message.turnUsage.ttft': string;
     'duration.secondUnit': string;
     'duration.minuteUnit': string;
     'duration.hourUnit': string;
@@ -378,6 +379,7 @@ export declare const en: {
     'message.turnUsage.output': string;
     'message.turnUsage.reasoning': string;
     'message.turnUsage.count': string;
+    'message.turnUsage.ttft': string;
     'duration.secondUnit': string;
     'duration.minuteUnit': string;
     'duration.hourUnit': string;

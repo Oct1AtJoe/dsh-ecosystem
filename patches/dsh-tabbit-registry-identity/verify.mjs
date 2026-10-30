@@ -2,7 +2,7 @@
  * 验证 dsh-tabbit 安装探测补丁是否真的生效。
  *
  * 判据分两层，缺一不可：
- *   1. 补丁独有符号 windowsIdentityOf 在 detect.js 里出现（零命中 = 没打进去）
+ *   1. 补丁独有符号（MARKER：DisplayName ?? 子键名回退）在 detect.js 里出现（零命中 = 没打进去）
  *   2. 真跑一次 detectTabbitInstallations()，installations 必须非空
  *
  * 第二层是关键：符号在但探测仍返回空，说明别处还有一道拦截。

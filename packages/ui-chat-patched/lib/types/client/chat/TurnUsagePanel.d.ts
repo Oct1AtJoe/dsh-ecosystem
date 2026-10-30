@@ -5,6 +5,8 @@ export interface TurnUsagePanelProps {
     usage: TurnTokenUsage;
     /** Decode throughput over the Turn's timed steps; omitted when unrecorded. */
     tokensPerSecond?: number | undefined;
+    /** First-token latency of this Turn's lowest step, in ms; omitted when unrecorded. */
+    ttftMs?: number | undefined;
     /** The owning view's locale seat, passed down as a plain prop. */
     t: ChatViewSlotProps['t'];
 }
@@ -13,5 +15,5 @@ export interface TurnUsagePanelProps {
  * @param props - Turn usage buckets and locale seat.
  * @returns The trigger and, while open, its portaled dialog anchored above the trigger.
  */
-export declare function TurnUsagePanel({ usage, tokensPerSecond, t }: TurnUsagePanelProps): import("react").JSX.Element;
+export declare function TurnUsagePanel({ usage, tokensPerSecond, ttftMs, t }: TurnUsagePanelProps): import("react").JSX.Element;
 //# sourceMappingURL=TurnUsagePanel.d.ts.map

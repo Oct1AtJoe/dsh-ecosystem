@@ -73,8 +73,13 @@ $env:DSH_PROFILE_DIR = 'C:\Users\Administrator\.dsh\profiles\web'
 
 ## 判据
 
-verify 用补丁**独有符号** `windowsIdentityOf`，不用 locale 文案键（会撞车复用字典），
+verify 用补丁**独有符号**（`lib/rules.mjs` 的 `MARKER`，即 `commit()` 里的
+`WINDOWS_DISPLAY_NAMES.get(record.DisplayName ?? '')` 回退形态），不用 locale 文案键（会撞车复用字典），
 并真跑一次 `detectTabbitInstallations()` 断言 `installations` 非空。
+
+> 历史：现有产物是**手工等价移植**的（`??` 子键名回退直接写进 `commit()`），
+> 不是 `rules.mjs` 文本变换的产物。旧 MARKER `windowsIdentityOf` 在包里根本不存在，
+> 导致 `verify` 长期假报 `symbolHits: 0`。2026-10-30 已把 MARKER 改为绑定真实代码。
 
 ## 升级注意
 

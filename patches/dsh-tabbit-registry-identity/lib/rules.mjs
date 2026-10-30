@@ -3,8 +3,14 @@
  * 与 desktop-menu 的 lib/rules.mjs 同构：纯字符串进、纯字符串出，便于单测与 diff 报告。
  */
 
-/** 补丁独有符号，verify 用它判定补丁是否生效（不用 locale 文案键，会撞车）。 */
-export const MARKER = 'windowsIdentityOf'
+/**
+ * 补丁独有符号，verify / check 用它判定补丁是否生效（不用 locale 文案键，会撞车）。
+ *
+ * 现有产物是**手工等价移植**的：没走下面的文本变换，而是在 commit() 里加了
+ * 「DisplayName ?? 子键名」的 `??` 回退。所以符号必须绑定那段真实代码，
+ * 而不是旧规则里自己插入的 `windowsIdentityOf`（那符号在包里根本不存在）。
+ */
+export const MARKER = "WINDOWS_DISPLAY_NAMES.get(record.DisplayName ?? '')"
 
 /**
  * 解析注册表记录的身份。
@@ -63,6 +69,8 @@ const ANCHOR = [
  */
 export function applyRules(source) {
   if (source.includes(MARKER)) return { text: source, changed: false, reason: 'already-applied' }
+  // 旧路径插入的 windowsIdentityOf 形态同样视为已应用，避免二次变换。
+  if (source.includes('windowsIdentityOf')) return { text: source, changed: false, reason: 'already-applied' }
   if (!source.includes(OLD_COMMIT)) return { text: source, changed: false, reason: 'anchor-miss:commit' }
   if (!source.includes(ANCHOR)) return { text: source, changed: false, reason: 'anchor-miss:helper' }
   let text = source.replace(ANCHOR, ANCHOR + '\n' + IDENTITY_HELPER)
@@ -70,6 +78,10 @@ export function applyRules(source) {
   if (!text.includes(MARKER)) return { text: source, changed: false, reason: 'self-check-failed' }
   if (text.includes("WINDOWS_DISPLAY_NAMES.get(record.DisplayName ?? '');\n        if (!identity)")) {
     return { text: source, changed: false, reason: 'self-check-failed:commit' }
+  }
+  // 真正生效的形态：DisplayName ?? 子键名。未走到这一步就说明变换没落到 commit()。
+  if (!text.includes(MARKER + "\n            ?? WINDOWS_DISPLAY_NAMES.get(record.registryKey?.split")) {
+    return { text: source, changed: false, reason: 'self-check-failed:fallback' }
   }
   return { text, changed: true }
 }
