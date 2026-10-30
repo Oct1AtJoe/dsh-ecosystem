@@ -41,6 +41,16 @@ export const REVIEW_STYLE = `
   overflow: hidden;
 }
 
+/* 「被上边元素盖住」的根因是审查区的**背景**紧贴 tab 分隔线（实测间距仅 1px）。
+   只给 header 加 padding 只能让文字下移，背景仍然粘连 —— 必须把整块视图下移。
+   锚点用 :has(.dsh-review-root) 精确限定：实测对话/轨迹视图的
+   [data-conversation-content] 同样带 data-conversation-composer-overlay，
+   直接按那个属性写会连它们一起下移（无辜受害）。取 8px：官方轨迹视图顶部留白
+   约 11px，下移后实测间距 11px，与官方同档。 */
+[data-conversation-content]:has(.dsh-review-root) {
+  margin-top: 8px;
+}
+
 [data-ds-dark-theme] .dsh-review-root {
   --review-add-color: #3fb950;
   --review-del-color: #f85149;
@@ -53,14 +63,12 @@ export const REVIEW_STYLE = `
 .dsh-review-header {
   /* 撤掉底部亮线：官方在同一位置（会话 header，--dsw-alias-border-l3）在深色
      主题下实测为透明，我们画一条 rgba(255,255,255,.18) 反而像「上一块压住
-     下一块」。改由 16px 顶部留白 + 12px 底部留白承接视觉分隔。 */
+     下一块」。改由留白承接视觉分隔（见下方 .dsh-review-root 的 top-margin）。 */
   border-bottom: none;
   flex-direction: column;
   flex: none;
   gap: 6px;
-  /* 顶部 16px 让出呼吸：原先 8px，紧贴 tab 行分隔线（实测间距仅 1px），
-     形成「被上边元素盖住」的压迫感。 */
-  padding: 16px 12px 12px;
+  padding: 12px 12px 12px;
   display: flex;
   background: var(--dsw-alias-bg-base, var(--bg));
 }

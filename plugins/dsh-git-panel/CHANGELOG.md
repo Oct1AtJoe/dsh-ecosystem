@@ -2,6 +2,27 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.28] - 2026-10-30
+
+### Fixed
+- **审查视图「顶部像被上一层盖住」再修一步：改为整块视图下移**
+  0.1.27 只给 `.dsh-review-header` 加了 `padding-top`，实测那只让**文字**下移，
+  审查区的**背景**仍然紧贴 tab 分隔线（间距仅 1px）。用户的判断是对的：
+  压迫感来自背景粘连，不是文字位置。
+  现新增作用域限定的下移规则，header 内边距回退到 12px：
+
+  ```css
+  [data-conversation-content]:has(.dsh-review-root) { margin-top: 8px; }
+  ```
+
+  - **锚点必须用 `:has(.dsh-review-root)`，不能用 `[data-conversation-composer-overlay]`**：
+    实测「对话」与「轨迹」视图的 `[data-conversation-content]` 同样带该属性，
+    按属性写会把它们一起下移（无辜受害）。用 `:has()` 精确锚定审查视图的根节点。
+  - 取 **8px**（非 6px）：官方轨迹视图顶部留白约 11px，8px 下移后实测间距 11px，与官方同档。
+
+  实测判据：审查视图 `bodyMargin: 8px`、root y 95→85、与 tab 行间距 1px→9px、
+  首行文字距 tab 行 21px→21px（视觉等值）；对话与轨迹视图 `margin: 0px`、y=77 均不受影响。
+
 ## [0.1.27] - 2026-10-30
 
 ### Fixed
