@@ -203,10 +203,12 @@ node patches\dsh-desktop-net-fetch\patch.mjs
 node patches\dsh-desktop-window-state\patch.mjs
 node patches\dsh-desktop-cookie-prune\patch.mjs
 node patches\dsh-host-profile-bom\patch.mjs
+node patches\dsh-boot-spinner-corner-shape\patch.mjs
 # 每个都必须 verify exit 0
 node patches\dsh-desktop-window-state\verify.mjs
 node patches\dsh-desktop-cookie-prune\verify.mjs
 node patches\dsh-host-profile-bom\verify.mjs
+node patches\dsh-boot-spinner-corner-shape\verify.mjs
 ```
 
 ### 补丁清单
@@ -220,6 +222,14 @@ node patches\dsh-host-profile-bom\verify.mjs
 | `dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆 | `desktop-menu` |
 | `dsh-desktop-cookie-prune` | 握手前清失效的 `dsh-auth-*` cookie，修 431 启动崩溃 | `desktop-menu` |
 | `dsh-host-profile-bom` | 剥离 profile 清单的 UTF-8 BOM，修 `JSON.parse` 崩溃 | — |
+| `dsh-boot-spinner-corner-shape` | 给 boot 页进度环 `::after` 补 `corner-shape: round`，修「启动页转圈圆环变方框」 | — |
+
+> `dsh-boot-spinner-corner-shape`：桌面端冷启时 boot 页「Loading plugins…」上方那个进度环
+> 四角被削平、像方框在转。只在支持 `corner-shape` 的引擎上复现（Chromium >= 155），
+> 所以桌面端必现，老浏览器看 `dsh web` 正常。
+> 根因是官方 `ui-theme` 的 `corner-shape.css` 通配把 `superellipse(1.5)` 刷到了 `::after`，
+> 而 `border-radius: inherit` 传不了形状。详见 `patches/dsh-boot-spinner-corner-shape/README.md`。
+> 🚨 判据**不要**用类名 `_spinner_<hash>`，哈希随版本变；用补丁独有符号。
 
 > `dsh-host-profile-bom`：桌面端启动报「could not start」且日志里是
 > `Unexpected token '', "... is not valid JSON` 时命中。与 `desktop-menu` 无前置关系。
