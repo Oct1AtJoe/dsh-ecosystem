@@ -31,6 +31,25 @@
 > 🚨 **不要跳过这一步直接去用。** 固化包版本错位会让**整块聊天界面**白屏或崩掉，
 > 而症状很容易被误判成"DSH 自身坏了"。
 
+### 启动失败时：先读崩溃日志，别信对话框
+
+弹「The application could not start」时，**对话框文案经常是笼统的、甚至残留成上一次的错误**。
+真话只在这里：
+
+```
+%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-<时间戳>-host.log
+```
+
+看 `--- host diagnostic ---` 段的第一行。已踩过的两种「启动失败」，症状一样、根因无关：
+
+| 日志里的真话 | 根因 | 处理 |
+|---|---|---|
+| `Unexpected token '', "... is not valid JSON` | profile 清单带 UTF-8 BOM | `patches/dsh-host-profile-bom` |
+| `desktop welcome: Web authentication failed` + 约 70 个 `dsh-auth-*` cookie | Cookie 头撑爆 Node 16 KiB → 431 | `patches/dsh-desktop-cookie-prune` |
+
+> 🚨 界面上的「Disable third-party plugins, back up profile patch, and restart」
+> 会改 profile patch、把 bundle 重置成核心集 —— 对上面两种都不是解法，**误伤**。
+
 ---
 
 ## 2. 核对固化包（vendored patches）版本
@@ -183,9 +202,11 @@ node patches\dsh-gateway-heartbeat\patch.mjs
 node patches\dsh-desktop-net-fetch\patch.mjs
 node patches\dsh-desktop-window-state\patch.mjs
 node patches\dsh-desktop-cookie-prune\patch.mjs
+node patches\dsh-host-profile-bom\patch.mjs
 # 每个都必须 verify exit 0
 node patches\dsh-desktop-window-state\verify.mjs
 node patches\dsh-desktop-cookie-prune\verify.mjs
+node patches\dsh-host-profile-bom\verify.mjs
 ```
 
 ### 补丁清单
@@ -198,6 +219,11 @@ node patches\dsh-desktop-cookie-prune\verify.mjs
 | `dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 | `desktop-menu` |
 | `dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆 | `desktop-menu` |
 | `dsh-desktop-cookie-prune` | 握手前清失效的 `dsh-auth-*` cookie，修 431 启动崩溃 | `desktop-menu` |
+| `dsh-host-profile-bom` | 剥离 profile 清单的 UTF-8 BOM，修 `JSON.parse` 崩溃 | — |
+
+> `dsh-host-profile-bom`：桌面端启动报「could not start」且日志里是
+> `Unexpected token '', "... is not valid JSON` 时命中。与 `desktop-menu` 无前置关系。
+> 详见 `patches/dsh-host-profile-bom/README.md`，内含剥 BOM 的紧急手救命令。
 
 > `dsh-desktop-cookie-prune`：桌面端启动报 `desktop welcome: Web authentication failed` 时，
 > 大概率是 `dsh-auth-*` cookie 攒了约 70 个把请求头撑爆（Node 16 KiB 上限 → `431`）。

@@ -41,6 +41,7 @@
 | `patches/dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 |
 | `patches/dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆（状态存 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`） |
 | `patches/dsh-desktop-cookie-prune` | 欢迎握手前清掉失效的 `dsh-auth-*` cookie，修「约 70 次启动后 431 → `desktop welcome: Web authentication failed`」；并把真实 HTTP 状态补进报错 |
+| `patches/dsh-host-profile-bom` | 让 `dsh-app-boot` 读 profile 清单时剥离 UTF-8 BOM，修「`package.json` 带 BOM → `JSON.parse` 抛 SyntaxError → 启动失败」。与其它补丁无前置关系 |
 
 > 🚨 **打补丁前必须完全退出 DSH 桌面端**（托盘退出，不是关窗口）：`main.js` 在运行期被映射进进程。
 > 🚨 **`desktop-menu` 是前置**：它把 `lib/main.js` 摊到 `app.asar.unpacked/lib/main.js`，后续补丁只改那个磁盘文件，**不重写 asar 头**。
