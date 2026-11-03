@@ -26,7 +26,10 @@ DSH 桌面端从 `E:\dshDesktop\resources\app.asar` 加载 ui-chat，那是官�
 5. `chat/TurnTailNodeView.tsx` 透传两个字段
 6. `conversation-nodes/event-projection.ts` 从持久化 stream 记录恢复首 token 时间
 7. `chat/locale.ts` 新增 `message.turnUsage.ttft`（zh「首字用时」/ en「Time to first token」）
-8. `chat/stat-dialog.ts` 自适应边界翻转：自动检测触发点与视口上下剩余空间，内部下方空间不足时自适应向上展示，动态添加 `maxHeight` 与 `overflowY: 'auto'` 防溢出裁切
+8. `chat/stat-dialog.ts` 自适应边界翻转 + **zoom 单位校正**：
+   - 自动检测触发点与视口上下剩余空间，上方放得下（或上方更宽裕）就向上展示，否则才向下；
+   - 动态注入 `maxHeight` 与 `overflowY: 'auto'`，内容超高时内部滚动，绝不越出窗口；
+   - `resolvePageZoom()` 修正 `body zoom` 下的坐标单位混用（见下方专节）。
 
 > **「首字用时」用的是单次值，不是平均。** `deriveTurnMetrics()` 取该轮
 > **最低 step 的单次 TTFT**；官方的 `StatsPills` 全局面板才用 `ttftMs / ttftSteps`
@@ -88,8 +91,25 @@ git -C E:\vibeCoding\deepseek-harness checkout -- . && git checkout <补丁提�
 **rc.3 → rc.5 期间官方没动这 8 个文件**，所以整文件覆盖即可，产物语义与 rc.3 一致。
 差异只在 CSS Modules 类名前缀（见上）与 `package.json` 版本号。
 
-本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` / `computeSmartPosition` / `placeAbove` 八个符号在
+本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` / `computeSmartPosition` / `resolvePageZoom` / `renderedHeight` / `placeAbove` 十个符号在
 `lib/client.js` 全命中；`version = 0.2.1-rc.5`；`cordis` peer 保持 `~4.0.5`（rc.5 官方就是它，未改）。
+
+### 🚨 `body zoom` 坐标单位陷阱（2026-11-03 实测踩坑）
+
+`dsh-claude-style` 会给 `body` 设 `zoom: 1.25`（`data-dsh-claude-page-zoom`）。
+在该子树里 `position: fixed` 的内联 `left`/`top` 是 **zoom 前单位**，而
+`getBoundingClientRect()` / `window.innerHeight` 是 **zoom 后视觉像素**。
+把测量值直接写回内联样式 = **二次放大**，弹窗必然跑偏。
+
+实测铁证（zoom=1.25）：内联 `left:100px` → `rect.left=125`；弹窗 `style.left=1033` → 实渲染 `left=1291`（比值 1.2511）。
+
+**修复口径**：
+- 比较与距离计算全部在视觉像素域；
+- `offsetWidth/offsetHeight` 是 zoom 前布局单位 → **先乘 zoom** 再参与比较；
+- 写回内联样式前 **一律除以 zoom**（`left` / `top` / `maxHeight` 三个都要）。
+
+**验收判据（真实页面实测）**：药丸 `y=1257`（视口高 1298，贴底），弹窗应
+`top=383 / bottom=668`，`insideViewport=true`，且 `left` 与药丸 x 像素级一致。
 
 > 🚨 **2026-11-03 补丁源文件防漏警示**：
 > 补丁共涉及 **9 个文件**（需确保 conversation-nodes 的 3 个文件全进）：

@@ -6885,6 +6885,8 @@ window.__ModuleLoader__.load({
 		const PANEL_MARGIN = 12;
 		/** Distance between the trigger's top edge and the panel's bottom. */
 		const PANEL_GAP = 8;
+		/** Smallest usable panel height before scrolling takes over. */
+		const PANEL_MIN_HEIGHT = 160;
 		/**
 		* Unplaced portal panel: hidden but laid out so the clamp measures real
 		* dimensions (the initial measure pass).
@@ -6894,45 +6896,73 @@ window.__ModuleLoader__.load({
 			left: 0,
 			top: 0
 		};
+		/**
+		* Zoom factor the page applies to the portaled panel.
+		*
+		* The desktop shell (and the claude-style page-zoom theme) may set `zoom` on a
+		* portaled ancestor, most often `body`. A zoomed `position: fixed` box resolves
+		* its inline `left`/`top` **in the pre-zoom unit** while
+		* `getBoundingClientRect()` reports post-zoom visual pixels, so writing measured
+		* coordinates straight back into the style double-applies the factor and lands
+		* the panel off-target. Dividing by this factor converts visual pixels back to
+		* the inline unit.
+		* @returns the effective zoom multiplier, 1 when the page does not zoom.
+		*/
+		function resolvePageZoom(panel) {
+			const body = panel?.ownerDocument.body;
+			if (body === null || body === void 0) return 1;
+			const zoom = Number.parseFloat(getComputedStyle(body).zoom);
+			return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+		}
+		/**
+		* Top margin the panel keeps, mirroring the shared overlay inset: the desktop
+		* frame's reserved strip plus breathing room, never below the panel margin.
+		* @returns the top clearance in visual pixels.
+		*/
 		function resolveTopClearance() {
 			const root = document.documentElement;
 			const clearance = Number.parseFloat(getComputedStyle(root).getPropertyValue("--dsh-frame-top-clearance"));
 			if (Number.isNaN(clearance)) return PANEL_MARGIN;
-			return Math.max(PANEL_MARGIN, (root.hasAttribute("data-fullscreen") ? 0 : clearance) + 20);
+			const base = root.hasAttribute("data-fullscreen") ? 0 : clearance;
+			return Math.max(PANEL_MARGIN, base + 20);
 		}
+		/**
+		* Boundary-aware placement for one open stat dialog.
+		*
+		* The panel hangs above its trigger whenever the space there fits it, or
+		* whenever that side simply has more room; it only drops below the trigger when
+		* the top cannot hold it and the bottom has more space. Either way the box is
+		* clamped inside the viewport and capped by `maxHeight` with scroll so an
+		* over-tall panel never spills past the window edge.
+		* @param anchor - the trigger element.
+		* @param panel - the portaled panel, already laid out.
+		* @returns inline style values in pre-zoom units, or null before measurement.
+		*/
 		function computeSmartPosition(anchor, panel) {
-			if (!anchor || !panel) return null;
+			if (anchor === null || panel === null) return null;
 			const rect = anchor.getBoundingClientRect();
-			const width = panel.offsetWidth;
-			const height = panel.offsetHeight;
+			const zoom = resolvePageZoom(panel);
+			const width = panel.offsetWidth * zoom;
+			const height = panel.offsetHeight * zoom;
 			if (width <= 0 || height <= 0) return null;
 			const topClearance = resolveTopClearance();
 			const bottomClearance = window.innerHeight - PANEL_MARGIN;
 			const spaceAbove = rect.top - topClearance - PANEL_GAP;
 			const spaceBelow = bottomClearance - rect.bottom - PANEL_GAP;
 			const placeAbove = spaceAbove >= height || spaceAbove >= spaceBelow;
-			let left = rect.left;
-			left = Math.min(Math.max(left, PANEL_MARGIN), window.innerWidth - width - PANEL_MARGIN);
-			let top;
-			let maxHeight;
-			if (placeAbove) {
-				top = rect.top - PANEL_GAP - height;
-				top = Math.max(topClearance, Math.min(top, bottomClearance - height));
-				maxHeight = Math.max(160, rect.top - topClearance - PANEL_GAP);
-			} else {
-				top = rect.bottom + PANEL_GAP;
-				top = Math.min(bottomClearance - height, Math.max(topClearance, top));
-				maxHeight = Math.max(160, bottomClearance - rect.bottom - PANEL_GAP);
-			}
+			const left = Math.min(Math.max(rect.left, PANEL_MARGIN), window.innerWidth - width - PANEL_MARGIN);
+			const maxHeight = Math.max(PANEL_MIN_HEIGHT, placeAbove ? spaceAbove : spaceBelow);
+			const renderedHeight = Math.min(height, maxHeight);
+			const top = placeAbove ? Math.min(Math.max(rect.top - PANEL_GAP - renderedHeight, topClearance), bottomClearance - renderedHeight) : Math.min(Math.max(rect.bottom + PANEL_GAP, topClearance), bottomClearance - renderedHeight);
 			return {
-				left,
-				top,
-				maxHeight,
+				left: left / zoom,
+				top: top / zoom,
+				maxHeight: maxHeight / zoom,
 				overflowY: "auto"
 			};
 		}
 		/**
-		* One trigger-anchored dialog seat: open state, boundary-aware smart flip placement, outside-close.
+		* One trigger-anchored dialog seat: open state, boundary-aware placement, outside-close.
 		* @returns the seat; spread `pos ?? MEASURE_STYLE` onto the portaled panel.
 		*/
 		function useStatDialog() {
@@ -6945,23 +6975,23 @@ window.__ModuleLoader__.load({
 					setPos(null);
 					return;
 				}
-				const updatePosition = () => {
+				const update = () => {
 					const next = computeSmartPosition(rootRef.current, panelRef.current);
-					if (next) setPos(next);
+					if (next !== null) setPos(next);
 				};
-				updatePosition();
-				window.addEventListener("scroll", updatePosition, true);
-				window.addEventListener("resize", updatePosition);
+				update();
+				window.addEventListener("scroll", update, true);
+				window.addEventListener("resize", update);
 				const panel = panelRef.current;
 				let observer = null;
 				if (typeof ResizeObserver !== "undefined" && panel !== null) {
-					observer = new ResizeObserver(updatePosition);
+					observer = new ResizeObserver(update);
 					observer.observe(panel);
 				}
 				return () => {
 					observer?.disconnect();
-					window.removeEventListener("scroll", updatePosition, true);
-					window.removeEventListener("resize", updatePosition);
+					window.removeEventListener("scroll", update, true);
+					window.removeEventListener("resize", update);
 				};
 			}, [open]);
 			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(rootRef, open, setOpen, panelRef);

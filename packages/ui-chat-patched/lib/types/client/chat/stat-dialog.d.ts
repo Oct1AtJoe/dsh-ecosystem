@@ -13,7 +13,7 @@ export interface StatDialogSeat {
     pos: CSSProperties | null;
 }
 /**
- * One trigger-anchored dialog seat: open state, boundary-aware smart flip placement, outside-close.
+ * One trigger-anchored dialog seat: open state, boundary-aware placement, outside-close.
  * @returns the seat; spread `pos ?? MEASURE_STYLE` onto the portaled panel.
  */
 export declare function useStatDialog(): StatDialogSeat;
