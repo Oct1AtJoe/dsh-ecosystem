@@ -24,7 +24,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// plugins/dsh-git-panel/src/client/index.ts
+// src/client/index.ts
 var index_exports = {};
 __export(index_exports, {
   apply: () => apply,
@@ -34,7 +34,7 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 var import_react13 = require("react");
 
-// plugins/dsh-git-panel/src/client/api.ts
+// src/client/api.ts
 async function post(path, payload, signal) {
   let response;
   try {
@@ -239,7 +239,7 @@ var GitPanelApi = class {
   }
 };
 
-// plugins/dsh-git-panel/src/client/i18n.ts
+// src/client/i18n.ts
 var import_react = require("react");
 var DICTS = {
   zh: {
@@ -1000,14 +1000,14 @@ function useT() {
   return t;
 }
 
-// plugins/dsh-git-panel/src/client/GitTab.tsx
+// src/client/GitTab.tsx
 var import_react5 = require("react");
 
-// plugins/dsh-git-panel/src/client/Panel.tsx
+// src/client/Panel.tsx
 var import_react4 = require("react");
 var import_react_dom = require("react-dom");
 
-// plugins/dsh-git-panel/src/client/batch-stage.ts
+// src/client/batch-stage.ts
 async function runBatch(files, apply2) {
   let done = 0;
   for (const file of files) {
@@ -1018,7 +1018,7 @@ async function runBatch(files, apply2) {
   return { done, failure: null };
 }
 
-// plugins/dsh-git-panel/src/client/git-status.ts
+// src/client/git-status.ts
 var TTL_MS = 5e3;
 function statusLetter(code) {
   if (code === "??") return "U";
@@ -1046,6 +1046,7 @@ var GitStatusCache = class {
   constructor(api) {
     this.api = api;
   }
+  api;
   snapshots = /* @__PURE__ */ new Map();
   inflight = /* @__PURE__ */ new Map();
   listeners = /* @__PURE__ */ new Set();
@@ -1155,7 +1156,7 @@ var GitStatusCache = class {
   }
 };
 
-// plugins/dsh-git-panel/src/client/change-groups.ts
+// src/client/change-groups.ts
 function changeBadgeOf(code) {
   return statusLetter(code);
 }
@@ -1180,7 +1181,7 @@ function classifyChanges(changes, stats) {
   };
 }
 
-// plugins/dsh-git-panel/src/client/graph.ts
+// src/client/graph.ts
 function layoutGraph(commits) {
   const activeLanes = [];
   const placed = [];
@@ -1226,7 +1227,7 @@ function layoutGraph(commits) {
   return placed;
 }
 
-// plugins/dsh-git-panel/src/client/icons.tsx
+// src/client/icons.tsx
 var import_react2 = require("react");
 var SHAPES = {
   refresh: [
@@ -1350,7 +1351,7 @@ function icon(name, size = 14) {
   );
 }
 
-// plugins/dsh-git-panel/src/client/tooltip.ts
+// src/client/tooltip.ts
 var node = null;
 function showTip(target, text) {
   hideTip();
@@ -1375,7 +1376,7 @@ function hideTip() {
   node = null;
 }
 
-// plugins/dsh-git-panel/src/client/review/review-store.ts
+// src/client/review/review-store.ts
 var import_react3 = require("react");
 var ReviewStore = class {
   /** 纯内存存储：按会话隔离目标提交，不写入 localStorage/sessionStorage */
@@ -1439,7 +1440,7 @@ function useReviewTarget(sessionId) {
   );
 }
 
-// plugins/dsh-git-panel/src/client/Panel.tsx
+// src/client/Panel.tsx
 var import_jsx_runtime = require("react/jsx-runtime");
 var STYLE = `
 .dsh-gp { --bg:var(--dsw-alias-bg-base,#ffffff);
@@ -1545,9 +1546,35 @@ body[data-ds-custom-theme] .dsh-gp-changes-pre {
 .dsh-gp-msg.err { border:1px solid var(--danger); color:var(--danger); }
 .dsh-gp-msg.ok { border:1px solid var(--current); color:var(--current); }
 .dsh-gp-menu-backdrop { position:fixed; inset:0; z-index:950; }
+/* \u83DC\u5355\u7ECF createPortal \u6302\u5230 body \u540E\u5DF2\u4E0D\u5728 .dsh-gp \u5B50\u6811\u5185\uFF0C\u539F\u5148\u7EE7\u627F\u6765\u7684
+   --panel-bg / --fg / --border / --hover / --muted / --danger \u5168\u90E8\u843D\u7A7A\uFF0C
+   var(--panel-bg) \u6210\u65E0\u6548\u503C -> background \u7B49\u4E8E transparent -> \u80CC\u540E\u5206\u652F\u540D\u4E0E
+   \u63D0\u4EA4\u4FE1\u606F\u76F4\u63A5\u900F\u51FA\u6765\uFF0C\u5B57\u770B\u4E0D\u89C1\u3002\u6545\u83DC\u5355\u81EA\u5E26\u4E00\u4EFD\u53D8\u91CF\uFF08\u4EE4\u724C\u4F18\u5148 + \u539F\u8272\u515C\u5E95\uFF0C
+   \u4E0E BranchChip \u7684 .dsh-gpc \u540C\u8303\u5F0F\uFF09\u3002
+   \u5E95\u886C\u7528\u4E24\u5C42\uFF1A\u4E0D\u900F\u660E\u57FA\u8272\u57AB\u5E95 + \u6D6E\u5C42\u4EE4\u724C\u8986\u76D6\u3002\u6D6E\u5C42\u4EE4\u724C\u53EF\u80FD\u662F\u534A\u900F\u660E\u7684
+   \uFF08\u5185\u7F6E\u4E3B\u9898\u6D45 0.58 / \u6DF1 0.45\uFF09\uFF0C\u5355\u5C42\u4F1A\u8BA9\u80CC\u5B57\u900F\u51FA\uFF1B\u57AB\u4E00\u5C42\u57FA\u8272\u540E\u8FD1\u5B9E\u5FC3\uFF0C
+   \u73BB\u7483\u8D28\u611F\u4FDD\u7559\u4F46\u4E0D\u5F71\u54CD\u9605\u8BFB\u3002 */
 .dsh-gp-menu { position:fixed; z-index:951; min-width:170px; padding:4px;
-  background:var(--panel-bg); border:1px solid var(--border); border-radius:8px;
-  box-shadow:0 8px 24px rgba(0,0,0,0.18); font-size:12px; }
+  --fg:var(--dsw-alias-label-primary,#24292f);
+  --muted:var(--dsw-alias-label-caption,#6e7781);
+  --border:var(--dsw-alias-border-l1,rgba(128,128,128,0.35));
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,0.06));
+  --accent:var(--dsw-alias-brand-primary,#1976d2);
+  --danger:var(--dsw-alias-state-error-primary,#cf222e);
+  --bg:var(--dsw-alias-bg-base,#ffffff);
+  background-color:var(--dsw-alias-bg-base,#ffffff);
+  background-image:linear-gradient(var(--dsw-specific-menu,transparent),var(--dsw-specific-menu,transparent));
+  border:1px solid var(--border); border-radius:8px;
+  box-shadow:var(--dsw-elevation-panel,0 8px 24px rgba(0,0,0,0.18)); font-size:12px; }
+[data-ds-dark-theme] .dsh-gp-menu {
+  --fg:var(--dsw-alias-label-primary,#d1d9e0);
+  --muted:var(--dsw-alias-label-caption,#9198a1);
+  --border:var(--dsw-alias-border-l1,rgba(255,255,255,0.14));
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,0.07));
+  --accent:var(--dsw-alias-brand-primary,#58a6ff);
+  --danger:var(--dsw-alias-state-error-primary,#f85149);
+  --bg:var(--dsw-alias-bg-base,#1f2328);
+  background-color:var(--dsw-alias-bg-base,#161b22); }
 .dsh-gp-menu-ico { display:inline-flex; align-items:center; margin-right:6px; vertical-align:-2px; }
 .dsh-gp-menu-item { display:flex; align-items:center; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--fg); white-space:nowrap; }
 .dsh-gp-menu-item:hover { background:var(--hover); }
@@ -1980,6 +2007,7 @@ ${t2("row.clickToGraph")}` : ""}`,
       },
       onContextMenu: (event) => {
         event.preventDefault();
+        event.stopPropagation();
         onContextMenu(event, row, isRemote);
       },
       children: [
@@ -2523,39 +2551,43 @@ var GraphViewComponent = (0, import_react4.memo)(function GraphViewComponent2(pr
         onRevert !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: () => onRevert(selected.sha), children: t2("op.revert") }) : null
       ] }) : null
     ] }) : null,
-    contextMenu ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        "div",
-        {
-          className: "dsh-gp-menu-backdrop",
-          onClick: closeContextMenu,
-          onContextMenu: (event) => {
-            event.preventDefault();
-            closeContextMenu();
+    contextMenu && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: "dsh-gp-menu-backdrop",
+            onClick: closeContextMenu,
+            onContextMenu: (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              closeContextMenu();
+            }
           }
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: contextMenu.x, top: contextMenu.y }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-        "div",
-        {
-          className: "dsh-gp-menu-item",
-          onClick: () => {
-            const sha = contextMenu.commit.sha;
-            if (navigator?.clipboard?.writeText) {
-              void navigator.clipboard.writeText(sha);
-            }
-            if (onCopyHash) {
-              onCopyHash(sha);
-            }
-            closeContextMenu();
-          },
-          children: [
-            menuIcon("copy"),
-            t2("graph.menu.copyHash")
-          ]
-        }
-      ) })
-    ] }) : null
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: contextMenu.x, top: contextMenu.y }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "div",
+          {
+            className: "dsh-gp-menu-item",
+            onClick: () => {
+              const sha = contextMenu.commit.sha;
+              if (navigator?.clipboard?.writeText) {
+                void navigator.clipboard.writeText(sha);
+              }
+              if (onCopyHash) {
+                onCopyHash(sha);
+              }
+              closeContextMenu();
+            },
+            children: [
+              menuIcon("copy"),
+              t2("graph.menu.copyHash")
+            ]
+          }
+        ) })
+      ] }),
+      document.body
+    ) : null
   ] });
 });
 function GitPanel(props) {
@@ -3725,127 +3757,131 @@ function GitPanel(props) {
           }
         ) : null
       ] }),
-      menu ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "div",
-          {
-            className: "dsh-gp-menu-backdrop",
-            onClick: closeMenu,
-            onContextMenu: (event) => {
-              event.preventDefault();
-              closeMenu();
-            }
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: menu.x, top: menu.y }, children: menuMode === "rename" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: t2("menu.title.rename", { name: menu.row.name }) }),
+      menu && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "input",
+            "div",
             {
-              className: "dsh-gp-menu-input",
-              value: renameValue,
-              autoFocus: true,
-              onChange: (event) => setRenameValue(event.target.value),
-              onKeyDown: (event) => {
-                if (event.key === "Enter") void confirmRename();
-                if (event.key === "Escape") setMenuMode("main");
+              className: "dsh-gp-menu-backdrop",
+              onClick: closeMenu,
+              onContextMenu: (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeMenu();
               }
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => void confirmRename(), children: t2("menu.confirm") }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
-          ] })
-        ] }) : menuMode === "confirm-delete" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: menu.isRemote ? t2("menu.title.deleteRemote", { name: menu.row.name }) : t2("menu.title.delete", { name: menu.row.name }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu", style: { left: menu.x, top: menu.y }, children: menuMode === "rename" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: t2("menu.title.rename", { name: menu.row.name }) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-              "button",
+              "input",
               {
-                className: "dsh-gp-btn",
-                style: { color: "var(--danger)" },
-                onClick: () => void confirmDelete(),
-                children: t2("menu.delete")
+                className: "dsh-gp-menu-input",
+                value: renameValue,
+                autoFocus: true,
+                onChange: (event) => setRenameValue(event.target.value),
+                onKeyDown: (event) => {
+                  if (event.key === "Enter") void confirmRename();
+                  if (event.key === "Escape") setMenuMode("main");
+                }
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
-          ] })
-        ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "div",
-            {
-              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-              onClick: () => {
-                if (busy) return;
-                const targetBranch = menu.row.name;
-                const isRemote = menu.isRemote;
-                closeMenu();
-                if (isRemote) {
-                  void runOp(t2("op.checkout"), () => api.switchBranch(path, targetBranch));
-                } else {
-                  void runOp(t2("op.switch"), () => api.switchBranch(path, targetBranch));
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => void confirmRename(), children: t2("menu.confirm") }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
+            ] })
+          ] }) : menuMode === "confirm-delete" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-title", children: menu.isRemote ? t2("menu.title.deleteRemote", { name: menu.row.name }) : t2("menu.title.delete", { name: menu.row.name }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-gp-menu-actions", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                "button",
+                {
+                  className: "dsh-gp-btn",
+                  style: { color: "var(--danger)" },
+                  onClick: () => void confirmDelete(),
+                  children: t2("menu.delete")
                 }
-              },
-              children: busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                menuIcon("branch"),
-                menu.isRemote ? t2("menu.checkout") : t2("menu.switch")
-              ] })
-            }
-          ) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => {
-            if (navigator?.clipboard?.writeText) {
-              void navigator.clipboard.writeText(menu.row.name);
-              setMessage({ text: `${t2("menu.copyName.done")}: ${menu.row.name}`, kind: "ok" });
-            }
-            closeMenu();
-          }, children: t2("menu.copyName") }),
-          menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "div",
-            {
-              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-              onClick: () => {
-                if (busy) return;
-                closeMenu();
-                void runOp(t2("op.pull"), () => api.pull(path), "pull");
-              },
-              children: busy && pendingOp === "pull" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-                " ",
-                t2("op.pulling")
-              ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                menuIcon("arrowDown"),
-                t2("menu.pull")
-              ] })
-            }
-          ) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "div",
-            {
-              className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
-              style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
-              onClick: () => {
-                if (busy) return;
-                closeMenu();
-                void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch");
-              },
-              children: busy && pendingOp === "fetch" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
-                " ",
-                t2("op.fetching")
-              ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                menuIcon("fetch"),
-                t2("menu.fetchAll")
-              ] })
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => setMenuMode("rename"), children: t2("menu.rename") }),
-          !menu.isCurrent && !menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.delete") }) : null,
-          menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.deleteRemote") }) : null,
-          !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => void mergeInto(), children: t2("menu.merge") }) : null
-        ] }) })
-      ] }) : null,
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-gp-btn", onClick: () => setMenuMode("main"), children: t2("menu.cancel") })
+            ] })
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+            !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+                style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+                onClick: () => {
+                  if (busy) return;
+                  const targetBranch = menu.row.name;
+                  const isRemote = menu.isRemote;
+                  closeMenu();
+                  if (isRemote) {
+                    void runOp(t2("op.checkout"), () => api.switchBranch(path, targetBranch));
+                  } else {
+                    void runOp(t2("op.switch"), () => api.switchBranch(path, targetBranch));
+                  }
+                },
+                children: busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  menuIcon("branch"),
+                  menu.isRemote ? t2("menu.checkout") : t2("menu.switch")
+                ] })
+              }
+            ) : null,
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => {
+              if (navigator?.clipboard?.writeText) {
+                void navigator.clipboard.writeText(menu.row.name);
+                setMessage({ text: `${t2("menu.copyName.done")}: ${menu.row.name}`, kind: "ok" });
+              }
+              closeMenu();
+            }, children: t2("menu.copyName") }),
+            menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+                style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+                onClick: () => {
+                  if (busy) return;
+                  closeMenu();
+                  void runOp(t2("op.pull"), () => api.pull(path), "pull");
+                },
+                children: busy && pendingOp === "pull" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                  " ",
+                  t2("op.pulling")
+                ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  menuIcon("arrowDown"),
+                  t2("menu.pull")
+                ] })
+              }
+            ) : null,
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "div",
+              {
+                className: `dsh-gp-menu-item ${busy ? "disabled" : ""}`,
+                style: busy ? { opacity: 0.4, cursor: "not-allowed", pointerEvents: "none" } : void 0,
+                onClick: () => {
+                  if (busy) return;
+                  closeMenu();
+                  void runOp(t2("fetch.all"), () => api.fetchAll(path), "fetch");
+                },
+                children: busy && pendingOp === "fetch" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-gp-spinner" }),
+                  " ",
+                  t2("op.fetching")
+                ] }) : busy ? t2("menu.busySyncing") : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  menuIcon("fetch"),
+                  t2("menu.fetchAll")
+                ] })
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => setMenuMode("rename"), children: t2("menu.rename") }),
+            !menu.isCurrent && !menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.delete") }) : null,
+            menu.isRemote ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item danger", onClick: () => setMenuMode("confirm-delete"), children: t2("menu.deleteRemote") }) : null,
+            !menu.isCurrent ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-gp-menu-item", onClick: () => void mergeInto(), children: t2("menu.merge") }) : null
+          ] }) })
+        ] }),
+        document.body
+      ) : null,
       discardTarget && typeof document !== "undefined" ? (0, import_react_dom.createPortal)(
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "div",
@@ -3954,7 +3990,7 @@ function GitPanel(props) {
   );
 }
 
-// plugins/dsh-git-panel/src/client/GitTab.tsx
+// src/client/GitTab.tsx
 function readPath(sessions, sessionId) {
   if (!sessions || sessionId === void 0 || sessionId === "") return "";
   const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd;
@@ -4003,10 +4039,10 @@ function GitTabBody(props) {
   return (0, import_react5.createElement)(GitPanel, { path, api, sessionId: uuid, onOpenDiff: openDiff, onRefreshStatus: refreshStatus, statusCache });
 }
 
-// plugins/dsh-git-panel/src/client/GitDiffView.tsx
+// src/client/GitDiffView.tsx
 var import_react6 = require("react");
 
-// plugins/dsh-git-panel/src/client/diff.ts
+// src/client/diff.ts
 var LCS_CELL_CAP = 4e6;
 function splitLines(text) {
   if (text === "") return [];
@@ -4160,7 +4196,7 @@ function diffStat(rows) {
   return { added, removed };
 }
 
-// plugins/dsh-git-panel/src/client/refs.ts
+// src/client/refs.ts
 var FILE_PREFIX = "dsh-resource://file/";
 function parseFileAddress(address) {
   if (typeof address !== "string" || !address.startsWith(FILE_PREFIX)) return void 0;
@@ -4186,7 +4222,7 @@ function basenameOf(path) {
   return at === -1 ? normalized : normalized.slice(at + 1);
 }
 
-// plugins/dsh-git-panel/src/client/GitDiffView.tsx
+// src/client/GitDiffView.tsx
 var CONTEXT_LINES = 3;
 function readCwd(sessions, sessionId) {
   if (!sessions) return "";
@@ -4965,7 +5001,7 @@ var STYLE2 = `
   white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto; }
 `;
 
-// plugins/dsh-git-panel/src/client/decorations.ts
+// src/client/decorations.ts
 var DECO_CLASS = "dsh-git-deco";
 var styleReady2 = false;
 function ensureStyle3() {
@@ -5079,10 +5115,10 @@ var STYLE3 = `
 .dsh-git-deco[data-letter="\u2022"] { font-size:13px; line-height:1; opacity:.8; }
 `;
 
-// plugins/dsh-git-panel/src/client/review/ReviewView.tsx
+// src/client/review/ReviewView.tsx
 var import_react11 = require("react");
 
-// plugins/dsh-git-panel/src/client/review/CommitDiffPanel.tsx
+// src/client/review/CommitDiffPanel.tsx
 var import_react7 = require("react");
 var import_jsx_runtime2 = require("react/jsx-runtime");
 var CONTEXT_LINES2 = 3;
@@ -5340,7 +5376,7 @@ var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
   ] });
 });
 
-// plugins/dsh-git-panel/src/client/review/CommitFileTree.tsx
+// src/client/review/CommitFileTree.tsx
 var import_react8 = require("react");
 var import_jsx_runtime3 = require("react/jsx-runtime");
 function buildTree(files) {
@@ -5575,7 +5611,7 @@ var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
   ] });
 });
 
-// plugins/dsh-git-panel/src/client/review/CommitHeader.tsx
+// src/client/review/CommitHeader.tsx
 var import_react9 = require("react");
 var import_jsx_runtime4 = require("react/jsx-runtime");
 var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
@@ -5700,10 +5736,10 @@ var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
   ] });
 });
 
-// plugins/dsh-git-panel/src/client/review/ReviewGraphView.tsx
+// src/client/review/ReviewGraphView.tsx
 var import_react10 = require("react");
 
-// plugins/dsh-git-panel/src/client/review/review.css.ts
+// src/client/review/review.css.ts
 var REVIEW_STYLE = `
 /* 1. \u5BBF\u4E3B\u8054\u52A8\uFF1A\u53EA\u8981\u5BA1\u67E5\u89C6\u56FE\u6302\u8F7D\uFF0C\u7ACB\u5373\u5F7B\u5E95\u9690\u85CF\u5E95\u90E8\u8F93\u5165\u6846\u4E0E\u684C\u5BA0\uFF0C\u6D88\u9664\u5E95\u90E8\u9884\u7559\u9AD8\u5EA6 */
 :is([data-conversation-scroll], [class*="scrollBody"]):has([data-conversation-composer-overlay]) {
@@ -6168,7 +6204,7 @@ function ensureReviewStyle() {
   document.head.appendChild(tag);
 }
 
-// plugins/dsh-git-panel/src/client/review/ReviewGraphView.tsx
+// src/client/review/ReviewGraphView.tsx
 var import_jsx_runtime5 = require("react/jsx-runtime");
 var graphDataCache = /* @__PURE__ */ new Map();
 var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) {
@@ -6356,7 +6392,7 @@ var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) 
   );
 });
 
-// plugins/dsh-git-panel/src/client/review/ReviewView.tsx
+// src/client/review/ReviewView.tsx
 var import_jsx_runtime6 = require("react/jsx-runtime");
 var STORAGE_TREE_WIDTH_KEY = "dsh-git-panel.review.treeWidth";
 var DEFAULT_TREE_WIDTH = 220;
@@ -6627,7 +6663,7 @@ var ReviewView = (0, import_react11.memo)(function ReviewView2(props) {
   );
 });
 
-// plugins/dsh-git-panel/src/client/BranchChip.tsx
+// src/client/BranchChip.tsx
 var import_react12 = require("react");
 var import_jsx_runtime7 = require("react/jsx-runtime");
 var CHIP_STYLE = `
@@ -7057,7 +7093,7 @@ function BranchChip(props) {
   ] }) }) });
 }
 
-// plugins/dsh-git-panel/src/client/index.ts
+// src/client/index.ts
 var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {

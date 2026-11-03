@@ -121,9 +121,35 @@ body[data-ds-custom-theme] .dsh-gp-changes-pre {
 .dsh-gp-msg.err { border:1px solid var(--danger); color:var(--danger); }
 .dsh-gp-msg.ok { border:1px solid var(--current); color:var(--current); }
 .dsh-gp-menu-backdrop { position:fixed; inset:0; z-index:950; }
+/* 菜单经 createPortal 挂到 body 后已不在 .dsh-gp 子树内，原先继承来的
+   --panel-bg / --fg / --border / --hover / --muted / --danger 全部落空，
+   var(--panel-bg) 成无效值 -> background 等于 transparent -> 背后分支名与
+   提交信息直接透出来，字看不见。故菜单自带一份变量（令牌优先 + 原色兜底，
+   与 BranchChip 的 .dsh-gpc 同范式）。
+   底衬用两层：不透明基色垫底 + 浮层令牌覆盖。浮层令牌可能是半透明的
+   （内置主题浅 0.58 / 深 0.45），单层会让背字透出；垫一层基色后近实心，
+   玻璃质感保留但不影响阅读。 */
 .dsh-gp-menu { position:fixed; z-index:951; min-width:170px; padding:4px;
-  background:var(--panel-bg); border:1px solid var(--border); border-radius:8px;
-  box-shadow:0 8px 24px rgba(0,0,0,0.18); font-size:12px; }
+  --fg:var(--dsw-alias-label-primary,#24292f);
+  --muted:var(--dsw-alias-label-caption,#6e7781);
+  --border:var(--dsw-alias-border-l1,rgba(128,128,128,0.35));
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,0.06));
+  --accent:var(--dsw-alias-brand-primary,#1976d2);
+  --danger:var(--dsw-alias-state-error-primary,#cf222e);
+  --bg:var(--dsw-alias-bg-base,#ffffff);
+  background-color:var(--dsw-alias-bg-base,#ffffff);
+  background-image:linear-gradient(var(--dsw-specific-menu,transparent),var(--dsw-specific-menu,transparent));
+  border:1px solid var(--border); border-radius:8px;
+  box-shadow:var(--dsw-elevation-panel,0 8px 24px rgba(0,0,0,0.18)); font-size:12px; }
+[data-ds-dark-theme] .dsh-gp-menu {
+  --fg:var(--dsw-alias-label-primary,#d1d9e0);
+  --muted:var(--dsw-alias-label-caption,#9198a1);
+  --border:var(--dsw-alias-border-l1,rgba(255,255,255,0.14));
+  --hover:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,0.07));
+  --accent:var(--dsw-alias-brand-primary,#58a6ff);
+  --danger:var(--dsw-alias-state-error-primary,#f85149);
+  --bg:var(--dsw-alias-bg-base,#1f2328);
+  background-color:var(--dsw-alias-bg-base,#161b22); }
 .dsh-gp-menu-ico { display:inline-flex; align-items:center; margin-right:6px; vertical-align:-2px; }
 .dsh-gp-menu-item { display:flex; align-items:center; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--fg); white-space:nowrap; }
 .dsh-gp-menu-item:hover { background:var(--hover); }
@@ -622,6 +648,7 @@ const BranchRowView = memo(function BranchRowView(props: {
       }}
       onContextMenu={(event) => {
         event.preventDefault()
+        event.stopPropagation()
         onContextMenu(event, row, isRemote)
       }}
     >
@@ -1299,13 +1326,14 @@ export const GraphViewComponent = memo(function GraphViewComponent(props: {
         </div>
       ) : null}
 
-      {contextMenu ? (
+      {contextMenu && typeof document !== 'undefined' ? createPortal(
         <>
           <div
             className="dsh-gp-menu-backdrop"
             onClick={closeContextMenu}
             onContextMenu={(event) => {
               event.preventDefault()
+              event.stopPropagation()
               closeContextMenu()
             }}
           />
@@ -1326,7 +1354,8 @@ export const GraphViewComponent = memo(function GraphViewComponent(props: {
               {menuIcon('copy')}{t('graph.menu.copyHash')}
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       ) : null}
     </div>
   )
@@ -2563,10 +2592,10 @@ export function GitPanel(props: {
         ) : null}
       </div>
 
-      {menu ? (
+      {menu && typeof document !== 'undefined' ? createPortal(
         <>
           <div className="dsh-gp-menu-backdrop" onClick={closeMenu}
-            onContextMenu={(event) => { event.preventDefault(); closeMenu() }} />
+            onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); closeMenu() }} />
           <div className="dsh-gp-menu" style={{ left: menu.x, top: menu.y }}>
             {menuMode === 'rename' ? (
               <>
@@ -2680,7 +2709,8 @@ export function GitPanel(props: {
               </>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       ) : null}
 
       {discardTarget && typeof document !== 'undefined' ? createPortal(

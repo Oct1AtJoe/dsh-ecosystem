@@ -2,6 +2,13 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.29] - 2026-11-03
+
+### Fixed
+- **分支列表与图谱提交右键菜单弹出及高透遮挡修复**
+  1. 弹出修复：右侧栏 dockkit 外层容器声明了 `overflow: clip` 与 transform，原内联渲染在 `.dsh-gp` 树内的 fixed 菜单被包含块截断或无法脱离右侧栏；现改用 `createPortal(..., document.body)` 挂载到根节点，并补齐分支行右键 `event.stopPropagation()` 阻止冒泡。
+  2. 遮挡与底衬修复：脱离 `.dsh-gp` 树后菜单无法继承局部 CSS 变量（导致 `var(--panel-bg)` 回退为 transparent 出现高透穿底）；现为 `.dsh-gp-menu` 补齐自包含变量映射（与 `BranchChip` 规范对齐），背景采用双层底衬（不透明基色垫底 + 浮层令牌覆盖），彻底消除背后文字与分支项穿透干扰。
+
 ## [0.1.28] - 2026-10-30
 
 ### Fixed

@@ -1,7 +1,7 @@
-// plugins/dsh-git-panel/src/index.ts
+// src/index.ts
 import { realpath as realpath2 } from "node:fs/promises";
 
-// plugins/dsh-git-panel/src/host/git-service.ts
+// src/host/git-service.ts
 import { spawn } from "node:child_process";
 import { readFile as readBytes, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -217,6 +217,8 @@ var GitService = class {
     this.runner = runner;
     this.gate = gate;
   }
+  runner;
+  gate;
   /**
    * 提交级缓存：提交内容（含父提交 id 与文件内容）一经产生永不改变，
    * 因此可以安全地按 commit sha 长期缓存，避免重复 fork git 进程。
@@ -934,7 +936,7 @@ var GitService = class {
   }
 };
 
-// plugins/dsh-git-panel/src/host/commit-message.ts
+// src/host/commit-message.ts
 var DIFF_CAP_CHARS = 24e3;
 var MESSAGE_CAP_CHARS = 2e3;
 var TIMEOUT_MS = 6e4;
@@ -1196,7 +1198,7 @@ ${staged.subjects.map((subject) => `- ${subject}`).join("\n")}` : "This reposito
   return { ok: false, error };
 }
 
-// plugins/dsh-git-panel/src/host/routes.ts
+// src/host/routes.ts
 var BODY_CAP_BYTES = 1 << 20;
 async function readJsonBody(req) {
   const chunks = [];
@@ -1581,7 +1583,7 @@ function registerGitPanelRoutes(ctx, service) {
   return ctx.webServer.register({ kind: "prefix", path: "/git-panel", handler: route(service, ctx) });
 }
 
-// plugins/dsh-git-panel/src/index.ts
+// src/index.ts
 var inject = ["webServer", "subprocess", "workspaceRegistry"];
 function createWorkspaceGate(ctx) {
   return async (path) => {
