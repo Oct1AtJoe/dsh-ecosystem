@@ -6887,29 +6887,83 @@ window.__ModuleLoader__.load({
 		const PANEL_GAP = 8;
 		/**
 		* Unplaced portal panel: hidden but laid out so the clamp measures real
-		* dimensions (the `useAnchoredPosition` measure pass).
+		* dimensions (the initial measure pass).
 		*/
 		const MEASURE_STYLE = {
 			visibility: "hidden",
 			left: 0,
 			top: 0
 		};
+		function resolveTopClearance() {
+			const root = document.documentElement;
+			const clearance = Number.parseFloat(getComputedStyle(root).getPropertyValue("--dsh-frame-top-clearance"));
+			if (Number.isNaN(clearance)) return PANEL_MARGIN;
+			return Math.max(PANEL_MARGIN, (root.hasAttribute("data-fullscreen") ? 0 : clearance) + 20);
+		}
+		function computeSmartPosition(anchor, panel) {
+			if (!anchor || !panel) return null;
+			const rect = anchor.getBoundingClientRect();
+			const width = panel.offsetWidth;
+			const height = panel.offsetHeight;
+			if (width <= 0 || height <= 0) return null;
+			const topClearance = resolveTopClearance();
+			const bottomClearance = window.innerHeight - PANEL_MARGIN;
+			const spaceAbove = rect.top - topClearance - PANEL_GAP;
+			const spaceBelow = bottomClearance - rect.bottom - PANEL_GAP;
+			const placeAbove = spaceAbove >= height || spaceAbove >= spaceBelow;
+			let left = rect.left;
+			left = Math.min(Math.max(left, PANEL_MARGIN), window.innerWidth - width - PANEL_MARGIN);
+			let top;
+			let maxHeight;
+			if (placeAbove) {
+				top = rect.top - PANEL_GAP - height;
+				top = Math.max(topClearance, Math.min(top, bottomClearance - height));
+				maxHeight = Math.max(160, rect.top - topClearance - PANEL_GAP);
+			} else {
+				top = rect.bottom + PANEL_GAP;
+				top = Math.min(bottomClearance - height, Math.max(topClearance, top));
+				maxHeight = Math.max(160, bottomClearance - rect.bottom - PANEL_GAP);
+			}
+			return {
+				left,
+				top,
+				maxHeight,
+				overflowY: "auto"
+			};
+		}
 		/**
-		* One trigger-anchored dialog seat: open state, viewport-clamped placement, outside-close.
+		* One trigger-anchored dialog seat: open state, boundary-aware smart flip placement, outside-close.
 		* @returns the seat; spread `pos ?? MEASURE_STYLE` onto the portaled panel.
 		*/
 		function useStatDialog() {
 			const [open, setOpen] = (0, react.useState)(false);
 			const rootRef = (0, react.useRef)(null);
 			const panelRef = (0, react.useRef)(null);
-			const pos = (0, _deepseek_ai_dsh_client_ui_primitives.useAnchoredPosition)({
-				open,
-				anchorRef: rootRef,
-				panelRef,
-				side: "top",
-				gap: PANEL_GAP,
-				margin: PANEL_MARGIN
-			});
+			const [pos, setPos] = (0, react.useState)(null);
+			(0, react.useLayoutEffect)(() => {
+				if (!open) {
+					setPos(null);
+					return;
+				}
+				const updatePosition = () => {
+					const next = computeSmartPosition(rootRef.current, panelRef.current);
+					if (next) setPos(next);
+				};
+				updatePosition();
+				window.addEventListener("scroll", updatePosition, true);
+				window.addEventListener("resize", updatePosition);
+				const panel = panelRef.current;
+				let observer = null;
+				if (typeof ResizeObserver !== "undefined" && panel !== null) {
+					observer = new ResizeObserver(updatePosition);
+					observer.observe(panel);
+				}
+				return () => {
+					observer?.disconnect();
+					window.removeEventListener("scroll", updatePosition, true);
+					window.removeEventListener("resize", updatePosition);
+				};
+			}, [open]);
 			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(rootRef, open, setOpen, panelRef);
 			(0, react.useEffect)(() => {
 				if (!open) return;

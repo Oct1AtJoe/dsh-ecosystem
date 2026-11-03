@@ -1,7 +1,7 @@
 import { type CSSProperties, type MutableRefObject } from 'react';
 /**
  * Unplaced portal panel: hidden but laid out so the clamp measures real
- * dimensions (the `useAnchoredPosition` measure pass).
+ * dimensions (the initial measure pass).
  */
 export declare const MEASURE_STYLE: CSSProperties;
 /** Open state, refs, and clamped placement for one stat dialog. */
@@ -13,7 +13,7 @@ export interface StatDialogSeat {
     pos: CSSProperties | null;
 }
 /**
- * One trigger-anchored dialog seat: open state, viewport-clamped placement, outside-close.
+ * One trigger-anchored dialog seat: open state, boundary-aware smart flip placement, outside-close.
  * @returns the seat; spread `pos ?? MEASURE_STYLE` onto the portaled panel.
  */
 export declare function useStatDialog(): StatDialogSeat;

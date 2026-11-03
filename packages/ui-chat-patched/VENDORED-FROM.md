@@ -26,6 +26,7 @@ DSH 桌面端从 `E:\dshDesktop\resources\app.asar` 加载 ui-chat，那是官�
 5. `chat/TurnTailNodeView.tsx` 透传两个字段
 6. `conversation-nodes/event-projection.ts` 从持久化 stream 记录恢复首 token 时间
 7. `chat/locale.ts` 新增 `message.turnUsage.ttft`（zh「首字用时」/ en「Time to first token」）
+8. `chat/stat-dialog.ts` 自适应边界翻转：自动检测触发点与视口上下剩余空间，内部下方空间不足时自适应向上展示，动态添加 `maxHeight` 与 `overflowY: 'auto'` 防溢出裁切
 
 > **「首字用时」用的是单次值，不是平均。** `deriveTurnMetrics()` 取该轮
 > **最低 step 的单次 TTFT**；官方的 `StatsPills` 全局面板才用 `ttftMs / ttftSteps`
@@ -87,7 +88,7 @@ git -C E:\vibeCoding\deepseek-harness checkout -- . && git checkout <补丁提�
 **rc.3 → rc.5 期间官方没动这 8 个文件**，所以整文件覆盖即可，产物语义与 rc.3 一致。
 差异只在 CSS Modules 类名前缀（见上）与 `package.json` 版本号。
 
-本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` 六个符号在
+本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` / `computeSmartPosition` / `placeAbove` 八个符号在
 `lib/client.js` 全命中；`version = 0.2.1-rc.5`；`cordis` peer 保持 `~4.0.5`（rc.5 官方就是它，未改）。
 
 > 🚨 **2026-11-03 补丁源文件防漏警示**：
