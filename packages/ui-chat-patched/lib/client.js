@@ -8010,6 +8010,38 @@ window.__ModuleLoader__.load({
 				default: return false;
 			}
 		}
+		/**
+		* Time of the first member of one packed run that {@link isTokenDelta} accepts:
+		* a name-bearing Tool-call run starts at its first member, otherwise the first
+		* non-empty fragment.
+		* @param run - one packed delta run.
+		* @returns the member's reconstructed time, or undefined when none qualifies.
+		*/
+		function runFirstTokenTime(run) {
+			if (run.type === "tool-call-chunks" && run.name !== void 0) return run.time0;
+			const fragments = run.type === "tool-call-chunks" ? run.args : run.texts;
+			let time = run.time0;
+			for (let index = 0; index < fragments.length; index += 1) {
+				if (index > 0) time += run.dt[index - 1];
+				if (fragments[index] !== "") return time;
+			}
+		}
+		/**
+		* Time of the first token in one compact stream per {@link isTokenDelta}, read
+		* from the records themselves and stopping at the first qualifying member.
+		*
+		* A durable `assistant/message` settles without replaying its stream, so the
+		* live-progress first-token time is absent on every reopen; the embedded
+		* records carry the original chunk timestamps and recover it.
+		* @param stream - compact records from one durable Assistant settlement.
+		* @returns the first token's time, or undefined when the stream carries no token.
+		*/
+		function assistantStreamFirstTokenTime(stream) {
+			for (const record of stream) {
+				const time = record.type === "chunk" ? isTokenDelta(record.chunk) ? record.time : void 0 : runFirstTokenTime(record);
+				if (time !== void 0) return time;
+			}
+		}
 		//#endregion
 		//#region src/client/conversation-nodes/assistant.ts
 		function initialState(turn, step) {
@@ -8152,7 +8184,7 @@ window.__ModuleLoader__.load({
 					usage: event.data.usage,
 					timing: {
 						stepStartTime: context.start?.event.time ?? null,
-						firstTokenTime: state.firstTokenTime ?? null,
+						firstTokenTime: state.firstTokenTime ?? assistantStreamFirstTokenTime(event.data.stream) ?? null,
 						completedTime: event.time
 					},
 					...event.data.interrupted === true ? { interrupted: true } : {}

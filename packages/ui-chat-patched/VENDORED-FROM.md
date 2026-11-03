@@ -87,8 +87,21 @@ git -C E:\vibeCoding\deepseek-harness checkout -- . && git checkout <补丁提�
 **rc.3 → rc.5 期间官方没动这 8 个文件**，所以整文件覆盖即可，产物语义与 rc.3 一致。
 差异只在 CSS Modules 类名前缀（见上）与 `package.json` 版本号。
 
-本版验收：`deriveTurnMetrics` / `turnUsage.ttft` / `首字用时` / `输出速度` 四个符号在
+本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` 六个符号在
 `lib/client.js` 全命中；`version = 0.2.1-rc.5`；`cordis` peer 保持 `~4.0.5`（rc.5 官方就是它，未改）。
+
+> 🚨 **2026-11-03 补丁源文件防漏警示**：
+> 补丁共涉及 **9 个文件**（需确保 conversation-nodes 的 3 个文件全进）：
+> 1. `chat/TurnTailNodeView.tsx`
+> 2. `chat/TurnUsagePanel.tsx`
+> 3. `chat/use-chat-viewport.ts`
+> 4. `contract/chat-nodes.ts`
+> 5. `contract/turn-metrics.ts`
+> 6. `conversation-nodes/assistant.ts`（必须带 `assistantStreamFirstTokenTime`，否则会话沉淀/重开后首字和 TPS 丢失）
+> 7. `conversation-nodes/event-projection.ts`（实现 `assistantStreamFirstTokenTime`）
+> 8. `conversation-nodes/turn-tail.ts`
+> 9. `locale.ts`
+> 官方在 rc.5 新增的 `reasoning-text.ts` 必须保留，不能被旧 commit 冲掉。
 
 ## 回滚
 
