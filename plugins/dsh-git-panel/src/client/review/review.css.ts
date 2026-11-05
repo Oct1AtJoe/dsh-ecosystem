@@ -404,6 +404,15 @@ export const REVIEW_STYLE = `
 .dsh-review-cell-txt:nth-child(4) {
   border-left: 1px solid var(--review-border);
 }
+/* 关掉折行（GitDiffView 的「自动换行」开关）：横向滚动而非压行。 */
+.dsh-review-table:not(.wrap) .dsh-review-cell-txt {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.dsh-review-table:not(.wrap) {
+  overflow-x: auto;
+}
 
 /* 斜线遮罩 hatched */
 .dsh-review-hatched {

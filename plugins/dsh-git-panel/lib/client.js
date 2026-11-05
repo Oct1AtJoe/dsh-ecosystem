@@ -32,7 +32,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react14 = require("react");
+var import_react15 = require("react");
 
 // src/client/api.ts
 async function post(path, payload, signal) {
@@ -4252,10 +4252,10 @@ var STYLE2 = `
 `;
 
 // src/client/review/ReviewView.tsx
-var import_react12 = require("react");
+var import_react13 = require("react");
 
 // src/client/review/CommitDiffPanel.tsx
-var import_react6 = require("react");
+var import_react7 = require("react");
 
 // src/client/diff.ts
 var LCS_CELL_CAP = 4e6;
@@ -4411,13 +4411,12 @@ function diffStat(rows) {
   return { added, removed };
 }
 
-// src/client/review/CommitDiffPanel.tsx
+// src/client/review/DiffTable.tsx
+var import_react6 = require("react");
 var import_jsx_runtime2 = require("react/jsx-runtime");
-var CONTEXT_LINES = 3;
-function buildDisplay(rows, expanded, expandAll) {
-  if (expandAll) {
-    return rows.map((row, idx) => ({ kind: "row", row, key: `r${idx}` }));
-  }
+var DIFF_CONTEXT_LINES = 3;
+function buildDiffDisplay(rows, expanded, expandAll = false) {
+  if (expandAll) return rows.map((row, index2) => ({ kind: "row", row, key: `r${index2}` }));
   const items = [];
   let index = 0;
   while (index < rows.length) {
@@ -4431,18 +4430,18 @@ function buildDisplay(rows, expanded, expandAll) {
     let end = index;
     while (end < rows.length && rows[end]?.kind === "equal") end += 1;
     const count = end - index;
-    if (count <= CONTEXT_LINES * 2 + 1 || expanded.has(index)) {
+    if (count <= DIFF_CONTEXT_LINES * 2 + 1 || expanded.has(index)) {
       for (let at = index; at < end; at += 1) {
         const held = rows[at];
         if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
       }
     } else {
-      for (let at = index; at < index + CONTEXT_LINES; at += 1) {
+      for (let at = index; at < index + DIFF_CONTEXT_LINES; at += 1) {
         const held = rows[at];
         if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
       }
-      items.push({ kind: "gap", from: index + CONTEXT_LINES, to: end - CONTEXT_LINES, key: `g${index}` });
-      for (let at = end - CONTEXT_LINES; at < end; at += 1) {
+      items.push({ kind: "gap", from: index + DIFF_CONTEXT_LINES, to: end - DIFF_CONTEXT_LINES, key: `g${index}` });
+      for (let at = end - DIFF_CONTEXT_LINES; at < end; at += 1) {
         const held = rows[at];
         if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
       }
@@ -4451,6 +4450,51 @@ function buildDisplay(rows, expanded, expandAll) {
   }
   return items;
 }
+var DiffTable = (0, import_react6.memo)(function DiffTable2(props) {
+  const { items, mode, onExpandGap, gapLabel, fontSize, wrap = true } = props;
+  const style = fontSize === void 0 ? void 0 : { fontSize: `${fontSize}px` };
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `dsh-review-table${wrap ? " wrap" : ""}`, style, children: items.map((item) => {
+    if (item.kind === "gap") {
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        "button",
+        {
+          type: "button",
+          onClick: () => onExpandGap((item.from ?? 0) - DIFF_CONTEXT_LINES),
+          className: "dsh-review-gap-bar",
+          children: gapLabel((item.to ?? 0) - (item.from ?? 0))
+        },
+        item.key
+      );
+    }
+    const row = item.row;
+    if (mode === "unified") {
+      const isIns = row.kind === "ins";
+      const isDel2 = row.kind === "del";
+      const num = isDel2 ? row.left?.num : row.right?.num ?? row.left?.num;
+      const text = isDel2 ? row.left?.text : row.right?.text ?? row.left?.text;
+      const rowCls2 = isIns ? " dsh-review-row-u-add" : isDel2 ? " dsh-review-row-u-del" : "";
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row-u${rowCls2}`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-no-u", children: num ?? "" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-txt", children: text ?? "" })
+      ] }, item.key);
+    }
+    const isAdd = row.kind === "ins";
+    const isDel = row.kind === "del";
+    const isPair = row.kind === "change";
+    const rowCls = isAdd ? " dsh-review-row-add" : isDel ? " dsh-review-row-del" : isPair ? " dsh-review-row-pair" : "";
+    const leftHatched = row.left === void 0;
+    const rightHatched = row.right === void 0;
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row${rowCls}`, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${leftHatched ? " dsh-review-hatched" : ""}`, children: row.left ? row.left.num : "" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${leftHatched ? " dsh-review-hatched" : ""}`, children: row.left ? row.left.text : "" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${rightHatched ? " dsh-review-hatched" : ""}`, children: row.right ? row.right.num : "" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${rightHatched ? " dsh-review-hatched" : ""}`, children: row.right ? row.right.text : "" })
+    ] }, item.key);
+  }) });
+});
+
+// src/client/review/CommitDiffPanel.tsx
+var import_jsx_runtime3 = require("react/jsx-runtime");
 var fileDiffCache = /* @__PURE__ */ new Map();
 var FILE_DIFF_CACHE_LIMIT = 120;
 var PREFETCH_CONCURRENCY = 4;
@@ -4469,17 +4513,17 @@ function fetchFileDiff(api, cwd, sha, file) {
     return res.value;
   });
 }
-var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
+var CommitDiffPanel = (0, import_react7.memo)(function CommitDiffPanel2(props) {
   const { api, cwd, sha, file, siblings } = props;
   const t2 = useT();
-  const [loading, setLoading] = (0, import_react6.useState)(false);
-  const [diffData, setDiffData] = (0, import_react6.useState)(null);
-  const [error, setError] = (0, import_react6.useState)(null);
-  const [mode, setMode] = (0, import_react6.useState)("split");
-  const [ignoreWhitespace, setIgnoreWhitespace] = (0, import_react6.useState)(false);
-  const [expandAll, setExpandAll] = (0, import_react6.useState)(false);
-  const [expandedGaps, setExpandedGaps] = (0, import_react6.useState)(() => /* @__PURE__ */ new Set());
-  (0, import_react6.useEffect)(() => {
+  const [loading, setLoading] = (0, import_react7.useState)(false);
+  const [diffData, setDiffData] = (0, import_react7.useState)(null);
+  const [error, setError] = (0, import_react7.useState)(null);
+  const [mode, setMode] = (0, import_react7.useState)("split");
+  const [ignoreWhitespace, setIgnoreWhitespace] = (0, import_react7.useState)(false);
+  const [expandAll, setExpandAll] = (0, import_react7.useState)(false);
+  const [expandedGaps, setExpandedGaps] = (0, import_react7.useState)(() => /* @__PURE__ */ new Set());
+  (0, import_react7.useEffect)(() => {
     if (!file || !cwd || !sha) {
       setDiffData(null);
       return;
@@ -4510,7 +4554,7 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
       cancelled = true;
     };
   }, [api, cwd, sha, file]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     if (!cwd || !sha || !siblings || siblings.length === 0) return void 0;
     const pending = siblings.filter((f) => f.path !== file?.path).filter((f) => !fileDiffCache.has(fileDiffKey(cwd, sha, f.path))).slice(0, PREFETCH_MAX_FILES);
     if (pending.length === 0) return void 0;
@@ -4531,7 +4575,7 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
       cancelled = true;
     };
   }, [api, cwd, sha, siblings, file?.path]);
-  const rows = (0, import_react6.useMemo)(() => {
+  const rows = (0, import_react7.useMemo)(() => {
     if (!diffData || diffData.binary) return [];
     let oldText = diffData.oldContent;
     let newText = diffData.newContent;
@@ -4541,18 +4585,18 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
     }
     return diffRows(oldText, newText);
   }, [diffData, ignoreWhitespace]);
-  const displayItems = (0, import_react6.useMemo)(
-    () => buildDisplay(rows, expandedGaps, expandAll),
+  const displayItems = (0, import_react7.useMemo)(
+    () => buildDiffDisplay(rows, expandedGaps, expandAll),
     [rows, expandedGaps, expandAll]
   );
   if (!file) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") });
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-review-diff-pane", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-review-diff-header", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "var(--review-muted)", display: "flex" }, children: icon("file", 14) }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-review-diff-pane", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-review-diff-header", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { color: "var(--review-muted)", display: "flex" }, children: icon("file", 14) }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "span",
           {
             style: {
@@ -4567,19 +4611,19 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
             children: file.path
           }
         ),
-        (file.added > 0 || file.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { fontSize: 11.5, display: "inline-flex", gap: 4, flexShrink: 0, fontFamily: "monospace" }, children: [
-          file.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { color: "var(--review-add-color)" }, children: [
+        (file.added > 0 || file.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { fontSize: 11.5, display: "inline-flex", gap: 4, flexShrink: 0, fontFamily: "monospace" }, children: [
+          file.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-add-color)" }, children: [
             "+",
             file.added
           ] }),
-          file.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: { color: "var(--review-del-color)" }, children: [
+          file.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--review-del-color)" }, children: [
             "-",
             file.deleted
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             type: "button",
@@ -4588,7 +4632,7 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
             children: t2("review.splitDiff")
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             type: "button",
@@ -4597,7 +4641,7 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
             children: t2("review.unifiedDiff")
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             type: "button",
@@ -4607,7 +4651,7 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
             children: t2("review.ignoreWhitespace")
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             type: "button",
@@ -4619,58 +4663,24 @@ var CommitDiffPanel = (0, import_react6.memo)(function CommitDiffPanel2(props) {
         )
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-review-diff-scroll", children: loading ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--review-muted)", fontSize: 13, gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-gp-spinner lg" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t2("review.diffLoading") })
-    ] }) : error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-del-color)", fontSize: 13 }, children: error }) : diffData?.binary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("review.binary") }) : rows.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-review-table", children: displayItems.map((item) => {
-      if (item.kind === "gap") {
-        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-          "button",
-          {
-            type: "button",
-            onClick: () => setExpandedGaps((prev) => /* @__PURE__ */ new Set([...prev, item.from - CONTEXT_LINES])),
-            className: "dsh-review-gap-bar",
-            title: t2("diff.expandBlock"),
-            children: [
-              "\xB7\xB7\xB7 \xB7\xB7\xB7 \u5C55\u5F00 ",
-              item.to - item.from,
-              " \u884C\u672A\u6539\u52A8"
-            ]
-          },
-          item.key
-        );
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-review-diff-scroll", children: loading ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--review-muted)", fontSize: 13, gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-gp-spinner lg" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: t2("review.diffLoading") })
+    ] }) : error ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-del-color)", fontSize: 13 }, children: error }) : diffData?.binary ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("review.binary") }) : rows.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { padding: 24, textAlign: "center", color: "var(--review-muted)", fontSize: 13 }, children: t2("diff.empty") }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      DiffTable,
+      {
+        items: displayItems,
+        mode,
+        onExpandGap: (from) => setExpandedGaps((prev) => /* @__PURE__ */ new Set([...prev, from])),
+        gapLabel: (hidden) => t2("diff.expandLines", { count: String(hidden) })
       }
-      const r = item.row;
-      if (mode === "unified") {
-        const isIns = r.kind === "ins";
-        const isDel2 = r.kind === "del";
-        const num = isDel2 ? r.left?.num : r.right?.num ?? r.left?.num;
-        const text = isDel2 ? r.left?.text : r.right?.text ?? r.left?.text;
-        const rowCls2 = isIns ? " dsh-review-row-u-add" : isDel2 ? " dsh-review-row-u-del" : "";
-        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row-u${rowCls2}`, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-no-u", children: num ?? "" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-review-cell-txt", children: text ?? "" })
-        ] }, item.key);
-      }
-      const isAdd = r.kind === "ins";
-      const isDel = r.kind === "del";
-      const isPair = r.kind === "change";
-      const rowCls = isAdd ? " dsh-review-row-add" : isDel ? " dsh-review-row-del" : isPair ? " dsh-review-row-pair" : "";
-      const leftHatched = r.left === void 0;
-      const rightHatched = r.right === void 0;
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-review-row${rowCls}`, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${leftHatched ? " dsh-review-hatched" : ""}`, children: r.left ? r.left.num : "" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${leftHatched ? " dsh-review-hatched" : ""}`, children: r.left ? r.left.text : "" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-no${rightHatched ? " dsh-review-hatched" : ""}`, children: r.right ? r.right.num : "" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `dsh-review-cell-txt${rightHatched ? " dsh-review-hatched" : ""}`, children: r.right ? r.right.text : "" })
-      ] }, item.key);
-    }) }) })
+    ) })
   ] });
 });
 
 // src/client/review/CommitFileTree.tsx
-var import_react7 = require("react");
-var import_jsx_runtime3 = require("react/jsx-runtime");
+var import_react8 = require("react");
+var import_jsx_runtime4 = require("react/jsx-runtime");
 function buildTree(files) {
   const root = { name: "", fullPath: "", isDir: true, children: [], totalFiles: 0 };
   for (const file of files) {
@@ -4742,7 +4752,7 @@ function fileIcon(name) {
     bg = "rgba(171, 71, 188, 0.16)";
     color = "#ab47bc";
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
     "span",
     {
       style: {
@@ -4769,19 +4779,19 @@ function statusBadge(status) {
   if (s === "A") cls = "dsh-review-badge-a";
   else if (s === "D") cls = "dsh-review-badge-d";
   else if (s === "R") cls = "dsh-review-badge-r";
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: `dsh-review-badge ${cls}`, title: `Status: ${status}`, children: s || "M" });
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `dsh-review-badge ${cls}`, title: `Status: ${status}`, children: s || "M" });
 }
-var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
+var CommitFileTree = (0, import_react8.memo)(function CommitFileTree2(props) {
   const { files, selectedPath, onSelectFile } = props;
   const t2 = useT();
-  const [filterText, setFilterText] = (0, import_react7.useState)("");
-  const [collapsedDirs, setCollapsedDirs] = (0, import_react7.useState)(() => /* @__PURE__ */ new Set());
-  const filteredFiles = (0, import_react7.useMemo)(() => {
+  const [filterText, setFilterText] = (0, import_react8.useState)("");
+  const [collapsedDirs, setCollapsedDirs] = (0, import_react8.useState)(() => /* @__PURE__ */ new Set());
+  const filteredFiles = (0, import_react8.useMemo)(() => {
     const q = filterText.trim().toLowerCase();
     if (!q) return files;
     return files.filter((f) => f.path.toLowerCase().includes(q));
   }, [files, filterText]);
-  const tree = (0, import_react7.useMemo)(() => buildTree(filteredFiles), [filteredFiles]);
+  const tree = (0, import_react8.useMemo)(() => buildTree(filteredFiles), [filteredFiles]);
   const toggleDir = (dirPath) => {
     setCollapsedDirs((prev) => {
       const next = new Set(prev);
@@ -4793,8 +4803,8 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
   function renderNode(node2, depth) {
     if (node2.isDir) {
       const isCollapsed = collapsedDirs.has(node2.fullPath);
-      return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", flexDirection: "column" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+      return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", flexDirection: "column" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
           "button",
           {
             type: "button",
@@ -4802,7 +4812,7 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
             className: "dsh-review-dir-row",
             style: { paddingLeft: 8 + depth * 14 },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
                 "span",
                 {
                   style: {
@@ -4818,17 +4828,17 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
                   children: "\u2193"
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node2.name }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontSize: 11.5, color: "var(--review-muted)", marginLeft: 3 }, children: node2.totalFiles })
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: node2.name }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 11.5, color: "var(--review-muted)", marginLeft: 3 }, children: node2.totalFiles })
             ]
           }
         ),
-        !isCollapsed && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { children: node2.children.map((child) => renderNode(child, depth + 1)) })
+        !isCollapsed && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { children: node2.children.map((child) => renderNode(child, depth + 1)) })
       ] }, node2.fullPath);
     }
     const isSelected = selectedPath === node2.fullPath;
     const f = node2.file;
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
       "button",
       {
         type: "button",
@@ -4838,7 +4848,7 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
         title: f.path,
         children: [
           fileIcon(node2.name),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
             "span",
             {
               style: {
@@ -4851,12 +4861,12 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
               children: node2.name
             }
           ),
-          (f.added > 0 || f.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta", children: [
-            f.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta-add", children: [
+          (f.added > 0 || f.deleted > 0) && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-delta", children: [
+            f.added > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-delta-add", children: [
               "+",
               f.added
             ] }),
-            f.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-review-delta-del", children: [
+            f.deleted > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-delta-del", children: [
               "-",
               f.deleted
             ] })
@@ -4867,10 +4877,10 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
       node2.fullPath
     );
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: "100%", minWidth: 180 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-review-tree-search", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { position: "relative", display: "flex", alignItems: "center" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { position: "absolute", left: 7, color: "var(--review-muted)", display: "flex", pointerEvents: "none" }, children: icon("search", 11) }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: "100%", minWidth: 180 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "dsh-review-tree-search", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { position: "relative", display: "flex", alignItems: "center" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { position: "absolute", left: 7, color: "var(--review-muted)", display: "flex", pointerEvents: "none" }, children: icon("search", 11) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         "input",
         {
           type: "text",
@@ -4880,7 +4890,7 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
           className: "dsh-review-tree-input"
         }
       ),
-      filterText && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      filterText && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         "button",
         {
           type: "button",
@@ -4899,18 +4909,18 @@ var CommitFileTree = (0, import_react7.memo)(function CommitFileTree2(props) {
         }
       )
     ] }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-review-tree-scroll", children: tree.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { padding: "24px 12px", textAlign: "center", color: "var(--review-muted)", fontSize: 12 }, children: filterText ? t2("graph.filter.empty") : t2("diff.empty") }) : tree.map((node2) => renderNode(node2, 0)) })
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "dsh-review-tree-scroll", children: tree.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { padding: "24px 12px", textAlign: "center", color: "var(--review-muted)", fontSize: 12 }, children: filterText ? t2("graph.filter.empty") : t2("diff.empty") }) : tree.map((node2) => renderNode(node2, 0)) })
   ] });
 });
 
 // src/client/review/CommitHeader.tsx
-var import_react8 = require("react");
-var import_jsx_runtime4 = require("react/jsx-runtime");
-var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
+var import_react9 = require("react");
+var import_jsx_runtime5 = require("react/jsx-runtime");
+var CommitHeader = (0, import_react9.memo)(function CommitHeader2(props) {
   const { detail, onBack } = props;
   const t2 = useT();
-  const [expanded, setExpanded] = (0, import_react8.useState)(false);
-  const [copied, setCopied] = (0, import_react8.useState)(false);
+  const [expanded, setExpanded] = (0, import_react9.useState)(false);
+  const [copied, setCopied] = (0, import_react9.useState)(false);
   const copyHash = () => {
     if (navigator?.clipboard?.writeText) {
       void navigator.clipboard.writeText(detail.sha);
@@ -4918,9 +4928,9 @@ var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
       setTimeout(() => setCopied(false), 2e3);
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-header-top", children: [
-      onBack && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dsh-review-header", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dsh-review-header-top", children: [
+      onBack && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
         "button",
         {
           type: "button",
@@ -4943,7 +4953,7 @@ var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
           ]
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         "button",
         {
           type: "button",
@@ -4951,28 +4961,28 @@ var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
           className: "dsh-review-toggle",
           title: expanded ? "\u6536\u8D77\u8BE6\u60C5" : "\u5C55\u5F00\u8BE6\u60C5",
           "aria-expanded": expanded,
-          children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: `dsh-review-toggle-icon${expanded ? " dsh-review-toggle-open" : ""}`, children: icon("arrowRight", 11) })
+          children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `dsh-review-toggle-icon${expanded ? " dsh-review-toggle-open" : ""}`, children: icon("arrowRight", 11) })
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-review-label", children: t2("review.description") }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-review-subject", title: detail.subject, children: detail.subject }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-stats", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-add", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-review-label", children: t2("review.description") }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-review-subject", title: detail.subject, children: detail.subject }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dsh-review-stats", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-review-stat-add", children: [
           "+",
           detail.totals.added
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-del", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-review-stat-del", children: [
           "-",
           detail.totals.deleted
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-review-stat-count", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-review-stat-count", children: [
           "\xB7 ",
           t2("review.filesCount", { count: String(detail.totals.fileCount) })
         ] })
       ] })
     ] }),
-    expanded && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-review-info-grid", children: [
-      detail.body && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    expanded && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "dsh-review-info-grid", children: [
+      detail.body && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         "div",
         {
           style: {
@@ -4986,13 +4996,13 @@ var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
           children: detail.body
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
         t2("review.commit"),
         ":"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.sha }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.sha }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "button",
           {
             type: "button",
@@ -5003,33 +5013,33 @@ var CommitHeader = (0, import_react8.memo)(function CommitHeader2(props) {
           }
         )
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
         t2("review.author"),
         ":"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
         detail.authorName,
         " ",
         detail.authorEmail ? `<${detail.authorEmail}>` : ""
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
         t2("review.date"),
         ":"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: detail.date }),
-      detail.parents.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: detail.date }),
+      detail.parents.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--review-muted)" }, children: [
           t2("review.parents"),
           ":"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.parents.map((p) => p.slice(0, 7)).join(", ") })
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ds-font-family-code, monospace)" }, children: detail.parents.map((p) => p.slice(0, 7)).join(", ") })
       ] })
     ] })
   ] });
 });
 
 // src/client/review/ReviewGraphView.tsx
-var import_react9 = require("react");
+var import_react10 = require("react");
 
 // src/client/review/review.css.ts
 var REVIEW_STYLE = `
@@ -5433,6 +5443,15 @@ var REVIEW_STYLE = `
 .dsh-review-cell-txt:nth-child(4) {
   border-left: 1px solid var(--review-border);
 }
+/* \u5173\u6389\u6298\u884C\uFF08GitDiffView \u7684\u300C\u81EA\u52A8\u6362\u884C\u300D\u5F00\u5173\uFF09\uFF1A\u6A2A\u5411\u6EDA\u52A8\u800C\u975E\u538B\u884C\u3002 */
+.dsh-review-table:not(.wrap) .dsh-review-cell-txt {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.dsh-review-table:not(.wrap) {
+  overflow-x: auto;
+}
 
 /* \u659C\u7EBF\u906E\u7F69 hatched */
 .dsh-review-hatched {
@@ -5546,22 +5565,22 @@ function ensureReviewStyle() {
 }
 
 // src/client/review/ReviewGraphView.tsx
-var import_jsx_runtime5 = require("react/jsx-runtime");
+var import_jsx_runtime6 = require("react/jsx-runtime");
 var graphDataCache = /* @__PURE__ */ new Map();
-var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
+var ReviewGraphView = (0, import_react10.memo)(function ReviewGraphView2(props) {
   const { cwd, sessionId, api } = props;
   ensureStyle();
   ensureReviewStyle();
   const t2 = useT();
   const cached = cwd ? graphDataCache.get(cwd) : void 0;
-  const [graph, setGraph] = (0, import_react9.useState)(() => cached?.graph ?? null);
-  const [branches, setBranches] = (0, import_react9.useState)(() => cached?.branches ?? null);
-  const [loading, setLoading] = (0, import_react9.useState)(() => !cached);
-  const [error, setError] = (0, import_react9.useState)(null);
-  const [notRepo, setNotRepo] = (0, import_react9.useState)(false);
-  const containerRef = (0, import_react9.useRef)(null);
-  const [width, setWidth] = (0, import_react9.useState)(() => typeof window !== "undefined" ? window.innerWidth - 300 : 800);
-  (0, import_react9.useEffect)(() => {
+  const [graph, setGraph] = (0, import_react10.useState)(() => cached?.graph ?? null);
+  const [branches, setBranches] = (0, import_react10.useState)(() => cached?.branches ?? null);
+  const [loading, setLoading] = (0, import_react10.useState)(() => !cached);
+  const [error, setError] = (0, import_react10.useState)(null);
+  const [notRepo, setNotRepo] = (0, import_react10.useState)(false);
+  const containerRef = (0, import_react10.useRef)(null);
+  const [width, setWidth] = (0, import_react10.useState)(() => typeof window !== "undefined" ? window.innerWidth - 300 : 800);
+  (0, import_react10.useEffect)(() => {
     if (!containerRef.current || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -5573,7 +5592,7 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     if (!cwd) return;
     const c = graphDataCache.get(cwd);
     if (c) {
@@ -5582,7 +5601,7 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
       setLoading(false);
     }
   }, [cwd]);
-  const loadData = (0, import_react9.useCallback)(() => {
+  const loadData = (0, import_react10.useCallback)(() => {
     if (!cwd) {
       setGraph(null);
       setBranches(null);
@@ -5621,14 +5640,14 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
       cancelled = true;
     };
   }, [api, cwd]);
-  (0, import_react9.useEffect)(() => {
+  (0, import_react10.useEffect)(() => {
     const cleanup = loadData();
     return () => {
       cleanup?.();
     };
   }, [loadData]);
   if (!cwd) {
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
       "div",
       {
         className: "dsh-review-root",
@@ -5646,7 +5665,7 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
       }
     );
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
     "div",
     {
       ref: containerRef,
@@ -5663,7 +5682,7 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
         boxSizing: "border-box",
         padding: "6px 14px 20px"
       },
-      children: loading && !graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      children: loading && !graph ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
         "div",
         {
           style: {
@@ -5676,11 +5695,11 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
             fontSize: 13
           },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-gp-spinner lg" }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: t2("loading") })
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-gp-spinner lg" }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: t2("loading") })
           ]
         }
-      ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
         "div",
         {
           style: {
@@ -5696,11 +5715,11 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
             textAlign: "center"
           },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") })
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") })
           ]
         }
-      ) : error && !graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      ) : error && !graph ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
         "div",
         {
           style: {
@@ -5715,11 +5734,11 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
             fontSize: 13
           },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: error }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: loadData, children: t2("op.refresh") })
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { children: error }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "dsh-gp-btn", onClick: loadData, children: t2("op.refresh") })
           ]
         }
-      ) : graph ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      ) : graph ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
         GraphViewComponent,
         {
           graph,
@@ -5734,10 +5753,10 @@ var ReviewGraphView = (0, import_react9.memo)(function ReviewGraphView2(props) {
 });
 
 // src/client/review/WorkingChangesView.tsx
-var import_react11 = require("react");
+var import_react12 = require("react");
 
 // src/client/GitDiffView.tsx
-var import_react10 = require("react");
+var import_react11 = require("react");
 
 // src/client/refs.ts
 var FILE_PREFIX = "dsh-resource://file/";
@@ -5770,7 +5789,6 @@ function basenameOf(path) {
 }
 
 // src/client/GitDiffView.tsx
-var CONTEXT_LINES2 = 3;
 function readCwd(sessions, sessionId) {
   if (!sessions) return "";
   const snapshot = sessions.list.getSnapshot();
@@ -5816,40 +5834,6 @@ function applyResolution(text, block, choice) {
   const next = [...lines.slice(0, block.start), ...replacement, ...lines.slice(block.end + 1)];
   return next.join("\n");
 }
-function buildDisplay2(rows, expanded) {
-  const items = [];
-  let index = 0;
-  while (index < rows.length) {
-    const row = rows[index];
-    if (row === void 0) break;
-    if (row.kind !== "equal") {
-      items.push({ kind: "row", row, key: `r${index}` });
-      index += 1;
-      continue;
-    }
-    let end = index;
-    while (end < rows.length && rows[end]?.kind === "equal") end += 1;
-    const count = end - index;
-    if (count <= CONTEXT_LINES2 * 2 + 1 || expanded.has(index)) {
-      for (let at = index; at < end; at += 1) {
-        const held = rows[at];
-        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
-      }
-    } else {
-      for (let at = index; at < index + CONTEXT_LINES2; at += 1) {
-        const held = rows[at];
-        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
-      }
-      items.push({ kind: "gap", from: index + CONTEXT_LINES2, to: end - CONTEXT_LINES2, key: `g${index}` });
-      for (let at = end - CONTEXT_LINES2; at < end; at += 1) {
-        const held = rows[at];
-        if (held !== void 0) items.push({ kind: "row", row: held, key: `r${at}` });
-      }
-    }
-    index = end;
-  }
-  return items;
-}
 var styleReady2 = false;
 function ensureStyle3() {
   if (styleReady2 || typeof document === "undefined") return;
@@ -5877,7 +5861,7 @@ function glyph(kind) {
   return icon(GLYPH_MAP[kind] ?? "info", 15);
 }
 function iconButton(id, label, active, onClick, kind, danger = false) {
-  return (0, import_react10.createElement)("button", {
+  return (0, import_react11.createElement)("button", {
     type: "button",
     "data-gd-btn": id,
     className: `dsh-gd-ico-btn${active ? " on" : ""}${danger ? " danger" : ""}`,
@@ -5891,36 +5875,36 @@ function GitDiffView(props) {
   useT();
   ensureStyle3();
   const address = typeof props.resourceAddress === "string" ? props.resourceAddress : "";
-  const parsed = (0, import_react10.useMemo)(() => parseFileAddress(address), [address]);
+  const parsed = (0, import_react11.useMemo)(() => parseFileAddress(address), [address]);
   const sessionId = parsed?.sessionId ?? "";
   const file = parsed?.path ?? "";
-  const [api] = (0, import_react10.useState)(() => props.api ?? new GitPanelApi());
-  const [cwd, setCwd] = (0, import_react10.useState)(() => readCwd(props.sessions, sessionId));
-  const [head, setHead] = (0, import_react10.useState)("");
-  const [working, setWorking] = (0, import_react10.useState)("");
-  const [baseline, setBaseline] = (0, import_react10.useState)("");
-  const [status, setStatus] = (0, import_react10.useState)(void 0);
-  const [statusCode, setStatusCode] = (0, import_react10.useState)(void 0);
-  const [isNew, setIsNew] = (0, import_react10.useState)(false);
-  const [missing, setMissing] = (0, import_react10.useState)(false);
-  const [binary, setBinary] = (0, import_react10.useState)(false);
-  const [error, setError] = (0, import_react10.useState)(null);
-  const [loading, setLoading] = (0, import_react10.useState)(true);
-  const [mode, setMode] = (0, import_react10.useState)("split");
-  const [wrap, setWrap] = (0, import_react10.useState)(true);
-  const [collapse, setCollapse] = (0, import_react10.useState)(true);
-  const [expanded, setExpanded] = (0, import_react10.useState)(() => /* @__PURE__ */ new Set());
-  const [busy, setBusy] = (0, import_react10.useState)(false);
-  const [note, setNote] = (0, import_react10.useState)(null);
-  const [fontSize, setFontSize] = (0, import_react10.useState)(12);
-  const scrollRef = (0, import_react10.useRef)(null);
-  (0, import_react10.useEffect)(() => {
+  const [api] = (0, import_react11.useState)(() => props.api ?? new GitPanelApi());
+  const [cwd, setCwd] = (0, import_react11.useState)(() => readCwd(props.sessions, sessionId));
+  const [head, setHead] = (0, import_react11.useState)("");
+  const [working, setWorking] = (0, import_react11.useState)("");
+  const [baseline, setBaseline] = (0, import_react11.useState)("");
+  const [status, setStatus] = (0, import_react11.useState)(void 0);
+  const [statusCode, setStatusCode] = (0, import_react11.useState)(void 0);
+  const [isNew, setIsNew] = (0, import_react11.useState)(false);
+  const [missing, setMissing] = (0, import_react11.useState)(false);
+  const [binary, setBinary] = (0, import_react11.useState)(false);
+  const [error, setError] = (0, import_react11.useState)(null);
+  const [loading, setLoading] = (0, import_react11.useState)(true);
+  const [mode, setMode] = (0, import_react11.useState)("split");
+  const [wrap, setWrap] = (0, import_react11.useState)(true);
+  const [collapse, setCollapse] = (0, import_react11.useState)(true);
+  const [expanded, setExpanded] = (0, import_react11.useState)(() => /* @__PURE__ */ new Set());
+  const [busy, setBusy] = (0, import_react11.useState)(false);
+  const [note, setNote] = (0, import_react11.useState)(null);
+  const [fontSize, setFontSize] = (0, import_react11.useState)(12);
+  const scrollRef = (0, import_react11.useRef)(null);
+  (0, import_react11.useEffect)(() => {
     if (!props.sessions) return void 0;
     const update = () => setCwd(readCwd(props.sessions, sessionId));
     update();
     return props.sessions.list.subscribe(update);
   }, [props.sessions, sessionId]);
-  const load = (0, import_react10.useCallback)(async () => {
+  const load = (0, import_react11.useCallback)(async () => {
     if (cwd === "" || file === "") return;
     setLoading(true);
     setError(null);
@@ -5954,24 +5938,24 @@ function GitDiffView(props) {
       setLoading(false);
     }
   }, [api, cwd, file]);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     void load();
   }, [load]);
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     setBaseline(working);
   }, [loading]);
-  const rows = (0, import_react10.useMemo)(() => diffRows(head, working), [head, working]);
-  const stat = (0, import_react10.useMemo)(() => diffStat(rows), [rows]);
-  const conflicts = (0, import_react10.useMemo)(() => parseConflicts(working).blocks, [working]);
+  const rows = (0, import_react11.useMemo)(() => diffRows(head, working), [head, working]);
+  const stat = (0, import_react11.useMemo)(() => diffStat(rows), [rows]);
+  const conflicts = (0, import_react11.useMemo)(() => parseConflicts(working).blocks, [working]);
   const dirty = working !== baseline;
-  const display = (0, import_react10.useMemo)(
-    () => collapse ? buildDisplay2(rows, expanded) : rows.map((row, index) => ({ kind: "row", row, key: `r${index}` })),
+  const display = (0, import_react11.useMemo)(
+    () => buildDiffDisplay(rows, expanded, !collapse),
     [rows, collapse, expanded]
   );
-  (0, import_react10.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (conflicts.length > 0) setMode("conflict");
   }, [conflicts.length]);
-  const save = (0, import_react10.useCallback)(async () => {
+  const save = (0, import_react11.useCallback)(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
@@ -5989,7 +5973,7 @@ function GitDiffView(props) {
     }
   }, [api, busy, cwd, file, load, working]);
   const staged = statusCode !== void 0 && statusCode[0] !== " " && statusCode[0] !== "?";
-  const stage = (0, import_react10.useCallback)(async () => {
+  const stage = (0, import_react11.useCallback)(async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
@@ -6010,38 +5994,38 @@ function GitDiffView(props) {
   }, [api, busy, cwd, file, staged, load, statusCode]);
   const color = status === void 0 ? void 0 : STATUS_COLORS[status];
   const name = basenameOf(file);
-  return (0, import_react10.createElement)(
+  return (0, import_react11.createElement)(
     "div",
     { className: "dsh-gd" },
-    (0, import_react10.createElement)(
+    (0, import_react11.createElement)(
       "div",
       { className: "dsh-gd-head" },
       // ---- 左：身份区（文件名 / 状态 / 完整路径 / 增删统计）----
-      (0, import_react10.createElement)(
+      (0, import_react11.createElement)(
         "div",
         { className: "dsh-gd-id" },
-        (0, import_react10.createElement)("span", { className: "dsh-gd-glyph", "aria-hidden": "true" }, glyph("file")),
-        (0, import_react10.createElement)("span", { className: "dsh-gd-name", title: file }, name),
-        status !== void 0 && (0, import_react10.createElement)("span", {
+        (0, import_react11.createElement)("span", { className: "dsh-gd-glyph", "aria-hidden": "true" }, glyph("file")),
+        (0, import_react11.createElement)("span", { className: "dsh-gd-name", title: file }, name),
+        status !== void 0 && (0, import_react11.createElement)("span", {
           className: "dsh-gd-badge",
           style: { color, borderColor: `${color}66`, background: `${color}1f` },
           title: t("diff.gitStatus", { status })
         }, status),
-        isNew && (0, import_react10.createElement)("span", { className: "dsh-gd-tag", title: t("diff.notInHead") }, t("diff.tagNew")),
-        (0, import_react10.createElement)("span", { className: "dsh-gd-path", title: file }, file),
-        (0, import_react10.createElement)(
+        isNew && (0, import_react11.createElement)("span", { className: "dsh-gd-tag", title: t("diff.notInHead") }, t("diff.tagNew")),
+        (0, import_react11.createElement)("span", { className: "dsh-gd-path", title: file }, file),
+        (0, import_react11.createElement)(
           "span",
           { className: "dsh-gd-stat" },
-          (0, import_react10.createElement)("span", { className: "dsh-gd-add", title: t("diff.linesAdded", { count: String(stat.added) }) }, `+${stat.added}`),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-del", title: t("diff.linesRemoved", { count: String(stat.removed) }) }, `\u2212${stat.removed}`)
+          (0, import_react11.createElement)("span", { className: "dsh-gd-add", title: t("diff.linesAdded", { count: String(stat.added) }) }, `+${stat.added}`),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-del", title: t("diff.linesRemoved", { count: String(stat.removed) }) }, `\u2212${stat.removed}`)
         )
       ),
-      (0, import_react10.createElement)("span", { className: "dsh-gd-spacer" }),
+      (0, import_react11.createElement)("span", { className: "dsh-gd-spacer" }),
       // ---- 右：控件区（视图 / 选项 / 动作）----
-      (0, import_react10.createElement)(
+      (0, import_react11.createElement)(
         "div",
         { className: "dsh-gd-tools" },
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-seg", role: "group", "aria-label": t("diff.viewSwitch") },
           iconButton("dsh-gd-split", t("diff.split"), mode === "split", () => setMode("split"), "split"),
@@ -6056,25 +6040,25 @@ function GitDiffView(props) {
             true
           )
         ),
-        (0, import_react10.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-seg", role: "group", "aria-label": t("diff.displayOptions") },
           iconButton("dsh-gd-wrap", t("diff.wrap"), wrap, () => setWrap((value) => !value), "wrap"),
           iconButton("dsh-gd-fold", t("diff.fold"), collapse, () => setCollapse((value) => !value), "fold")
         ),
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-stepper", role: "group", "aria-label": t("diff.fontSizeGroup") },
-          (0, import_react10.createElement)("button", {
+          (0, import_react11.createElement)("button", {
             type: "button",
             className: "dsh-gd-step",
             title: t("diff.fontSmaller"),
             "aria-label": t("diff.fontSmaller"),
             onClick: () => setFontSize((value) => Math.max(10, value - 1))
           }, "A\u2212"),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-size", title: t("diff.fontCurrent", { size: String(fontSize) }) }, String(fontSize)),
-          (0, import_react10.createElement)("button", {
+          (0, import_react11.createElement)("span", { className: "dsh-gd-size", title: t("diff.fontCurrent", { size: String(fontSize) }) }, String(fontSize)),
+          (0, import_react11.createElement)("button", {
             type: "button",
             className: "dsh-gd-step",
             title: t("diff.fontLarger"),
@@ -6082,109 +6066,71 @@ function GitDiffView(props) {
             onClick: () => setFontSize((value) => Math.min(20, value + 1))
           }, "A+")
         ),
-        (0, import_react10.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)("span", { className: "dsh-gd-sep", "aria-hidden": "true" }),
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-actions" },
-          (0, import_react10.createElement)("button", {
+          (0, import_react11.createElement)("button", {
             type: "button",
             className: "dsh-gd-btn",
             title: staged ? t("diff.unstageFile") : t("diff.stageFile"),
             disabled: busy,
             onClick: () => void stage()
-          }, glyph(staged ? "undo" : "stage"), (0, import_react10.createElement)("span", null, staged ? t("diff.unstage") : t("diff.stage"))),
-          (0, import_react10.createElement)("button", {
+          }, glyph(staged ? "undo" : "stage"), (0, import_react11.createElement)("span", null, staged ? t("diff.unstage") : t("diff.stage"))),
+          (0, import_react11.createElement)("button", {
             type: "button",
             "data-gd-btn": "save",
             className: `dsh-gd-btn${dirty ? " primary dirty" : " synced"}`,
             title: dirty ? t("diff.saveToWorkspace") : t("diff.inSync"),
             disabled: busy || !dirty,
             onClick: () => void save()
-          }, glyph(dirty ? "save" : "check"), (0, import_react10.createElement)("span", null, busy ? t("diff.processing") : dirty ? t("diff.save") : t("diff.synced")))
+          }, glyph(dirty ? "save" : "check"), (0, import_react11.createElement)("span", null, busy ? t("diff.processing") : dirty ? t("diff.save") : t("diff.synced")))
         )
       )
     ),
-    (note !== null || error !== null || binary || missing || isNew) && (0, import_react10.createElement)(
+    (note !== null || error !== null || binary || missing || isNew) && (0, import_react11.createElement)(
       "div",
       { className: "dsh-gd-notes" },
-      error !== null && (0, import_react10.createElement)("span", { className: "dsh-gd-note err" }, error),
-      binary && (0, import_react10.createElement)("span", { className: "dsh-gd-note" }, t("diff.binary")),
-      missing && (0, import_react10.createElement)("span", { className: "dsh-gd-note" }, t("diff.missing")),
-      isNew && (0, import_react10.createElement)("span", { className: "dsh-gd-note" }, t("diff.newFile")),
-      note !== null && (0, import_react10.createElement)("span", { className: `dsh-gd-note ${note.kind}` }, note.text)
+      error !== null && (0, import_react11.createElement)("span", { className: "dsh-gd-note err" }, error),
+      binary && (0, import_react11.createElement)("span", { className: "dsh-gd-note" }, t("diff.binary")),
+      missing && (0, import_react11.createElement)("span", { className: "dsh-gd-note" }, t("diff.missing")),
+      isNew && (0, import_react11.createElement)("span", { className: "dsh-gd-note" }, t("diff.newFile")),
+      note !== null && (0, import_react11.createElement)("span", { className: `dsh-gd-note ${note.kind}` }, note.text)
     ),
-    (0, import_react10.createElement)(
+    (0, import_react11.createElement)(
       "div",
       { className: "dsh-gd-body", ref: scrollRef },
-      loading ? (0, import_react10.createElement)("div", { className: "dsh-gd-empty" }, t("diff.loading")) : mode === "conflict" ? renderConflicts(conflicts, working, setWorking, setNote) : mode === "edit" ? (0, import_react10.createElement)("textarea", {
+      loading ? (0, import_react11.createElement)("div", { className: "dsh-gd-empty" }, t("diff.loading")) : mode === "conflict" ? renderConflicts(conflicts, working, setWorking, setNote) : mode === "edit" ? (0, import_react11.createElement)("textarea", {
         className: "dsh-gd-editor",
         style: { fontSize: `${fontSize}px`, whiteSpace: wrap ? "pre-wrap" : "pre" },
         spellCheck: false,
         value: working,
         onChange: (event) => setWorking(event.target.value)
-      }) : (0, import_react10.createElement)(
+      }) : (0, import_react11.createElement)(
         "div",
         { className: "dsh-gd-scroll" },
-        (0, import_react10.createElement)(
-          "div",
-          {
-            className: `dsh-gd-rows${wrap ? " wrap" : ""}${mode === "unified" ? " unified" : ""}`,
-            style: { fontSize: `${fontSize}px` }
-          },
-          display.map(
-            (item) => item.kind === "gap" ? (0, import_react10.createElement)("div", {
-              key: item.key,
-              className: "dsh-gd-gap",
-              onClick: () => setExpanded((held) => /* @__PURE__ */ new Set([...held, item.from - CONTEXT_LINES2])),
-              title: t("diff.expandBlock")
-            }, t("diff.expandLines", { count: String(item.to - item.from) })) : mode === "unified" ? renderUnifiedRow(item.row, item.key) : renderSplitRow(item.row, item.key)
-          )
-        )
+        (0, import_react11.createElement)(DiffTable, {
+          items: display,
+          mode: mode === "unified" ? "unified" : "split",
+          onExpandGap: (from) => setExpanded((held) => /* @__PURE__ */ new Set([...held, from])),
+          gapLabel: (hidden) => t("diff.expandLines", { count: String(hidden) }),
+          fontSize,
+          wrap
+        })
       )
     )
   );
 }
-function renderSplitRow(row, key) {
-  return (0, import_react10.createElement)(
-    "div",
-    { className: `dsh-gd-row ${row.kind}`, key },
-    (0, import_react10.createElement)(
-      "div",
-      { className: `dsh-gd-cell left ${row.kind}` },
-      (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, row.left === void 0 ? "" : String(row.left.num)),
-      (0, import_react10.createElement)("span", { className: "dsh-gd-txt", title: row.left?.text }, row.left?.text ?? "")
-    ),
-    (0, import_react10.createElement)(
-      "div",
-      { className: `dsh-gd-cell right ${row.kind}` },
-      (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, row.right === void 0 ? "" : String(row.right.num)),
-      (0, import_react10.createElement)("span", { className: "dsh-gd-txt", title: row.right?.text }, row.right?.text ?? "")
-    )
-  );
-}
-function renderUnifiedRow(row, key) {
-  const text = row.kind === "del" ? row.left?.text : row.right?.text ?? row.left?.text;
-  const num = row.kind === "del" ? row.left?.num : row.right?.num ?? row.left?.num;
-  const marker = row.kind === "ins" ? "+" : row.kind === "del" ? "-" : row.kind === "change" ? "\xB1" : " ";
-  return (0, import_react10.createElement)(
-    "div",
-    { className: `dsh-gd-row unified ${row.kind}`, key },
-    (0, import_react10.createElement)("span", { className: "dsh-gd-marker" }, marker),
-    (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, num === void 0 ? "" : String(num)),
-    (0, import_react10.createElement)("span", { className: "dsh-gd-txt", title: text }, text ?? ""),
-    row.kind === "change" && (0, import_react10.createElement)("span", { className: "dsh-gd-txt after" }, row.right?.text ?? "")
-  );
-}
 function renderConflicts(conflicts, working, setWorking, setNote) {
   if (conflicts.length === 0) {
-    return (0, import_react10.createElement)("div", { className: "dsh-gd-empty ok" }, icon("check", 14), t("diff.allResolved"));
+    return (0, import_react11.createElement)("div", { className: "dsh-gd-empty ok" }, icon("check", 14), t("diff.allResolved"));
   }
   const lines = working.split("\n");
   const CONTEXT_AROUND = 8;
   const elements = [];
   let lineIdx = 0;
   elements.push(
-    (0, import_react10.createElement)(
+    (0, import_react11.createElement)(
       "div",
       {
         className: "dsh-gd-conflict-hint",
@@ -6209,7 +6155,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const fromLine = lineIdx + 1;
       const toLine = contextStart;
       elements.push(
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           {
             className: "dsh-gd-gap",
@@ -6233,7 +6179,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
           icon("fold", 13),
           t("diff.foldedAbove", { from: String(fromLine), to: String(toLine), count: String(skippedCount) })
         ),
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           {
             id: `gap-body-${cIdx}`,
@@ -6242,12 +6188,12 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
           },
           lines.slice(lineIdx, contextStart).map((lText, i) => {
             const num = lineIdx + i + 1;
-            return (0, import_react10.createElement)(
+            return (0, import_react11.createElement)(
               "div",
               { className: "dsh-gd-row normal", key: `line-${num}` },
-              (0, import_react10.createElement)("span", { className: "dsh-gd-marker" }, " "),
-              (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-              (0, import_react10.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
+              (0, import_react11.createElement)("span", { className: "dsh-gd-marker" }, " "),
+              (0, import_react11.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+              (0, import_react11.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
             );
           })
         )
@@ -6258,18 +6204,18 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const num = lineIdx + 1;
       const text = lines[lineIdx] ?? "";
       elements.push(
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-row normal", key: `line-${num}` },
-          (0, import_react10.createElement)("span", { className: "dsh-gd-marker" }, " "),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
+          (0, import_react11.createElement)("span", { className: "dsh-gd-marker" }, " "),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
         )
       );
       lineIdx += 1;
     }
     elements.push(
-      (0, import_react10.createElement)(
+      (0, import_react11.createElement)(
         "div",
         {
           id: `conflict-block-${cIdx}`,
@@ -6283,7 +6229,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             background: "rgba(239, 68, 68, 0.04)"
           }
         },
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           {
             className: "dsh-gd-conflict-head",
@@ -6297,9 +6243,9 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
               fontSize: 11.5
             }
           },
-          (0, import_react10.createElement)("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--danger, #ef4444)" } }, icon("conflict", 14), t("diff.conflictHeader", { index: String(cIdx + 1), total: String(conflicts.length), from: String(block.start + 1), to: String(block.end + 1) })),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-spacer", style: { flex: 1 } }),
-          (0, import_react10.createElement)(
+          (0, import_react11.createElement)("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--danger, #ef4444)" } }, icon("conflict", 14), t("diff.conflictHeader", { index: String(cIdx + 1), total: String(conflicts.length), from: String(block.start + 1), to: String(block.end + 1) })),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-spacer", style: { flex: 1 } }),
+          (0, import_react11.createElement)(
             "button",
             {
               type: "button",
@@ -6313,7 +6259,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             icon("check", 13),
             t("diff.takeOurs")
           ),
-          (0, import_react10.createElement)(
+          (0, import_react11.createElement)(
             "button",
             {
               type: "button",
@@ -6327,7 +6273,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             icon("check", 13),
             t("diff.takeTheirs", { label: block.label })
           ),
-          (0, import_react10.createElement)(
+          (0, import_react11.createElement)(
             "button",
             {
               type: "button",
@@ -6342,20 +6288,20 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
             t("diff.takeBoth")
           )
         ),
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-conflict-panes", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "rgba(128,128,128,0.15)" } },
-          (0, import_react10.createElement)(
+          (0, import_react11.createElement)(
             "div",
             { style: { padding: "8px 10px", background: "rgba(59, 130, 246, 0.08)" } },
-            (0, import_react10.createElement)("div", { style: { fontSize: 10.5, color: "var(--accent, #3b82f6)", marginBottom: 4, fontWeight: 600 } }, t("diff.oursLabel")),
-            (0, import_react10.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.ours || t("diff.empty"))
+            (0, import_react11.createElement)("div", { style: { fontSize: 10.5, color: "var(--accent, #3b82f6)", marginBottom: 4, fontWeight: 600 } }, t("diff.oursLabel")),
+            (0, import_react11.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.ours || t("diff.empty"))
           ),
-          (0, import_react10.createElement)(
+          (0, import_react11.createElement)(
             "div",
             { style: { padding: "8px 10px", background: "rgba(34, 197, 94, 0.08)" } },
-            (0, import_react10.createElement)("div", { style: { fontSize: 10.5, color: "var(--current, #22c55e)", marginBottom: 4, fontWeight: 600 } }, t("diff.theirsLabel", { label: block.label })),
-            (0, import_react10.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.theirs || t("diff.empty"))
+            (0, import_react11.createElement)("div", { style: { fontSize: 10.5, color: "var(--current, #22c55e)", marginBottom: 4, fontWeight: 600 } }, t("diff.theirsLabel", { label: block.label })),
+            (0, import_react11.createElement)("pre", { style: { margin: 0, fontSize: 12, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" } }, block.theirs || t("diff.empty"))
           )
         )
       )
@@ -6366,12 +6312,12 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
       const num = lineIdx + 1;
       const text = lines[lineIdx] ?? "";
       elements.push(
-        (0, import_react10.createElement)(
+        (0, import_react11.createElement)(
           "div",
           { className: "dsh-gd-row normal", key: `line-${num}` },
-          (0, import_react10.createElement)("span", { className: "dsh-gd-marker" }, " "),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-          (0, import_react10.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
+          (0, import_react11.createElement)("span", { className: "dsh-gd-marker" }, " "),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+          (0, import_react11.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, text)
         )
       );
       lineIdx += 1;
@@ -6382,7 +6328,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
     const fromLine = lineIdx + 1;
     const toLine = lines.length;
     elements.push(
-      (0, import_react10.createElement)(
+      (0, import_react11.createElement)(
         "div",
         {
           className: "dsh-gd-gap",
@@ -6406,7 +6352,7 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
         icon("fold", 13),
         t("diff.foldedBelow", { from: String(fromLine), to: String(toLine), count: String(remainingCount) })
       ),
-      (0, import_react10.createElement)(
+      (0, import_react11.createElement)(
         "div",
         {
           id: "gap-body-after-last",
@@ -6415,18 +6361,18 @@ function renderConflicts(conflicts, working, setWorking, setNote) {
         },
         lines.slice(lineIdx).map((lText, i) => {
           const num = lineIdx + i + 1;
-          return (0, import_react10.createElement)(
+          return (0, import_react11.createElement)(
             "div",
             { className: "dsh-gd-row normal", key: `line-${num}` },
-            (0, import_react10.createElement)("span", { className: "dsh-gd-marker" }, " "),
-            (0, import_react10.createElement)("span", { className: "dsh-gd-num" }, String(num)),
-            (0, import_react10.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
+            (0, import_react11.createElement)("span", { className: "dsh-gd-marker" }, " "),
+            (0, import_react11.createElement)("span", { className: "dsh-gd-num" }, String(num)),
+            (0, import_react11.createElement)("span", { className: "dsh-gd-txt", style: { whiteSpace: "pre-wrap", fontFamily: "ui-monospace, monospace" } }, lText)
           );
         })
       )
     );
   }
-  return (0, import_react10.createElement)("div", { className: "dsh-gd-conflicts-flow", style: { padding: "8px 12px", overflowY: "auto" } }, elements);
+  return (0, import_react11.createElement)("div", { className: "dsh-gd-conflicts-flow", style: { padding: "8px 12px", overflowY: "auto" } }, elements);
 }
 var STYLE3 = `
 .dsh-gd { --gd-bg:var(--dsw-alias-bg-base, #ffffff); --gd-fg:var(--dsw-alias-label-primary, #24292f);
@@ -6537,7 +6483,7 @@ var STYLE3 = `
 `;
 
 // src/client/review/WorkingChangesView.tsx
-var import_jsx_runtime6 = require("react/jsx-runtime");
+var import_jsx_runtime7 = require("react/jsx-runtime");
 var STORAGE_TREE_WIDTH_KEY = "dsh-git-panel.review.treeWidth";
 var DEFAULT_TREE_WIDTH = 220;
 var MIN_TREE_WIDTH = 160;
@@ -6550,16 +6496,16 @@ function readTreeWidth() {
   }
   return DEFAULT_TREE_WIDTH;
 }
-var WorkingChangesView = (0, import_react11.memo)(function WorkingChangesView2(props) {
+var WorkingChangesView = (0, import_react12.memo)(function WorkingChangesView2(props) {
   const t2 = useT();
-  const [api] = (0, import_react11.useState)(() => props.api ?? new GitPanelApi());
+  const [api] = (0, import_react12.useState)(() => props.api ?? new GitPanelApi());
   const selected = useChangesFile(props.sessionId);
-  const [files, setFiles] = (0, import_react11.useState)([]);
-  const [loading, setLoading] = (0, import_react11.useState)(true);
-  const [error, setError] = (0, import_react11.useState)(null);
-  const [treeWidth, setTreeWidth] = (0, import_react11.useState)(readTreeWidth);
+  const [files, setFiles] = (0, import_react12.useState)([]);
+  const [loading, setLoading] = (0, import_react12.useState)(true);
+  const [error, setError] = (0, import_react12.useState)(null);
+  const [treeWidth, setTreeWidth] = (0, import_react12.useState)(readTreeWidth);
   const cwd = props.cwd ?? "";
-  const load = (0, import_react11.useCallback)(async () => {
+  const load = (0, import_react12.useCallback)(async () => {
     if (!cwd || !props.sessionId) {
       setFiles([]);
       setLoading(false);
@@ -6589,20 +6535,20 @@ var WorkingChangesView = (0, import_react11.memo)(function WorkingChangesView2(p
       };
     }));
   }, [api, cwd, props.sessionId]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     void load();
   }, [load]);
-  const current = (0, import_react11.useMemo)(() => {
+  const current = (0, import_react12.useMemo)(() => {
     if (selected !== null && files.some((file) => file.path === selected)) return selected;
     return files[0]?.path ?? null;
   }, [selected, files]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react12.useEffect)(() => {
     if (selected === null && current !== null) reviewStore.setChangesFile(props.sessionId, current);
   }, [selected, current, props.sessionId]);
-  const onSelectFile = (0, import_react11.useCallback)((file) => {
+  const onSelectFile = (0, import_react12.useCallback)((file) => {
     reviewStore.setChangesFile(props.sessionId, file.path);
   }, [props.sessionId]);
-  const handleMouseDown = (0, import_react11.useCallback)((event) => {
+  const handleMouseDown = (0, import_react12.useCallback)((event) => {
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = treeWidth;
@@ -6623,12 +6569,12 @@ var WorkingChangesView = (0, import_react11.memo)(function WorkingChangesView2(p
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, [treeWidth]);
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-review-root", "data-conversation-composer-overlay": "", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-review-wt-bar", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-review-wt-title", children: t2("review.workspace") }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-review-wt-meta", children: loading ? t2("review.loadingChanges") : t2("review.filesCount", { count: String(files.length) }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { style: { flex: 1 } }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-review-root", "data-conversation-composer-overlay": "", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-review-wt-bar", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "dsh-review-wt-title", children: t2("review.workspace") }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "dsh-review-wt-meta", children: loading ? t2("review.loadingChanges") : t2("review.filesCount", { count: String(files.length) }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { flex: 1 } }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
         "button",
         {
           type: "button",
@@ -6641,21 +6587,21 @@ var WorkingChangesView = (0, import_react11.memo)(function WorkingChangesView2(p
           ]
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "dsh-review-diff-btn", onClick: () => void load(), disabled: loading, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { type: "button", className: "dsh-review-diff-btn", onClick: () => void load(), disabled: loading, children: [
         icon("refresh", 12),
         " ",
         t2("review.refresh")
       ] })
     ] }),
-    error !== null && files.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-review-wt-empty", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 13, fontWeight: 600 }, children: t2("panel.opFailed") }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: error })
-    ] }) : files.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-review-wt-empty", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 13, fontWeight: 600 }, children: t2("review.workspaceClean") }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: t2("review.workspaceCleanHint") })
-    ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "dsh-review-tree", style: { width: treeWidth }, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CommitFileTree, { files, selectedPath: current, onSelectFile }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+    error !== null && files.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-review-wt-empty", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 13, fontWeight: 600 }, children: t2("panel.opFailed") }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 12.5 }, children: error })
+    ] }) : files.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "dsh-review-wt-empty", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 13, fontWeight: 600 }, children: t2("review.workspaceClean") }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 12.5 }, children: t2("review.workspaceCleanHint") })
+    ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-review-tree", style: { width: treeWidth }, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(CommitFileTree, { files, selectedPath: current, onSelectFile }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
         "div",
         {
           onMouseDown: handleMouseDown,
@@ -6663,12 +6609,12 @@ var WorkingChangesView = (0, import_react11.memo)(function WorkingChangesView2(p
           title: t2("review.treeWidth")
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: current !== null && props.sessionId !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(WorkingDiff, { api, sessions: props.sessions, sessionId: props.sessionId, file: current }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "dsh-review-wt-empty", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { fontSize: 12.5 }, children: t2("review.pickFile") }) }) })
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: current !== null && props.sessionId !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(WorkingDiff, { api, sessions: props.sessions, sessionId: props.sessionId, file: current }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "dsh-review-wt-empty", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 12.5 }, children: t2("review.pickFile") }) }) })
     ] })
   ] });
 });
-var WorkingDiff = (0, import_react11.memo)(function WorkingDiff2(props) {
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+var WorkingDiff = (0, import_react12.memo)(function WorkingDiff2(props) {
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
     GitDiffView,
     {
       api: props.api,
@@ -6680,26 +6626,26 @@ var WorkingDiff = (0, import_react11.memo)(function WorkingDiff2(props) {
 });
 
 // src/client/review/ReviewView.tsx
-var import_jsx_runtime7 = require("react/jsx-runtime");
+var import_jsx_runtime8 = require("react/jsx-runtime");
 var STORAGE_TREE_WIDTH_KEY2 = "dsh-git-panel.review.treeWidth";
 var DEFAULT_TREE_WIDTH2 = 220;
 var MIN_TREE_WIDTH2 = 160;
 var MAX_TREE_WIDTH2 = 420;
-var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
+var ReviewView = (0, import_react13.memo)(function ReviewView2(props) {
   ensureReviewStyle();
   const t2 = useT();
   const target = useReviewTarget(props.sessionId);
   const workingFile = useChangesFile(props.sessionId);
   const showWorking = (target?.sha ?? "") === "" && workingFile !== null;
-  const [api] = (0, import_react12.useState)(() => props.api ?? new GitPanelApi());
+  const [api] = (0, import_react13.useState)(() => props.api ?? new GitPanelApi());
   const effectiveCwd = props.cwd || target?.cwd || "";
   const effectiveSha = target?.sha || "";
-  const [detail, setDetail] = (0, import_react12.useState)(null);
-  const [loading, setLoading] = (0, import_react12.useState)(false);
-  const [error, setError] = (0, import_react12.useState)(null);
-  const [notRepo, setNotRepo] = (0, import_react12.useState)(false);
-  const [selectedFile, setSelectedFile] = (0, import_react12.useState)(null);
-  const [treeWidth, setTreeWidth] = (0, import_react12.useState)(() => {
+  const [detail, setDetail] = (0, import_react13.useState)(null);
+  const [loading, setLoading] = (0, import_react13.useState)(false);
+  const [error, setError] = (0, import_react13.useState)(null);
+  const [notRepo, setNotRepo] = (0, import_react13.useState)(false);
+  const [selectedFile, setSelectedFile] = (0, import_react13.useState)(null);
+  const [treeWidth, setTreeWidth] = (0, import_react13.useState)(() => {
     try {
       const stored = Number(localStorage.getItem(STORAGE_TREE_WIDTH_KEY2));
       if (Number.isFinite(stored) && stored >= MIN_TREE_WIDTH2 && stored <= MAX_TREE_WIDTH2) {
@@ -6709,9 +6655,9 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
     }
     return DEFAULT_TREE_WIDTH2;
   });
-  const isDraggingRef = (0, import_react12.useRef)(false);
-  const dragStartRef = (0, import_react12.useRef)(null);
-  const handleMouseDown = (0, import_react12.useCallback)((e) => {
+  const isDraggingRef = (0, import_react13.useRef)(false);
+  const dragStartRef = (0, import_react13.useRef)(null);
+  const handleMouseDown = (0, import_react13.useCallback)((e) => {
     e.preventDefault();
     isDraggingRef.current = true;
     dragStartRef.current = { startX: e.clientX, startW: treeWidth };
@@ -6734,7 +6680,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   }, [treeWidth]);
-  (0, import_react12.useEffect)(() => {
+  (0, import_react13.useEffect)(() => {
     if (!props.sessionId || !effectiveCwd || !effectiveSha) {
       setDetail(null);
       setSelectedFile(null);
@@ -6770,13 +6716,13 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
       cancelled = true;
     };
   }, [api, props.sessionId, effectiveCwd, effectiveSha]);
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
     "div",
     {
       className: "dsh-review-root",
       "data-conversation-composer-overlay": "",
       children: [
-        showWorking ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { display: "flex", flex: 1, minHeight: 0, width: "100%", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        showWorking ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { display: "flex", flex: 1, minHeight: 0, width: "100%", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           WorkingChangesView,
           {
             sessionId: props.sessionId,
@@ -6785,7 +6731,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
             sessions: props.sessions
           }
         ) }) : null,
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           "div",
           {
             style: {
@@ -6797,7 +6743,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               width: "100%",
               overflow: "hidden"
             },
-            children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
               ReviewGraphView,
               {
                 cwd: effectiveCwd,
@@ -6807,7 +6753,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
             )
           }
         ),
-        effectiveSha ? loading ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        effectiveSha ? loading ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
           "div",
           {
             style: {
@@ -6821,11 +6767,11 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               fontSize: 13
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "dsh-gp-spinner lg" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: t2("review.loading") })
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "dsh-gp-spinner lg" }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: t2("review.loading") })
             ]
           }
-        ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        ) : notRepo ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
           "div",
           {
             style: {
@@ -6841,9 +6787,9 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               textAlign: "center"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.notRepo") }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { fontSize: 12.5 }, children: t2("panel.notRepoHint") }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
                 "button",
                 {
                   type: "button",
@@ -6857,7 +6803,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               )
             ]
           }
-        ) : error || !detail ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        ) : error || !detail ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
           "div",
           {
             style: {
@@ -6872,9 +6818,9 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               padding: 24
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.opFailed") }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { fontSize: 12.5 }, children: error }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { fontSize: 14, fontWeight: 600 }, children: t2("panel.opFailed") }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { fontSize: 12.5 }, children: error }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
                 "button",
                 {
                   type: "button",
@@ -6888,7 +6834,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               )
             ]
           }
-        ) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        ) : /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
           "div",
           {
             style: {
@@ -6901,7 +6847,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
               overflow: "hidden"
             },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                 CommitHeader,
                 {
                   detail,
@@ -6910,13 +6856,13 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
                   }
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { display: "flex", flex: 1, minHeight: 0, position: "relative" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                   "div",
                   {
                     className: "dsh-review-tree",
                     style: { width: treeWidth },
-                    children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+                    children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                       CommitFileTree,
                       {
                         files: detail.files,
@@ -6926,7 +6872,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
                     )
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                   "div",
                   {
                     onMouseDown: handleMouseDown,
@@ -6942,7 +6888,7 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
                     title: "\u62D6\u62FD\u8C03\u8282\u5BBD\u5EA6"
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                   CommitDiffPanel,
                   {
                     api,
@@ -6962,8 +6908,8 @@ var ReviewView = (0, import_react12.memo)(function ReviewView2(props) {
 });
 
 // src/client/BranchChip.tsx
-var import_react13 = require("react");
-var import_jsx_runtime8 = require("react/jsx-runtime");
+var import_react14 = require("react");
+var import_jsx_runtime9 = require("react/jsx-runtime");
 var CHIP_STYLE = `
 /* \u4F4D\u7F6E\u4FEE\u6B63\uFF1A\u7528\u6237\u8981\u6C42\u5206\u652F\u80F6\u56CA\u7D27\u8DDF\u5728\u300C\u6A21\u5F0F\u9009\u62E9\u300D\uFF08Agent \u9884\u8BBE\u82AF\u7247\uFF09\u4E4B\u540E\uFF0C
    \u800C\u4E0D\u662F\u9876\u5230\u8BE5\u884C\u6700\u53F3\u4FA7\u3002
@@ -7169,24 +7115,24 @@ function applySeatLayout(host) {
 function BranchChip(props) {
   const { sessionId, sessions, cwd: propCwd, useWorkspaces } = props;
   const t2 = useT();
-  const [api] = (0, import_react13.useState)(() => new GitPanelApi());
-  const [current, setCurrent] = (0, import_react13.useState)(null);
-  const [view, setView] = (0, import_react13.useState)(null);
-  const [open, setOpen] = (0, import_react13.useState)(false);
-  const [busy, setBusy] = (0, import_react13.useState)(false);
-  const [error, setError] = (0, import_react13.useState)(null);
-  const [loading, setLoading] = (0, import_react13.useState)(false);
-  const retries = (0, import_react13.useRef)(0);
-  const fetchSeq = (0, import_react13.useRef)(0);
-  const [openUp, setOpenUp] = (0, import_react13.useState)(false);
-  const chipRef = (0, import_react13.useRef)(null);
-  const popRef = (0, import_react13.useRef)(null);
-  const seatCleanup = (0, import_react13.useRef)(null);
-  const hostRef = (0, import_react13.useCallback)((node2) => {
+  const [api] = (0, import_react14.useState)(() => new GitPanelApi());
+  const [current, setCurrent] = (0, import_react14.useState)(null);
+  const [view, setView] = (0, import_react14.useState)(null);
+  const [open, setOpen] = (0, import_react14.useState)(false);
+  const [busy, setBusy] = (0, import_react14.useState)(false);
+  const [error, setError] = (0, import_react14.useState)(null);
+  const [loading, setLoading] = (0, import_react14.useState)(false);
+  const retries = (0, import_react14.useRef)(0);
+  const fetchSeq = (0, import_react14.useRef)(0);
+  const [openUp, setOpenUp] = (0, import_react14.useState)(false);
+  const chipRef = (0, import_react14.useRef)(null);
+  const popRef = (0, import_react14.useRef)(null);
+  const seatCleanup = (0, import_react14.useRef)(null);
+  const hostRef = (0, import_react14.useCallback)((node2) => {
     seatCleanup.current?.();
     seatCleanup.current = applySeatLayout(node2);
   }, []);
-  const updateDirection = (0, import_react13.useCallback)(() => {
+  const updateDirection = (0, import_react14.useCallback)(() => {
     const chip = chipRef.current;
     if (chip === null) return;
     const chipRect = chip.getBoundingClientRect();
@@ -7200,7 +7146,7 @@ function BranchChip(props) {
     const max = opensUp ? Math.max(160, spaceAbove - 12) : Math.max(120, spaceBelow - 12);
     pop.style.maxHeight = `${Math.min(max, 340)}px`;
   }, []);
-  (0, import_react13.useLayoutEffect)(() => {
+  (0, import_react14.useLayoutEffect)(() => {
     if (!open) return;
     updateDirection();
     window.addEventListener("resize", updateDirection);
@@ -7209,7 +7155,7 @@ function BranchChip(props) {
   ensureChipStyle();
   const EMPTY_WORKSPACES = [];
   const workspaces = useWorkspaces === void 0 ? EMPTY_WORKSPACES : useWorkspaces((snapshot) => snapshot.items) ?? EMPTY_WORKSPACES;
-  const cwd = (0, import_react13.useMemo)(() => {
+  const cwd = (0, import_react14.useMemo)(() => {
     if (propCwd !== void 0 && propCwd !== "") return propCwd;
     if (sessionId !== void 0 && sessions !== void 0) {
       const fromSession = sessions.list.getSnapshot().byId[sessionId]?.cwd;
@@ -7223,7 +7169,7 @@ function BranchChip(props) {
     }
     return "";
   }, [propCwd, sessionId, sessions, workspaces]);
-  const refetchCurrent = (0, import_react13.useCallback)(async () => {
+  const refetchCurrent = (0, import_react14.useCallback)(async () => {
     if (!cwd) {
       setCurrent(null);
       return;
@@ -7243,15 +7189,15 @@ function BranchChip(props) {
       }
     }
   }, [cwd, api, current]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     void refetchCurrent();
   }, [refetchCurrent]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     const onSwitched = () => void refetchCurrent();
     window.addEventListener("dsh-git-panel:switched", onSwitched);
     return () => window.removeEventListener("dsh-git-panel:switched", onSwitched);
   }, [refetchCurrent]);
-  const refetchList = (0, import_react13.useCallback)(async () => {
+  const refetchList = (0, import_react14.useCallback)(async () => {
     if (!cwd) {
       setView(null);
       return;
@@ -7268,7 +7214,7 @@ function BranchChip(props) {
       setError(result.error.message);
     }
   }, [cwd, api]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     if (open) void refetchList();
   }, [open, refetchList]);
   if (current === null && !loading) return null;
@@ -7289,8 +7235,8 @@ function BranchChip(props) {
       setError(result.error.message);
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-host", ref: hostRef, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "dsh-gpc-anchor", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-host", ref: hostRef, children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "dsh-gpc-anchor", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
       "button",
       {
         ref: chipRef,
@@ -7304,7 +7250,7 @@ function BranchChip(props) {
           setOpen((v) => !v);
         },
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
             "svg",
             {
               className: "icon",
@@ -7318,15 +7264,15 @@ function BranchChip(props) {
               strokeLinejoin: "round",
               "aria-hidden": "true",
               children: [
-                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("circle", { cx: "4", cy: "4", r: "1.6" }),
-                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("circle", { cx: "12", cy: "12", r: "1.6" }),
-                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("circle", { cx: "12", cy: "4", r: "1.6" }),
-                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("path", { d: "M4 5.6v4.8a2.4 2.4 0 0 0 2.4 2.4H12" })
+                /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("circle", { cx: "4", cy: "4", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("circle", { cx: "12", cy: "12", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("circle", { cx: "12", cy: "4", r: "1.6" }),
+                /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("path", { d: "M4 5.6v4.8a2.4 2.4 0 0 0 2.4 2.4H12" })
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "label", children: current }),
-          loading ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "dsh-gpc-spin", "aria-label": t2("aria.loading") }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "label", children: current }),
+          loading ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "dsh-gpc-spin", "aria-label": t2("aria.loading") }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
             "svg",
             {
               className: "chevron",
@@ -7339,15 +7285,15 @@ function BranchChip(props) {
               strokeLinecap: "round",
               strokeLinejoin: "round",
               "aria-hidden": "true",
-              children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("path", { d: "M4 6l4 4 4-4" })
+              children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("path", { d: "M4 6l4 4 4-4" })
             }
           )
         ]
       }
     ),
-    open ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-backdrop", onClick: () => setOpen(false) }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+    open ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-backdrop", onClick: () => setOpen(false) }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
         "div",
         {
           ref: popRef,
@@ -7355,12 +7301,12 @@ function BranchChip(props) {
           role: "listbox",
           style: openUp ? { bottom: "calc(100% + 6px)", top: "auto" } : { top: "calc(100% + 6px)", bottom: "auto" },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "head", children: t2("chip.head") }),
-            error && view === null ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
-            loading && view === null ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-empty", children: t2("loading") }) : null,
-            !loading && error && view !== null ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
-            !loading && !error && view !== null && view.local.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "dsh-gpc-empty", children: t2("empty.local") }) : null,
-            view?.local.map((branch) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "head", children: t2("chip.head") }),
+            error && view === null ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
+            loading && view === null ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-empty", children: t2("loading") }) : null,
+            !loading && error && view !== null ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-err", children: error }) : null,
+            !loading && !error && view !== null && view.local.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "dsh-gpc-empty", children: t2("empty.local") }) : null,
+            view?.local.map((branch) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
               "div",
               {
                 role: "option",
@@ -7368,14 +7314,14 @@ function BranchChip(props) {
                 className: `dsh-gpc-row${branch.name === current ? " current" : ""}`,
                 onClick: () => void switchTo(branch.name),
                 children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "check", children: branch.name === current ? icon("check", 12) : null }),
-                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "name", children: branch.name }),
-                  branch.ahead || branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { style: { color: "var(--gpc-muted)", fontSize: 11 }, children: [
-                    branch.ahead ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "check", children: branch.name === current ? icon("check", 12) : null }),
+                  /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "name", children: branch.name }),
+                  branch.ahead || branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { style: { color: "var(--gpc-muted)", fontSize: 11 }, children: [
+                    branch.ahead ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
                       icon("arrowUp", 11),
                       branch.ahead
                     ] }) : null,
-                    branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
+                    branch.behind ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
                       icon("arrowDown", 11),
                       branch.behind
                     ] }) : null
@@ -7396,7 +7342,7 @@ var inject = ["sessions", "locale", "slots"];
 var TAB_ID = "@deepseek-ai/dsh-git-panel";
 function GitGuideIcon(props) {
   const size = props.size ?? 26;
-  return (0, import_react14.createElement)(
+  return (0, import_react15.createElement)(
     "svg",
     {
       width: size,
@@ -7410,10 +7356,10 @@ function GitGuideIcon(props) {
       strokeLinejoin: "round",
       "aria-hidden": "true"
     },
-    (0, import_react14.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
-    (0, import_react14.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
-    (0, import_react14.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
-    (0, import_react14.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
+    (0, import_react15.createElement)("circle", { key: "a", cx: 9, cy: 7, r: 2.6 }),
+    (0, import_react15.createElement)("circle", { key: "b", cx: 9, cy: 21, r: 2.6 }),
+    (0, import_react15.createElement)("circle", { key: "c", cx: 19, cy: 14, r: 2.6 }),
+    (0, import_react15.createElement)("path", { key: "d", d: "M9 9.6v8.8M9 14h7.4" })
   );
 }
 var POLL_MS = 3e3;
@@ -7566,18 +7512,18 @@ function apply(ctx) {
           () => scope.slots.register({
             name: "sidebar.right.pane.tab.title",
             key: TAB_ID
-          }, () => (0, import_react14.createElement)(
+          }, () => (0, import_react15.createElement)(
             "span",
             { style: { display: "flex", alignItems: "center", gap: 5 } },
-            (0, import_react14.createElement)(
+            (0, import_react15.createElement)(
               "svg",
               { viewBox: "0 0 16 16", width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" },
-              (0, import_react14.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
-              (0, import_react14.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
-              (0, import_react14.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
-              (0, import_react14.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
+              (0, import_react15.createElement)("circle", { cx: 4, cy: 4, r: 2 }),
+              (0, import_react15.createElement)("circle", { cx: 4, cy: 12, r: 2 }),
+              (0, import_react15.createElement)("circle", { cx: 12, cy: 8, r: 2 }),
+              (0, import_react15.createElement)("path", { d: "M4 6v4M4 8h5a3 3 0 013 3" })
             ),
-            (0, import_react14.createElement)("span", null, "Git")
+            (0, import_react15.createElement)("span", null, "Git")
           ))
         );
         console.log("dsh-git-panel: registered into native sidebarRightTabs");

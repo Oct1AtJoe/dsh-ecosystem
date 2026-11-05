@@ -20,10 +20,12 @@ import { icon, type IconName } from './icons.tsx'
 import { diffRows, diffStat, type DiffRow } from './diff.ts'
 import { basenameOf, parseFileAddress } from './refs.ts'
 import { STATUS_COLORS, statusLetter } from './git-status.ts'
+import { buildDiffDisplay, DiffTable, DIFF_CONTEXT_LINES } from './review/DiffTable.tsx'
 import type { TabSessions } from './GitTab.tsx'
 
 /** 折叠未改动区域时保留的上下文行数。 */
-const CONTEXT_LINES = 3
+/** 折叠上下文行数（与共用表格同一常量，避免两处各写一个 3）。 */
+const CONTEXT_LINES = DIFF_CONTEXT_LINES
 
 /** 单个冲突块。 */
 interface ConflictBlock {
@@ -108,46 +110,10 @@ function applyResolution(text: string, block: ConflictBlock, choice: 'ours' | 't
   return next.join('\n')
 }
 
-/** 展示项：真实行，或一段被折叠的未改动区域。 */
+/** 展示项：真实行，或一段被折叠的未改动区域（实现在 review/DiffTable）。 */
 type DisplayItem =
   | { kind: 'row'; row: DiffRow; key: string }
   | { kind: 'gap'; from: number; to: number; key: string }
-
-/** 按上下文行数折叠未改动区域。 */
-function buildDisplay(rows: readonly DiffRow[], expanded: ReadonlySet<number>): DisplayItem[] {
-  const items: DisplayItem[] = []
-  let index = 0
-  while (index < rows.length) {
-    const row = rows[index]
-    if (row === undefined) break
-    if (row.kind !== 'equal') {
-      items.push({ kind: 'row', row, key: `r${index}` })
-      index += 1
-      continue
-    }
-    let end = index
-    while (end < rows.length && rows[end]?.kind === 'equal') end += 1
-    const count = end - index
-    if (count <= CONTEXT_LINES * 2 + 1 || expanded.has(index)) {
-      for (let at = index; at < end; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-    } else {
-      for (let at = index; at < index + CONTEXT_LINES; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-      items.push({ kind: 'gap', from: index + CONTEXT_LINES, to: end - CONTEXT_LINES, key: `g${index}` })
-      for (let at = end - CONTEXT_LINES; at < end; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-    }
-    index = end
-  }
-  return items
-}
 
 /** 注入一次样式。 */
 let styleReady = false
@@ -295,7 +261,7 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
   const conflicts = useMemo(() => parseConflicts(working).blocks, [working])
   const dirty = working !== baseline
   const display = useMemo(
-    () => (collapse ? buildDisplay(rows, expanded) : rows.map((row, index) => ({ kind: 'row' as const, row, key: `r${index}` }))),
+    () => buildDiffDisplay(rows, expanded, !collapse),
     [rows, collapse, expanded],
   )
 
@@ -457,51 +423,16 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
               onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => setWorking(event.target.value),
             })
             : createElement('div', { className: 'dsh-gd-scroll' },
-              createElement('div', {
-                className: `dsh-gd-rows${wrap ? ' wrap' : ''}${mode === 'unified' ? ' unified' : ''}`,
-                style: { fontSize: `${fontSize}px` },
-              },
-                display.map((item) => item.kind === 'gap'
-                  ? createElement('div', {
-                    key: item.key,
-                    className: 'dsh-gd-gap',
-                    onClick: () => setExpanded((held) => new Set([...held, item.from - CONTEXT_LINES])),
-                    title: t('diff.expandBlock'),
-                  }, t('diff.expandLines', { count: String(item.to - item.from) }))
-                  : mode === 'unified'
-                    ? renderUnifiedRow(item.row, item.key)
-                    : renderSplitRow(item.row, item.key),
-                ),
-              ),
+              createElement(DiffTable, {
+                items: display as never,
+                mode: mode === 'unified' ? 'unified' : 'split',
+                onExpandGap: (from: number) => setExpanded((held) => new Set([...held, from])),
+                gapLabel: (hidden: number) => t('diff.expandLines', { count: String(hidden) }),
+                fontSize,
+                wrap,
+              }),
             ),
     ),
-  )
-}
-
-/** 双栏模式的一行。 */
-function renderSplitRow(row: DiffRow, key: string): React.ReactElement {
-  return createElement('div', { className: `dsh-gd-row ${row.kind}`, key },
-    createElement('div', { className: `dsh-gd-cell left ${row.kind}` },
-      createElement('span', { className: 'dsh-gd-num' }, row.left === undefined ? '' : String(row.left.num)),
-      createElement('span', { className: 'dsh-gd-txt', title: row.left?.text }, row.left?.text ?? ''),
-    ),
-    createElement('div', { className: `dsh-gd-cell right ${row.kind}` },
-      createElement('span', { className: 'dsh-gd-num' }, row.right === undefined ? '' : String(row.right.num)),
-      createElement('span', { className: 'dsh-gd-txt', title: row.right?.text }, row.right?.text ?? ''),
-    ),
-  )
-}
-
-/** 单栏模式的一行。 */
-function renderUnifiedRow(row: DiffRow, key: string): React.ReactElement {
-  const text = row.kind === 'del' ? row.left?.text : row.right?.text ?? row.left?.text
-  const num = row.kind === 'del' ? row.left?.num : row.right?.num ?? row.left?.num
-  const marker = row.kind === 'ins' ? '+' : row.kind === 'del' ? '-' : row.kind === 'change' ? '±' : ' '
-  return createElement('div', { className: `dsh-gd-row unified ${row.kind}`, key },
-    createElement('span', { className: 'dsh-gd-marker' }, marker),
-    createElement('span', { className: 'dsh-gd-num' }, num === undefined ? '' : String(num)),
-    createElement('span', { className: 'dsh-gd-txt', title: text }, text ?? ''),
-    row.kind === 'change' && createElement('span', { className: 'dsh-gd-txt after' }, row.right?.text ?? ''),
   )
 }
 

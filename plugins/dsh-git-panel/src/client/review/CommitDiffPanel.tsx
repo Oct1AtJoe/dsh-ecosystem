@@ -6,58 +6,10 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { CommitFileDiffResult, CommitFileItem } from '../../core/types.ts'
 import type { GitPanelApi } from '../api.ts'
-import { diffRows, type DiffRow } from '../diff.ts'
+import { diffRows } from '../diff.ts'
 import { useT } from '../i18n.ts'
 import { icon } from '../icons.tsx'
-
-const CONTEXT_LINES = 3
-
-interface DisplayItem {
-  kind: 'row' | 'gap'
-  row?: DiffRow
-  from?: number
-  to?: number
-  key: string
-}
-
-function buildDisplay(rows: readonly DiffRow[], expanded: ReadonlySet<number>, expandAll: boolean): DisplayItem[] {
-  if (expandAll) {
-    return rows.map((row, idx) => ({ kind: 'row', row, key: `r${idx}` }))
-  }
-
-  const items: DisplayItem[] = []
-  let index = 0
-  while (index < rows.length) {
-    const row = rows[index]
-    if (row === undefined) break
-    if (row.kind !== 'equal') {
-      items.push({ kind: 'row', row, key: `r${index}` })
-      index += 1
-      continue
-    }
-    let end = index
-    while (end < rows.length && rows[end]?.kind === 'equal') end += 1
-    const count = end - index
-    if (count <= CONTEXT_LINES * 2 + 1 || expanded.has(index)) {
-      for (let at = index; at < end; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-    } else {
-      for (let at = index; at < index + CONTEXT_LINES; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-      items.push({ kind: 'gap', from: index + CONTEXT_LINES, to: end - CONTEXT_LINES, key: `g${index}` })
-      for (let at = end - CONTEXT_LINES; at < end; at += 1) {
-        const held = rows[at]
-        if (held !== undefined) items.push({ kind: 'row', row: held, key: `r${at}` })
-      }
-    }
-    index = end
-  }
-  return items
-}
+import { buildDiffDisplay, DiffTable, DIFF_CONTEXT_LINES } from './DiffTable.tsx'
 
 interface CommitDiffPanelProps {
   api: GitPanelApi
@@ -194,7 +146,7 @@ export const CommitDiffPanel = memo(function CommitDiffPanel(props: CommitDiffPa
   }, [diffData, ignoreWhitespace])
 
   const displayItems = useMemo(
-    () => buildDisplay(rows, expandedGaps, expandAll),
+    () => buildDiffDisplay(rows, expandedGaps, expandAll),
     [rows, expandedGaps, expandAll],
   )
 
@@ -295,73 +247,12 @@ export const CommitDiffPanel = memo(function CommitDiffPanel(props: CommitDiffPa
             {t('diff.empty')}
           </div>
         ) : (
-          <div className="dsh-review-table">
-            {displayItems.map((item) => {
-              if (item.kind === 'gap') {
-                return (
-                  <button
-                    type="button"
-                    key={item.key}
-                    onClick={() => setExpandedGaps((prev) => new Set([...prev, item.from! - CONTEXT_LINES]))}
-                    className="dsh-review-gap-bar"
-                    title={t('diff.expandBlock')}
-                  >
-                    ··· ··· 展开 {item.to! - item.from!} 行未改动
-                  </button>
-                )
-              }
-
-              const r = item.row!
-              if (mode === 'unified') {
-                const isIns = r.kind === 'ins'
-                const isDel = r.kind === 'del'
-                const num = isDel ? r.left?.num : r.right?.num ?? r.left?.num
-                const text = isDel ? r.left?.text : r.right?.text ?? r.left?.text
-                const rowCls = isIns ? ' dsh-review-row-u-add' : isDel ? ' dsh-review-row-u-del' : ''
-
-                return (
-                  <div key={item.key} className={`dsh-review-row-u${rowCls}`}>
-                    <span className="dsh-review-cell-no-u">
-                      {num ?? ''}
-                    </span>
-                    <span className="dsh-review-cell-txt">
-                      {text ?? ''}
-                    </span>
-                  </div>
-                )
-              }
-
-              // 双列对比（Split：4 栏 Grid）
-              const isAdd = r.kind === 'ins'
-              const isDel = r.kind === 'del'
-              const isPair = r.kind === 'change'
-              const rowCls = isAdd ? ' dsh-review-row-add' : isDel ? ' dsh-review-row-del' : isPair ? ' dsh-review-row-pair' : ''
-
-              const leftHatched = r.left === undefined
-              const rightHatched = r.right === undefined
-
-              return (
-                <div key={item.key} className={`dsh-review-row${rowCls}`}>
-                  {/* 第 1 列：左行号 */}
-                  <span className={`dsh-review-cell-no${leftHatched ? ' dsh-review-hatched' : ''}`}>
-                    {r.left ? r.left.num : ''}
-                  </span>
-                  {/* 第 2 列：左代码 */}
-                  <span className={`dsh-review-cell-txt${leftHatched ? ' dsh-review-hatched' : ''}`}>
-                    {r.left ? r.left.text : ''}
-                  </span>
-                  {/* 第 3 列：右行号 */}
-                  <span className={`dsh-review-cell-no${rightHatched ? ' dsh-review-hatched' : ''}`}>
-                    {r.right ? r.right.num : ''}
-                  </span>
-                  {/* 第 4 列：右代码 */}
-                  <span className={`dsh-review-cell-txt${rightHatched ? ' dsh-review-hatched' : ''}`}>
-                    {r.right ? r.right.text : ''}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+          <DiffTable
+            items={displayItems}
+            mode={mode}
+            onExpandGap={(from) => setExpandedGaps((prev) => new Set([...prev, from]))}
+            gapLabel={(hidden) => t('diff.expandLines', { count: String(hidden) })}
+          />
         )}
       </div>
     </div>
