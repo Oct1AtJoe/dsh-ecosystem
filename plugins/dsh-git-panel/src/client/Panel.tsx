@@ -1646,9 +1646,20 @@ export function GitPanel(props: {
     }
   }, [path, api])
 
-  /** 加载某文件的 diff。再次点击同一个文件则收起关闭。 */
+  /**
+   * 点击变更文件：交给外部（GitTabBody）在中间会话主区域打开它的差异。
+   *
+   * 早期版本在这里直接内联渲染下方差异面板；现在首要通道是中间区的「审查」Tab。
+   * 只有外部没接线（`onOpenDiff` 缺省或返回 false）时才退回内联面板，
+   * 保证面板单独使用时仍然可用。
+   */
   const loadDiff = useCallback(async (file: string): Promise<void> => {
     if (!path) return
+    if (onOpenDiff !== undefined && onOpenDiff(file)) {
+      // 中间区已接管：收起内联差异面板，避免两处同时显示同一个文件。
+      if (diffStateRef.current !== null) setDiffState(null)
+      return
+    }
     if (diffStateRef.current?.file === file) {
       setDiffState(null)
       return
@@ -1656,7 +1667,7 @@ export function GitPanel(props: {
     setDiffState({ file, content: '', busy: true })
     const result = await api.diffFile(path, file)
     setDiffState({ file, content: result.ok ? result.value.output : tError(result.error?.code, result.error?.message ?? ''), busy: false })
-  }, [path, api])
+  }, [path, api, onOpenDiff])
 
   useEffect(() => {
     void (async () => {

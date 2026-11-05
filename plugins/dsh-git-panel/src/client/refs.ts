@@ -44,6 +44,17 @@ export function parseFileAddress(address: string): FileRef | undefined {
 }
 
 /**
+ * 由会话身份与工作区相对路径拼出文件资源地址（{@link parseFileAddress} 的逆运算）。
+ * @param sessionId - 会话 id。
+ * @param relative - 工作区相对路径。
+ * @returns `dsh-resource://file/session/<id>/<seg>...` 形式的地址。
+ */
+export function addressOf(sessionId: string, relative: string): string {
+  const encoded = relative.split('/').map((segment) => encodeURIComponent(segment)).join('/')
+  return `${FILE_PREFIX}session/${encodeURIComponent(sessionId)}/${encoded}`
+}
+
+/**
  * 拼接工作区绝对路径。
  * @param cwd - 会话工作目录（绝对路径）。
  * @param relative - 工作区相对路径。

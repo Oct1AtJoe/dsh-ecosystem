@@ -1,0 +1,45 @@
+{
+  "name": "dsh-trash-guard",
+  "version": "0.1.0",
+  "description": "删除守卫：拦截 rm/Remove-Item 等显式删除命令，改为移入可恢复回收站；7 天自动过期清理。",
+  "icon": "./icon.svg",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek",
+    "plugin",
+    "trash",
+    "delete",
+    "recycle-bin",
+    "recovery"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsdown"
+  }
+}

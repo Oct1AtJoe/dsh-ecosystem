@@ -44,14 +44,17 @@ interface ConflictBlock {
 /** 视图模式。 */
 type Mode = 'split' | 'unified' | 'conflict' | 'edit'
 
-/** 正文 props：`useTabInfo` 由官方右侧栏的 slot 钩子注入，其余由本插件注入。 */
+/**
+ * 正文 props。
+ *
+ * 现在唯一入口是中间会话区的工作区变更视图，地址由 `resourceAddress` 直接给出；
+ * `useTabInfo` / `sidebarRight` 已随右侧栏 `git-diff` 标签类型一起下线。
+ */
 export interface GitDiffViewProps {
   api?: GitPanelApi
   sessions?: TabSessions
-  sidebarRight?: any
-  /** 作为官方文档预览的替代渲染器时，地址由文档插槽直接给出。 */
+  /** 工作区文件资源地址（`dsh-resource://file/session/<id>/<path>`）。 */
   resourceAddress?: string
-  useTabInfo?: () => { tab: { id: string; contentId: string; actions: { openResource(address: string, options?: Record<string, unknown>): void } } }
 }
 
 /** 从会话快照读取 cwd。 */
@@ -203,11 +206,8 @@ function iconButton(
 export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
   useT() // 订阅语言切换：语言变化时重渲染，下面的 t() 输出对应语种
   ensureStyle()
-  const info = props.useTabInfo?.()
-  const tab = info?.tab
-  /** 由官方文档插槽挂载时地址直接给出；作为独立标签时取标签地址。 */
-  const fromDocumentSlot = typeof props.resourceAddress === 'string' && props.resourceAddress !== ''
-  const address = fromDocumentSlot ? props.resourceAddress ?? '' : (typeof tab?.contentId === 'string' ? tab.contentId : '')
+  /** 唯一的地址来源：slot 注入的工作区文件资源地址。 */
+  const address = typeof props.resourceAddress === 'string' ? props.resourceAddress : ''
   const parsed = useMemo(() => parseFileAddress(address), [address])
   const sessionId = parsed?.sessionId ?? ''
   const file = parsed?.path ?? ''
@@ -218,6 +218,8 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
   const [working, setWorking] = useState('')
   const [baseline, setBaseline] = useState('')
   const [status, setStatus] = useState<string | undefined>(undefined)
+  /** porcelain 原始两字符状态码（' M' / 'M ' / 'MM' …）：暂存判定必须看 X 位，不能看折叠后的字母。 */
+  const [statusCode, setStatusCode] = useState<string | undefined>(undefined)
   const [isNew, setIsNew] = useState(false)
   const [missing, setMissing] = useState(false)
   const [binary, setBinary] = useState(false)
@@ -266,8 +268,12 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
       if (statusResult.ok) {
         const entry = statusResult.value.entries.find((candidate) => candidate.path === file)
         setStatus(entry === undefined ? undefined : statusLetter(entry.code))
+        // 保留原始 code：'M '（已暂存）与 ' M'（未暂存）折叠后都是 'M'，
+        // 只看字母会把两者判成同一件事。
+        setStatusCode(entry?.code)
       } else {
         setStatus(undefined)
+        setStatusCode(undefined)
       }
     } finally {
       setLoading(false)
@@ -316,36 +322,40 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
     }
   }, [api, busy, cwd, file, load, working])
 
+  /**
+   * 暂存 / 取消暂存：按钮语义随当前状态切换。
+   *
+   * 原先固定调 stageFile，已暂存的文件点它只会再 add 一次（无变化），
+   * 用户看不到「取消暂存」。
+   *
+   * 判定必须看 porcelain 的 X 位（暂存区相对 HEAD），不能看折叠后的展示字母：
+   * 'M ' 和 ' M' 都折叠成 'M'，用字母判定会把已暂存文件永远判成未暂存。
+   */
+  const staged = statusCode !== undefined
+    && statusCode[0] !== ' '
+    && statusCode[0] !== '?'
   const stage = useCallback(async (): Promise<void> => {
     if (busy) return
     setBusy(true)
     setNote(null)
     try {
-      const result = await api.stageFile(cwd, file)
-      setNote(result.ok && result.value.ok
-        ? { text: t('diff.staged'), kind: 'ok' }
-        : { text: result.ok ? tError(result.value.error?.code, result.value.error?.message ?? t('diff.stageFailed')) : tError(result.error.code, result.error.message), kind: 'err' })
+      const result = staged ? await api.unstageFile(cwd, file) : await api.stageFile(cwd, file)
+      if (result.ok && result.value.ok) {
+        setNote({ text: t(staged ? 'diff.unstaged' : 'diff.staged'), kind: 'ok' })
+        // 立刻按最新状态刷新按钮语义，不必等下一次轮询。
+        await load()
+      } else {
+        setNote({
+          text: result.ok
+            ? tError(result.value.error?.code, result.value.error?.message ?? t(staged ? 'diff.unstageFailed' : 'diff.stageFailed'))
+            : tError(result.error.code, result.error.message),
+          kind: 'err',
+        })
+      }
     } finally {
       setBusy(false)
     }
-  }, [api, busy, cwd, file])
-
-  const openSource = useCallback((): void => {
-    try {
-      // 优先调用全局导航控制器 sidebarRight，以官方的 'text' 预览打开该资源；
-      // 若当前为独立 diff 标签（tab?.id 存在），传入 replaceTab 就地替换当前标签并关闭它
-      if (props.sidebarRight && typeof props.sidebarRight.openResource === 'function') {
-        props.sidebarRight.openResource(address, {
-          kind: 'text',
-          ...(tab?.id ? { replaceTab: tab.id } : {}),
-        })
-      } else if (tab?.actions) {
-        tab.actions.openResource(address, { replaceTab: true })
-      }
-    } catch (openError) {
-      setNote({ text: openError instanceof Error ? openError.message : t('diff.openFailed'), kind: 'err' })
-    }
-  }, [address, props.sidebarRight, tab])
+  }, [api, busy, cwd, file, staged, load, statusCode])
 
   const color = status === undefined ? undefined : STATUS_COLORS[status]
   const name = basenameOf(file)
@@ -410,18 +420,11 @@ export function GitDiffView(props: GitDiffViewProps): React.ReactElement {
         createElement('div', { className: 'dsh-gd-actions' },
           createElement('button', {
             type: 'button',
-            'data-gd-btn': 'source',
             className: 'dsh-gd-btn',
-            title: t('diff.openOfficial'),
-            onClick: openSource,
-          }, glyph('code'), createElement('span', null, t('diff.officialPreview'))),
-          createElement('button', {
-            type: 'button',
-            className: 'dsh-gd-btn',
-            title: t('diff.stageFile'),
+            title: staged ? t('diff.unstageFile') : t('diff.stageFile'),
             disabled: busy,
             onClick: () => void stage(),
-          }, glyph('stage'), createElement('span', null, t('diff.stage'))),
+          }, glyph(staged ? 'undo' : 'stage'), createElement('span', null, staged ? t('diff.unstage') : t('diff.stage'))),
           createElement('button', {
             type: 'button',
             'data-gd-btn': 'save',

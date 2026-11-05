@@ -123,6 +123,11 @@ export class GitPanelApi {
     return post<WorkspaceFileRead>('/git-panel/read-file', { path, file })
   }
 
+  /** 用操作系统的默认程序打开工作区文件（宿主侧 spawn，浏览器做不到）。 */
+  openPath(path: string, file: string) {
+    return post<OpResult>('/git-panel/open-path', { path, file })
+  }
+
   stageFile(path: string, file: string) {
     return post<OpResult>('/git-panel/stage', { path, file })
   }

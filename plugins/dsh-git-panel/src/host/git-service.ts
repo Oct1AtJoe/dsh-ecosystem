@@ -800,6 +800,38 @@ export class GitService {
   }
 
   /** 摘取一个提交到当前分支（git cherry-pick）。 */
+  /**
+   * 用操作系统的默认程序打开工作区里的一个文件。
+   *
+   * 只在浏览器里做不到这件事：调用方在 Node 侧。路径同样受工作区门禁约束——
+   * 只能打开工作区根之下的**已存在**文件，杜绝用它去开任意系统路径。
+   * @param path - 工作区根。
+   * @param file - 工作区相对路径。
+   * @returns 打开的成败。
+   */
+  async openPath(path: string, file: string): Promise<OpResult> {
+    const root = await this.requireWorkspace(path)
+    if (!safeRelative(file)) {
+      return { ok: false, output: '', error: { code: 'bad-path', message: `非法路径：${file}` } }
+    }
+    const absolute = resolvePath(root, file)
+    if (!inside(root, absolute) || !existsSync(absolute)) {
+      return { ok: false, output: '', error: { code: 'not-found', message: `文件不存在：${file}` } }
+    }
+    try {
+      // Windows 走 ShellExecute 的 start 需要空标题参数，否则会把带引号的路径当成窗口标题。
+      // detached + unref：只负责唤起外部程序，不等待它退出，避免挂住请求。
+      const [command, args] = process.platform === 'win32'
+        ? ['cmd', ['/c', 'start', '', absolute]]
+        : [process.platform === 'darwin' ? 'open' : 'xdg-open', [absolute]]
+      const child = spawn(command, args, { cwd: root, detached: true, stdio: 'ignore' })
+      child.unref()
+      return { ok: true, output: `已用系统默认程序打开：${file}` }
+    } catch (error) {
+      return { ok: false, output: '', error: { code: 'open-failed', message: (error as Error).message || '打开失败' } }
+    }
+  }
+
   async cherryPick(path: string, sha: string): Promise<OpResult> {
     const canonical = await this.requireWorkspace(path)
     const clean = sha.trim()

@@ -18,6 +18,7 @@ import { createElement, useCallback, useEffect, useState } from 'react'
 import { GitPanelApi } from './api.ts'
 import { GitPanel } from './Panel.tsx'
 import type { GitStatusCache } from './git-status.ts'
+import { reviewStore } from './review/review-store.ts'
 
 /** sessions 服务的最小结构面孔（鸭子类型，避免依赖宿主 SDK 类型）。 */
 export interface TabSessions {
@@ -58,19 +59,12 @@ function readPath(sessions: TabSessions | undefined, sessionId: string | undefin
   return typeof cwd === 'string' ? cwd : ''
 }
 
-/** 由会话身份与工作区相对路径拼出文件资源地址。 */
-function addressOf(sessionId: string, relative: string): string {
-  const encoded = relative.split('/').map((segment) => encodeURIComponent(segment)).join('/')
-  return `dsh-resource://file/session/${encodeURIComponent(sessionId)}/${encoded}`
-}
-
 /** 官方右侧栏中的 Git 面板。 */
 export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
   const { sessions, statusCache, sessionId: injectedSessionId } = props
   const [api] = useState<GitPanelApi>(() => props.api ?? new GitPanelApi())
   const [path, setPath] = useState<string>(() => props.path ?? readPath(sessions, injectedSessionId))
   const uuid = injectedSessionId ?? ''
-  const info = props.useTabInfo?.()
 
   useEffect(() => {
     if (!sessions) return undefined
@@ -92,17 +86,17 @@ export function GitTabBody(props: GitTabBodyProps): React.ReactElement {
     return sessions.list.subscribe(update)
   }, [sessions, statusCache, uuid])
 
-  /** 在右侧栏以 Git 对比视图打开某个变更文件。 */
+  /** 点变更文件：在中间会话主区域的「审查」Tab 里显示该文件的差异（不再开右侧栏标签）。 */
   const openDiff = useCallback((relative: string): boolean => {
     if (uuid === '' || relative === '') return false
     try {
-      info?.tab.actions.openResource(addressOf(uuid, relative), { kind: 'git-diff' })
+      reviewStore.selectChangesFileAndActivate(uuid, relative)
       return true
     } catch (error) {
       console.warn('dsh-git-panel: open diff failed', error)
       return false
     }
-  }, [info, uuid])
+  }, [uuid])
 
   /** 面板刷新时同步刷新装饰缓存。 */
   const refreshStatus = useCallback((): void => {

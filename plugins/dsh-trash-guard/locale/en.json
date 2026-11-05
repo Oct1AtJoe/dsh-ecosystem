@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Trash Guard (dsh-trash-guard)",
+    "description": "Trash guard: intercepts explicit delete commands (rm/Remove-Item) and moves targets into a restorable trash instead; auto-expires after 7 days."
+  }
+}

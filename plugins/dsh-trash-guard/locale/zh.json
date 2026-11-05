@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "删除守卫 (dsh-trash-guard)",
+    "description": "删除守卫：拦截 rm/Remove-Item 等显式删除命令，改为移入可恢复回收站；7 天自动过期清理。"
+  }
+}

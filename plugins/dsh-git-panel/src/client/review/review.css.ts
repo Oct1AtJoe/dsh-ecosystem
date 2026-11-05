@@ -51,12 +51,61 @@ export const REVIEW_STYLE = `
   margin-top: 8px;
 }
 
+/* 顶部「黑蒙蒙蒙版」的真身：宿主在 conversations header 上挂了一个
+   ::after 遮罩带（实测 position:absolute / z-index:1 / inset:75.2px 0 -28px /
+   height:28px / background-image: linear-gradient(rgb(25,25,25) 0%,
+   .../0.82 32%, .../0.4 68%, transparent 100%)），作用是让消息流滚到 header
+   下方时淡出。它 pointer-events:none，所以不挡点击，但会**压暗 28px 高的带子里
+   的一切**。
+
+   审查/工作区视图是整块不滚动的面板，没有「滚动内容淡出」需求，于是这层渐变
+   变成纯副作用：8px 的 margin-top 让面板顶部正好落进 95.2~123.2 这段遮罩带，
+   「工作区变更」标题与「返回图谱 / 刷新」按钮被压暗 —— 就是用户看到的蒙版。
+
+   修法：把整个视图推到遮罩带下方。28px 是实测的带高，取 30px 留 2px 余量。
+   只对工作区分支生效（:has(.dsh-review-wt-bar)），图谱分支维持 8px ——
+   两条规则同特异度，靠先后顺序让更精确的那条胜出。 */
+[data-conversation-content]:has(.dsh-review-wt-bar) {
+  margin-top: 30px;
+}
+
 [data-ds-dark-theme] .dsh-review-root {
   --review-add-color: #3fb950;
   --review-del-color: #f85149;
   --review-biz-color: #e3b341;
   --review-muted: #8b949e;
   --review-secondary: #8b949e;
+}
+
+/* 2.1 工作区变更视图（中间区「审查」Tab 的另一个分支） */
+.dsh-review-wt-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 10px;
+  border-bottom: 1px solid var(--review-border);
+}
+.dsh-review-wt-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, var(--fg));
+}
+.dsh-review-wt-meta {
+  font-size: 11.5px;
+  color: var(--review-muted);
+}
+.dsh-review-wt-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  color: var(--review-muted);
 }
 
 /* 3. 顶部 CommitHeader */

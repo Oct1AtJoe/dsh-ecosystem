@@ -37,6 +37,7 @@ export const PUBLISHED = [
   'resend-failed-round',
   'session-title',
   'session-folders',
+  'dsh-trash-guard',
 ]
 
 /**
@@ -65,12 +66,17 @@ export function verifyTarball(tgz) {
 
   if (!has('package/package.json')) problems.push('package.json')
   if (!list.some((f) => /^package\/lib\/index\.(js|mjs)$/.test(f))) problems.push('lib entry')
-  if (!list.some((f) => f.startsWith('package/lib/client'))) problems.push('lib client')
 
   const pkg = JSON.parse(execFileSync('tar', ['-xzOf', path.basename(tgz), 'package/package.json'], {
     encoding: 'utf8',
     cwd: path.dirname(tgz),
   }))
+
+  // Host-only plugins (no dsh.client declaration) legitimately ship no browser
+  // half; requiring lib/client would reject them for being what they are.
+  if (pkg.dsh?.client !== undefined && !list.some((f) => f.startsWith('package/lib/client'))) {
+    problems.push('lib client')
+  }
   const patchRel = pkg.dsh?.bundle?.patch
   if (!patchRel) problems.push('no dsh.bundle.patch')
   else if (!has('package/' + patchRel.replace(/^\.\//, ''))) problems.push('patch ' + patchRel)

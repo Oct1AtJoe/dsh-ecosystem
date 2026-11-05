@@ -217,8 +217,6 @@ var GitService = class {
     this.runner = runner;
     this.gate = gate;
   }
-  runner;
-  gate;
   /**
    * 提交级缓存：提交内容（含父提交 id 与文件内容）一经产生永不改变，
    * 因此可以安全地按 commit sha 长期缓存，避免重复 fork git 进程。
@@ -641,6 +639,33 @@ var GitService = class {
     return task;
   }
   /** 摘取一个提交到当前分支（git cherry-pick）。 */
+  /**
+   * 用操作系统的默认程序打开工作区里的一个文件。
+   *
+   * 只在浏览器里做不到这件事：调用方在 Node 侧。路径同样受工作区门禁约束——
+   * 只能打开工作区根之下的**已存在**文件，杜绝用它去开任意系统路径。
+   * @param path - 工作区根。
+   * @param file - 工作区相对路径。
+   * @returns 打开的成败。
+   */
+  async openPath(path, file) {
+    const root = await this.requireWorkspace(path);
+    if (!safeRelative(file)) {
+      return { ok: false, output: "", error: { code: "bad-path", message: `\u975E\u6CD5\u8DEF\u5F84\uFF1A${file}` } };
+    }
+    const absolute = resolvePath(root, file);
+    if (!inside(root, absolute) || !existsSync(absolute)) {
+      return { ok: false, output: "", error: { code: "not-found", message: `\u6587\u4EF6\u4E0D\u5B58\u5728\uFF1A${file}` } };
+    }
+    try {
+      const [command, args] = process.platform === "win32" ? ["cmd", ["/c", "start", "", absolute]] : [process.platform === "darwin" ? "open" : "xdg-open", [absolute]];
+      const child = spawn(command, args, { cwd: root, detached: true, stdio: "ignore" });
+      child.unref();
+      return { ok: true, output: `\u5DF2\u7528\u7CFB\u7EDF\u9ED8\u8BA4\u7A0B\u5E8F\u6253\u5F00\uFF1A${file}` };
+    } catch (error) {
+      return { ok: false, output: "", error: { code: "open-failed", message: error.message || "\u6253\u5F00\u5931\u8D25" } };
+    }
+  }
   async cherryPick(path, sha) {
     const canonical = await this.requireWorkspace(path);
     const clean = sha.trim();
@@ -1518,6 +1543,16 @@ function route(service, ctx) {
             return;
           }
           const value = await service.discardFile(root, file, untracked);
+          json(res, value.ok ? { ok: true, value } : { ok: false, error: value.error ?? BAD_REQUEST });
+          return;
+        }
+        case "/git-panel/open-path": {
+          const file = field(payload, "file");
+          if (file === null) {
+            json(res, { ok: false, error: BAD_REQUEST }, 400);
+            return;
+          }
+          const value = await service.openPath(root, file);
           json(res, value.ok ? { ok: true, value } : { ok: false, error: value.error ?? BAD_REQUEST });
           return;
         }

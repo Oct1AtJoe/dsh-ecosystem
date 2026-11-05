@@ -333,6 +333,13 @@ function route(service: GitService, ctx: Context) {
           json(res, value.ok ? { ok: true, value } : { ok: false, error: value.error ?? BAD_REQUEST })
           return
         }
+        case '/git-panel/open-path': {
+          const file = field(payload, 'file')
+          if (file === null) { json(res, { ok: false, error: BAD_REQUEST }, 400); return }
+          const value = await service.openPath(root, file)
+          json(res, value.ok ? { ok: true, value } : { ok: false, error: value.error ?? BAD_REQUEST })
+          return
+        }
         case '/git-panel/cherry-pick': {
           const sha = field(payload, 'sha')
           if (sha === null) { json(res, { ok: false, error: BAD_REQUEST }, 400); return }

@@ -13,12 +13,15 @@ import { CommitFileTree } from './CommitFileTree.tsx'
 import { CommitHeader } from './CommitHeader.tsx'
 import { ReviewGraphView } from './ReviewGraphView.tsx'
 import { ensureReviewStyle } from './review.css.ts'
-import { reviewStore, useReviewTarget } from './review-store.ts'
+import { reviewStore, useChangesFile, useReviewTarget } from './review-store.ts'
+import { WorkingChangesView } from './WorkingChangesView.tsx'
 
 export interface ReviewViewProps {
   sessionId?: string
   cwd?: string
   api?: GitPanelApi
+  /** 宿主 sessions 服务（工作区分支需要它取 cwd，见 GitDiffView）。 */
+  sessions?: unknown
 }
 
 const STORAGE_TREE_WIDTH_KEY = 'dsh-git-panel.review.treeWidth'
@@ -31,6 +34,9 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
   const t = useT()
   // 严格绑定当前会话：跨会话不保留审查状态
   const target = useReviewTarget(props.sessionId)
+  // 工作区分支：点 Git 面板「变更区」的文件时不选提交，直接看工作区差异。
+  const workingFile = useChangesFile(props.sessionId)
+  const showWorking = (target?.sha ?? '') === '' && workingFile !== null
   const [api] = useState(() => props.api ?? new GitPanelApi())
 
   // 当前有效的工作区路径与提交 sha：必须属于当前会话
@@ -135,10 +141,22 @@ export const ReviewView = memo(function ReviewView(props: ReviewViewProps) {
       className="dsh-review-root"
       data-conversation-composer-overlay=""
     >
+      {/* 0. 工作区变更视图：只切换显示，图谱保持挂载以便返回 */}
+      {showWorking ? (
+        <div style={{ display: 'flex', flex: 1, minHeight: 0, width: '100%', overflow: 'hidden' }}>
+          <WorkingChangesView
+            sessionId={props.sessionId}
+            cwd={effectiveCwd}
+            api={api}
+            sessions={props.sessions}
+          />
+        </div>
+      ) : null}
+
       {/* 1. 图谱视图容器：未选中具体提交时展示；选中时通过 display: none 保活 DOM，保留滚动条位置与筛选输入 */}
       <div
         style={{
-          display: effectiveSha ? 'none' : 'flex',
+          display: showWorking ? 'none' : effectiveSha ? 'none' : 'flex',
           flex: 1,
           height: '100%',
           minHeight: 0,

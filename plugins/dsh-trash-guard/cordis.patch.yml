@@ -1,0 +1,14 @@
+# dsh-trash-guard bundle patch.
+#
+# Registers the loader entry. The profile's own cordis.patch.yml carries the
+# same id purely as a config override — bundle insert + patch override is the
+# same two-layer scheme dsh-kanye-pet uses.
+- insert:
+    - id: trash-guard
+      name: 'dsh-trash-guard'
+      config:
+        trashRoot: 'D:\\dsh-trash'
+        retentionDays: 7
+        maxBytes: 53687091200
+        checkIntervalMinutes: 60
+        blockShellDelete: true

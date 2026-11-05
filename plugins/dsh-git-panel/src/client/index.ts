@@ -17,10 +17,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import { GitPanelApi } from './api.ts'
 import { initI18n, t } from './i18n.ts'
 import { GitTabBody } from './GitTab.tsx'
-import { GitDiffView } from './GitDiffView.tsx'
 import { GitStatusCache } from './git-status.ts'
 import { installFileTreeDecorations } from './decorations.ts'
-import { basenameOf, parseFileAddress } from './refs.ts'
 import { ReviewView } from './review/ReviewView.tsx'
 import { BranchChip } from './BranchChip.tsx'
 
@@ -94,8 +92,7 @@ function GitGuideIcon(props: { size?: number; className?: string }): React.React
     createElement('circle', { key: 'c', cx: 19, cy: 14, r: 2.6 }),
     createElement('path', { key: 'd', d: 'M9 9.6v8.8M9 14h7.4' }),
   )
-}const DIFF_TAB_ID = '@deepseek-ai/dsh-git-panel/diff'
-const DIFF_KIND = 'git-diff'
+}
 
 /** 文件地址前缀（与官方 side-bar 文件树拼出的地址同一约定）。 */
 const FILE_PREFIX = 'dsh-resource://file/session/'
@@ -335,46 +332,10 @@ export function apply(ctx: PanelClientContext): void {
     }
   })
 
-  // 3. Git 变更对比标签：按 kind: 'git-diff' 打开。
-  //    不声明全局匹配模式（patterns: []），避免劫持用户在对话中或文件树中点击普通文件时的默认预览行为；
-  //    仅在 Git 面板明确点击变更文件时（带 { kind: 'git-diff' }）才打开此标签类型。
-  //    ⚠️ 同第 2 条：注册包 ctx.effect，否则热重载后旧类型残留、新定义找不到。
-  ctx.inject(['sidebarRightTabs', 'slots', 'sessions', 'sidebarRight'], (scope: any) => {
-    try {
-      if (!scope.sidebarRightTabs) return
-      ctx.effect(
-        () => scope.sidebarRightTabs.register({
-          id: DIFF_TAB_ID,
-          kind: DIFF_KIND,
-          priority: 'extension',
-          canOpen: (address: string): boolean => {
-            const parsed = parseFileAddress(address)
-            return parsed !== undefined && parsed.sessionId !== ''
-          },
-          title: (address: string) => {
-            const parsed = parseFileAddress(address)
-            return `± ${basenameOf(parsed?.path ?? address)}`
-          },
-        }),
-        'dsh-git-panel: sidebar git-diff tab type',
-      )
-
-      scope.slots.inject('sidebar.right.pane.tab', () =>
-        scope.slots.register({
-          name: 'sidebar.right.pane.tab',
-          key: DIFF_TAB_ID,
-          inject: () => ({
-            api,
-            sessions: ctx.sessions,
-            sidebarRight: scope.sidebarRight ?? ctx.sidebarRight,
-          }),
-        }, GitDiffView)
-      )
-      console.log('dsh-git-panel: registered git-diff tab type')
-    } catch (error) {
-      console.warn('dsh-git-panel: git-diff register error', error)
-    }
-  })
+  // 3. （已下线）右侧栏 `git-diff` 标签类型。
+  //    变更文件的差异改为在中间会话主区域的「审查」Tab 里展示（方案 B2）：
+  //    GitTab 的 openDiff 直接写 reviewStore 并切 Tab，不再调用 sidebarRightTabs。
+  //    对应实现见 review/WorkingChangesView.tsx 与 ReviewView.tsx 的工作区分支。
 
   // 4. 中间主区域对话旁边的「审查」Tab：通过 conversation.view 插槽注册。
   ctx.inject(['slots', 'sessions'], (scope: any) => {
@@ -389,6 +350,7 @@ export function apply(ctx: PanelClientContext): void {
             sessionId,
             cwd: cwdOf(sessionId),
             api,
+            sessions: scope.sessions,
           }),
         }, ReviewView)
       )
