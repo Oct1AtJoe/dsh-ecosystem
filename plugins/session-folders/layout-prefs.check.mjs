@@ -44,7 +44,7 @@ function makeStorage(seed) {
  */
 function boot(opts = {}) {
   const storage = makeStorage(opts.seed)
-  const calls = { setSidebar: [], setRightbar: [], toggle: 0, openRightbar: 0 }
+  const calls = { setSidebar: [], setRightbar: [], toggle: 0, openRightbar: 0, rightbarAtOpen: [] }
   const registered = []
 
   const passthrough = new Proxy(function () {}, {
@@ -69,8 +69,11 @@ function boot(opts = {}) {
       // Host contract: closing forgets the width (falls to 0), opening restores 280.
       this.sidebar = this.sidebar === 0 ? 280 : 0
     },
+    closeRightbar() { this.rightbar = 0 },
     openRightbar() {
       calls.openRightbar += 1
+      // Snapshot what the plugin had already written when the host body begins.
+      calls.rightbarAtOpen.push(this.rightbar)
       if (this.rightbar === null) this.rightbar = Math.round(1920 * 0.24)
     },
   }
@@ -107,7 +110,12 @@ function boot(opts = {}) {
       body,
       head: { appendChild: () => {} },
       createElement: () => ({ style: {}, dataset: {}, setAttribute: () => {}, appendChild: () => {} }),
-      querySelector: (sel) => (sel === '[data-sidebar-collapsed]' && opts.collapsed === true ? {} : null),
+      querySelector: (sel) => {
+        if (sel === '[data-sidebar-collapsed]') return opts.collapsed === true ? {} : null;
+        // The host marks the frame while cols.rightbar is 0, i.e. the panel is closed.
+        if (sel === '[data-rightbar-collapsed]') return panels.rightbar === 0 || panels.rightbar === null ? {} : null;
+        return null;
+      },
     },
     localStorage: storage,
     console,
@@ -196,6 +204,69 @@ await group('editing the percentage row clears the stale px memory', () => {
   assert.equal(bundle.storage.map.has(KEY_RIGHTBAR_PX), false, 'px memory cleared')
   assert.equal(bundle.storage.map.get(KEY_RIGHTBAR), '40', 'percentage stored')
   assert.equal(bundle.calls.setRightbar.at(-1), 768, '40 percent of 1920 applied at once')
+})
+
+console.log('')
+console.log('-- B2. right-panel open ordering (no narrow-then-snap flash) --')
+
+await group('presets the width BEFORE the host open transition starts', () => {
+  const bundle = boot({ seed: { [KEY_RIGHTBAR_PX]: '520' } })
+  bundle.panels.rightbar = null
+  bundle.panels.openRightbar()
+  // The host fills a null preference with its contract ratio inside openRightbar.
+  // A preset must make that ??= a no-op, so the very first write the host ever
+  // sees is already the preference - never the contract ratio.
+  assert.deepEqual(
+    bundle.calls.setRightbar,
+    [520],
+    'exactly one write, and it is the preference (got ' + JSON.stringify(bundle.calls.setRightbar) + ')',
+  )
+  assert.equal(bundle.panels.rightbar, 520, 'panel never passed through the contract ratio')
+})
+
+await group('preset precedes the host call, not follows it', () => {
+  // The fake host snapshots `rightbar` as its first act. If the plugin writes AFTER
+  // the host call (the old order), the snapshot is still null; if it writes BEFORE,
+  // the snapshot is already the preference. This is the ordering proof.
+  const bundle = boot({ seed: { [KEY_RIGHTBAR_PX]: '520' } })
+  bundle.panels.rightbar = null
+  bundle.panels.openRightbar()
+  assert.deepEqual(bundle.calls.rightbarAtOpen, [520], 'width already applied when the host body begins, got ' + JSON.stringify(bundle.calls.rightbarAtOpen))
+})
+
+await group('presets only once per opening (repeat reports do not restart the transition)', () => {
+  // ui-sidebar-right reports its presentation repeatedly per open; each extra
+  // openRightbar re-entry used to call setRightbar again, resetting rightbarInstant
+  // and restarting the grid transition - the "opens narrow, then jumps wide" flash.
+  const bundle = boot({ seed: { [KEY_RIGHTBAR_PX]: '520' } })
+  bundle.panels.rightbar = null
+  bundle.panels.openRightbar()
+  const afterFirst = bundle.calls.setRightbar.length
+  // Panel is now open, so the collapsed marker is gone: repeats must not re-preset.
+  bundle.panels.openRightbar()
+  bundle.panels.openRightbar()
+  assert.equal(bundle.calls.setRightbar.length, afterFirst, 'no extra writes while already open')
+})
+
+await group('re-arms after close so the next open presets again', () => {
+  const bundle = boot({ seed: { [KEY_RIGHTBAR_PX]: '520' } })
+  bundle.panels.rightbar = null
+  bundle.panels.openRightbar()
+  assert.equal(bundle.calls.setRightbar.length, 1, 'first open preset')
+
+  // A real close zeroes the width, which puts the collapsed marker back.
+  bundle.panels.closeRightbar()
+  assert.equal(bundle.panels.rightbar, 0, 'host zeroed the width on close')
+  bundle.panels.openRightbar()
+  assert.equal(bundle.calls.setRightbar.length, 2, 'reopen presets again')
+  assert.equal(bundle.panels.rightbar, 520, 'reopened at the preference')
+})
+
+await group('a first open with no drag memory still uses the percentage, never the contract ratio', () => {
+  const bundle = boot({ seed: { [KEY_RIGHTBAR]: '21' } })
+  bundle.panels.rightbar = null
+  bundle.panels.openRightbar()
+  assert.equal(bundle.panels.rightbar, 403, '21% of 1920')
 })
 
 console.log('')

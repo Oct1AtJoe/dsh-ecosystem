@@ -1136,6 +1136,31 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					return null;
 				}
 			};
+			/**
+			 * Width to preset before the host opens the right panel, or null to let
+			 * the host use its own contract ratio.
+			 *
+			 * Drag memory wins because it is the user's most recent intent. With no
+			 * drag memory the percentage row supplies the *initial* width - that row
+			 * exists precisely to replace the host default, so falling through to the
+			 * host ratio here would make the row do nothing on a first open.
+			 * @returns width in px, or null when neither preference has been set.
+			 */
+			const rightbarInitialPx = () => {
+				const dragged = rightbarPx();
+				if (dragged !== null) return dragged;
+				if (typeof localStorage === "undefined") return null;
+				try {
+					if (localStorage.getItem(PREF_KEY_RIGHTBAR) === null) return null;
+				} catch {
+					return null;
+				}
+				return clampPref(readPref(PREF_KEY_RIGHTBAR, RIGHTBAR_PCT) / 100 * frameWidth(), rightbarPxRange());
+			};
+			/** Whether the right panel is still closed (host marker on the frame). */
+			const rightbarHidden = () =>
+				typeof document === "undefined" ||
+				document.querySelector("[data-rightbar-collapsed]") !== null;
 			/** Whether the sidebar is collapsed right now (host marker on the frame). */
 			const sidebarCollapsed = () =>
 				typeof document !== "undefined" && document.querySelector("[data-sidebar-collapsed]") !== null;
@@ -1166,7 +1191,16 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				});
 				// Drags land here too; only the px memory is written, so the percentage row
 				// keeps meaning "initial width" until the user edits it.
+				//
+				// Programmatic writes must NOT be recorded as drag memory: the preset in
+				// openRightbar above calls setRightbar itself, and if that were saved it
+				// would (a) overwrite the very drag width we just resolved and (b) turn
+				// the percentage row's own write into a sticky px memory that then
+				// shadows the row forever. Only a genuine drag - a setRightbar that does
+				// not originate from this plugin - is remembered.
+				let internalRightbarWrite = 0;
 				wrap(panels, "setRightbar", (px) => {
+					if (internalRightbarWrite > 0) return;
 					if (px > 0) saveRightbar(px);
 				});
 				// The host zeroes the width on close and restores its contract default on
@@ -1178,10 +1212,41 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					panels.setSidebar(sidebarPx());
 				}, () => sidebarCollapsed());
 				// Reopening the right panel after a close: the host fills its null preference
-				// with the contract 24%; the remembered drag width wins instead.
-				wrap(panels, "openRightbar", () => {
-					const px = rightbarPx();
-					if (px !== null) panels.setRightbar(px);
+				// with the contract ratio; the remembered drag width wins instead.
+				//
+				// Two rules keep the preset from fighting the host:
+				//
+				// 1. Write the width BEFORE the host call. The host's openRightbar does
+				//    `rightbar ??= viewport * RIGHTBAR_DEFAULT_RATIO` and only then flips
+				//    rightbarShown. Presetting makes that ??= a no-op, so the host never
+				//    briefly adopts its contract ratio first.
+				//
+				// 2. Only preset while the panel is still hidden. ui-sidebar-right reports
+				//    its presentation from a layout effect that re-runs (and re-reports
+				//    once transform animations settle), so openRightbar fires several times
+				//    per one user open. Each extra call would re-enter setRightbar, and
+				//    setRightbar resets rightbarInstant - a pointless extra write that can
+				//    restart the column transition mid-flight.
+				//
+				//    The host frame outputs `data-rightbar-collapsed` while cols.rightbar
+				//    is 0, so it is the authoritative "not open yet" signal: still present
+				//    on the first report of one open (React has not re-rendered yet) and
+				//    gone on every later report.
+				//
+				// Note: this does NOT eliminate every width change the host makes on open.
+				// The host recomputes columns per frame while rightbarShown flips, so the
+				// panel can still ease in from 0. That is host behaviour, not a preset
+				// conflict.
+				wrap(panels, "openRightbar", () => {}, () => {
+					if (!rightbarHidden()) return;
+					const px = rightbarInitialPx();
+					if (px === null) return;
+					internalRightbarWrite += 1;
+					try {
+						panels.setRightbar(px);
+					} finally {
+						internalRightbarWrite -= 1;
+					}
 				});
 				if (!restored) {
 					restored = true;

@@ -17,23 +17,18 @@ export const REPLACEMENTS = [
   {
     name: 'application-menu',
     why: '把开发态才显示的两项提为常驻，并换成硬刷新与整端重启',
-    find: `\t\t...development ? [
-\t\t\t{ type: "separator" },
-\t\t\t{
-\t\t\t\tlabel: currentDesktopLocale().messages.reloadPageMenu,
-\t\t\t\trole: "reload"
-\t\t\t},
-\t\t\t{
-\t\t\t\tlabel: currentDesktopLocale().messages.restartAppHostMenu,
-\t\t\t\tclick: () => {
-\t\t\t\t\tif (quitting) return;
-\t\t\t\t\tapp.relaunch();
-\t\t\t\t\tquitWithoutConfirmation();
-\t\t\t\t}
+    find: `\t\t...development ? [{
+\t\t\tlabel: currentDesktopLocale().messages.reloadPageMenu,
+\t\t\trole: "reload"
+\t\t}, {
+\t\t\tlabel: currentDesktopLocale().messages.restartAppHostMenu,
+\t\t\tclick: () => {
+\t\t\t\tif (quitting) return;
+\t\t\t\tapp.relaunch();
+\t\t\t\tquitWithoutConfirmation();
 \t\t\t}
-\t\t] : [],`,
-    replace: `\t\t{ type: "separator" },
-\t\t{ label: currentDesktopLocale().messages.reloadPageMenu, click: () => { if (mainWindow) mainWindow.webContents.reloadIgnoringCache(); } },
+\t\t}] : [],`,
+    replace: `\t\t{ label: currentDesktopLocale().messages.reloadPageMenu, click: () => { if (mainWindow) mainWindow.webContents.reloadIgnoringCache(); } },
 \t\t{ label: currentDesktopLocale().messages.restartAppHostMenu, click: () => { if (quitting) return; app.relaunch(); quitWithoutConfirmation(); } },`,
   },
   {

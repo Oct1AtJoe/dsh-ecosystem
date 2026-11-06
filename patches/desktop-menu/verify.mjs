@@ -76,7 +76,7 @@ for (const rule of REPLACEMENTS) {
 
 // ── 5. 行为接线（负向对照：确认没有退化成开发态专属或普通刷新） ──
 check('应用菜单不再受 development 条件包裹',
-  !text.includes('...development ? [\n\t\t\t{ type: "separator" },\n\t\t\t{\n\t\t\t\tlabel: currentDesktopLocale().messages.reloadPageMenu'))
+  !text.includes('...development ?'))
 check('刷新走 reloadIgnoringCache（非 role: reload）',
   text.includes('reloadIgnoringCache') && !text.includes('label: currentDesktopLocale().messages.reloadPageMenu,\n\t\t\t\trole: "reload"'))
 check('托盘注入 reload 动作', text.includes('reload: () => {'))
