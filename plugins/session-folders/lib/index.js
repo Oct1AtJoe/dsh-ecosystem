@@ -129,7 +129,12 @@ function owningWorkspace(ctx, sessionId) {
 
 /** Cordis plug-in entry: open the domain, register the routes. */
 function apply(ctx) {
-	return ctx.storageDomain.open(foldersDomainSpec).then((foldersDomain) => {
+	// Cordis re-runs apply before the previous fiber unloads, and the facility
+	// keeps the name reserved until that handle closes. Take the stale handle
+	// down first instead of failing fatal on 'already-open'. Closing is
+	// idempotent, so the old fiber's own disposer may still run it again.
+	const stale = ctx.storageDomain.get?.(foldersDomainSpec.name);
+	return Promise.resolve(stale?.close()).then(() => ctx.storageDomain.open(foldersDomainSpec)).then((foldersDomain) => {
 		const getFolders = () => foldersDomain.global.get().folders;
 		/**
 		* Persist a new folder record set. The domain's write chain guarantees
