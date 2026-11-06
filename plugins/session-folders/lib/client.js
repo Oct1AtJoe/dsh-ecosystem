@@ -1866,7 +1866,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		function FeatureFoldersBrowser(props) {
 			injectStyle();
 			const { wide, expandSidebar } = props;
-			const { useSessions, useWorkspaces, useStore, useSessionStatus, actions, t } = props;
+			const { useSessions, useWorkspaces, useStore, useSessionStatus, actions, t, searchRequestSource, claudeSearchEntry } = props;
 			const { open, searchSessions, searchResultLimit, renameSession, forkSession, renameWorkspace, deleteWorkspace, archiveSession, createWorkspace, pickDirectory, refreshWorkspaces, startSession, connectWorkspace, openWorkspaceFolder, quoteSession } = props;
 			const list = useSessions((state) => state);
 			const workspaces = useWorkspaces((state) => state.items);
@@ -2991,6 +2991,40 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				setSearchExpanded(true);
 				setFocusSearch(true);
 			};
+			/**
+			 * Consume the workspace commands this browser shadows. Their registrations and
+			 * the desktop main-process key claims stay untouched; only the reading side
+			 * moves here, because the shipped reader (WorkspaceBrowser) is the entry this
+			 * one outranks. Each request is a counter or flag in the shared store, so a
+			 * fresh subscription is armed with the current values as its baseline and
+			 * only later writes count as requests.
+			 */
+			react.useEffect(() => {
+				const source = typeof searchRequestSource === "function" ? searchRequestSource() : null;
+				if (source === null || typeof source.subscribe !== "function") return void 0;
+				const snapshot = () => source.getSnapshot?.() ?? {};
+				let seen = snapshot();
+				const off = source.subscribe(() => {
+					const next = snapshot();
+					if (next.searchRequest !== seen.searchRequest) {
+						// Claude Style owns a sidebar search entry when installed, and its command
+						// palette is the destination it advertises for this chord; otherwise the
+						// request belongs to this browser's own search box.
+						const entry = typeof claudeSearchEntry === "function" ? claudeSearchEntry() : null;
+						if (entry !== null && entry !== void 0) entry.click();
+						else openSearch();
+					}
+					if (next.addRequested === true && seen.addRequested !== true) handleNewWorkspace();
+					const target = next.renameTarget;
+					if (target !== null && target !== void 0 && target !== seen.renameTarget) {
+						setDialog({ kind: "rename-session", id: target.sessionId, draft: target.currentTitle ?? "", error: null });
+					}
+					seen = next;
+				});
+				return () => { off(); };
+				// The props come from the entry factory, which hands out fresh closures every
+				// render; re-subscribing on each would reset the baseline and drop requests.
+			}, []);
 			const allGroupKeys = view.groups.map((group) => group.key);
 			const lastWorkspaceKey = view.groups.length === 0 ? null : view.groups[view.groups.length - 1].key;
 			const allFolderIds = folders === null ? [] : folders.map((folder) => folder.id);
@@ -3488,8 +3522,35 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				if (typeof ctx.sessions?.open === "function") ctx.sessions.open(sessionId);
 				ctx.get("layout")?.selectPanel(null);
 			};
+			/**
+			 * The shipped reader for the workspace commands is WorkspaceBrowser, and this
+			 * browser shadows it: `session.search` resolves, then increments a store no
+			 * mounted component observes. Reach that store through the shadowed entry's
+			 * own business face instead of rebinding the chord — the command
+			 * registration, the desktop main-process key claim, and the catalog stay the
+			 * one source of truth, on both runtimes.
+			 */
+			const searchRequestSource = () => {
+				for (const entry of ctx.slots.entries("sidebar.workspaces")) {
+					if (typeof entry.inject !== "function") continue;
+					let state;
+					try { state = entry.inject()?.hooks?.workspaceShortcuts; } catch { continue; }
+					if (state != null && typeof state.subscribe === "function" && typeof state.getSnapshot === "function") return state;
+				}
+				return null;
+			};
+			/**
+			 * Claude Style's own sidebar search row, the entry it registers under
+			 * `sidebar.panellist` with `order: -1`. It is the first plain panel row (the
+			 * trailing "more" row carries aria-haspopup) and its click opens that
+			 * plugin's command palette. `search-slot` is not a usable anchor here: that
+			 * node is the shipped browser's search box, which this plugin shadows.
+			 */
+			const claudeSearchEntry = () => document.querySelector('nav[data-dsh-claude-part~="panel-list"] button[data-dsh-claude-part~="panel-row"]:not([aria-haspopup])');
 			/** Entry inject: session/workspace actions behind the kit surface. */
 			const injected = () => ({
+				searchRequestSource,
+				claudeSearchEntry,
 				open: (sessionId) => { activate(sessionId); },
 				searchSessions: async (query, signal) => {
 					const result = await ctx.sessions.search(query, signal);
