@@ -35,7 +35,6 @@ export const PUBLISHED = [
   'theme-tech',
   'queue-recall',
   'resend-failed-round',
-  'session-title',
   'session-folders',
   'dsh-trash-guard',
 ]

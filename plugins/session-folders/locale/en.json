@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Session Folders (dsh-session-folders)",
-    "description": "Session folders for DSH: workspace-based folder organization, drag-and-drop moving, session pin, and auto-rename."
+    "title": "Session Folders & Smart Titles (dsh-session-folders)",
+    "description": "Session management: multi-level folders, drag-to-file, pinning, and right-click auto-rename; smart title generation (MMDD|type|topic) from the first message with a multi-model fallback chain and thinking-budget protection."
   }
 }

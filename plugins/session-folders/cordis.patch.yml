@@ -1,4 +1,21 @@
-# dsh-session-folders bundle patch: fork of dsh-session-folders with custom modifications.
+# dsh-session-folders bundle patch (merged dsh-session-title-gen).
+#
+# The host's ctx.sessionTitle accepts exactly ONE optional provider: register()
+# throws `session-title provider "<id>" is already registered` when a second one
+# mounts. Two official rows compete for that slot:
+#   session-title-llm                   -> dsh-session-title-first-prompt-llm
+#   optional-session-title-all-prompts  -> dsh-session-title-all-prompts-llm
+# A stock profile carries both (from dsh-base and the experimental titles
+# bundle). We own the slot, so disable both official rows and insert our own.
+# applyEntryPatches() only warns and skips when an id matches nothing, so these
+# stay no-ops on profiles that do not mount those bundles.
+
+- id: session-title-llm
+  disabled: true
+
+- id: optional-session-title-all-prompts
+  disabled: true
+
 - insert:
     - id: dsh-session-folders-custom
       name: dsh-session-folders
