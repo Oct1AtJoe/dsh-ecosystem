@@ -54,6 +54,18 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		const NS = "dsh-session-folders-custom";
 		/** <style> tag id so the stylesheet injects once. */
 		const STYLE_ID = "dsh-session-folders-custom-style";
+/** Mirror dsh-claude-style ongoing-indicator settings onto our root (scheme B bridge). */
+function claudeOngoingAttrs() {
+  const fallback = { "data-ff-ongoing": "off", "data-ff-ongoing-side": "left", "data-ff-motion": "full", "data-ff-build": "20261109-r4" };
+  if (typeof document === "undefined" || !document.body || typeof document.body.getAttribute !== "function") return fallback;
+  const body = document.body;
+  return {
+    "data-ff-ongoing": body.getAttribute("data-dsh-claude-ongoing-indicator") || "off",
+    "data-ff-ongoing-side": body.getAttribute("data-dsh-claude-ongoing-side") || "left",
+    "data-ff-motion": body.getAttribute("data-dsh-claude-motion") || "full",
+    "data-ff-build": "20261109-r4",
+  };
+}
 		/** View store persist key (collapsed groups + collapsed folders). */
 		const VIEW_PERSIST_KEY = "dsh.session-folders-custom.view.v1";
 		/** 布局偏好键：左右栏宽度与侧边栏字号（宿主 layout store 不持久化，由本插件代记）。 */
@@ -1015,15 +1027,65 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
   overflow: hidden;
   white-space: nowrap;
 }
+/* Ongoing conversation indicator parity with dsh-claude-style (scheme B). claude exposes the chosen mode on <body>; the bridge mirrors it here. */
+@keyframes dsh-ff-breathe { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes dsh-ff-ring { to { transform: rotate(360deg); } }
+@keyframes dsh-ff-shimmer { 0% { background-position: 0% 0; } 100% { background-position: 100% 0; } }
+/* Neutralize claude-style global SVG pulse unless a mode below re-enables it. */
+[data-dsh-session-folders-custom] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > * {
+  animation: none;
+}
+[data-dsh-session-folders-custom][data-ff-ongoing="breathe"] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > * {
+  animation: dsh-ff-breathe 1.6s ease-in-out infinite;
+  filter: grayscale(1);
+}
+[data-dsh-session-folders-custom][data-ff-ongoing="ring"] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > * {
+  width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%;
+  border: 1.5px solid rgba(127, 127, 127, .35);
+  border-top-color: var(--dsw-alias-label-secondary, #6b7280);
+  color: var(--dsw-alias-label-secondary, #6b7280);
+  background: transparent;
+  animation: dsh-ff-ring .9s linear infinite;
+}
+[data-dsh-session-folders-custom][data-ff-ongoing="ring"] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > * > * {
+  display: none;
+}
+[data-dsh-session-folders-custom][data-ff-ongoing="shimmer"] .dsh-ff__session-row[data-ff-running] .dsh-ff__title {
+  color: var(--dsw-alias-label-tertiary, currentColor);
+  background-image: linear-gradient(var(--dsh-claude-title-angle, 100deg),
+    var(--dsw-alias-label-tertiary, currentColor) 0%,
+    var(--dsw-alias-label-tertiary, currentColor) 44%,
+    var(--dsw-alias-label-primary, currentColor) 50%,
+    var(--dsw-alias-label-tertiary, currentColor) 56%,
+    var(--dsw-alias-label-tertiary, currentColor) 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 0;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: dsh-ff-shimmer 2.4s linear infinite;
+}
+[data-dsh-session-folders-custom][data-ff-ongoing="shimmer"] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > * {
+  display: none;
+}
+[data-dsh-session-folders-custom][data-ff-ongoing-side="right"] .dsh-ff__session-row .dsh-ff__slot {
+  order: 99; margin-left: auto;
+}
+[data-dsh-session-folders-custom][data-ff-motion="reduced"] .dsh-ff__session-row[data-ff-running] .dsh-ff__slot > *,
+[data-dsh-session-folders-custom][data-ff-motion="reduced"] .dsh-ff__session-row[data-ff-running] .dsh-ff__title {
+  animation: none;
+}
 `;
 		/** Inject the stylesheet once per page load. */
 		function injectStyle() {
 			if (typeof document === "undefined") return;
-			if (document.querySelector("style#" + STYLE_ID) !== null) return;
-			const tag = document.createElement("style");
-			tag.id = STYLE_ID;
-			tag.textContent = STYLE;
-			document.head.appendChild(tag);
+			let tag = document.querySelector("style#" + STYLE_ID);
+			if (tag === null) {
+				tag = document.createElement("style");
+				tag.id = STYLE_ID;
+				document.head.appendChild(tag);
+			}
+			if (tag.textContent !== STYLE) tag.textContent = STYLE;
 		}
 		/** Clamp a number into a contract range, rounding to an integer. */
 		function clampPref(raw, range) {
@@ -2567,6 +2629,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				return e("div", {
 					key: summary.id,
 					role: "treeitem",
+					"data-ff-running": status === "ongoing" ? "" : void 0,
 					"data-session-id": summary.id,
 					className: "dsh-ff__session-row" + (selected ? " dsh-ff__session-row--selected" : "") + (guide ? " dsh-ff__guide-child dsh-ff__guide-" + guide : "") + (path ? " dsh-ff__guide-active" : ""),
 					"aria-selected": selected ? true : void 0,
@@ -2645,6 +2708,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 				return e("div", {
 					key: row.id,
 					role: "treeitem",
+					"data-ff-running": status === "ongoing" ? "" : void 0,
 					className: "dsh-ff__session-row" + (selected ? " dsh-ff__session-row--selected" : ""),
 					"aria-selected": selected ? true : void 0,
 					title: statusText === "" ? row.workspace : statusText + " · " + row.workspace,
@@ -3540,7 +3604,7 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 					document.body
 				);
 			};
-			return e("div", { "data-dsh-session-folders-custom": "" },
+			return e("div", { "data-dsh-session-folders-custom": "", ...claudeOngoingAttrs() },
 				wide ? header : e("div", { className: "dsh-ff__rail" },
 					e("button", {
 						type: "button",
@@ -3568,6 +3632,22 @@ const EMPTY_PENDING = /* @__PURE__ */ new Map();
 		//#region registration
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-session-folders: dictionaries");
+			ctx.effect(() => {
+				if (typeof document === "undefined" || !document.body || typeof document.body.getAttribute !== "function" || typeof MutationObserver === "undefined" || typeof document.querySelectorAll !== "function") return;
+				const sync = () => {
+					const attrs = claudeOngoingAttrs();
+					for (const el of document.querySelectorAll("[data-dsh-session-folders-custom]")) {
+						el.setAttribute("data-ff-ongoing", attrs["data-ff-ongoing"]);
+						el.setAttribute("data-ff-ongoing-side", attrs["data-ff-ongoing-side"]);
+						el.setAttribute("data-ff-motion", attrs["data-ff-motion"]);
+						el.setAttribute("data-ff-build", attrs["data-ff-build"]);
+					}
+				};
+				sync();
+				const observer = new MutationObserver(sync);
+				observer.observe(document.body, { attributes: true, attributeFilter: ["data-dsh-claude-ongoing-indicator", "data-dsh-claude-ongoing-side", "data-dsh-claude-motion"] });
+				return () => observer.disconnect();
+			}, "dsh-session-folders: claude ongoing indicator bridge");
 			/**
 			 * Select a Session and return the center column to its Conversation.
 			 *
