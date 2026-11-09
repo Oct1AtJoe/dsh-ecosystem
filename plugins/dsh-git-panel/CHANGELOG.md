@@ -2,6 +2,11 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.32] - 2026-11-10
+
+### Fixed
+- **提交信息模型来源修复**：旧代码用 `settings.get('session-title')` 读取模型链，而 DSH 0.2.x 的 settings 服务（SettingsForms）已无 `get()`，导致恒用内置默认 `deepseek-official/deepseek-flash/off`。现改为 `settings.describe()` 读取合并插件 `dsh-session-folders`（含原 title-gen）条目 `dsh-session-folders-custom` 的 `models[]`；该插件未安装/未配置/已禁用时回退「对话框当前的默认模型」`agentDefaultModel.currentSelection()`；仍无才用内置默认。
+
 ## [0.1.29] - 2026-11-03
 
 ### Fixed

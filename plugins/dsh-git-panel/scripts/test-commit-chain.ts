@@ -7,9 +7,15 @@
  * 且去重只比 provider+model（不比 effort）→ 隐形兜底静默救活，用户配的链明明
  * 全挂了却照样生成出提交信息，无从判断配置是否生效。
  *
+ * 现状（合并插件后）：
+ * - 第 1 级读 `dsh-session-folders`（含原 title-gen）设置条目 `dsh-session-folders-custom`
+ *   的 `models[]` / 单个 provider+model（通过 `settings.describe()` 读取）；
+ * - 第 1 级「无该条目 / 无有效模型 / enabled=false」时，才兜底 `agentDefaultModel`；
+ * - 仍无才用内置默认。
+ *
  * 本自检锁定的不变量：
- * - 托底链**只**由用户配置构成，绝不追加任何隐形模型；
- * - 表格优先于旧的 git-panel 单模型；两者皆无才用内置默认；
+ * - 有 title 表格时，托底链**只**由用户配置构成，绝不追加任何隐形模型（含 agentDefaultModel）；
+ * - 无 title 条目时才用「对话框默认模型」；两者皆无才内置默认；
  * - 同名不同 reasoningEffort 的两级不得被判为重复。
  *
  * 直接 import 真实实现，避免自检与实现漂移。
@@ -22,81 +28,89 @@ function check(name: string, ok: boolean, extra = ''): void {
   if (!ok) process.exitCode = 1
 }
 
-/** 最小 Context 假体：只需 get() 返回 settings / agentDefaultModel。 */
-function fakeCtx(settings: Record<string, unknown>, defaultModel?: { provider: string; model: string }): any {
+/**
+ * 最小 Context 假体：
+ * - settings.describe() 返回 descriptor 列表（合并插件条目 ns=dsh-session-folders-custom）；
+ * - agentDefaultModel.currentSelection() 返回对话框默认模型。
+ */
+function fakeCtx(opts: {
+  title?: Record<string, unknown> | null
+  descriptorsExtra?: Array<{ ns: string; value: unknown }>
+  defaultModel?: { provider: string; model: string; reasoningEffort?: string }
+  noSettings?: boolean
+} = {}): any {
   return {
     get: (name: string) => {
-      if (name === 'settings') return { get: (ns: string) => settings[ns] }
+      if (name === 'settings') {
+        if (opts.noSettings === true) return undefined
+        const list: Array<{ ns: string; value: unknown }> = []
+        if (opts.title !== undefined && opts.title !== null) {
+          list.push({ ns: 'dsh-session-folders-custom', value: opts.title })
+        }
+        if (opts.descriptorsExtra !== undefined) list.push(...opts.descriptorsExtra)
+        return { describe: () => list }
+      }
       if (name === 'agentDefaultModel') {
-        return defaultModel === undefined ? undefined : { currentSelection: () => defaultModel }
+        return opts.defaultModel === undefined ? undefined : { currentSelection: () => opts.defaultModel }
       }
       return undefined
     },
   }
 }
 
-// ---- 1. 表格优先，且链长度与表格行数一致 ----
-const ctxTable = fakeCtx({
-  'session-title': {
+// ---- 1. 表格优先，且链长度与表格行数一致；有表格时绝不追加默认模型 ----
+const table = resolveCommitModelChain(fakeCtx({
+  title: {
     enabled: true,
     models: [
       { provider: 'antigravity', model: 'gemini-4-argon-high', reasoningEffort: 'off' },
       { provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'off' },
     ],
   },
-  'git-panel': { provider: 'should-not-win', model: 'nope' },
-})
-const table = resolveCommitModelChain(ctxTable)
-check('表格优先于 git-panel 单模型', table[0]!.provider === 'antigravity', JSON.stringify(table))
+  defaultModel: { provider: 'ghost', model: 'ghost-model' },
+}))
+check('表格优先', table[0]!.provider === 'antigravity', JSON.stringify(table))
 check('链长度等于表格行数（无多余追加）', table.length === 2, `len=${table.length}`)
 check('第二级顺序保留', table[1]!.model === 'deepseek-flash')
 
-// ---- 2. 核心回归：不得追加 agentDefaultModel ----
-// 全局默认模型故意设为一个「不在表格里」的模型，若被追加则长度变 3
-const ctxWithDefault = fakeCtx(
-  { 'session-title': { enabled: true, models: [{ provider: 'a', model: 'a1' }] } },
-  { provider: 'ghost', model: 'ghost-model' },
-)
-const withDefault = resolveCommitModelChain(ctxWithDefault)
-check(
-  '绝不追加 agentDefaultModel 隐形兜底',
-  !withDefault.some((c) => c.provider === 'ghost'),
-  JSON.stringify(withDefault),
-)
+// ---- 2. 核心回归：有表格时不得追加 agentDefaultModel ----
+const withDefault = resolveCommitModelChain(fakeCtx({
+  title: { enabled: true, models: [{ provider: 'a', model: 'a1' }] },
+  defaultModel: { provider: 'ghost', model: 'ghost-model' },
+}))
+check('绝不追加 agentDefaultModel 隐形兜底', !withDefault.some((c) => c.provider === 'ghost'), JSON.stringify(withDefault))
 check('此时链长度仍为 1', withDefault.length === 1, `len=${withDefault.length}`)
 
 // ---- 3. 同名不同 reasoningEffort 不得被当重复丢弃 ----
-// 用户表格里就是 x/y(effort=off)，全局默认是 x/y(effort=high)：
-// 旧实现会因 provider+model 相同而跳过追加，掩盖问题；新实现干脆不追加。
-const ctxSameName = fakeCtx(
-  { 'session-title': { enabled: true, models: [{ provider: 'x', model: 'y', reasoningEffort: 'off' }] } },
-  { provider: 'x', model: 'y' },
-)
-const sameName = resolveCommitModelChain(ctxSameName)
+const sameName = resolveCommitModelChain(fakeCtx({
+  title: { enabled: true, models: [{ provider: 'x', model: 'y', reasoningEffort: 'off' }] },
+  defaultModel: { provider: 'x', model: 'y' },
+}))
 check('同名不同档不产生重复级', sameName.length === 1, `len=${sameName.length}`)
 check('保留用户配置的 reasoningEffort', sameName[0]!.reasoningEffort === 'off', String(sameName[0]!.reasoningEffort))
 
-// ---- 4. 表格缺位时回退 git-panel ----
-const ctxLegacy = fakeCtx({ 'git-panel': { provider: 'deepseek-official', model: 'deepseek-flash', reasoningEffort: 'off' } })
-const legacy = resolveCommitModelChain(ctxLegacy)
-check('无表格时回退 git-panel 单模型', legacy[0]!.provider === 'deepseek-official', JSON.stringify(legacy))
-check('回退链长度为 1', legacy.length === 1)
+// ---- 4. 无 title 条目 → 回退「对话框当前的默认模型」 ----
+const fallback = resolveCommitModelChain(fakeCtx({
+  defaultModel: { provider: 'magpie', model: 'group/cheap-first', reasoningEffort: 'high' },
+}))
+check('无 title 条目时回退 agentDefaultModel', fallback.length === 1 && fallback[0]!.provider === 'magpie', JSON.stringify(fallback))
+check('默认模型 model 正确', fallback[0]!.model === 'group/cheap-first', String(fallback[0]!.model))
+check('默认模型 reasoningEffort 保留', fallback[0]!.reasoningEffort === 'high', String(fallback[0]!.reasoningEffort))
 
 // ---- 5. 两者皆无 → 内置默认 ----
 const builtin = resolveCommitModelChain(fakeCtx({}))
-check('空配置回退内置默认', builtin.length === 1 && builtin[0]!.provider.length > 0, JSON.stringify(builtin))
+check('空配置回退内置默认', builtin.length === 1 && builtin[0]!.provider === 'deepseek-official', JSON.stringify(builtin))
 
-// ---- 6. enabled=false 时表格被忽略（回退 git-panel）----
-const ctxDisabled = fakeCtx({
-  'session-title': { enabled: false, models: [{ provider: 'ignored', model: 'ignored' }] },
-  'git-panel': { provider: 'fallback', model: 'fb' },
-})
-const disabled = resolveCommitModelChain(ctxDisabled)
-check('enabled=false 时忽略表格', disabled[0]!.provider === 'fallback', JSON.stringify(disabled))
+// ---- 6. enabled=false 时忽略表格（回退默认模型）----
+const disabled = resolveCommitModelChain(fakeCtx({
+  title: { enabled: false, models: [{ provider: 'ignored', model: 'ignored' }] },
+  defaultModel: { provider: 'chat', model: 'chat-m' },
+}))
+check('enabled=false 时忽略表格', disabled[0]!.provider === 'chat', JSON.stringify(disabled))
 
 // ---- 7. 表格含无效行时被过滤 ----
-const ctxPartial = fakeCtx({
-  'session-title': {
+const partial = resolveCommitModelChain(fakeCtx({
+  title: {
     enabled: true,
     models: [
       { provider: '', model: 'no-provider' },
@@ -104,18 +118,25 @@ const ctxPartial = fakeCtx({
       { provider: 'good', model: 'good-model' },
     ],
   },
-})
-const partial = resolveCommitModelChain(ctxPartial)
+}))
 check('过滤 provider/model 为空的行', partial.length === 1 && partial[0]!.provider === 'good', JSON.stringify(partial))
 
 // ---- 8. settings 服务缺失不得抛错 ----
-const ctxNoSettings: any = { get: () => undefined }
-const noSettings = resolveCommitModelChain(ctxNoSettings)
+const noSettings = resolveCommitModelChain(fakeCtx({ noSettings: true }))
 check('settings 缺席时安全回退内置默认', noSettings.length === 1, JSON.stringify(noSettings))
 
+// ---- 8b. settings 存在但无 describe() → 安全回退 ----
+const noDescribe: any = { get: (n: string) => (n === 'settings' ? {} : undefined) }
+const noDescribeChain = resolveCommitModelChain(noDescribe)
+check('settings 无 describe() 时安全回退内置默认', noDescribeChain.length === 1, JSON.stringify(noDescribeChain))
+
+// ---- 8c. 非固定 ns 的合并插件条目也能按形状识别 ----
+const shape = resolveCommitModelChain(fakeCtx({
+  descriptorsExtra: [{ ns: 'some-custom-id', value: { models: [{ provider: 's', model: 'sm' }], maxTitleLength: 50 } }],
+}))
+check('按形状识别 title 条目', shape[0]!.provider === 's', JSON.stringify(shape))
+
 // ---- 9. 思考档位被拒时的判定规则（直接 import 真实实现，避免自检漂移） ----
-// 只有「明确指向 reasoning effort 被拒」的报错才允许丢弃档位重试，
-// 其他报错（欠费、超时、鉴权）必须原样上报，不能靠丢档位掩盖。
 check(
   'workbuddy 的档位报错被识别',
   isEffortRejection('the reasoning effort value is not supported by the current model'),
@@ -130,7 +151,6 @@ check('鉴权失败不被误判', !isEffortRejection('401 Unauthorized: invalid 
 check('纯 400 但非档位原因不被误判', !isEffortRejection('400: invalid_request_error: model not found'))
 
 // ---- 10. 报错提炼：上游把错误塞成整串 JSON（实测 626 字符），界面要的是其中一句 ----
-// 取自用户截图里的真实报错原文
 const RAW_WORKBUDDY = '400: {"message":"workbuddy upstream client (http 400): {\\"code\\":11150,\\"msg\\":\\"the reasoning effort value is not supported by the current model\\",\\"requestId\\":\\"c7b29033-05e9-49bd-94d0-3aa65d8e1231\\",\\"extError\\":{\\"code\\":\\"invalid_request_error\\",\\"message\\":\\"the reasoning effort value is not supported by the current model\\",\\"param\\":\\"\\",\\"type\\":\\"invalid_request_error\\",\\"StatusCode\\":400,\\"Request\\":null,\\"Response\\":null},\\"displayMsg\\":{\\"en\\":\\"Reasoning effort not supported.\\"},\\"type\\":\\"client\\",\\"code\\":\\"client\\"}","displayMsg":{"en":"Reasoning effort not supported."},"type":"client","code":"client"}'
 const summarized = summarizeFailure(RAW_WORKBUDDY)
 check('原始长报错被大幅压缩', summarized.length < 80, `原 ${RAW_WORKBUDDY.length} → ${summarized.length}`)

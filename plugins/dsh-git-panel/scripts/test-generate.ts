@@ -56,12 +56,8 @@ function fakeContext(options: {
   const stub: Record<string, unknown> = {
     llm,
     settings: {
-      get: (ns: string) => {
-        if (ns === 'git-panel' && (options.provider !== undefined || options.model !== undefined || options.reasoningEffort !== undefined)) {
-          return { provider: options.provider, model: options.model, reasoningEffort: options.reasoningEffort }
-        }
-        return undefined
-      },
+      // 新版解析走 settings.describe()（DSH 0.2.x 设置服务无 get）；本组默认测试无 title 条目 → 返回空。
+      describe: () => [],
     },
   }
   return { get: (name: string) => stub[name] } as unknown as Context
@@ -139,18 +135,16 @@ async function main(): Promise<void> {
       get: (name: string) => {
         if (name === 'settings') {
           return {
-            get: (ns: string) => {
-              if (ns === 'session-title') {
-                return {
-                  enabled: true,
-                  models: [
-                    { provider: 'p1', model: 'm1', reasoningEffort: '' },
-                    { provider: 'p2', model: 'm2', reasoningEffort: '' },
-                  ],
-                }
-              }
-              return undefined
-            },
+            describe: () => [{
+              ns: 'dsh-session-folders-custom',
+              value: {
+                enabled: true,
+                models: [
+                  { provider: 'p1', model: 'm1', reasoningEffort: '' },
+                  { provider: 'p2', model: 'm2', reasoningEffort: '' },
+                ],
+              },
+            }],
           }
         }
         if (name === 'llm') {
@@ -191,9 +185,7 @@ async function main(): Promise<void> {
       {
         get: (name: string) => {
           if (name === 'settings') {
-            return { get: (ns: string) => ns === 'session-title'
-              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }, { provider: 'p2', model: 'm2' }] }
-              : undefined }
+            return { describe: () => [{ ns: 'dsh-session-folders-custom', value: { enabled: true, models: [{ provider: 'p1', model: 'm1' }, { provider: 'p2', model: 'm2' }] } }] }
           }
           if (name === 'llm') {
             return {
@@ -234,9 +226,7 @@ async function main(): Promise<void> {
       {
         get: (name: string) => {
           if (name === 'settings') {
-            return { get: (ns: string) => ns === 'session-title'
-              ? { enabled: true, models: [{ provider: 'p1', model: 'm1', reasoningEffort: 'off' }] }
-              : undefined }
+            return { describe: () => [{ ns: 'dsh-session-folders-custom', value: { enabled: true, models: [{ provider: 'p1', model: 'm1', reasoningEffort: 'off' }] } }] }
           }
           if (name === 'llm') {
             return {
@@ -283,9 +273,7 @@ async function main(): Promise<void> {
       {
         get: (name: string) => {
           if (name === 'settings') {
-            return { get: (ns: string) => ns === 'session-title'
-              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }] }
-              : undefined }
+            return { describe: () => [{ ns: 'dsh-session-folders-custom', value: { enabled: true, models: [{ provider: 'p1', model: 'm1' }] } }] }
           }
           if (name === 'llm') {
             return {
@@ -312,9 +300,7 @@ async function main(): Promise<void> {
       {
         get: (name: string) => {
           if (name === 'settings') {
-            return { get: (ns: string) => ns === 'session-title'
-              ? { enabled: true, models: [{ provider: 'p1', model: 'm1' }] }
-              : undefined }
+            return { describe: () => [{ ns: 'dsh-session-folders-custom', value: { enabled: true, models: [{ provider: 'p1', model: 'm1' }] } }] }
           }
           if (name === 'llm') {
             return {
@@ -331,6 +317,28 @@ async function main(): Promise<void> {
       repo,
     )
     check('省略 onEvent 仍能正常生成', noHook.ok && noHook.message === 'feat: no hook', noHook.ok ? noHook.message : noHook.error.message)
+
+    // 13) 无合并插件 title 条目 → 用「对话框当前的默认模型」agentDefaultModel
+    const defCapture: Record<string, unknown> = {}
+    const defCtx = {
+      get: (name: string) => {
+        if (name === 'settings') return { describe: () => [] }
+        if (name === 'agentDefaultModel') return { currentSelection: () => ({ provider: 'magpie', model: 'group/cheap-first', reasoningEffort: 'high' }) }
+        if (name === 'llm') {
+          return {
+            stream(opts: Record<string, unknown>) {
+              Object.assign(defCapture, opts)
+              const chunks: unknown[] = [{ type: 'text-delta', index: 0, text: 'feat: from default' }, { type: 'finish', reason: { kind: 'stop' } }]
+              return { async *[Symbol.asyncIterator]() { for (const c of chunks) yield c } }
+            },
+          }
+        }
+        return undefined
+      },
+    } as unknown as Context
+    const defRes = await generateCommitMessage(defCtx, service, repo)
+    check('无 title 条目时用对话框默认模型生成', defRes.ok && defRes.message === 'feat: from default', defRes.ok ? defRes.message : defRes.error.message)
+    check('默认模型 provider/model 透传到 llm', defCapture.provider === 'magpie' && defCapture.model === 'group/cheap-first', `${String(defCapture.provider)}/${String(defCapture.model)}`)
   } finally {
     rmSync(repo, { recursive: true, force: true })
   }

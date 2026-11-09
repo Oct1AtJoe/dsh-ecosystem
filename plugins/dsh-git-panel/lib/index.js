@@ -968,51 +968,75 @@ var TIMEOUT_MS = 6e4;
 var DEFAULT_PROVIDER = "deepseek-official";
 var DEFAULT_MODEL = "deepseek-flash";
 var DEFAULT_REASONING_EFFORT = "off";
-function resolveCommitModelChain(ctx) {
+function toCandidate(value) {
+  if (value === void 0 || value === null) return void 0;
+  if (typeof value.provider === "string" && value.provider && typeof value.model === "string" && value.model) {
+    return {
+      provider: value.provider,
+      model: value.model,
+      reasoningEffort: typeof value.reasoningEffort === "string" && value.reasoningEffort !== "" ? value.reasoningEffort : void 0
+    };
+  }
+  return void 0;
+}
+function readMergedTitleModels(settings) {
   const candidates = [];
   try {
-    const settings = ctx.get("settings");
-    const titleCfg = settings?.get?.("session-title");
-    if (titleCfg && titleCfg.enabled !== false) {
-      if (Array.isArray(titleCfg.models) && titleCfg.models.length > 0) {
-        for (const m of titleCfg.models) {
-          if (typeof m.provider === "string" && m.provider && typeof m.model === "string" && m.model) {
-            candidates.push({
-              provider: m.provider,
-              model: m.model,
-              reasoningEffort: typeof m.reasoningEffort === "string" && m.reasoningEffort !== "" ? m.reasoningEffort : void 0
-            });
-          }
-        }
-      }
-      if (candidates.length === 0 && typeof titleCfg.provider === "string" && titleCfg.provider && typeof titleCfg.model === "string" && titleCfg.model) {
-        candidates.push({
-          provider: titleCfg.provider,
-          model: titleCfg.model,
-          reasoningEffort: typeof titleCfg.reasoningEffort === "string" && titleCfg.reasoningEffort !== "" ? titleCfg.reasoningEffort : void 0
-        });
+    const list = settings?.describe?.();
+    if (!Array.isArray(list)) return candidates;
+    const rows = list;
+    const isTitleEntry = (row) => {
+      const ns = typeof row.ns === "string" ? row.ns : "";
+      if (ns === "dsh-session-folders-custom") return true;
+      if (/session-folders|session-title/i.test(ns)) return true;
+      const value2 = row.value;
+      return value2 !== void 0 && value2 !== null && typeof value2 === "object" && Array.isArray(value2.models) && ("maxTitleLength" in value2 || "maxInputChars" in value2);
+    };
+    const entry = rows.find(isTitleEntry);
+    if (entry === void 0) return candidates;
+    const value = entry.value;
+    if (value === void 0 || value === null || typeof value !== "object") return candidates;
+    if (value.enabled === false) return candidates;
+    if (Array.isArray(value.models) && value.models.length > 0) {
+      for (const m of value.models) {
+        const candidate = toCandidate(m);
+        if (candidate !== void 0) candidates.push(candidate);
       }
     }
     if (candidates.length === 0) {
-      const cfg = settings?.get?.("git-panel");
-      if (cfg && typeof cfg.provider === "string" && cfg.provider && typeof cfg.model === "string" && cfg.model) {
-        candidates.push({
-          provider: cfg.provider,
-          model: cfg.model,
-          reasoningEffort: typeof cfg.reasoningEffort === "string" && cfg.reasoningEffort !== "" ? cfg.reasoningEffort : void 0
-        });
-      }
+      const single = toCandidate(value);
+      if (single !== void 0) candidates.push(single);
     }
   } catch {
-  }
-  if (candidates.length === 0) {
-    candidates.push({
-      provider: DEFAULT_PROVIDER,
-      model: DEFAULT_MODEL,
-      reasoningEffort: DEFAULT_REASONING_EFFORT
-    });
+    return [];
   }
   return candidates;
+}
+function readDefaultModel(ctx) {
+  try {
+    const service = ctx.get("agentDefaultModel");
+    const selection = service?.currentSelection?.();
+    return toCandidate(selection);
+  } catch {
+    return void 0;
+  }
+}
+function resolveCommitModelChain(ctx) {
+  let settings;
+  try {
+    settings = ctx.get("settings");
+  } catch {
+    settings = void 0;
+  }
+  const titleModels = readMergedTitleModels(settings);
+  if (titleModels.length > 0) return titleModels;
+  const fallback = readDefaultModel(ctx);
+  if (fallback !== void 0) return [fallback];
+  return [{
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    reasoningEffort: DEFAULT_REASONING_EFFORT
+  }];
 }
 var SYSTEM = [
   "You write one git commit message for a staged change set.",

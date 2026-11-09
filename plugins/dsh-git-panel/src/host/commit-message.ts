@@ -2,12 +2,16 @@
  * 「自动生成提交信息」：读取暂存区（staged）的变更内容，连同仓库最近若干条
  * 提交的主题一起交给模型，生成一条可直接提交的信息。
  *
- * 模型来源为设置页「会话标题与git提交」Tab 中的多模型优先级托底链
- * （`session-title` 命名空间）：自上而下依次尝试，任一级失败即顺延下一级，
- * 全部失败才报错。用户配的表就是唯一真相——刻意不追加任何隐形兜底模型，
- * 否则用户无法判断自己配的链到底有没有生效。
+ * 模型来源优先级（自上而下，任一级为空才顺延下一级）：
+ * 1. 合并插件 `dsh-session-folders`（含原 title-gen 能力）设置条目
+ *    `dsh-session-folders-custom` 里的多模型托底链（`models[]` / 单个 provider+model）；
+ * 2. 未装该插件或未配置可用模型时，兜底「对话框当前的默认模型」
+ *    `ctx.agentDefaultModel.currentSelection()`；
+ * 3. 仍为空才用内置默认 deepseek-flash。
  *
- * 未配置表格时回退旧的 `git-panel` 单模型配置，再兜底内置 deepseek-flash。
+ * 注意：当第 1 级有配置时它就是唯一真相——绝不追加任何隐形兜底模型，否则用户
+ * 无法判断自己配的链到底有没有生效（已踩坑）。agentDefaultModel 只在第 1 级
+ * 完全为空（无配置）时启用，绝不作为「已配置链全部失败」的末级接管。
  * @module dsh-git-panel/host/commit-message
  */
 
@@ -34,6 +38,17 @@ interface LlmLike {
   stream(options: Record<string, unknown>): AsyncIterable<unknown>
 }
 
+/** `settings.describe()` 返回项的最小面孔（0.2.x 设置服务无 get()，只有 describe()）。 */
+interface SettingsDescriptorLike {
+  ns?: unknown
+  value?: unknown
+}
+
+/** 设置服务最小面孔。 */
+interface SettingsLike {
+  describe?: () => unknown
+}
+
 /** 模型选择信息最小面孔。 */
 interface ModelSelectionLike {
   provider?: unknown
@@ -48,67 +63,104 @@ export interface CandidateModel {
   reasoningEffort?: string
 }
 
-/** 解析按优先级排序的多模型托底链（优先读 session-title 设置中的 models 列表） */
-export function resolveCommitModelChain(ctx: Context): CandidateModel[] {
+/** 把候选字段（可能为 unknown）规整成一个合法 CandidateModel；无效返回 undefined。 */
+function toCandidate(value: ModelSelectionLike | null | undefined): CandidateModel | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value.provider === 'string' && value.provider && typeof value.model === 'string' && value.model) {
+    return {
+      provider: value.provider,
+      model: value.model,
+      reasoningEffort: typeof value.reasoningEffort === 'string' && value.reasoningEffort !== '' ? value.reasoningEffort : undefined,
+    }
+  }
+  return undefined
+}
+
+/**
+ * 读取「合并插件」（`dsh-session-folders`，含原 title-gen 能力）设置条目
+ * `dsh-session-folders-custom` 的模型链；未安装 / 无有效模型 / 已禁用则返回空数组。
+ */
+function readMergedTitleModels(settings: SettingsLike | undefined): CandidateModel[] {
   const candidates: CandidateModel[] = []
-
   try {
-    const settings = ctx.get('settings') as { get?: (ns: string) => unknown } | undefined
-    const titleCfg = settings?.get?.('session-title') as {
-      enabled?: boolean
-      models?: Array<{ provider?: string; model?: string; reasoningEffort?: string }>
-      provider?: string
-      model?: string
-      reasoningEffort?: string
-    } | undefined
+    const list = settings?.describe?.()
+    if (!Array.isArray(list)) return candidates
+    const rows = list as SettingsDescriptorLike[]
 
-    if (titleCfg && titleCfg.enabled !== false) {
-      if (Array.isArray(titleCfg.models) && titleCfg.models.length > 0) {
-        for (const m of titleCfg.models) {
-          if (typeof m.provider === 'string' && m.provider && typeof m.model === 'string' && m.model) {
-            candidates.push({
-              provider: m.provider,
-              model: m.model,
-              reasoningEffort: typeof m.reasoningEffort === 'string' && m.reasoningEffort !== '' ? m.reasoningEffort : undefined,
-            })
-          }
-        }
-      }
-      if (candidates.length === 0 && typeof titleCfg.provider === 'string' && titleCfg.provider && typeof titleCfg.model === 'string' && titleCfg.model) {
-        candidates.push({
-          provider: titleCfg.provider,
-          model: titleCfg.model,
-          reasoningEffort: typeof titleCfg.reasoningEffort === 'string' && titleCfg.reasoningEffort !== '' ? titleCfg.reasoningEffort : undefined,
-        })
+    const isTitleEntry = (row: SettingsDescriptorLike): boolean => {
+      const ns = typeof row.ns === 'string' ? row.ns : ''
+      if (ns === 'dsh-session-folders-custom') return true
+      if (/session-folders|session-title/i.test(ns)) return true
+      const value = row.value as Record<string, unknown> | null | undefined
+      return value !== undefined && value !== null && typeof value === 'object'
+        && Array.isArray((value as { models?: unknown }).models)
+        && ('maxTitleLength' in value || 'maxInputChars' in value)
+    }
+    const entry = rows.find(isTitleEntry)
+    if (entry === undefined) return candidates
+
+    const value = entry.value as (ModelSelectionLike & {
+      enabled?: unknown
+      models?: Array<{ provider?: unknown; model?: unknown; reasoningEffort?: unknown }>
+    }) | null | undefined
+    if (value === undefined || value === null || typeof value !== 'object') return candidates
+    if (value.enabled === false) return candidates
+
+    if (Array.isArray(value.models) && value.models.length > 0) {
+      for (const m of value.models) {
+        const candidate = toCandidate(m)
+        if (candidate !== undefined) candidates.push(candidate)
       }
     }
-
-    // 向后兼容：表格式配置尚未写入时的旧 `git-panel` 单模型配置
     if (candidates.length === 0) {
-      const cfg = settings?.get?.('git-panel') as ModelSelectionLike | undefined
-      if (cfg && typeof cfg.provider === 'string' && cfg.provider && typeof cfg.model === 'string' && cfg.model) {
-        candidates.push({
-          provider: cfg.provider,
-          model: cfg.model,
-          reasoningEffort: typeof cfg.reasoningEffort === 'string' && cfg.reasoningEffort !== '' ? cfg.reasoningEffort : undefined,
-        })
-      }
+      const single = toCandidate(value)
+      if (single !== undefined) candidates.push(single)
     }
-  } catch {}
+  } catch {
+    return []
+  }
+  return candidates
+}
 
-  // 兜底内置默认模型
-  if (candidates.length === 0) {
-    candidates.push({
-      provider: DEFAULT_PROVIDER,
-      model: DEFAULT_MODEL,
-      reasoningEffort: DEFAULT_REASONING_EFFORT,
-    })
+/** 读取「对话框当前的默认模型」（部署默认选择）；不可用返回 undefined。 */
+function readDefaultModel(ctx: Context): CandidateModel | undefined {
+  try {
+    const service = ctx.get('agentDefaultModel') as { currentSelection?: () => ModelSelectionLike } | undefined
+    const selection = service?.currentSelection?.()
+    return toCandidate(selection)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 解析按优先级排序的提交信息托底链：
+ * 1. 合并插件(title) 设置条目里的 models[] / 单个 provider+model；
+ * 2. 否则用「对话框当前的默认模型」`agentDefaultModel.currentSelection()`；
+ * 3. 仍为空才用内置默认。
+ *
+ * 第 1 级有配置时只用用户配置，绝不追加隐形兜底；agentDefaultModel 仅在第 1 级
+ * 完全为空时启用（沿用「不追加隐形兜底」的历史约束）。
+ */
+export function resolveCommitModelChain(ctx: Context): CandidateModel[] {
+  let settings: SettingsLike | undefined
+  try {
+    settings = ctx.get('settings') as SettingsLike | undefined
+  } catch {
+    settings = undefined
   }
 
-  // 刻意不追加 agentDefaultModel 兜底：那会让用户在设置里配的模型失败时被一个
-  // 看不见、也关不掉的模型静默接管，用户无从判断自己配的链到底有没有生效（已踩坑）。
-  // 托底链的唯一真相就是用户配置本身。
-  return candidates
+  const titleModels = readMergedTitleModels(settings)
+  if (titleModels.length > 0) return titleModels
+
+  const fallback = readDefaultModel(ctx)
+  if (fallback !== undefined) return [fallback]
+
+  return [{
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    reasoningEffort: DEFAULT_REASONING_EFFORT,
+  }]
 }
 
 /** 生成结果。 */
