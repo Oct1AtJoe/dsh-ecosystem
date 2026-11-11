@@ -3659,15 +3659,17 @@ function claudeOngoingAttrs() {
     const RANGES = {
       maxTokens: { min: 32, max: 8192 },
       maxInputChars: { min: 200, max: 8000 },
+      recentMessages: { min: 3, max: 8 },
       timeoutMs: { min: 3000, max: 120000 },
       maxTitleLength: { min: 20, max: 200 },
     };
-    const NUMERIC = ['maxTokens', 'maxInputChars', 'timeoutMs', 'maxTitleLength'];
+    const NUMERIC = ['maxTokens', 'maxInputChars', 'recentMessages', 'timeoutMs', 'maxTitleLength'];
 
     /** Reset targets, kept equal to the host DEFAULTS. */
     const RESET = {
       maxTokens: '512',
-      maxInputChars: '2000',
+      maxInputChars: '4000',
+      recentMessages: '5',
       timeoutMs: '30000',
       maxTitleLength: '80',
     };
@@ -3694,8 +3696,10 @@ function claudeOngoingAttrs() {
       effortUnsupported: '（该模型不支持，请更换）',
       maxTokens: '最大输出 Tokens',
       maxTokensHint: '单次标题生成的输出上限（32–8192）。默认 512；若提示 finish=max-tokens 正文为空，请调高。',
-      maxInputChars: '首条消息截断',
-      maxInputCharsHint: '送给模型的首条消息最大字符数（200–8000）。',
+      maxInputChars: '输入总字符上限',
+      maxInputCharsHint: '手动/自动命名送给模型的选中消息合计字符上限（200–8000），超出时优先保留首条与最近几条。',
+      recentMessages: '最近消息条数',
+      recentMessagesHint: '手动自动命名纳入的首条+最近用户消息条数（3–8），默认 5。',
       timeoutMs: '超时（毫秒）',
       timeoutMsHint: '标题生成请求的超时时间（3000–120000）。',
       maxTitleLength: '标题最大长度',
@@ -3729,8 +3733,10 @@ function claudeOngoingAttrs() {
       effortUnsupported: ' (unsupported, change it)',
       maxTokens: 'Max output tokens',
       maxTokensHint: 'Output cap for one title generation (32–8192). Default 512; raise it if you see finish=max-tokens with empty output.',
-      maxInputChars: 'First message cap',
-      maxInputCharsHint: 'Max characters of the first message sent to the model (200–8000).',
+      maxInputChars: 'Total input cap',
+      maxInputCharsHint: 'Total characters of the selected messages sent to the model (200–8000); over the cap keeps the first and most recent messages.',
+      recentMessages: 'Recent messages',
+      recentMessagesHint: 'Leading+recent user messages used for manual auto-rename (3–8). Default 5.',
       timeoutMs: 'Timeout (ms)',
       timeoutMsHint: 'Title request timeout (3000–120000).',
       maxTitleLength: 'Max title length',
@@ -4277,6 +4283,16 @@ function claudeOngoingAttrs() {
           disabled,
           onEdit: value => { props.edit('maxInputChars', value); },
           onReset: () => { props.edit('maxInputChars', RESET.maxInputChars); },
+          t,
+        }),
+        numberField({
+          id: 'stc-recent-msgs',
+          label: t('recentMessages'),
+          hint: t('recentMessagesHint'),
+          state: state.recentMessages,
+          disabled,
+          onEdit: value => { props.edit('recentMessages', value); },
+          onReset: () => { props.edit('recentMessages', RESET.recentMessages); },
           t,
         }),
         numberField({

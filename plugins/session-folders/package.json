@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-folders",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "会话管理：文件夹组织（多级文件夹、拖拽归档、置顶、右键自动命名）与智能标题生成（MMDD｜类型｜主题、多模型托底链、思考预算保护）。",
   "icon": "./icon.svg",
   "type": "module",

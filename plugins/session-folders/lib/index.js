@@ -577,7 +577,10 @@ const DEFAULTS = Object.freeze({
    * 数值，经 session-folders 的提示条原样透传给用户，由其调高本值或关闭思考。
    */
   maxTokens: 512,
-  maxInputChars: 2000,
+  /** 输入总字符上限（首条+最近若干条合计），默认 4000。 */
+  maxInputChars: 4000,
+  /** 手动「自动命名」纳入的首条+最近用户消息条数，默认 5。 */
+  recentMessages: 5,
   timeoutMs: 30000,
   maxTitleLength: 80,
 })
@@ -599,6 +602,7 @@ function buildSchema() {
     reasoningEffort: vol(schemastery.string()),
     maxTokens: vol(schemastery.number().min(32).max(8192).default(DEFAULTS.maxTokens)),
     maxInputChars: vol(schemastery.number().min(200).max(8000).default(DEFAULTS.maxInputChars)),
+    recentMessages: vol(schemastery.number().min(3).max(8).default(DEFAULTS.recentMessages)),
     timeoutMs: vol(schemastery.number().min(3000).max(120000).default(DEFAULTS.timeoutMs)),
     maxTitleLength: vol(schemastery.number().min(20).max(200).default(DEFAULTS.maxTitleLength)),
   })
@@ -709,6 +713,27 @@ function parseLlmOutput(raw) {
   throw new Error(`dsh-session-title-gen: cannot parse title from "${raw}"`)
 }
 
+/**
+ * 组装标题生成的输入文本：首条 + 最近 (recentCount-1) 条用户消息，
+ * 合计不超过 budget，超限时从最旧的非首条开始丢弃。
+ * @param {Array<{seq:number,text:string}>} messages 按 seq 升序的用户消息
+ * @param {number} recentCount 纳入的消息条数上限（含首条）
+ * @param {number} budget 拼接文本的总字符上限
+ * @returns {{ text: string, usedMessages: Array<{seq:number,text:string}> }}
+ */
+export function buildTitleInput(messages, recentCount, budget) {
+  const first = messages[0]
+  if (first === undefined) throw new Error('dsh-session-title-gen: no messages')
+  const n = Math.max(1, Math.floor(recentCount) || 1)
+  let picked = messages.length <= n ? messages.slice() : [first, ...messages.slice(-(n - 1))]
+  const joined = arr => arr.map(m => m.text).join('\n\n')
+  while (picked.length > 1 && joined(picked).length > budget) picked.splice(1, 1)
+  if (picked.length === 1 && picked[0].text.length > budget) {
+    picked = [{ ...picked[0], text: picked[0].text.slice(0, budget) }]
+  }
+  return { text: joined(picked), usedMessages: picked }
+}
+
 /** loader 交给 apply 的 Config 是 volatile 包装（取值要 `.get()`）；展开成普通对象。 */
 function unwrapConfig(value) {
   if (value !== null && typeof value === 'object' && typeof value.get === 'function') {
@@ -759,8 +784,9 @@ function registerTitleProvider(ctx, config) {
       const dd = String(d.getUTCDate()).padStart(2, '0')
       const mmdd = `${mm}${dd}`
 
-      // ② 首条消息文本（截断长度可配）
-      const msgText = first.text.slice(0, config.maxInputChars)
+      // ② 输入文本：首条 + 最近若干条用户消息（合计受 maxInputChars 限制）
+      const built = buildTitleInput(messages, config.recentMessages, config.maxInputChars)
+      const msgText = built.text
 
       // ③ 多模型优先级托底链
       const chain = resolveModelChain(config)
@@ -877,7 +903,7 @@ function registerTitleProvider(ctx, config) {
 
           successResult = {
             title,
-            messageSeqs: [first.seq],
+            messageSeqs: built.usedMessages.map(m => m.seq),
             model: route,
           }
           if (i > 0) {
