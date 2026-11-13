@@ -1266,6 +1266,18 @@ function layoutGraph(commits) {
   return placed;
 }
 
+// src/client/graph-geometry.ts
+var EDGE_STROKE_WIDTH = 1.8;
+function graphEdgePath(x, y, px, py, rowHeight) {
+  if (px === x) {
+    return { d: `M ${x} ${y} L ${px} ${py}`, straight: true };
+  }
+  const dy = Math.max(0, py - y);
+  const R = Math.min(dy, Math.max(Math.abs(px - x) * 0.6, rowHeight * 0.35));
+  const d = `M ${x} ${y} L ${x} ${py - R} Q ${x} ${py}, ${px} ${py}`;
+  return { d, straight: false };
+}
+
 // src/client/icons.tsx
 var import_react2 = require("react");
 var SHAPES = {
@@ -2122,8 +2134,8 @@ ${t2("row.clickToGraph")}` : ""}`,
     }
   );
 });
-var ROW_HEIGHT = 24;
-var LANE_WIDTH = 14;
+var ROW_HEIGHT = 28;
+var LANE_WIDTH = 18;
 var NODE_RADIUS = 4;
 var PAD_LEFT = 16;
 var PAD_TOP = 10;
@@ -2299,7 +2311,9 @@ var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
   const nodes = [];
   layout.forEach((commit) => {
     const parents = commit.parents.map((parentSha) => bySha.get(parentSha)).filter((parent) => parent !== void 0);
-    const drawEdges = inWindow(commit.row) || parents.some((parent) => inWindow(parent.row));
+    const rowLo = parents.length > 0 ? Math.min(commit.row, ...parents.map((p) => p.row)) : commit.row;
+    const rowHi = parents.length > 0 ? Math.max(commit.row, ...parents.map((p) => p.row)) : commit.row;
+    const drawEdges = rowHi >= viewport.first && rowLo <= last;
     if (!drawEdges) return;
     const x = xOf(commit.lane);
     const y = yOf(commit.row);
@@ -2307,39 +2321,22 @@ var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
     parents.forEach((parent) => {
       const px = xOf(parent.lane);
       const py = yOf(parent.row);
-      if (parent.lane === commit.lane) {
-        edges.push(
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "line",
-            {
-              x1: x,
-              y1: y,
-              x2: px,
-              y2: py,
-              stroke: color,
-              strokeWidth: "1.2",
-              opacity: "0.85"
-            },
-            `e-${commit.sha}-${parent.sha}`
-          )
-        );
-      } else {
-        const dy = Math.min(12, (py - y) / 2);
-        const d = `M ${x} ${y} C ${x} ${y + dy}, ${px} ${py - dy}, ${px} ${py}`;
-        edges.push(
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "path",
-            {
-              d,
-              fill: "none",
-              stroke: color,
-              strokeWidth: "1.2",
-              opacity: "0.85"
-            },
-            `e-${commit.sha}-${parent.sha}`
-          )
-        );
-      }
+      const edge = graphEdgePath(x, y, px, py, ROW_HEIGHT);
+      edges.push(
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "path",
+          {
+            d: edge.d,
+            fill: "none",
+            stroke: color,
+            strokeWidth: EDGE_STROKE_WIDTH,
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            opacity: "0.95"
+          },
+          `e-${commit.sha}-${parent.sha}`
+        )
+      );
     });
     if (!inWindow(commit.row)) return;
     nodes.push(
@@ -2377,9 +2374,9 @@ Date: ${commit.date}` }),
                 cx: x,
                 cy: y,
                 r: NODE_RADIUS,
-                fill: nodeFill(commit),
-                stroke: isTipCommit(commit) ? "var(--bg)" : "none",
-                strokeWidth: isTipCommit(commit) ? 1.5 : 0
+                fill: isTipCommit(commit) ? nodeFill(commit) : "var(--bg)",
+                stroke: isTipCommit(commit) ? "var(--bg)" : nodeFill(commit),
+                strokeWidth: isTipCommit(commit) ? 1.5 : EDGE_STROKE_WIDTH
               }
             ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("text", { x: textX, y: y + 3.5, fontSize: "12", fill: "var(--fg)", style: { pointerEvents: "none" }, children: subjects.get(commit.sha) ?? commit.subject })

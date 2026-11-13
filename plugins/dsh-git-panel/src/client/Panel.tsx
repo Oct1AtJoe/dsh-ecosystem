@@ -12,6 +12,7 @@ import { runBatch } from './batch-stage.ts'
 import { changeBadgeOf, classifyChanges } from './change-groups.ts'
 import type { GitStatusCache } from './git-status.ts'
 import { layoutGraph, type LayoutCommit } from './graph.ts'
+import { EDGE_STROKE_WIDTH, graphEdgePath } from './graph-geometry.ts'
 import { tError, useT } from './i18n.ts'
 import { icon, type IconName } from './icons.tsx'
 import { hideTip, showTip } from './tooltip.ts'
@@ -667,8 +668,8 @@ const BranchRowView = memo(function BranchRowView(props: {
 })
 
 /** 共享的图谱几何与文本度量（模块级：稳定的引用）。 */
-const ROW_HEIGHT = 24
-const LANE_WIDTH = 14
+const ROW_HEIGHT = 28
+const LANE_WIDTH = 18
 const NODE_RADIUS = 4
 const PAD_LEFT = 16
 const PAD_TOP = 10
@@ -939,8 +940,10 @@ const GraphSvg = memo(function GraphSvg(props: {
     const parents = commit.parents
       .map((parentSha) => bySha.get(parentSha))
       .filter((parent): parent is LayoutCommit => parent !== undefined)
-    // 当任一端位于窗口内时就绘制边，这样跨越视口顶部/底部边缘的连线保持连续。
-    const drawEdges = inWindow(commit.row) || parents.some((parent) => inWindow(parent.row))
+    // 只要边的行区间与视口相交就绘制，避免长合并边在滚动时整段漏画。
+    const rowLo = parents.length > 0 ? Math.min(commit.row, ...parents.map((p) => p.row)) : commit.row
+    const rowHi = parents.length > 0 ? Math.max(commit.row, ...parents.map((p) => p.row)) : commit.row
+    const drawEdges = rowHi >= viewport.first && rowLo <= last
     if (!drawEdges) return
     const x = xOf(commit.lane)
     const y = yOf(commit.row)
@@ -948,22 +951,13 @@ const GraphSvg = memo(function GraphSvg(props: {
     parents.forEach((parent) => {
       const px = xOf(parent.lane)
       const py = yOf(parent.row)
-      if (parent.lane === commit.lane) {
-        edges.push(
-          <line key={`e-${commit.sha}-${parent.sha}`} x1={x} y1={y} x2={px} y2={py}
-            stroke={color} strokeWidth="1.2" opacity="0.85" />,
-        )
-      } else {
-        // GitLens 风格的绕行路径：从子提交 VERTICALLY 离开，在水平方向中途
-        // 横扫，再 VERTICALLY 进入父提交。控制点与端点垂直对齐，因此两个
-        // 切线都是垂直的。
-        const dy = Math.min(12, (py - y) / 2)
-        const d = `M ${x} ${y} C ${x} ${y + dy}, ${px} ${py - dy}, ${px} ${py}`
-        edges.push(
-          <path key={`e-${commit.sha}-${parent.sha}`} d={d} fill="none"
-            stroke={color} strokeWidth="1.2" opacity="0.85" />,
-        )
-      }
+      // 统一走 path：同泳道为竖直线，跨泳道为两端切线垂直的圆滑曲线。
+      const edge = graphEdgePath(x, y, px, py, ROW_HEIGHT)
+      edges.push(
+        <path key={`e-${commit.sha}-${parent.sha}`} d={edge.d} fill="none"
+          stroke={color} strokeWidth={EDGE_STROKE_WIDTH} strokeLinecap="round"
+          strokeLinejoin="round" opacity="0.95" />,
+      )
     })
     if (!inWindow(commit.row)) return
     nodes.push(
@@ -987,11 +981,12 @@ const GraphSvg = memo(function GraphSvg(props: {
           className="dsh-gp-graph-row-bg"
         />
         <circle cx={x} cy={y} r={NODE_RADIUS + 2} fill="transparent" />
+        {/* 空心圆环节点：普通提交用背景色填充遮住穿过的连线，tip 实心强调。 */}
         <circle
           cx={x} cy={y} r={NODE_RADIUS}
-          fill={nodeFill(commit)}
-          stroke={isTipCommit(commit) ? 'var(--bg)' : 'none'}
-          strokeWidth={isTipCommit(commit) ? 1.5 : 0}
+          fill={isTipCommit(commit) ? nodeFill(commit) : 'var(--bg)'}
+          stroke={isTipCommit(commit) ? 'var(--bg)' : nodeFill(commit)}
+          strokeWidth={isTipCommit(commit) ? 1.5 : EDGE_STROKE_WIDTH}
         />
         <text x={textX} y={y + 3.5} fontSize="12" fill="var(--fg)" style={{ pointerEvents: 'none' }}>
           {subjects.get(commit.sha) ?? commit.subject}

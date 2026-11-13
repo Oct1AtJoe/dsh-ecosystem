@@ -2,6 +2,11 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.33] - 2026-11-13
+
+### Changed
+- **审查图谱连线圆角优化**：审查 Tab / 图形 Tab 共用 `GraphSvg` 的跨泳道连线改为「竖直段 + 小圆角」——`R = min(dy, max(0.6·|dx|, 0.35·行高)) ≈ 10.8px`，去掉旧版「先竖直再急折」的尖锐折角；节点改为空心圆环（背景色填充遮住穿过的连线，分支 tip/HEAD 实心强调），连线 1.8px 圆头、`ROW_HEIGHT 24→28`，并修正长合并边在两端口都在缓冲外时整段漏画的视口裁剪问题。
+
 ## [0.1.32] - 2026-11-10
 
 ### Fixed
