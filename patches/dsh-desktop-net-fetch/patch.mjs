@@ -14,7 +14,7 @@
  * Override the target with `DSH_MAIN_JS` for a non-default install path.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { applyRules, revertRules } from './lib/rules.mjs'
+import { IMPORT_LINE, MARKER, applyRules, revertRules } from './lib/rules.mjs'
 
 const target = process.env.DSH_MAIN_JS
   ?? 'E:/dshDesktop/resources/app.asar.unpacked/lib/main.js'
@@ -31,14 +31,14 @@ if (!existsSync(target)) {
 const source = readFileSync(target, 'utf8')
 
 if (mode === 'check') {
-  const applied = source.includes('net.fetch(target, init)')
+  const applied = source.includes(MARKER) && source.includes(IMPORT_LINE)
   console.log(JSON.stringify({
     mode,
     target,
     applied,
-    canApply: !applied && source.includes('const response = await fetch(target, init);'),
-    canRevert: applied,
-    ...(applied ? {} : { reason: applied ? undefined : 'not-applied' }),
+    canApply: source.includes('const response = await fetch(target, init);'),
+    canRevert: source.includes(MARKER) || source.includes(IMPORT_LINE),
+    ...(applied ? {} : { reason: 'not-applied' }),
   }))
   process.exit(0)
 }
@@ -50,7 +50,7 @@ if (mode === 'revert') {
 }
 
 // apply
-if (source.includes('net.fetch(target, init)')) {
+if (source.includes(MARKER) && source.includes(IMPORT_LINE)) {
   console.log(JSON.stringify({ mode, target, applied: true, changed: false }))
   process.exit(0)
 }

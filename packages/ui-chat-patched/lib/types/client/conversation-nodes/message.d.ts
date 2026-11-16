@@ -11,6 +11,11 @@ interface ReferencedSteeringMessageNode extends SteeringMessageNode {
     readonly referenceLabels?: readonly string[];
     /** Skill names the same step's `skill-invocation` injections loaded. */
     readonly skillNames?: readonly string[];
+    /**
+     * First human message of its `next-step` claim that Chat orders after its Turn's process control;
+     * the row keeps the Turn tail slot above it.
+     */
+    readonly batchStart?: true;
 }
 type MessageNode = ReferencedUserMessageNode | ReferencedSteeringMessageNode | (ContextMessageNode & {
     readonly waking?: boolean;
@@ -23,7 +28,7 @@ declare module '../contract/chat-nodes.ts' {
         steering: ReferencedSteeringMessageNode;
         /** Non-user context injected into model history. */
         context: ContextMessageNode;
-        /** Non-human input that starts a Turn. */
+        /** Recorded notification or manual continuation that starts a Turn. */
         'turn-trigger': ContextMessageNode;
     }
 }

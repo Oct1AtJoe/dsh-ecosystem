@@ -14,6 +14,9 @@ import { randomUUID } from 'node:crypto'
 import { cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
+// 只为加载 dsh-tools 的模块增强（ctx.tools 与 tools/pre-execute 事件类型）。
+// `import type` 会在打包时擦除，不引入运行时依赖。
+import type {} from '@deepseek-ai/dsh-tools'
 
 /**
  * 本地最小 defineTool：只把参数 DSL 折成 JSON Schema 并原样回传定义。
@@ -198,7 +201,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
           deletedAt: Date.now(),
           bytes,
           project,
-          sessionId: options.sessionId,
+          ...(options.sessionId === undefined ? {} : { sessionId: options.sessionId }),
           isDirectory: st.isDirectory(),
         })
         incoming += bytes
@@ -258,7 +261,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
   }
 
   // ---- 工具：等 tools 服务就绪再注册 ----
-  ctx.inject(['tools'], (scope: any) => {
+  ctx.inject(['tools'], () => {
     ctx.tools.register(defineTool({
       name: 'trash_move',
       description: '把文件或目录移进回收站（可恢复）。DSH 里的删除一律走这里，7 天内可用 trash_restore 还原。',
@@ -270,7 +273,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
         schema: { type: 'object' },
         render: (_args: any, value: any) => [{ type: 'text', text: JSON.stringify(value, null, 1) }],
       },
-      execute(args: any, exec: any) {
+      async execute(args: any, exec: any) {
         const cwd = typeof exec?.agent?.cwd === 'string' ? exec.agent.cwd : process.cwd()
         const results = moveToTrash(args.paths, {
           cwd,
@@ -292,7 +295,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
         schema: { type: 'object' },
         render: (_args: any, value: any) => [{ type: 'text', text: JSON.stringify(value, null, 1) }],
       },
-      execute(args: any) {
+      async execute(args: any) {
         const index = readIndex()
         const matcher = typeof args.pattern === 'string' ? globToRegExp(args.pattern) : undefined
         const limit = typeof args.limit === 'number' && args.limit > 0 ? args.limit : 50
@@ -324,7 +327,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
         schema: { type: 'object' },
         render: (_args: any, value: any) => [{ type: 'text', text: JSON.stringify(value, null, 1) }],
       },
-      execute(args: any) {
+      async execute(args: any) {
         const index = readIndex()
         const onConflict: string = typeof args.onConflict === 'string' ? args.onConflict : 'rename'
         const ids: string[] | undefined = Array.isArray(args.ids) ? args.ids : undefined
@@ -388,7 +391,7 @@ export function apply(ctx: Context, config?: Partial<Config>): void {
         schema: { type: 'object' },
         render: (_args: any, value: any) => [{ type: 'text', text: JSON.stringify(value, null, 1) }],
       },
-      execute(args: any) {
+      async execute(args: any) {
         const index = readIndex()
         const ids: string[] | undefined = Array.isArray(args.ids) ? args.ids : undefined
         const purgeAll = args.all === true

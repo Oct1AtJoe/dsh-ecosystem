@@ -2,7 +2,7 @@
  * The failed-round resend entry's injected face and composed props. The
  * target 'conversation.chat.turnTail' slot is declared and typed by ui-chat;
  * this package only contributes the entry, so no SlotMap merge lives here.
- * @module @deepseek-ai/dsh-client-ui-resend-failed-round/client/slots
+ * @module dsh-resend-failed-round/client/slots
  */
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type { NS } from './locales.ts';

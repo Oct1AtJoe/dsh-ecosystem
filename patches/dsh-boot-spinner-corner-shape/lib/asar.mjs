@@ -8,12 +8,16 @@ import { openSync, readSync, writeSync, closeSync, statSync } from 'node:fs'
 
 const HEADER_PROBE = 16
 
+/** pickle 里的字符串按 4 字节对齐，JSON 字符串后面的填充也占数据区偏移。 */
+const align4 = (n) => (n + 3) & ~3
+
 /** 读取 asar 的 16 字节头，返回 JSON 头长度与数据区起点。 */
 export function readHeaderSizes(fd) {
   const buf = Buffer.alloc(HEADER_PROBE)
   readSync(fd, buf, 0, HEADER_PROBE, 0)
   const jsonLength = buf.readUInt32LE(12)
-  return { jsonLength, dataStart: HEADER_PROBE + jsonLength }
+  // 0.2.1 的 jsonLength 恰好 4 对齐，0.2.2 不是：漏掉对齐会让数据区整体前移 1~3 字节。
+  return { jsonLength, dataStart: HEADER_PROBE + align4(jsonLength) }
 }
 
 /** 读取并解析 asar 的 JSON 头（原文一并返回，用于逐字节还原）。 */

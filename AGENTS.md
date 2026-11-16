@@ -38,11 +38,11 @@
 | `patches/chat-virtual-rows` | 聊天区只画可见行（`content-visibility`），切长会话不再卡顿 |
 | `patches/cost-meter-lock` | `dsh-cost-meter` 的 Windows 锁身份不再同步调 PowerShell |
 | `patches/dsh-gateway-heartbeat` | 网关心跳修复 |
-| `patches/dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连 |
+| `patches/dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连。**0.2.2 起官方 import 列表删了 `net`，补丁必须自带 `import { net } from "electron";`**，否则启动时所有转发（含插件 bundle）抛 `net is not defined` |
 | `patches/dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆（状态存 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`） |
-| `patches/dsh-desktop-cookie-prune` | 欢迎握手前清掉失效的 `dsh-auth-*` cookie，修「约 70 次启动后 431 → `desktop welcome: Web authentication failed`」；并把真实 HTTP 状态补进报错 |
+| ~~`patches/dsh-desktop-cookie-prune`~~ | **0.2.2 已退役**：官方 `removeLegacyHostCookies()` 在欢迎握手前清掉全部 `dsh-auth-*` 旧 cookie，且不再手工拼 Cookie 头 |
 | `patches/dsh-host-profile-bom` | 让 `dsh-app-boot` 读 profile 清单时剥离 UTF-8 BOM，修「`package.json` 带 BOM → `JSON.parse` 抛 SyntaxError → 启动失败」。与其它补丁无前置关系 |
-| `patches/dsh-boot-spinner-corner-shape` | 给 boot 页进度环的 `::after` 补 `corner-shape: round`，修「启动页 loading 转圈的圆环被压成方框」。官方 `ui-theme` 的 `corner-shape.css` 通配把 `superellipse(1.5)` 刷到了 `::after` 上，而 `border-radius: inherit` 传不了形状。与其它补丁无前置关系 |
+| ~~`patches/dsh-boot-spinner-corner-shape`~~ | **0.2.2 已退役**：官方 boot CSS 的 `::after` 已自带 `border-radius:50%;corner-shape:round` |
 
 > 🚨 **打补丁前必须完全退出 DSH 桌面端**（托盘退出，不是关窗口）：`main.js` 在运行期被映射进进程。
 > 🚨 **`desktop-menu` 是前置**：它把 `lib/main.js` 摊到 `app.asar.unpacked/lib/main.js`，后续补丁只改那个磁盘文件，**不重写 asar 头**。
@@ -531,5 +531,5 @@ node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 
 | 包 | 版本 | 补丁 | 说明 |
 |---|---|---|---|
-| `@deepseek-ai/dsh-client-ui-chat` | 0.2.1-rc.2 | `603ce1067b` | 「本轮用量」悬浮窗补回 TPS 行。详见 [packages/ui-chat-patched/VENDORED-FROM.md](packages/ui-chat-patched/VENDORED-FROM.md) |
+| `@deepseek-ai/dsh-client-ui-chat` | 0.2.2-rc.3 | `603ce1067b` / `ee926e3ff4` / `e8ce7bf5d0` | 「本轮用量」悬浮窗的 TPS + 首字用时两行；官方 0.2.2 仍无这两个符号。详见 [packages/ui-chat-patched/VENDORED-FROM.md](packages/ui-chat-patched/VENDORED-FROM.md) |
 

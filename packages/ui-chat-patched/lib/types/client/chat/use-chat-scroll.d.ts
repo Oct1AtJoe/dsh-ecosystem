@@ -9,12 +9,13 @@ import type { FlowMotionRows } from './flow-motion.ts';
 /** Committed content and Session operations used to reconcile scroll ownership. */
 export interface ChatScrollInput extends ChatNavigationInput {
     readonly chatScroll: ChatViewSlotProps['chatScroll'];
-    readonly ready: boolean;
     readonly order: readonly string[];
     readonly lastKey: string | null;
     readonly lastIsUser: boolean;
     readonly steeringId: string | null;
     readonly submissionId: string | null;
+    /** The latest visible submission steers the running Turn instead of opening a new one. */
+    readonly submissionSteers: boolean;
     readonly running: boolean;
     /** Enable the browser-local delayed-fold experiment and its input reveal animation. */
     readonly deferCompletedTurns: boolean;
@@ -28,11 +29,15 @@ interface ChatScrollState extends ChatReadingState {
     readonly busyTurn: number | null;
     readonly navigateToTurn: ChatNavigation['navigateToTurn'];
     readonly loadEarlier: ChatNavigation['loadEarlier'];
+    readonly historyInputHeld: boolean;
+    readonly historyProcessing: boolean;
+    readonly historyPending: boolean;
+    readonly historyEdgeRef: (element: HTMLDivElement | null) => void;
     readonly returnToBottom: () => void;
     readonly motion: FlowMotionRows;
 }
 /**
- * Coordinate scroll policy after Chat content commits. Initial history must be ready
+ * Coordinate scroll policy after Chat content commits. Initial history must be available
  * before automatic scroll or resize handling can initialize reading state and fold motion.
  * New submitted input supersedes pending reader sampling.
  * @param input - current Chat content, scroll memory, and history operations.

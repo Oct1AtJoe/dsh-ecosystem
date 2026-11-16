@@ -15,6 +15,8 @@ const target = process.env.DSH_MAIN_JS
 
 const source = readFileSync(target, 'utf8')
 const symbolHits = source.split('net.fetch(target, init)').length - 1
+/** 0.2.2 的 import 列表没有 net；缺这一行时转发路径运行时直接抛错。 */
+const netImported = source.includes('import { net } from "electron";')
 
 /** Slice the body of `forwardWebRequest` so a stray hit elsewhere cannot pass. */
 function insideForwardWebRequest(text) {
@@ -28,9 +30,10 @@ function insideForwardWebRequest(text) {
 const syntax = spawnSync(process.execPath, ['--check', target], { encoding: 'utf8' })
 
 const report = {
-  ok: symbolHits > 0 && insideForwardWebRequest(source) && syntax.status === 0,
+  ok: symbolHits > 0 && insideForwardWebRequest(source) && netImported && syntax.status === 0,
   target,
   symbolHits,
+  netImported,
   insideForwardWebRequest: insideForwardWebRequest(source),
   syntaxOk: syntax.status === 0,
   ...(syntax.status === 0 ? {} : { syntaxError: syntax.stderr.slice(0, 400) }),

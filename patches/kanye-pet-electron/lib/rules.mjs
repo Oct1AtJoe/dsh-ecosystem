@@ -278,8 +278,9 @@ export const REPLACEMENTS = [
   {
     name: 'import-screen',
     why: '宠物窗口的落点校验需要 screen.getAllDisplays()；官方 import 列表里没有它',
-    find: 'import { BrowserWindow, Menu, Notification, Tray, WebContentsView, app, clipboard, dialog, ipcMain, nativeImage, nativeTheme, net, powerMonitor, protocol, session, shell, systemPreferences } from "electron";',
-    replace: 'import { BrowserWindow, Menu, Notification, Tray, WebContentsView, app, clipboard, dialog, ipcMain, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, shell, systemPreferences } from "electron";',
+    // 0.2.2 起 `net` 不再从 electron 导入（改由 node:net / 其他模块提供）。
+    find: 'import { BrowserWindow, Menu, Notification, Tray, WebContentsView, app, clipboard, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, protocol, session, shell, systemPreferences } from "electron";',
+    replace: 'import { BrowserWindow, Menu, Notification, Tray, WebContentsView, app, clipboard, dialog, ipcMain, nativeImage, nativeTheme, powerMonitor, protocol, screen, session, shell, systemPreferences } from "electron";',
   },
   {
     name: 'install-window',

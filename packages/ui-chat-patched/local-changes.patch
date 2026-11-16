@@ -1,0 +1,449 @@
+diff --git a/packages/client/ui-chat/src/client/chat/ChatView.module.css b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+index 1f84e97842..f1e7bb1570 100644
+--- a/packages/client/ui-chat/src/client/chat/ChatView.module.css
++++ b/packages/client/ui-chat/src/client/chat/ChatView.module.css
+@@ -75,6 +75,15 @@
+   flex-direction: column;
+ }
+ 
++/* Long transcripts only paint the rows near the scrollport. The browser keeps
++   every top-level row in the DOM, so scroll anchoring, the turn rail and the
++   fold policies still read the same tree; off-screen rows just skip layout and
++   paint, estimated by `contain-intrinsic-size` until they come back. */
++:is(.column, :global([data-slot="conversation.chat.flow"])) > [data-chat-anchor-key] {
++  content-visibility: auto;
++  contain-intrinsic-size: auto 96px;
++}
++
+ /* The flow slot's display:contents anchor preserves layout but not selector ancestry.
+    `hidden="until-found"` retains a searchable zero-height box; hidden and empty
+    Seats do not contribute spacing. The older-history control precedes the anchor;
+diff --git a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
+index c29b831ce8..c0379e7258 100644
+--- a/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
++++ b/packages/client/ui-chat/src/client/chat/TurnTailNodeView.tsx
+@@ -72,7 +72,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
+         className={css.actions}
+         extraActions={assistantActions}
+         usageAction={detailed && data.tokenUsage !== undefined
+-          ? <TurnUsagePanel usage={data.tokenUsage} t={t} />
++          ? <TurnUsagePanel usage={data.tokenUsage} tokensPerSecond={data.tokensPerSecond} ttftMs={data.ttftMs} t={t} />
+           : null}
+         t={t}
+       />
+diff --git a/packages/client/ui-chat/src/client/chat/TurnUsagePanel.tsx b/packages/client/ui-chat/src/client/chat/TurnUsagePanel.tsx
+index 70cc35aeff..7af66f1f96 100644
+--- a/packages/client/ui-chat/src/client/chat/TurnUsagePanel.tsx
++++ b/packages/client/ui-chat/src/client/chat/TurnUsagePanel.tsx
+@@ -4,13 +4,19 @@ import { createPortal } from 'react-dom'
+ import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+ import type { TurnTokenUsage } from '../contract/chat-nodes.ts'
+ import type { ChatViewSlotProps } from '../contract/slots.ts'
++import { formatTokensPerSecond } from './message-chrome.ts'
+ import { formatCacheHitPercent, formatExactTokens, formatTokens } from './token-format.ts'
++import { formatDuration } from './StatsPills.tsx'
+ import { useStatDialog } from './stat-dialog.ts'
+ import css from './TurnUsagePanel.module.css'
+ import dialogCss from './stat-dialog.module.css'
+ 
+ export interface TurnUsagePanelProps {
+   usage: TurnTokenUsage
++  /** Decode throughput over the Turn's timed steps; omitted when unrecorded. */
++  tokensPerSecond?: number | undefined
++  /** First-token latency of this Turn's lowest step, in ms; omitted when unrecorded. */
++  ttftMs?: number | undefined
+   /** The owning view's locale seat, passed down as a plain prop. */
+   t: ChatViewSlotProps['t']
+ }
+@@ -28,7 +34,7 @@ function formatExactCount(value: number, t: ChatViewSlotProps['t']): string {
+  * @param props - Turn usage buckets and locale seat.
+  * @returns The trigger and, while open, its portaled dialog anchored above the trigger.
+  */
+-export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
++export function TurnUsagePanel({ usage, tokensPerSecond, ttftMs, t }: TurnUsagePanelProps) {
+   const { open, setOpen, rootRef, panelRef, anchorName } = useStatDialog()
+ 
+   const cacheHit = usage.cacheReadTokens === undefined
+@@ -101,6 +107,18 @@ export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
+                 </span>
+               )}
+             </dd>
++            {ttftMs !== undefined && (
++              <>
++                <dt>{t('message.turnUsage.ttft')}</dt>
++                <dd>{formatDuration(ttftMs, t)}</dd>
++              </>
++            )}
++            {tokensPerSecond !== undefined && (
++              <>
++                <dt>{t('stats.dialog.speed')}</dt>
++                <dd>{t('message.tokensPerSecond', { tps: formatTokensPerSecond(tokensPerSecond) })}</dd>
++              </>
++            )}
+           </dl>
+         </div>,
+         document.body,
+diff --git a/packages/client/ui-chat/src/client/chat/use-chat-viewport.ts b/packages/client/ui-chat/src/client/chat/use-chat-viewport.ts
+index afc071ae22..88f4c928d3 100644
+--- a/packages/client/ui-chat/src/client/chat/use-chat-viewport.ts
++++ b/packages/client/ui-chat/src/client/chat/use-chat-viewport.ts
+@@ -100,6 +100,8 @@ export class ChatViewport {
+   private tailInput = false
+   /** Switches the running batch to a tail landing; null while no batch runs. */
+   private retarget: (() => void) | null = null
++  /** Pending post-reveal re-alignment for one turn jump; null while none waits. */
++  private realignFrame: number | null = null
+   /** Transition state and row callbacks owned by this viewport's attachment. */
+   readonly motion = createFlowMotion(
+     () => this.foldDriver(),
+@@ -155,6 +157,10 @@ export class ChatViewport {
+     this.historyPrepend = null
+     this.stopPreserving()
+     this.motion.clear()
++    if (this.realignFrame !== null) {
++      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.realignFrame)
++      this.realignFrame = null
++    }
+     if (this.elements !== null) this.elements.scroller.style.overflowAnchor = ''
+     this.dropClosing()
+     const scroller = this.elements?.scroller
+@@ -761,14 +767,73 @@ export class ChatViewport {
+   /**
+    * Align a known loaded turn and return its actual clamped position.
+    * A split Node anchor selects its first visible part.
++   *
++   * A folded row hides its own anchor (`hidden="until-found"`), so the exact key
++   * reads as absent even though the turn is mounted; a rail click there used to
++   * do nothing at all. Ask those rows to reveal — the same `beforematch` hook
++   * browser find uses — and land on the turn's own container, which no fold
++   * hides. Once the reveal commits, the next frame re-aligns on the exact
++   * anchor so the landing is as precise as a visible turn's.
+    * @param turn - loaded turn to align below the scrollport's top edge.
+-   * @returns the actual landing, or null when its anchor is unavailable.
++   * @returns the actual landing, or null when the turn is not mounted at all.
+    */
+   scrollToTurn(turn: number): ViewportLanding | null {
+     const item = this.turns.find(candidate => candidate.turn === turn)
+     if (item === undefined) return null
+     const row = this.anchor(item.anchorKey, 'node')
+-    return row === null ? null : this.align(row, 24, turn)
++    if (row !== null) return this.align(row, 24, turn)
++    const container = this.turnContainer(turn)
++    if (this.revealHidden(item.anchorKey)) this.scheduleRealign(item.anchorKey, turn)
++    return container === null ? null : this.align(container, 24, turn)
++  }
++
++  /**
++   * Find one turn's own container row, preferring the visible one.
++   * @param turn - one-based turn number.
++   * @returns the container, or null when this turn has no mounted row.
++   */
++  private turnContainer(turn: number): HTMLElement | null {
++    const list = this.elements?.list
++    if (list === null || list === undefined) return null
++    let folded: HTMLElement | null = null
++    for (const row of list.querySelectorAll<HTMLElement>('[data-chat-turn]')) {
++      if (Number(row.dataset.chatTurn) !== turn) continue
++      if (!row.hasAttribute('hidden') && row.closest('[hidden]') === null) return row
++      folded ??= row
++    }
++    return folded
++  }
++
++  /**
++   * Ask every folded row naming this anchor to reveal itself.
++   * @param key - anchor key or Node key named by the rail item.
++   * @returns whether any hidden row was asked, so the caller can re-align.
++   */
++  private revealHidden(key: string): boolean {
++    const list = this.elements?.list
++    if (list === null || list === undefined) return false
++    let asked = false
++    for (const row of list.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')) {
++      if (row.dataset.chatAnchorKey !== key && row.dataset.chatNodeKey !== key) continue
++      if (!row.hasAttribute('hidden') && row.closest('[hidden]') === null) continue
++      row.dispatchEvent(new Event('beforematch'))
++      asked = true
++    }
++    return asked
++  }
++
++  /**
++   * Land on the exact anchor once a just-requested reveal has committed.
++   * @param key - anchor key or Node key the reveal was asked for.
++   * @param turn - turn the re-alignment reports.
++   */
++  private scheduleRealign(key: string, turn: number): void {
++    if (this.realignFrame !== null || typeof requestAnimationFrame !== 'function') return
++    this.realignFrame = requestAnimationFrame(() => {
++      this.realignFrame = null
++      const row = this.anchor(key, 'node')
++      if (row !== null) this.align(row, 24, turn)
++    })
+   }
+ 
+   /**
+diff --git a/packages/client/ui-chat/src/client/contract/chat-nodes.ts b/packages/client/ui-chat/src/client/contract/chat-nodes.ts
+index ea65a14834..f203c466fe 100644
+--- a/packages/client/ui-chat/src/client/contract/chat-nodes.ts
++++ b/packages/client/ui-chat/src/client/contract/chat-nodes.ts
+@@ -99,6 +99,10 @@ export interface TurnTailChatData {
+   readonly closing: FinalAssistantChatData | null
+   /** Whether non-rendered later evidence makes the closing seq non-tail. */
+   readonly branchUnavailable: boolean
++  /** Decode throughput over the Turn's timed steps; absent when none were recorded. */
++  readonly tokensPerSecond?: number
++  /** First-token latency of this Turn's lowest step, in ms; absent when unrecorded. */
++  readonly ttftMs?: number
+   /** Exact per-Turn accounting; absent when the loaded evidence is incomplete. */
+   readonly tokenUsage?: TurnTokenUsage
+ }
+diff --git a/packages/client/ui-chat/src/client/contract/turn-metrics.ts b/packages/client/ui-chat/src/client/contract/turn-metrics.ts
+index 6cbd619beb..1692135712 100644
+--- a/packages/client/ui-chat/src/client/contract/turn-metrics.ts
++++ b/packages/client/ui-chat/src/client/contract/turn-metrics.ts
+@@ -1,9 +1,17 @@
+ // Assistant timing readings used by session statistics.
+ 
+ import type {
+-  AssistantMessageNode,
++  AssistantMessageNode, ConversationNode,
+ } from '@deepseek-ai/dsh-client-ui-conversation/client'
+ 
++/** Latency and decode-throughput readings for one turn's usage dialog. */
++export interface TurnMetrics {
++  /** First-step TTFT in ms; absent when that step carries no recorded timing. */
++  ttftMs?: number
++  /** Decode throughput over steps carrying both timing and provider usage. */
++  tokensPerSecond?: number
++}
++
+ /** One assistant step's derivable latency facts; null marks an unrecorded part. */
+ export interface StepReading {
+   /** step/start → first token delta, in ms. */
+@@ -41,3 +49,50 @@ export function assistantStepReading(node: AssistantNode): StepReading {
+     : null
+   return { ttftMs, decodeMs, outputTokens: usageOutputTokens(node.usage) }
+ }
++
++interface TurnFold {
++  firstStep: number
++  firstStepTtftMs: number | null
++  decodeMs: number
++  outputTokens: number
++  sampled: boolean
++}
++
++/**
++ * Fold assistant nodes into per-turn footer metrics.
++ *
++ * TTFT is the turn's lowest-step request-dispatch-to-first-token reading, so
++ * it is only meaningful when the turn's start is inside the loaded window.
++ * Throughput divides summed output tokens by summed decode wall time, counting
++ * only steps that carry both.
++ * @param nodes - Snapshot nodes of the loaded window.
++ * @returns Turn number → available metrics; turns with none are absent.
++ */
++export function deriveTurnMetrics(nodes: readonly ConversationNode[]): Map<number, TurnMetrics> {
++  const folds = new Map<number, TurnFold>()
++  for (const node of nodes) {
++    if (node.kind !== 'assistant') continue
++    const reading = assistantStepReading(node)
++    let fold = folds.get(node.turn)
++    if (fold === undefined) {
++      fold = { firstStep: node.step, firstStepTtftMs: reading.ttftMs, decodeMs: 0, outputTokens: 0, sampled: false }
++      folds.set(node.turn, fold)
++    } else if (node.step < fold.firstStep) {
++      fold.firstStep = node.step
++      fold.firstStepTtftMs = reading.ttftMs
++    }
++    if (reading.decodeMs !== null && reading.outputTokens !== null) {
++      fold.decodeMs += reading.decodeMs
++      fold.outputTokens += reading.outputTokens
++      fold.sampled = true
++    }
++  }
++  const metrics = new Map<number, TurnMetrics>()
++  for (const [turn, fold] of folds) {
++    const entry: TurnMetrics = {}
++    if (fold.firstStepTtftMs !== null) entry.ttftMs = fold.firstStepTtftMs
++    if (fold.sampled && fold.decodeMs > 0) entry.tokensPerSecond = fold.outputTokens / (fold.decodeMs / 1000)
++    if (entry.ttftMs !== undefined || entry.tokensPerSecond !== undefined) metrics.set(turn, entry)
++  }
++  return metrics
++}
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/assistant.ts b/packages/client/ui-chat/src/client/conversation-nodes/assistant.ts
+index 6afb0efde8..d5819fa359 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/assistant.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/assistant.ts
+@@ -9,7 +9,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
+ import type { AssistantChatData } from '../contract/chat-nodes.ts'
+ import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
+ import {
+-  emptyAssistantBlock, isTokenDelta, toAssistantBlock, toAssistantBlocks,
++  assistantStreamFirstTokenTime, emptyAssistantBlock, isTokenDelta, toAssistantBlock, toAssistantBlocks,
+ } from './event-projection.ts'
+ 
+ declare module '../contract/chat-nodes.ts' {
+@@ -216,7 +216,10 @@ function finalNode(
+       usage: event.data.usage,
+       timing: {
+         stepStartTime: context.start?.event.time ?? null,
+-        firstTokenTime: state.firstTokenTime ?? null,
++        // A durable assistant/message settles without replaying its stream, so
++        // the live-progress value is absent on every reopen; the embedded stream
++        // records carry the original chunk timestamps, which recover it.
++        firstTokenTime: state.firstTokenTime ?? assistantStreamFirstTokenTime(event.data.stream) ?? null,
+         completedTime: event.time,
+       },
+       ...event.data.interrupted === true ? { interrupted: true } : {},
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts b/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
+index e61bb53109..3dadc9edff 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/event-projection.ts
+@@ -1,5 +1,6 @@
+ /** Chat-owned conversion from durable Session events to Chat view data. */
+ 
++import type { AssistantStreamRecord, AssistantStreamRun } from '@deepseek-ai/dsh-llm'
+ import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
+ import type {
+   AssistantBlock, ContextProducerView, KnownContextForm,
+@@ -176,4 +177,42 @@ export function isTokenDelta(chunk: StreamChunk): boolean {
+   }
+ }
+ 
++/**
++ * Time of the first member of one packed run that {@link isTokenDelta} accepts:
++ * a name-bearing Tool-call run starts at its first member, otherwise the first
++ * non-empty fragment.
++ * @param run - one packed delta run.
++ * @returns the member's reconstructed time, or undefined when none qualifies.
++ */
++function runFirstTokenTime(run: AssistantStreamRun): number | undefined {
++  if (run.type === 'tool-call-chunks' && run.name !== undefined) return run.time0
++  const fragments = run.type === 'tool-call-chunks' ? run.args : run.texts
++  let time = run.time0
++  for (let index = 0; index < fragments.length; index += 1) {
++    if (index > 0) time += run.dt[index - 1] as number
++    if (fragments[index] !== '') return time
++  }
++  return undefined
++}
++
++/**
++ * Time of the first token in one compact stream per {@link isTokenDelta}, read
++ * from the records themselves and stopping at the first qualifying member.
++ *
++ * A durable `assistant/message` settles without replaying its stream, so the
++ * live-progress first-token time is absent on every reopen; the embedded
++ * records carry the original chunk timestamps and recover it.
++ * @param stream - compact records from one durable Assistant settlement.
++ * @returns the first token's time, or undefined when the stream carries no token.
++ */
++export function assistantStreamFirstTokenTime(stream: readonly AssistantStreamRecord[]): number | undefined {
++  for (const record of stream) {
++    const time = record.type === 'chunk'
++      ? (isTokenDelta(record.chunk) ? record.time : undefined)
++      : runFirstTokenTime(record)
++    if (time !== undefined) return time
++  }
++  return undefined
++}
++
+ /* jscpd:ignore-end */
+diff --git a/packages/client/ui-chat/src/client/conversation-nodes/turn-tail.ts b/packages/client/ui-chat/src/client/conversation-nodes/turn-tail.ts
+index 4ca63d5375..a8ab5f8e17 100644
+--- a/packages/client/ui-chat/src/client/conversation-nodes/turn-tail.ts
++++ b/packages/client/ui-chat/src/client/conversation-nodes/turn-tail.ts
+@@ -8,6 +8,7 @@ import { deriveTurnTokenUsage } from '@deepseek-ai/dsh-token-meter/client'
+ import type {
+   AssistantChatData, FinalAssistantChatData, TurnTailChatData,
+ } from '../contract/chat-nodes.ts'
++import { deriveTurnMetrics } from '../contract/turn-metrics.ts'
+ import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
+ 
+ declare module '../contract/chat-nodes.ts' {
+@@ -90,12 +91,15 @@ function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChat
+   const tokenUsage = context.start?.event.type === 'turn/start'
+     ? deriveTurnTokenUsage(context.matches.map(match => match.event).filter(isSessionEvent))
+     : undefined
++  const metrics = deriveTurnMetrics(finalized.map(candidate => candidate.finalNode)).get(end.event.data.turn)
+   return {
+     turn: end.event.data.turn,
+     seq: end.event.seq,
+     time: end.event.time,
+     closing,
+     branchUnavailable: closing === null || latestTranscriptSeq !== closing.finalNode.seq,
++    ...metrics?.tokensPerSecond === undefined ? {} : { tokensPerSecond: metrics.tokensPerSecond },
++    ...metrics?.ttftMs === undefined ? {} : { ttftMs: metrics.ttftMs },
+     ...tokenUsage === undefined ? {} : { tokenUsage },
+   }
+ }
+diff --git a/packages/client/ui-chat/src/client/locale.ts b/packages/client/ui-chat/src/client/locale.ts
+index 4d22cff80e..196ad09996 100644
+--- a/packages/client/ui-chat/src/client/locale.ts
++++ b/packages/client/ui-chat/src/client/locale.ts
+@@ -200,6 +200,7 @@ export const zh = {
+   'message.turnUsage.output': '输出',
+   'message.turnUsage.reasoning': '（其中推理 {tokens}）',
+   'message.turnUsage.count': '{count} tok',
++  'message.turnUsage.ttft': '首字用时',
+   'duration.secondUnit': '秒',
+   'duration.minuteUnit': '分',
+   'duration.hourUnit': '小时',
+@@ -414,6 +415,7 @@ export const en = {
+   'message.turnUsage.output': 'Output',
+   'message.turnUsage.reasoning': ' ({tokens} reasoning)',
+   'message.turnUsage.count': '{count} tok',
++  'message.turnUsage.ttft': 'Time to first token',
+   'duration.secondUnit': 's',
+   'duration.minuteUnit': 'm ',
+   'duration.hourUnit': 'h ',
+@@ -625,6 +627,7 @@ export const ja = {
+   'message.turnUsage.output': '出力',
+   'message.turnUsage.reasoning': ' (推論 {tokens})',
+   'message.turnUsage.count': '{count} tok',
++  'message.turnUsage.ttft': '最初のトークンまで',
+   'duration.secondUnit': '秒',
+   'duration.minuteUnit': '分 ',
+   'duration.hourUnit': '時間 ',
+@@ -836,6 +839,7 @@ export const es = {
+   'message.turnUsage.output': 'Salida',
+   'message.turnUsage.reasoning': ' (razonamiento {tokens})',
+   'message.turnUsage.count': 'Tok {count}',
++  'message.turnUsage.ttft': 'Tiempo hasta el primer token',
+   'duration.secondUnit': 's',
+   'duration.minuteUnit': 'm ',
+   'duration.hourUnit': 'h ',
+@@ -1047,6 +1051,7 @@ export const fr = {
+   'message.turnUsage.output': 'Sortie',
+   'message.turnUsage.reasoning': ' (raisonnement {tokens})',
+   'message.turnUsage.count': 'Jeton {count}',
++  'message.turnUsage.ttft': "Temps jusqu'au premier jeton",
+   'duration.secondUnit': 's',
+   'duration.minuteUnit': 'm ',
+   'duration.hourUnit': 'h ',
+@@ -1258,6 +1263,7 @@ export const de = {
+   'message.turnUsage.output': 'Ausgabe',
+   'message.turnUsage.reasoning': ' ({tokens}-Argumentation)',
+   'message.turnUsage.count': '{count}-Token',
++  'message.turnUsage.ttft': 'Zeit bis zum ersten Token',
+   'duration.secondUnit': 's',
+   'duration.minuteUnit': 'm ',
+   'duration.hourUnit': 'h ',
+@@ -1469,6 +1475,7 @@ export const ru = {
+   'message.turnUsage.output': 'Выход',
+   'message.turnUsage.reasoning': ' (рассуждение {tokens})',
+   'message.turnUsage.count': '{count} ток',
++  'message.turnUsage.ttft': 'Время до первого токена',
+   'duration.secondUnit': 'с',
+   'duration.minuteUnit': 'м ',
+   'duration.hourUnit': 'ч ',
+@@ -1680,6 +1687,7 @@ export const pt = {
+   'message.turnUsage.output': 'Saída',
+   'message.turnUsage.reasoning': ' ({tokens} raciocínio)',
+   'message.turnUsage.count': '{count} tok',
++  'message.turnUsage.ttft': 'Tempo até o primeiro token',
+   'duration.secondUnit': 's',
+   'duration.minuteUnit': 'm ',
+   'duration.hourUnit': 'h ',

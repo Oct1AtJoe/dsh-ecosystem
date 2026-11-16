@@ -6,7 +6,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * queued turn through the session-scoped conversation service. The chain
  * elects the entry on terminal turn ends; the component declines again when
  * a newer round superseded the failure, so the tail renders nothing extra.
- * @module @deepseek-ai/dsh-client-ui-resend-failed-round/client/ResendAction
+ * @module dsh-resend-failed-round/client/ResendAction
  */
 import { useMemo } from 'react';
 import { IconRefreshOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';

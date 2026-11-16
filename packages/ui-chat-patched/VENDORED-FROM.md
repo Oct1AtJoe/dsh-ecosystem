@@ -1,11 +1,12 @@
 # Vendored: @deepseek-ai/dsh-client-ui-chat
 
 来源：`E:\vibeCoding\deepseek-harness\packages\client\ui-chat`
-版本：**0.2.1-rc.5**（基线 tag `dsh-v0.2.1-rc.5` = `b830ec950f`）
-补丁提交：
+版本：**0.2.2-rc.3**（基线 tag `dsh-v0.2.2-rc.3` = `38a6a5c965`）
+补丁来源：
 - `e8ce7bf5d0 fix(local): 重贴业务补丁到 0.2.1` — `use-chat-viewport.ts` 跳到折叠回合自动展开
 - `603ce1067b feat(local): 用量悬浮窗补回 TPS` — `deriveTurnMetrics()` + TPS 行
 - `ee926e3ff4 feat(local): 用量悬浮窗新增「首字用时」行` — TTFT 行
+- `patches/chat-virtual-rows` — `ChatView.module.css` 的 `content-visibility: auto`
 
 ## 为什么固化
 
@@ -15,114 +16,68 @@ DSH 桌面端从 `E:\dshDesktop\resources\app.asar` 加载 ui-chat，那是官�
 
 本目录是一份**带补丁的 ui-chat 运行时副本**，由 profile 以 `link:` 方式覆盖 asar 内的同名包。
 
-## 补丁内容（相对官方）
+## 补丁内容（相对官方 0.2.2-rc.3）
 
-见 `E:\vibeCoding\deepseek-harness\LOCAL-CHANGES.md` §12：
 1. `contract/turn-metrics.ts` 加回 `deriveTurnMetrics()`
 2. `contract/chat-nodes.ts` 的 `TurnTailChatData` 加 `tokensPerSecond?` 与 `ttftMs?`
 3. `conversation-nodes/turn-tail.ts` 调用它并把两个字段写入
 4. `chat/TurnUsagePanel.tsx` props 加 `tokensPerSecond?` / `ttftMs?`，
    在「输出」行后依次追加「首字用时」与「输出速度（TPS）」两行
 5. `chat/TurnTailNodeView.tsx` 透传两个字段
-6. `conversation-nodes/event-projection.ts` 从持久化 stream 记录恢复首 token 时间
-7. `chat/locale.ts` 新增 `message.turnUsage.ttft`（zh「首字用时」/ en「Time to first token」）
-8. `chat/stat-dialog.ts` 自适应边界翻转 + **zoom 单位校正**：
-   - 自动检测触发点与视口上下剩余空间，上方放得下（或上方更宽裕）就向上展示，否则才向下；
-   - 动态注入 `maxHeight` 与 `overflowY: 'auto'`，内容超高时内部滚动，绝不越出窗口；
-   - `resolvePageZoom()` 修正 `body zoom` 下的坐标单位混用（见下方专节）。
+6. `conversation-nodes/assistant.ts` / `event-projection.ts` 恢复 `assistantStreamFirstTokenTime`
+   （会话沉淀/重开后首字与 TPS 不丢失）
+7. `chat/locale.ts` 新增 `message.turnUsage.ttft`；**0.2.2 起有 8 种 locale**
+   （zh/en/ja/es/fr/de/ru/pt），8 份字典都要加
+8. `chat/use-chat-viewport.ts` 跳到折叠回合时自动展开
 
-> **「首字用时」用的是单次值，不是平均。** `deriveTurnMetrics()` 取该轮
-> **最低 step 的单次 TTFT**；官方的 `StatsPills` 全局面板才用 `ttftMs / ttftSteps`
-> 算平均。所以这里刻意**没有**复用 `stats.dialog.ttft`（文案带"平均"二字，
-> 用在单次值上是错的），另建了 `message.turnUsage.ttft`。
-> 复用现成的 `formatDuration()` 做格式化，不新增格式化逻辑。
+### 0.2.2 起不再移植的部分
 
-## ⚠️ 升级桌面端时必须核对
+`chat/stat-dialog.ts` 的自适应定位 + zoom 单位校正（`computeSmartPosition` /
+`resolvePageZoom` / `MEASURE_STYLE`）**已废弃**：官方 0.2.2 把浮动面板改成了
+CSS anchor 定位（`useStatDialog()` 返回 `anchorName`，面板用 `positionAnchor`），
+问题在另一层面解决。重建时冲突处的正确解法是保留官方的 `anchorName`，
+只把 TPS/TTFT 字段并入 props。
 
-本副本无 `src/`，**不能重新构建**。升级 `E:\dshDesktop` 后要做：
-
-1. 查 asar 里 ui-chat 的新版本号（见 `docs/desktop-upgrade-checklist.md` §2）。
-2. 若版本 ≠ **0.2.1-rc.5**，本副本可能 API 不匹配 → 整块聊天界面会崩。
-   此时对策（按优先级）：
-   - **先查官方是否已自带 TPS**：搜 asar 是否含 `deriveTurnMetrics`。若有 → 直接删掉本覆盖，回官方版。
-   - 否则：按下方「重建流程」重做。
-
-## 重建流程（0.2.1-rc.5 实测有效）
+## 重建流程（0.2.2-rc.3 实测）
 
 ```powershell
 cd E:\vibeCoding\deepseek-harness
-git checkout dsh-v0.2.1-rc.5                              # detached HEAD，不动 master
-git checkout <补丁提交> -- packages/client/ui-chat/src/client/...   # 只取 8 个补丁文件
+git checkout --detach dsh-v0.2.2-rc.3
+pnpm install --no-frozen-lockfile
+node --import tsx/esm scripts/generate-typert.ts   # 否则 */remote 声明缺失，tsc -b 必挂
+git apply -3 C:\dsh-ecosystem\packages\ui-chat-patched\local-changes.patch
+node C:\dsh-ecosystem\patches\chat-virtual-rows\apply.mjs
 cd packages\client\ui-chat
-$env:NODE_OPTIONS=""
-node "...\typescript\bin\tsc" -b tsconfig.json            # 必须 exit 0
-node "...\tsdown\dist\run.mjs" --config tsdown.config.ts
-git -C E:\vibeCoding\deepseek-harness checkout -- . && git checkout <补丁提交>
+node ..\..\..\node_modules\typescript\bin\tsc -b tsconfig.json      # 必须 exit 0
+node ..\..\..\node_modules\tsdown\dist\run.mjs --config tsdown.config.ts
 ```
 
-> 🚨 rc.5 的 `tsconfig.json` 是 **project references**（`"files": []` + 两个 reference），
-> 裸 `tsc -p tsconfig.json` 不产出 `lib/types` 却 exit 0。必须用 `-b`。
+然后把 `lib/index.js`、`lib/client.js`、`lib/assets/`、`lib/types/**/*.d.ts`、
+`locale/*.json` 拷回本目录，`package.json` 只保留固化形态（见下），最后：
 
-再把 `lib/index.js`、`lib/client.js`、`lib/types/**/*.d.ts`、`locale/*.json` 拷回来，
-`package.json` 只改两处：
+```powershell
+git -C E:\vibeCoding\deepseek-harness restore --source=HEAD --staged --worktree -- packages/client/ui-chat
+```
+
+### 固化 package.json 的三处改动
 
 | 字段 | 值 | 原因 |
 |---|---|---|
 | `version` | 与 asar 内的新版本一致 | 便于识别 |
 | `peerDependencies["@deepseek-ai/cordis"]` | `~4.0.5` | 源码里是 `workspace:~`，profile 里解析不了 |
+| `devDependencies` / `dependencies` | 整块删除 | 全是 `workspace:*`，会污染 profile 解析 |
 
-> **`package.json` 的 `devDependencies` 全是 `workspace:*`，整份拷进固化包会污染 profile 解析。**
-> 实际只需要上面两处改动，其余字段保持固化后的形态。
+## 验收符号（`lib/client.js` 必须全命中）
 
-### rc.2 → rc.3 的经验（下次升级可复用）
+`deriveTurnMetrics`、`assistantStreamFirstTokenTime`、`turnUsage.ttft`、
+`首字用时`、`输出速度`、`content-visibility`。版本号 `0.2.2-rc.3`。
 
-`git diff --stat dsh-v0.2.1-rc.2 dsh-v0.2.1-rc.3 -- packages/client/ui-chat/` 只有
-`package.json` 一行版本号变化，**8 个补丁源文件全部零改动**。所以重建产物与升级前
-**逐字节相同**（`client.js`、`index.js`、97 个 `.d.ts`、`locale` 全一致）。
+## ⚠️ 升级桌面端时必须核对
 
-差异只出现在 CSS Modules 类名哈希：`tsdown.client.ts` 用 `pattern: '[hash]_[local]'`，
-哈希取自源码绝对路径。CI 在 `D:\ci\runners\...`，本地在 `E:\vibeCoding\...`，
-所以官方产物前缀是 `V4vHZW`，本地构建是 `kdtA_a`。**这不影响功能**，
-但**不要**拿类名前缀当判据去比对官方与本地产物。
-
-### rc.3 → rc.5 的经验（2026-10-30 重建）
-
-`git diff --numstat dsh-v0.2.1-rc.3 dsh-v0.2.1-rc.5 -- <8 个补丁源文件>` 输出为空：
-**rc.3 → rc.5 期间官方没动这 8 个文件**，所以整文件覆盖即可，产物语义与 rc.3 一致。
-差异只在 CSS Modules 类名前缀（见上）与 `package.json` 版本号。
-
-本版验收：`deriveTurnMetrics` / `assistantStreamFirstTokenTime` / `turnUsage.ttft` / `首字用时` / `输出速度` / `reasoningText` / `computeSmartPosition` / `resolvePageZoom` / `renderedHeight` / `placeAbove` 十个符号在
-`lib/client.js` 全命中；`version = 0.2.1-rc.5`；`cordis` peer 保持 `~4.0.5`（rc.5 官方就是它，未改）。
-
-### 🚨 `body zoom` 坐标单位陷阱（2026-11-03 实测踩坑）
-
-`dsh-claude-style` 会给 `body` 设 `zoom: 1.25`（`data-dsh-claude-page-zoom`）。
-在该子树里 `position: fixed` 的内联 `left`/`top` 是 **zoom 前单位**，而
-`getBoundingClientRect()` / `window.innerHeight` 是 **zoom 后视觉像素**。
-把测量值直接写回内联样式 = **二次放大**，弹窗必然跑偏。
-
-实测铁证（zoom=1.25）：内联 `left:100px` → `rect.left=125`；弹窗 `style.left=1033` → 实渲染 `left=1291`（比值 1.2511）。
-
-**修复口径**：
-- 比较与距离计算全部在视觉像素域；
-- `offsetWidth/offsetHeight` 是 zoom 前布局单位 → **先乘 zoom** 再参与比较；
-- 写回内联样式前 **一律除以 zoom**（`left` / `top` / `maxHeight` 三个都要）。
-
-**验收判据（真实页面实测）**：药丸 `y=1257`（视口高 1298，贴底），弹窗应
-`top=383 / bottom=668`，`insideViewport=true`，且 `left` 与药丸 x 像素级一致。
-
-> 🚨 **2026-11-03 补丁源文件防漏警示**：
-> 补丁共涉及 **9 个文件**（需确保 conversation-nodes 的 3 个文件全进）：
-> 1. `chat/TurnTailNodeView.tsx`
-> 2. `chat/TurnUsagePanel.tsx`
-> 3. `chat/use-chat-viewport.ts`
-> 4. `contract/chat-nodes.ts`
-> 5. `contract/turn-metrics.ts`
-> 6. `conversation-nodes/assistant.ts`（必须带 `assistantStreamFirstTokenTime`，否则会话沉淀/重开后首字和 TPS 丢失）
-> 7. `conversation-nodes/event-projection.ts`（实现 `assistantStreamFirstTokenTime`）
-> 8. `conversation-nodes/turn-tail.ts`
-> 9. `locale.ts`
-> 官方在 rc.5 新增的 `reasoning-text.ts` 必须保留，不能被旧 commit 冲掉。
+1. 查 asar 里 ui-chat 的版本号；不等于 `0.2.2-rc.3` 就有整块聊天界面崩溃风险。
+2. **先查官方是否已自带 TPS**：搜 asar 是否含 `deriveTurnMetrics`。若有 → 删掉本覆盖回官方。
+3. 否则按上面流程重建。注意每版都先跑 `generate-typert.ts`，否则一堆
+   `@deepseek-ai/*/remote` 假报错。
 
 ## 回滚
 
@@ -135,5 +90,4 @@ cd C:\Users\Administrator\.dsh\profiles\desktop
 node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 ```
 
-升级前的完整副本：rc.5 之前 → `C:\dsh-ecosystem\archive\ui-chat-patched-pre-rc5-20261030-103943\`；
-更早（rc.3 时）→ `C:\dsh-ecosystem\archive\ui-chat-patched-pre-rc3-20261024-144013\`
+升级前的完整副本（0.2.1-rc.5）：`C:\dsh-ecosystem\archive\ui-chat-patched-pre-0.2.2-20261116-100754\`

@@ -157,8 +157,7 @@ function apply(ctx, config) {
 				continue;
 			}
 			const id = randomUUID().slice(0, 8);
-			const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14);
-			const stored = join(projectDir, stamp + "__" + id + "__" + basename(absolute));
+			const stored = join(projectDir, (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14) + "__" + id + "__" + basename(absolute));
 			try {
 				mkdirSync(dirname(stored), { recursive: true });
 				try {
@@ -177,7 +176,7 @@ function apply(ctx, config) {
 					deletedAt: Date.now(),
 					bytes,
 					project,
-					sessionId: options.sessionId,
+					...options.sessionId === void 0 ? {} : { sessionId: options.sessionId },
 					isDirectory: st.isDirectory()
 				});
 				incoming += bytes;
@@ -241,7 +240,7 @@ function apply(ctx, config) {
 			].join("\n")
 		});
 	});
-	ctx.inject(["tools"], (scope) => {
+	ctx.inject(["tools"], () => {
 		ctx.tools.register(defineTool({
 			name: "trash_move",
 			description: "把文件或目录移进回收站（可恢复）。DSH 里的删除一律走这里，7 天内可用 trash_restore 还原。",
@@ -264,7 +263,7 @@ function apply(ctx, config) {
 					text: JSON.stringify(value, null, 1)
 				}]
 			},
-			execute(args, exec) {
+			async execute(args, exec) {
 				const cwd = typeof exec?.agent?.cwd === "string" ? exec.agent.cwd : process.cwd();
 				return {
 					results: moveToTrash(args.paths, {
@@ -297,7 +296,7 @@ function apply(ctx, config) {
 					text: JSON.stringify(value, null, 1)
 				}]
 			},
-			execute(args) {
+			async execute(args) {
 				const index = readIndex();
 				const matcher = typeof args.pattern === "string" ? globToRegExp(args.pattern) : void 0;
 				const limit = typeof args.limit === "number" && args.limit > 0 ? args.limit : 50;
@@ -340,7 +339,7 @@ function apply(ctx, config) {
 					text: JSON.stringify(value, null, 1)
 				}]
 			},
-			execute(args) {
+			async execute(args) {
 				const index = readIndex();
 				const onConflict = typeof args.onConflict === "string" ? args.onConflict : "rename";
 				const ids = Array.isArray(args.ids) ? args.ids : void 0;
@@ -445,7 +444,7 @@ function apply(ctx, config) {
 					text: JSON.stringify(value, null, 1)
 				}]
 			},
-			execute(args) {
+			async execute(args) {
 				const index = readIndex();
 				const ids = Array.isArray(args.ids) ? args.ids : void 0;
 				const purgeAll = args.all === true;

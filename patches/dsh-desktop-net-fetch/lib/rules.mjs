@@ -21,6 +21,14 @@
 /** Unique symbol this patch introduces, used by verify to prove it applied. */
 export const MARKER = 'net.fetch(target, init)';
 
+/**
+ * 0.2.2 起官方不再从 electron 导入 `net`（`connectDesktopWelcome` 改用全局 fetch），
+ * 所以补丁必须自带这一行；否则转发路径运行时抛 `net is not defined`，
+ * 所有 `dsh-app://` 请求（含启动时的插件 bundle）全部失败。
+ */
+export const IMPORT_LINE = 'import { net } from "electron";';
+const IMPORT_ANCHOR = 'import { createRequire } from "node:module";';
+
 const OLD = 'const response = await fetch(target, init);';
 
 const NEW = [
@@ -35,9 +43,17 @@ const NEW = [
  * @returns Patched text, unchanged when the anchor is already rewritten.
  */
 export function applyRules(source) {
-  if (source.includes(MARKER)) return source;
-  if (!source.includes(OLD)) throw new Error('net-fetch: anchor not found; upstream changed forwardWebRequest');
-  return source.replace(OLD, NEW);
+  if (source.includes(MARKER) && source.includes(IMPORT_LINE)) return source;
+  let next = source;
+  if (!next.includes(IMPORT_LINE)) {
+    if (!next.includes(IMPORT_ANCHOR)) throw new Error('net-fetch: import anchor not found; upstream changed the shell entry');
+    next = next.replace(IMPORT_ANCHOR, `${IMPORT_ANCHOR}\n${IMPORT_LINE}`);
+  }
+  if (!next.includes(MARKER)) {
+    if (!next.includes(OLD)) throw new Error('net-fetch: anchor not found; upstream changed forwardWebRequest');
+    next = next.replace(OLD, NEW);
+  }
+  return next;
 }
 
 /**
@@ -46,6 +62,8 @@ export function applyRules(source) {
  * @returns Reverted text, unchanged when the patch is absent.
  */
 export function revertRules(source) {
-  if (!source.includes(MARKER)) return source;
-  return source.replace(NEW, OLD);
+  let next = source;
+  if (next.includes(MARKER)) next = next.replace(NEW, OLD);
+  next = next.replace(`\n${IMPORT_LINE}`, '');
+  return next;
 }

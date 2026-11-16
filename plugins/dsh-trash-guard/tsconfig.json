@@ -5,6 +5,7 @@
     "outDir": "lib/types",
     "noEmit": true,
     "typeRoots": [
+      "E:/vibeCoding/deepseek-harness/node_modules/@types",
       "../../node_modules/@types"
     ]
   },

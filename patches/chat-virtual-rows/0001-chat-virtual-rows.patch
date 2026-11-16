@@ -2,10 +2,10 @@ diff --git a/packages/client/ui-chat/src/client/chat/ChatView.module.css b/packa
 index 6696330f0a..64af1cd024 100644
 --- a/packages/client/ui-chat/src/client/chat/ChatView.module.css
 +++ b/packages/client/ui-chat/src/client/chat/ChatView.module.css
-@@ -62,6 +62,15 @@
+@@ -62,7 +62,16 @@
    flex-direction: column;
  }
- 
+
 +/* Long transcripts only paint the rows near the scrollport. The browser keeps
 +   every top-level row in the DOM, so scroll anchoring, the turn rail and the
 +   fold policies still read the same tree; off-screen rows just skip layout and
@@ -17,4 +17,5 @@ index 6696330f0a..64af1cd024 100644
 +
  /* The flow slot's display:contents anchor preserves layout but not selector ancestry.
     `hidden="until-found"` retains a searchable zero-height box; hidden and empty
-    Seats do not contribute spacing. */
+    Seats do not contribute spacing. The older-history control precedes the anchor;
+    an ancestor :has() here also invalidates the history on unrelated descendant edits. */
