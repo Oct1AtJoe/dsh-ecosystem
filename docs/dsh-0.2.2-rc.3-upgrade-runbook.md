@@ -77,18 +77,18 @@ npx tsc -v ; npx tsdown --version
 ```powershell
 cd C:\dsh-ecosystem\patches\desktop-menu && node patch.mjs && node verify.mjs
 cd ..\kanye-pet-electron && node patch.mjs && node verify.mjs
-cd ..\dsh-desktop-cookie-prune && node patch.mjs && node verify.mjs
+# cookie-prune：0.2.2 已退役（官方 removeLegacyHostCookies），跳过，不再打
 cd ..\dsh-desktop-net-fetch && node patch.mjs && node verify.mjs
 cd ..\dsh-desktop-window-state && node patch.mjs && node verify.mjs
 cd ..\dsh-gateway-heartbeat && node patch.mjs && node verify.mjs
 cd ..\dsh-host-profile-bom && node patch.mjs && node verify.mjs
-cd ..\dsh-boot-spinner-corner-shape && node patch.mjs && node verify.mjs
+# boot-spinner：0.2.2 已退役（官方自带 corner-shape:round），跳过，不再打
 ```
 - **A3.** 若某补丁 0.2.2 官方已自带（用补丁独有符号在 asar 目标 grep 命中）：删该补丁目录并不再打。
 - **A4.** 打补丁会生成 `resources/app.asar.orig-<版本>` 备份；保留用于回滚。
 - **A5.** 全部 verify 通过后启动桌面端验收。
 
-注意：`cookie-prune/net-fetch/window-state/kanye-pet` 依赖 desktop-menu 摊出的 `app.asar.unpacked/lib/main.js`；若 0.2.2 的 main.js 改了锚点，按报错更新各自 `lib/rules.mjs` 的 find/replace，保持「命中且仅命中一次」。
+注意：`net-fetch/window-state/kanye-pet` 依赖 desktop-menu 摊出的 `app.asar.unpacked/lib/main.js`；若 0.2.2 的 main.js 改了锚点，按报错更新各自 `lib/rules.mjs` 的 find/replace，保持「命中且仅命中一次」。
 
 ## 5. Stage B — 重建 ui-chat-patched（保留 TPS/TTFT）
 - **B1.** 在 0.2.2-rc.3 checkout 上，先应用 chat-virtual-rows（若仍需虚拟行）：
