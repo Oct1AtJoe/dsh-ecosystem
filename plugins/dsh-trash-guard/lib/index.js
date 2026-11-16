@@ -68,6 +68,32 @@ function findExplicitDelete(command) {
 		if (m !== null) return m[0].trim().slice(0, 200);
 	}
 }
+/** shell 工具名（含 OPS 的 ops_bash 与常见别名）。 */
+const SHELL_TOOLS = new Set([
+	"bash",
+	"pwsh",
+	"pwsh_persistent",
+	"shell",
+	"ops_bash"
+]);
+/**
+* 从 OPS 删除类工具调用里找出删除目标。
+* 只处理直接 remove 与 batch 里的 remove 操作；move 不算删除（目标仍存在），
+* batch 的 action=plan 无副作用放行。
+* @param name - pre-execute 的工具名。
+* @param args - 工具参数。
+* @returns 命中的删除片段；没有命中返回 undefined。
+*/
+function findOpsDelete(name, args) {
+	if (args === null || typeof args !== "object") return void 0;
+	if (name === "remove" || name === "ops_remove") return typeof args.path === "string" && args.path.length > 0 ? "remove " + args.path : void 0;
+	if (name === "batch" || name === "ops_batch") {
+		if (args.action === "plan") return void 0;
+		if (!Array.isArray(args.operations)) return void 0;
+		const op = args.operations.find((item) => item !== null && typeof item === "object" && item.op === "remove");
+		if (op !== void 0) return "batch remove " + String(op.path ?? "");
+	}
+}
 /** 递归统计路径字节数；无权限的子树按 0 计。 */
 function sizeOf(path) {
 	let st;
@@ -103,7 +129,8 @@ function apply(ctx, config) {
 		retentionDays: config?.retentionDays ?? DEFAULT_RETENTION_DAYS,
 		maxBytes: config?.maxBytes ?? DEFAULT_MAX_BYTES,
 		checkIntervalMinutes: config?.checkIntervalMinutes ?? 60,
-		blockShellDelete: config?.blockShellDelete ?? true
+		blockShellDelete: config?.blockShellDelete ?? true,
+		blockOpsFileDelete: config?.blockOpsFileDelete ?? true
 	};
 	const indexPath = join(cfg.trashRoot, "index.json");
 	/** 读索引；损坏时按空索引继续，绝不因为索引坏了挡住正常删除。 */
@@ -219,26 +246,35 @@ function apply(ctx, config) {
 			bytes
 		};
 	}
-	if (cfg.blockShellDelete) ctx.on("tools/pre-execute", (exec, next) => {
-		const name = exec?.name;
-		if (name !== "bash" && name !== "pwsh") return next();
-		const command = exec?.arguments?.command;
-		if (typeof command !== "string" || command.length === 0) return next();
-		if (command.includes("DSH_FORCE_DELETE")) return next();
-		const hit = findExplicitDelete(command);
-		if (hit === void 0) return next();
-		String.fromCharCode(36) + "";
-		return Promise.resolve({
+	String.fromCharCode(36) + "";
+	function deny(hit, viaOps) {
+		return {
 			kind: "deny",
 			reason: [
-				"[trash-guard] 拦截删除命令：" + hit,
+				"[trash-guard] " + hit,
 				"删除在 DSH 里必须先移进回收站（" + cfg.trashRoot + "），保留 " + cfg.retentionDays + " 天后自动清除。",
 				"改用 trash_move 工具：",
 				"  - 文件：trash_move({ paths: [\"相对或绝对路径\"] })",
 				"  - 目录：trash_move({ paths: [\"dir\"], recursive: true })",
-				"确需永久删除：bash 前加 DSH_FORCE_DELETE=1，pwsh 前加 $env:DSH_FORCE_DELETE=1;"
+				viaOps ? "OPS 的 remove / batch(remove) 删除同样被拦截；请改用 trash_move（确需永久删除可 trash_move 后 trash_purge）。" : "确需永久删除：bash / ops_bash 前加 DSH_FORCE_DELETE=1，pwsh 前加 $env:DSH_FORCE_DELETE=1;"
 			].join("\n")
-		});
+		};
+	}
+	if (cfg.blockShellDelete || cfg.blockOpsFileDelete) ctx.on("tools/pre-execute", (exec, next) => {
+		const name = typeof exec?.name === "string" ? exec.name : "";
+		const args = exec?.arguments;
+		if (cfg.blockShellDelete && SHELL_TOOLS.has(name)) {
+			const command = args?.command;
+			if (typeof command === "string" && command.length > 0 && !command.includes("DSH_FORCE_DELETE")) {
+				const hit = findExplicitDelete(command);
+				if (hit !== void 0) return Promise.resolve(deny("拦截删除命令：" + hit, false));
+			}
+		}
+		if (cfg.blockOpsFileDelete) {
+			const opsHit = findOpsDelete(name, args);
+			if (opsHit !== void 0) return Promise.resolve(deny("拦截 OPS 删除调用：" + opsHit, true));
+		}
+		return next();
 	});
 	ctx.inject(["tools"], () => {
 		ctx.tools.register(defineTool({
@@ -494,4 +530,4 @@ function apply(ctx, config) {
 	});
 }
 //#endregion
-export { apply, findExplicitDelete };
+export { SHELL_TOOLS, apply, findExplicitDelete, findOpsDelete };

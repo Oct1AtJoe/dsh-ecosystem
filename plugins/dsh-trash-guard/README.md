@@ -10,9 +10,10 @@ removing them permanently. Entries auto-expire after 7 days.
 
 DSH's `ctx.fs` contract has **no delete primitive** (only resolve / stat / read /
 list / watch / write / edit), so deletion can only happen inside shell commands.
-This plugin hooks `tools/pre-execute` and inspects the `command` string of `bash`
-and `pwsh` calls. On a hit it **denies the call and steers the model to
-`trash_move`**, which relocates the target into a trash directory.
+Deletion can happen in shell commands or through the OPS lane (`ops_bash`
+commands, and the OPS `remove` / `batch(remove)` tools). This plugin hooks
+`tools/pre-execute` for both lanes. On a hit it **denies the call and steers the
+model to `trash_move`**, which relocates the target into a trash directory.
 
 Hard deny rather than rewriting the command: rewriting a compound command
 (`rm -rf x && npm run build`) cannot preserve its semantics, so a round trip is
@@ -48,16 +49,20 @@ never overwrite each other.
 | `retentionDays` | `7` | Days to keep |
 | `maxBytes` | `53687091200` (50 GiB) | Capacity cap; new deletions are refused above it |
 | `checkIntervalMinutes` | `60` | Expiry sweep interval |
-| `blockShellDelete` | `true` | Intercept shell delete commands |
+| `blockShellDelete` | `true` | Intercept shell deletes (`bash` / `pwsh` / `ops_bash`) |
+| `blockOpsFileDelete` | `true` | Intercept OPS delete tools (`remove` / `batch` remove ops) |
 
 ## Intercepted
 
 `rm` `unlink` `srm` `del` `erase` `rd` `rmdir` `Remove-Item`,
 `find -delete` / `-exec rm`, `git clean -xfd`,
-`os.remove` / `os.unlink` / `shutil.rmtree` / `fs.rm` / `fs.rmSync`.
+`os.remove` / `os.unlink` / `shutil.rmtree` / `fs.rm` / `fs.rmSync`;
+plus the OPS lane: `ops_bash` commands, `ops_remove({path})`, and
+`ops_batch` ops with `op:"remove"` (`action:"plan"` allowed).
 
 Not intercepted: overwrite paths (`>`, `write`, `edit`), `git checkout` /
-`git reset`, or deletes assembled through variable expansion.
+`git reset`, deletes assembled through variable expansion, or `move` (target
+still exists).
 
 ## Escape hatch
 
@@ -74,8 +79,11 @@ $env:DSH_FORCE_DELETE=1; Remove-Item -Recurse -Force node_modules
 ## Known limits
 
 String matching cannot catch every form. `xargs rm`, `bash script.sh` (deletes
-inside the script), or base64-decoded commands all get through. **This is a
-safety net, not an enforced isolation boundary.**
+inside the script), or base64-decoded commands all get through. OPS-side residual
+gaps: `ops_batch` with an external `operationsRef` list (cannot be inspected
+inline; logged and allowed), `ops_bash` `script_path` contents, and direct
+`node:fs` writes inside a program. **This is a safety net, not an enforced
+isolation boundary.**
 
 ## Build
 

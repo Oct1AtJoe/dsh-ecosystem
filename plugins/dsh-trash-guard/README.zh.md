@@ -5,8 +5,8 @@ DSH 删除守卫：拦截 `rm` / `Remove-Item` 等显式删除命令，改为移
 ## 为什么需要它
 
 DSH 的 `ctx.fs` 契约里**没有删除原语**（只有 resolve / stat / read / list / watch / write / edit），
-删除只可能发生在 shell 命令里。本插件挂在 `tools/pre-execute` 瀑布上检查 `bash` 与 `pwsh` 的
-`command` 字符串，命中就 **拒绝并引导模型改用 `trash_move`**。
+删除可能发生在 shell 命令，也可能走 OPS 通道（`ops_bash` 命令、OPS 的 `remove` / `batch(remove)` 工具）。
+本插件挂在 `tools/pre-execute` 瀑布上同时检查这两条路径，命中就 **拒绝并引导模型改用 `trash_move`**。
 
 选硬拒绝而不是改写命令：复合命令（`rm -rf x && npm run build`）改写的语义无法保证，
 宁可多一轮往返。
@@ -46,15 +46,17 @@ D:\dsh-trash\
 | `retentionDays` | `7` | 保留天数 |
 | `maxBytes` | `53687091200`（50 GiB） | 容量上限，超了拒绝新删除 |
 | `checkIntervalMinutes` | `60` | 过期扫描间隔 |
-| `blockShellDelete` | `true` | 是否拦截 shell 删除命令 |
+| `blockShellDelete` | `true` | 是否拦截 shell 删除命令（含 `bash` / `pwsh` / `ops_bash`） |
+| `blockOpsFileDelete` | `true` | 是否拦截 OPS 文件删除工具（`remove` / `batch` 的 remove 操作） |
 
 ## 拦截范围
 
 会拦：`rm` `unlink` `srm` `del` `erase` `rd` `rmdir` `Remove-Item`、
 `find -delete` / `-exec rm`、`git clean -xfd`、
-`os.remove` / `os.unlink` / `shutil.rmtree` / `fs.rm` / `fs.rmSync` 等。
+`os.remove` / `os.unlink` / `shutil.rmtree` / `fs.rm` / `fs.rmSync` 等；
+以及 OPS 通道：`ops_bash` 命令里的同类删除、`ops_remove({path})`、`ops_batch` 中 `op:"remove"`（`action:"plan"` 放行）。
 
-不拦：覆盖写（`>`、`write`、`edit`）、`git checkout` / `git reset`、变量展开生成的删除。
+不拦：覆盖写（`>`、`write`、`edit`）、`git checkout` / `git reset`、变量展开生成的删除、`move`（目标仍存在）。
 
 ## 逃生阀
 
@@ -71,7 +73,9 @@ $env:DSH_FORCE_DELETE=1; Remove-Item -Recurse -Force node_modules
 ## 已知边界
 
 字符串匹配拦不住所有写法：`xargs rm`、`bash script.sh`（脚本内部删）、
-`$(echo cm0= | base64 -d)` 之类都能绕。**这是兜底，不是强制隔离。**
+`$(echo cm0= | base64 -d)` 之类都能绕。OPS 侧残余边界：`ops_batch` 用 `operationsRef` 外置大清单
+（无法内联检查，记日志放行）、`ops_bash` 的 `script_path` 脚本内容、程序里直接 `node:fs` 写盘。
+**这是兜底，不是强制隔离。**
 
 ## 构建
 
