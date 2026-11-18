@@ -12,7 +12,7 @@ import { runBatch } from './batch-stage.ts'
 import { changeBadgeOf, classifyChanges } from './change-groups.ts'
 import type { GitStatusCache } from './git-status.ts'
 import { layoutGraph, type LayoutCommit } from './graph.ts'
-import { EDGE_STROKE_WIDTH, graphEdgePath } from './graph-geometry.ts'
+import { EDGE_STROKE_WIDTH, graphEdgePath, visibleRowWindow } from './graph-geometry.ts'
 import { tError, useT } from './i18n.ts'
 import { icon, type IconName } from './icons.tsx'
 import { hideTip, showTip } from './tooltip.ts'
@@ -861,13 +861,21 @@ const GraphSvg = memo(function GraphSvg(props: {
     const measure = (): void => {
       const rect = root.getBoundingClientRect()
       const srect = scroller.getBoundingClientRect()
-      // 用 SVG 自身的坐标空间表示的视口顶部/底部。
-      // getBoundingClientRect 已经计入了滚动——这里再加 scrollTop 会让窗口
-      // 随用户滚动向下漂移，使图谱下方变空白。
-      const v0 = srect.top - rect.top
-      const v1 = v0 + scroller.clientHeight
-      const first = Math.max(0, Math.floor((v0 - PAD_TOP) / ROW_HEIGHT) - GRAPH_BUFFER_ROWS)
-      const last = Math.min(layout.length - 1, Math.ceil((v1 - PAD_TOP) / ROW_HEIGHT) + GRAPH_BUFFER_ROWS)
+      // getBoundingClientRect 返回的是被 CSS zoom 放大后的像素，而 clientHeight /
+      // 行高 / 内边距是未缩放的布局像素。宿主 body 带 zoom（实测 1.25）时直接相减
+      // 会让行窗口随滚动量线性偏大、视口上方露白；visibleRowWindow 内先除以 zoom 归一。
+      // zoom 由「gBCR 高度 / 未缩放 offsetHeight」推得（两者同为 border-box，比值即缩放）。
+      const zoom = scroller.offsetHeight > 0 ? srect.height / scroller.offsetHeight : 1
+      const { first, last } = visibleRowWindow({
+        svgTop: rect.top,
+        scrollerTop: srect.top,
+        scrollerClientHeight: scroller.clientHeight,
+        zoom,
+        padTop: PAD_TOP,
+        rowHeight: ROW_HEIGHT,
+        bufferRows: GRAPH_BUFFER_ROWS,
+        totalRows: layout.length,
+      })
       setViewport((prev) => (prev.first === first && prev.last === last ? prev : { first, last }))
     }
     measure()

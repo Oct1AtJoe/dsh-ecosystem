@@ -2,6 +2,11 @@
 
 `dsh-git-panel` 的版本变更记录。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.34] - 2026-11-18
+
+### Fixed
+- **图谱 Tab 下滑后视口上方大片空白**：`GraphSvg` 的行窗口虚拟化 `measure()` 混用了两种坐标——`getBoundingClientRect()` 返回被宿主 `body zoom:1.25` 放大后的像素，而 `clientHeight` / `ROW_HEIGHT` / `PAD_TOP` 是未缩放的布局像素，`v0 = srect.top - rect.top` 被放大 1.25 倍，使起始行 `first` 随滚动量线性偏大、视口上方露白（实测 S=1500 时旧 `first=53`、正确≈40；S≈3200 时约 810px 空白）。现抽出纯函数 `visibleRowWindow`（`graph-geometry.ts`）：把 gBCR 差值除以由「gBCR 高 / 未缩放 offsetHeight」推得的 zoom，归一到布局像素后再换算行区间；`zoom<=0` 回退 1，`zoom=1` 行为与旧版一致。新增 6 条纯函数自检（含「未归一化会 first 偏大」回归断言）。
+
 ## [0.1.33] - 2026-11-13
 
 ### Changed

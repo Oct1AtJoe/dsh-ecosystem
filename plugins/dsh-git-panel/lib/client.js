@@ -1277,6 +1277,15 @@ function graphEdgePath(x, y, px, py, rowHeight) {
   const d = `M ${x} ${y} L ${x} ${py - R} Q ${x} ${py}, ${px} ${py}`;
   return { d, straight: false };
 }
+function visibleRowWindow(input) {
+  const { svgTop, scrollerTop, scrollerClientHeight, zoom, padTop, rowHeight, bufferRows, totalRows } = input;
+  const z = zoom > 0 ? zoom : 1;
+  const v0 = (scrollerTop - svgTop) / z;
+  const v1 = v0 + scrollerClientHeight;
+  const first = Math.max(0, Math.floor((v0 - padTop) / rowHeight) - bufferRows);
+  const last = Math.min(totalRows - 1, Math.ceil((v1 - padTop) / rowHeight) + bufferRows);
+  return { first, last };
+}
 
 // src/client/icons.tsx
 var import_react2 = require("react");
@@ -2249,10 +2258,17 @@ var GraphSvg = (0, import_react4.memo)(function GraphSvg2(props) {
     const measure = () => {
       const rect = root.getBoundingClientRect();
       const srect = scroller.getBoundingClientRect();
-      const v0 = srect.top - rect.top;
-      const v1 = v0 + scroller.clientHeight;
-      const first = Math.max(0, Math.floor((v0 - PAD_TOP) / ROW_HEIGHT) - GRAPH_BUFFER_ROWS);
-      const last2 = Math.min(layout.length - 1, Math.ceil((v1 - PAD_TOP) / ROW_HEIGHT) + GRAPH_BUFFER_ROWS);
+      const zoom = scroller.offsetHeight > 0 ? srect.height / scroller.offsetHeight : 1;
+      const { first, last: last2 } = visibleRowWindow({
+        svgTop: rect.top,
+        scrollerTop: srect.top,
+        scrollerClientHeight: scroller.clientHeight,
+        zoom,
+        padTop: PAD_TOP,
+        rowHeight: ROW_HEIGHT,
+        bufferRows: GRAPH_BUFFER_ROWS,
+        totalRows: layout.length
+      });
       setViewport((prev) => prev.first === first && prev.last === last2 ? prev : { first, last: last2 });
     };
     measure();
