@@ -37,7 +37,7 @@
 | `patches/kanye-pet-electron` | 给官方 Electron 壳注入透明置顶宠物窗与 IPC 桥，配套 `kanye-pet` 插件的 `GET /kanye-pet/window` |
 | `patches/chat-virtual-rows` | 聊天区只画可见行（`content-visibility`），切长会话不再卡顿 |
 | `patches/cost-meter-lock` | `dsh-cost-meter` 的 Windows 锁身份不再同步调 PowerShell |
-| `patches/dsh-gateway-heartbeat` | 网关心跳修复 |
+| `patches/dsh-gateway-heartbeat` | 网关心跳修复（**0.2.2-rc.5 起 dsh-api-gateway 把实现内联进 `lib/index.js`，补丁已改靶到该文件**） |
 | `patches/dsh-desktop-net-fetch` | `dsh-app://` 转发改用 `net.fetch`（Chromium 网络栈），修 SSE 空闲超时断连。**0.2.2 起官方 import 列表删了 `net`，补丁必须自带 `import { net } from "electron";`**，否则启动时所有转发（含插件 bundle）抛 `net is not defined` |
 | `patches/dsh-desktop-window-state` | 主窗口位置/大小/最大化状态跨重启记忆（状态存 `%APPDATA%\@deepseek-ai\dsh-desktop\desktop\window-state.json`） |
 | ~~`patches/dsh-desktop-cookie-prune`~~ | **0.2.2 已退役**：官方 `removeLegacyHostCookies()` 在欢迎握手前清掉全部 `dsh-auth-*` 旧 cookie，且不再手工拼 Cookie 头 |
@@ -531,5 +531,5 @@ node ...\pnpm\bin\pnpm.mjs install --no-frozen-lockfile
 
 | 包 | 版本 | 补丁 | 说明 |
 |---|---|---|---|
-| `@deepseek-ai/dsh-client-ui-chat` | 0.2.2-rc.3 | `603ce1067b` / `ee926e3ff4` / `e8ce7bf5d0` | 「本轮用量」悬浮窗的 TPS + 首字用时两行；官方 0.2.2 仍无这两个符号。详见 [packages/ui-chat-patched/VENDORED-FROM.md](packages/ui-chat-patched/VENDORED-FROM.md) |
+| `@deepseek-ai/dsh-client-ui-chat` | 0.2.2-rc.5 | `603ce1067b` / `ee926e3ff4` / `e8ce7bf5d0` | 「本轮用量」悬浮窗的 TPS + 首字用时两行；官方 0.2.2-rc.5 仍无这两个符号。详见 [packages/ui-chat-patched/VENDORED-FROM.md](packages/ui-chat-patched/VENDORED-FROM.md) |
 

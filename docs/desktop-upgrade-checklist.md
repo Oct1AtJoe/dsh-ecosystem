@@ -58,8 +58,10 @@
 
 | 包 | 固化版本 | asar 当前版本 | 覆盖原因与现状 |
 |---|---|---|---|
-| `@deepseek-ai/dsh-client-ui-chat` | `0.2.1-rc.5` | `0.2.2-rc.1` | 「本轮用量」补回 TPS/首字用时行（0.2.2-rc.1 升级后 profile 先回退官方版保底） |
-| `dsh-tabbit` | `0.4.0` | 不在 asar 内 | 中文 Windows 安装探测（见 §4.2，实测 installations=1） |
+| `@deepseek-ai/dsh-client-ui-chat` | `0.2.2-rc.5`（2026-11-19 已重建） | `0.2.2-rc.5` | 「本轮用量」补回 TPS/首字用时行；官方 rc.5 仍无该符号。后续升级**必须**按 `scripts/rebuild-ui-chat-rc5.ps1` 重建固化包 |
+| `dsh-tabbit` | 官方 `0.4.1`（已自带修复） | 不在 asar 内 | 中文 Windows 安装探测；**官方 0.4.1 已含 registryKey 回退，`dsh-tabbit-registry-identity` 补丁与 `dsh-tabbit-patched` 已退役**（实测 installations=1） |
+
+> 0.2.2-rc.5 升级细节见 `docs/upgrade-0.2.2-rc.5-adaptation.md`。
 
 目录：`C:\dsh-ecosystem\packages\<包名>-patched\`
 

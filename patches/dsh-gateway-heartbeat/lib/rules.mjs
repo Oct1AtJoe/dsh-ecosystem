@@ -25,8 +25,13 @@
 /** 补丁标识：写进文件首行，用于幂等判断与版本追溯。 */
 export const PATCH_MARK = '/* dsh-ecosystem:gateway-heartbeat v1 */'
 
-/** 归档内目标文件（相对 app.asar 根，以 / 分隔）。 */
-export const TARGET = 'dsh/node_modules/@deepseek-ai/dsh-api-gateway/lib/types/stream-server.js'
+/**
+ * 归档内目标文件（相对 app.asar 根，以 / 分隔）。
+ * 0.2.2-rc.5 起 api-gateway 把 RemoteStreamMuxServer 内联打包进 lib/index.js
+ * （index.js 内可见 `//#region lib/types/stream-server.js`），运行期加载的是
+ * lib/index.js；单独改 lib/types/stream-server.js 不会被加载，故靶点改到这里。
+ */
+export const TARGET = 'dsh/node_modules/@deepseek-ai/dsh-api-gateway/lib/index.js'
 
 /** 原值 -> 新值。 */
 export const OLD = 'const MAX_MISSED_HEARTBEATS = 2;'
